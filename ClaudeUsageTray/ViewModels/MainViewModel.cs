@@ -29,6 +29,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private string _lastKnownShortReset = "";
     private string _lastKnownLongReset = "";
 
+    // Rate limit backoff — skip API calls until this time
+    private DateTimeOffset _apiRetryAfter = DateTimeOffset.MinValue;
+
     [ObservableProperty] private string _statusText = "Loading...";
     [ObservableProperty] private string _nextRefreshLabel = "";
     [ObservableProperty] private bool _isLoading = true;
@@ -67,6 +70,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _threshold90;
     [ObservableProperty] private bool _threshold100;
     [ObservableProperty] private string _ntfyTopic = "";
+    [ObservableProperty] private bool _startWithWindows;
 
     // Update banner
     [ObservableProperty] private bool _updateAvailable = false;
@@ -134,7 +138,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         Threshold75  = s.Thresholds.Contains(75);
         Threshold90  = s.Thresholds.Contains(90);
         Threshold100 = s.Thresholds.Contains(100);
-        NtfyTopic    = s.NtfyTopic;
+        NtfyTopic         = s.NtfyTopic;
+        StartWithWindows  = s.StartWithWindows;
     }
 
     [RelayCommand]
@@ -151,7 +156,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
             Enabled = NotificationsEnabled,
             NotifyOnRateLimit = NotifyRateLimit,
             Thresholds = thresholds,
-            NtfyTopic = NtfyTopic.Trim()
+            NtfyTopic = NtfyTopic.Trim(),
+            StartWithWindows = StartWithWindows
         });
     }
 
@@ -179,6 +185,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    public void SendTestNotification()
+    {
+        _notifier.ShowTestAlert(NtfyTopic);
+    }
+
+    [RelayCommand]
     public async Task ApplyUpdateAsync()
     {
         if (string.IsNullOrEmpty(_updateDownloadUrl)) return;
@@ -188,12 +200,22 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public async Task RefreshAsync()
     {
         _secondsUntilRefresh = 120;
+
+        // Honour Retry-After: skip API call but still refresh session stats
+        bool skipApi = DateTimeOffset.UtcNow < _apiRetryAfter;
+
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => IsLoading = true);
 
         try
         {
-            var usage = await _api.FetchUsageAsync();
-            RawApiResponse = _api.LastRawResponse;
+            UsageResponse? usage = null;
+            if (!skipApi)
+            {
+                usage = await _api.FetchUsageAsync();
+                RawApiResponse = _api.LastRawResponse;
+                if (_api.LastRetryAfterSeconds > 0)
+                    _apiRetryAfter = DateTimeOffset.UtcNow.AddSeconds(_api.LastRetryAfterSeconds);
+            }
             var sessionStats = _session.ScanTodayUsage();
 
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
@@ -257,7 +279,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
                     StatusText = $"{ShortUsagePercent:P0} used";
                 }
-                else if (_api.LastError != null)
+                else if (skipApi || _api.LastError != null)
                 {
                     // Keep last known data visible — don't reset to 0 on transient errors
                     ShortUsagePercent = _lastKnownShortPercent;
@@ -266,7 +288,17 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     LongResetLabel    = _lastKnownLongReset;
 
                     HasError = true;
-                    ErrorMessage = ParseFriendlyError(_api.LastError);
+                    if (skipApi && _apiRetryAfter > DateTimeOffset.MinValue)
+                    {
+                        var retryAt = _apiRetryAfter.ToLocalTime().ToString("HH:mm:ss");
+                        ErrorMessage = Loc.RateLimitedUntil(retryAt);
+                    }
+                    else
+                    {
+                        ErrorMessage = _api.LastError != null
+                            ? ParseFriendlyError(_api.LastError)
+                            : Loc.RateLimited;
+                    }
                     StatusText = "API Error";
                     // LastUpdatedLabel is NOT updated here — it keeps showing the last successful time
                 }

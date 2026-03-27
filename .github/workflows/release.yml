@@ -36,9 +36,20 @@ jobs:
             -p:EnableCompressionInSingleFile=true `
             -p:Version=${{ steps.version.outputs.VERSION }}
 
+      - name: Extract changelog for this version
+        id: changelog
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          # Extract section between this version header and the next
+          NOTES=$(awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
+          echo "NOTES<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: "v${{ steps.version.outputs.VERSION }}"
+          body: ${{ steps.changelog.outputs.NOTES }}
           files: ClaudeUsageTray/bin/Release/net9.0-windows10.0.17763.0/win-x64/publish/ClaudeUsageTray.exe
-          generate_release_notes: true

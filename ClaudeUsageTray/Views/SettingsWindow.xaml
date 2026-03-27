@@ -102,8 +102,11 @@
 
                     <!-- General -->
                     <TextBlock x:Name="LblGeneral" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
-                    <CheckBox x:Name="ChkEnabled"    Style="{StaticResource CheckStyle}" Click="Setting_Changed"/>
-                    <CheckBox x:Name="ChkRateLimit"  Style="{StaticResource CheckStyle}" Click="Setting_Changed"/>
+                    <CheckBox x:Name="ChkEnabled"          Style="{StaticResource CheckStyle}" Click="Setting_Changed"/>
+                    <CheckBox x:Name="ChkRateLimit"        Style="{StaticResource CheckStyle}" Click="Setting_Changed"/>
+                    <CheckBox x:Name="ChkStartWithWindows" Style="{StaticResource CheckStyle}" Click="StartWithWindows_Changed"/>
+                    <Button x:Name="BtnTestNotification" Style="{StaticResource LinkBtn}"
+                            Margin="0,2,0,6" Click="BtnTestNotification_Click"/>
 
                     <!-- Thresholds -->
                     <Border Height="1" Background="#2D2F45" Margin="0,8,0,14"/>

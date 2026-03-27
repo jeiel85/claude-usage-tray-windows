@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ClaudeUsageTray (Debug)",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "D:\\Project\\Usage\\ClaudeUsageTray"],
+      "port": 0
+    }
+  ]
+}

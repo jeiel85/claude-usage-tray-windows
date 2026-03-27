@@ -17,6 +17,14 @@ public class NotificationService
         SendNtfy(ntfyTopic, title, body);
     }
 
+    public void ShowTestAlert(string ntfyTopic)
+    {
+        var title = Loc.NotificationTitle;
+        var body  = Loc.TestNotificationBody;
+        ShowToast(title, body);
+        SendNtfy(ntfyTopic, title, body);
+    }
+
     public void ShowRateLimitAlert(string ntfyTopic)
     {
         var title = Loc.RateLimitTitle;

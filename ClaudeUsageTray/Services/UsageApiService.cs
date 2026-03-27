@@ -13,6 +13,7 @@ public class UsageApiService
 
     public string? LastRawResponse { get; private set; }
     public string? LastError { get; private set; }
+    public int LastRetryAfterSeconds { get; private set; } = 0;
 
     public UsageApiService(CredentialService credentials)
     {
@@ -41,6 +42,13 @@ public class UsageApiService
 
             if (!response.IsSuccessStatusCode)
             {
+                LastRetryAfterSeconds = 0;
+                if ((int)response.StatusCode == 429 &&
+                    response.Headers.TryGetValues("Retry-After", out var vals) &&
+                    int.TryParse(vals.FirstOrDefault(), out var ra))
+                {
+                    LastRetryAfterSeconds = ra;
+                }
                 LastError = $"HTTP {(int)response.StatusCode}: {LastRawResponse}";
                 return null;
             }

@@ -300,6 +300,38 @@ public static class Loc
         _ => "Rate limited — will auto-refresh shortly"
     };
 
+    public static string RateLimitedUntil(string time) => Lang switch
+    {
+        "ko" => $"API 제한 중 — {time} 이후 재시도",
+        "zh" => $"API 受限中 — {time} 后重试",
+        "ja" => $"API 制限中 — {time} 以降に再試行",
+        _ => $"Rate limited — retry after {time}"
+    };
+
+    public static string TestNotification => Lang switch
+    {
+        "ko" => "알림 테스트",
+        "zh" => "测试通知",
+        "ja" => "通知テスト",
+        _ => "Test notification"
+    };
+
+    public static string TestNotificationBody => Lang switch
+    {
+        "ko" => "알림이 정상적으로 작동하고 있어요!",
+        "zh" => "通知工作正常！",
+        "ja" => "通知が正常に動作しています！",
+        _ => "Notifications are working correctly!"
+    };
+
+    public static string StartWithWindows => Lang switch
+    {
+        "ko" => "윈도우 시작 시 자동 실행",
+        "zh" => "随 Windows 启动",
+        "ja" => "Windows 起動時に自動起動",
+        _ => "Start with Windows"
+    };
+
     public static string ApiError(string msg) => Lang switch
     {
         "ko" => $"API 오류: {msg}",

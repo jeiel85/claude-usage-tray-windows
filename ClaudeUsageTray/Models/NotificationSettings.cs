@@ -11,4 +11,6 @@ public class NotificationSettings
 
     // ntfy.sh push notification
     public string NtfyTopic { get; set; } = "";
+
+    public bool StartWithWindows { get; set; } = false;
 }
