@@ -56,3 +56,16 @@
 - 로컬 `.jsonl` 세션 파일 기반 통계 집계
 - Claude Code OAuth 토큰 자동 재사용 (별도 로그인 불필요)
 - 다크 테마 팝업 UI (WPF .NET 9)
+
+---
+
+## [1.4.0] - 2026-03-27
+
+### 추가
+- **OAuth 토큰 자동 갱신** — 만료 시 자동으로 `platform.claude.com/v1/oauth/token` 갱신 후 credentials.json 업데이트 (Issue #1)
+- **7일 사용 추이 그래프** — 팝업 하단에 일별 토큰 사용량 바 차트 표시, 오늘 날짜 강조 (Issue #2)
+- **닫기(✕) 버튼** — 팝업 헤더에 추가, 클릭 시 팝업만 닫히고 앱은 트레이에 유지 (Issue #3)
+- **CSV 내보내기** — 최대 90일 사용 이력을 바탕화면에 CSV로 저장 (Issue #4)
+
+### 개선
+- 이력 데이터 로컬 자동 저장 (`~/.claude/claude-usage-tray-history.json`)

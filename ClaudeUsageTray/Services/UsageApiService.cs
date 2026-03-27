@@ -24,7 +24,7 @@ public class UsageApiService
 
     public async Task<UsageResponse?> FetchUsageAsync()
     {
-        var token = _credentials.GetAccessToken();
+        var token = await _credentials.GetValidAccessTokenAsync();
         if (token is null)
         {
             LastError = "No access token found";

@@ -15,6 +15,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly NotificationService _notifier;
     private readonly SettingsService _settingsService;
     private readonly UpdateService _updater;
+    private readonly HistoryService _history;
     private readonly Timer _timer;
     private readonly Timer _countdownTimer;
     private int _secondsUntilRefresh = 0;
@@ -72,6 +73,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _ntfyTopic = "";
     [ObservableProperty] private bool _startWithWindows;
 
+    // History
+    [ObservableProperty] private IReadOnlyList<DailyStats> _historyData = [];
+
     // Update banner
     [ObservableProperty] private bool _updateAvailable = false;
     [ObservableProperty] private string _updateLabel = "";
@@ -91,6 +95,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public string LblCacheRead       => Loc.CacheRead;
     public string LblCacheWrite      => Loc.CacheWrite;
     public string LblTokens          => Loc.Tokens;
+    public string LblHistory         => Loc.HistoryTitle;
     public string LblRefresh         => Loc.Refresh;
     public string LblQuit            => Loc.Quit;
     public string LblRefreshing      => Loc.Refreshing;
@@ -103,13 +108,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public MainViewModel(UsageApiService api, SessionMonitor session,
                          NotificationService notifier, SettingsService settingsService,
-                         UpdateService updater)
+                         UpdateService updater, HistoryService history)
     {
         _api = api;
         _session = session;
         _notifier = notifier;
         _settingsService = settingsService;
         _updater = updater;
+        _history = history;
 
         LoadSettings();
 
@@ -185,6 +191,17 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    public void ExportCsv()
+    {
+        var filePath = System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
+            $"claude-usage-{DateTime.Now:yyyyMMdd}.csv");
+        _history.ExportCsv(filePath);
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+            "explorer.exe", $"/select,\"{filePath}\"") { UseShellExecute = true });
+    }
+
+    [RelayCommand]
     public void SendTestNotification()
     {
         _notifier.ShowTestAlert(NtfyTopic);
@@ -225,6 +242,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 TodayCacheRead    = sessionStats.TotalCacheReadTokens;
                 TodayCacheWrite   = sessionStats.TotalCacheWriteTokens;
                 SessionsLabel     = Loc.Sessions(sessionStats.SessionCount);
+
+                // Record today's stats for history
+                _history.RecordToday(sessionStats.TotalInputTokens, sessionStats.TotalOutputTokens,
+                    sessionStats.TotalCacheReadTokens, sessionStats.TotalCacheWriteTokens,
+                    sessionStats.SessionCount);
+                HistoryData = _history.GetLast(7);
                 HasRateLimitHit   = sessionStats.HasRateLimitHit;
                 RateLimitInfo     = sessionStats.RateLimitResetTime ?? "";
 

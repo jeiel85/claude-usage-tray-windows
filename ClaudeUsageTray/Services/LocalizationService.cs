@@ -308,6 +308,14 @@ public static class Loc
         _ => $"Rate limited — retry after {time}"
     };
 
+    public static string HistoryTitle => Lang switch
+    {
+        "ko" => "7일 사용 추이",
+        "zh" => "7天使用趋势",
+        "ja" => "7日間使用推移",
+        _ => "7-Day Usage Trend"
+    };
+
     public static string TestNotification => Lang switch
     {
         "ko" => "알림 테스트",

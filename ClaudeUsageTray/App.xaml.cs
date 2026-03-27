@@ -24,8 +24,9 @@ public partial class App : Application
         var notifier = new NotificationService();
         var settingsService = new SettingsService();
         var updater = new UpdateService();
+        var history = new HistoryService();
 
-        _vm = new MainViewModel(apiService, sessionMonitor, notifier, settingsService, updater);
+        _vm = new MainViewModel(apiService, sessionMonitor, notifier, settingsService, updater, history);
         _popup = new UsagePopup(_vm);
 
         _trayIcon = new NotifyIcon

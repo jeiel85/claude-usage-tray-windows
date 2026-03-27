@@ -106,8 +106,40 @@
                             </StackPanel>
                         </StackPanel>
 
+                        <!-- Close button -->
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button x:Name="ClosePopupBtn"
+                                Width="32" Height="32"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Cursor="Hand"
+                                ToolTip="닫기"
+                                Click="ClosePopupBtn_Click">
+                            <TextBlock Text="✕" Foreground="#3D4266" FontSize="13"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="{TemplateBinding Background}" CornerRadius="8">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#2D2F45"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+
                         <!-- Refresh button -->
-                        <Button Grid.Column="1" x:Name="RefreshBtn"
+                        <Button x:Name="RefreshBtn"
                                 Width="32" Height="32"
                                 Background="Transparent"
                                 BorderThickness="0"
@@ -136,6 +168,7 @@
                                 </Style>
                             </Button.Style>
                         </Button>
+                        </StackPanel>
                     </Grid>
                 </Border>
 
@@ -288,6 +321,40 @@
                         </Border>
                     </Grid>
                 </StackPanel>
+
+                <!-- History chart -->
+                <StackPanel Margin="16,12,16,0">
+                    <Grid Margin="0,0,0,6">
+                        <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblHistory}"/>
+                        <Button HorizontalAlignment="Right" Background="Transparent" BorderThickness="0"
+                                Cursor="Hand" Click="ExportCsvBtn_Click" ToolTip="CSV로 내보내기">
+                            <TextBlock Text="↓ CSV" Foreground="#3D4266" FontSize="10"/>
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="{TemplateBinding Background}" Padding="4,2" CornerRadius="4">
+                                                    <ContentPresenter/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#2D2F45"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </Grid>
+                    <Canvas x:Name="HistoryCanvas" Height="60" Background="Transparent"/>
+                </StackPanel>
+
+                <!-- Divider -->
+                <Border Height="1" Background="#2D2F45" Margin="16,12"/>
 
                 <!-- Rate limit warning -->
                 <Border Visibility="{Binding HasRateLimitHit, Converter={StaticResource BoolToVisibility}}"

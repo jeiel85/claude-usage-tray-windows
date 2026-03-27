@@ -1,6 +1,16 @@
+using System.ComponentModel;
 using System.Windows;
-using System.Windows.Input;
+using System.Windows.Controls;
+using System.Windows.Shapes;
+using ClaudeUsageTray.Services;
 using ClaudeUsageTray.ViewModels;
+using WColor  = System.Windows.Media.Color;
+using WColors = System.Windows.Media.Colors;
+using WPoint  = System.Windows.Point;
+using WRect   = System.Windows.Shapes.Rectangle;
+using LGBB    = System.Windows.Media.LinearGradientBrush;
+using GSB     = System.Windows.Media.GradientStop;
+using SCB     = System.Windows.Media.SolidColorBrush;
 
 namespace ClaudeUsageTray.Views;
 
@@ -17,17 +27,103 @@ public partial class UsagePopup : Window
 
         Deactivated += (_, _) => Hide();
         MouseLeftButtonDown += (_, e) => DragMove();
+
+        vm.PropertyChanged += OnVmPropertyChanged;
+        Loaded += (_, _) => DrawHistoryChart();
     }
 
-    protected override void OnSourceInitialized(EventArgs e)
+    private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        base.OnSourceInitialized(e);
+        if (e.PropertyName == nameof(MainViewModel.HistoryData))
+            Dispatcher.Invoke(DrawHistoryChart);
     }
 
-    private async void RefreshBtn_Click(object sender, RoutedEventArgs e)
+    private void DrawHistoryChart()
     {
-        await _vm.RefreshAsync();
+        HistoryCanvas.Children.Clear();
+        var data = _vm.HistoryData;
+        if (data == null || data.Count == 0) return;
+
+        const double canvasH   = 60;
+        const double barAreaH  = 46;
+        const double labelH    = 14;
+        double canvasW         = HistoryCanvas.ActualWidth;
+        if (canvasW < 10) canvasW = 288; // fallback before layout
+
+        int count   = data.Count;
+        double slot = canvasW / count;
+        double gap  = Math.Max(2, slot * 0.15);
+        double barW = slot - gap;
+
+        long maxTotal = data.Max(s => s.InputTokens + s.OutputTokens + s.CacheReadTokens + s.CacheWriteTokens);
+        if (maxTotal == 0) maxTotal = 1;
+
+        var grad = new LGBB(
+            WColor.FromRgb(139, 92, 246),
+            WColor.FromRgb(99, 102, 241),
+            new WPoint(0, 0), new WPoint(0, 1));
+
+        var todayKey = DateTime.UtcNow.ToString("yyyy-MM-dd");
+
+        for (int i = 0; i < count; i++)
+        {
+            var s = data[i];
+            long total = s.InputTokens + s.OutputTokens + s.CacheReadTokens + s.CacheWriteTokens;
+            double ratio   = (double)total / maxTotal;
+            double barH    = Math.Max(3, ratio * barAreaH);
+            double x       = i * slot + gap / 2;
+
+            // Background bar
+            var bg = new WRect
+            {
+                Width = barW, Height = barAreaH,
+                Fill = new SCB(WColor.FromRgb(45, 47, 69)),
+                RadiusX = 3, RadiusY = 3
+            };
+            Canvas.SetLeft(bg, x);
+            Canvas.SetTop(bg, 0);
+            HistoryCanvas.Children.Add(bg);
+
+            // Fill bar
+            var fill = new WRect
+            {
+                Width = barW, Height = barH,
+                Fill = s.Date == todayKey
+                    ? (System.Windows.Media.Brush)grad
+                    : new SCB(WColor.FromArgb(180, 99, 102, 241)),
+                RadiusX = 3, RadiusY = 3
+            };
+            Canvas.SetLeft(fill, x);
+            Canvas.SetTop(fill, barAreaH - barH);
+            HistoryCanvas.Children.Add(fill);
+
+            // Date label (MM/dd)
+            var label = new TextBlock
+            {
+                Text = s.Date.Length >= 10 ? s.Date[5..] : s.Date,
+                FontSize = 9,
+                Foreground = s.Date == todayKey
+                    ? new SCB(WColor.FromRgb(167, 139, 250))
+                    : new SCB(WColor.FromRgb(61, 66, 102)),
+                Width = slot,
+                TextAlignment = TextAlignment.Center
+            };
+            Canvas.SetLeft(label, i * slot);
+            Canvas.SetTop(label, barAreaH + 2);
+            HistoryCanvas.Children.Add(label);
+        }
+
+        HistoryCanvas.Height = canvasH;
     }
+
+    protected override void OnSourceInitialized(EventArgs e) => base.OnSourceInitialized(e);
+
+    private void ClosePopupBtn_Click(object sender, RoutedEventArgs e) => Hide();
+
+    private async void RefreshBtn_Click(object sender, RoutedEventArgs e) => await _vm.RefreshAsync();
+
+    private void ExportCsvBtn_Click(object sender, RoutedEventArgs e) =>
+        _vm.ExportCsvCommand.Execute(null);
 
     private void SettingsBtn_Click(object sender, RoutedEventArgs e)
     {
@@ -35,25 +131,19 @@ public partial class UsagePopup : Window
             _settingsWindow = new SettingsWindow(_vm);
 
         if (_settingsWindow.IsVisible)
-        {
             _settingsWindow.Hide();
-        }
         else
         {
-            Hide(); // 메인 팝업 닫고 설정 창 열기
+            Hide();
             _settingsWindow.ShowNearTray();
         }
     }
 
     private async void UpdateBanner_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
-    {
-        await _vm.ApplyUpdateCommand.ExecuteAsync(null);
-    }
+        => await _vm.ApplyUpdateCommand.ExecuteAsync(null);
 
-    private void QuitBtn_Click(object sender, RoutedEventArgs e)
-    {
+    private void QuitBtn_Click(object sender, RoutedEventArgs e) =>
         System.Windows.Application.Current.Shutdown();
-    }
 
     public void ShowNearTray()
     {
