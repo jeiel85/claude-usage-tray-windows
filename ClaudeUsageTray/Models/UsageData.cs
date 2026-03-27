@@ -4,47 +4,50 @@ namespace ClaudeUsageTray.Models;
 
 public class UsageResponse
 {
-    [JsonPropertyName("usage")]
-    public List<UsageBucket> Usage { get; set; } = new();
+    [JsonPropertyName("five_hour")]
+    public UsageWindow? FiveHour { get; set; }
+
+    [JsonPropertyName("seven_day")]
+    public UsageWindow? SevenDay { get; set; }
+
+    [JsonPropertyName("seven_day_opus")]
+    public UsageWindow? SevenDayOpus { get; set; }
+
+    [JsonPropertyName("seven_day_sonnet")]
+    public UsageWindow? SevenDaySonnet { get; set; }
+
+    [JsonPropertyName("extra_usage")]
+    public ExtraUsage? ExtraUsage { get; set; }
 }
 
-public class UsageBucket
+public class UsageWindow
 {
-    [JsonPropertyName("bucket")]
-    public string? Bucket { get; set; }
+    [JsonPropertyName("utilization")]
+    public double Utilization { get; set; }
 
-    [JsonPropertyName("remaining_credits")]
-    public long? RemainingCredits { get; set; }
+    [JsonPropertyName("resets_at")]
+    public string? ResetsAt { get; set; }
+
+    public double UsagePercent => Math.Min(1.0, Utilization / 100.0);
+
+    public DateTimeOffset? ResetsAtParsed => ResetsAt != null
+        ? DateTimeOffset.TryParse(ResetsAt, out var dt) ? dt : null
+        : null;
+}
+
+public class ExtraUsage
+{
+    [JsonPropertyName("is_enabled")]
+    public bool IsEnabled { get; set; }
+
+    [JsonPropertyName("utilization")]
+    public double? Utilization { get; set; }
 
     [JsonPropertyName("used_credits")]
     public long? UsedCredits { get; set; }
 
-    [JsonPropertyName("max_credits")]
-    public long? MaxCredits { get; set; }
-
-    [JsonPropertyName("reset_at")]
-    public string? ResetAt { get; set; }
-
-    [JsonPropertyName("model_usage")]
-    public Dictionary<string, long>? ModelUsage { get; set; }
-
-    // Computed
-    public double UsagePercent
-    {
-        get
-        {
-            if (MaxCredits is null or 0) return 0;
-            var used = UsedCredits ?? (MaxCredits - RemainingCredits) ?? 0;
-            return Math.Min(1.0, (double)used / MaxCredits.Value);
-        }
-    }
-
-    public long UsedAmount => UsedCredits ?? (MaxCredits.HasValue && RemainingCredits.HasValue
-        ? MaxCredits.Value - RemainingCredits.Value : 0);
-
-    public DateTimeOffset? ResetsAt => ResetAt != null
-        ? DateTimeOffset.TryParse(ResetAt, out var dt) ? dt : null
-        : null;
+    [JsonPropertyName("monthly_limit")]
+    public long? MonthlyLimit { get; set; }
 }
 
 public class SessionStats

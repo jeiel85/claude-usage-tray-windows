@@ -21,14 +21,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     // 5h window
     [ObservableProperty] private double _shortUsagePercent = 0;
-    [ObservableProperty] private long _shortUsed = 0;
-    [ObservableProperty] private long _shortMax = 0;
     [ObservableProperty] private string _shortResetLabel = "";
 
     // 7d window
     [ObservableProperty] private double _longUsagePercent = 0;
-    [ObservableProperty] private long _longUsed = 0;
-    [ObservableProperty] private long _longMax = 0;
     [ObservableProperty] private string _longResetLabel = "";
 
     // Per-model usage (7d)
@@ -104,49 +100,35 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 HasRateLimitHit = sessionStats.HasRateLimitHit;
                 RateLimitInfo = sessionStats.RateLimitResetTime ?? "";
 
-                if (usage != null && usage.Usage.Count > 0)
+                if (usage?.FiveHour != null || usage?.SevenDay != null)
                 {
                     HasError = false;
-                    foreach (var bucket in usage.Usage)
-                    {
-                        if (bucket.Bucket == "5h")
-                        {
-                            ShortUsagePercent = bucket.UsagePercent;
-                            ShortUsed = bucket.UsedAmount;
-                            ShortMax = bucket.MaxCredits ?? 0;
-                            ShortResetLabel = FormatResetLabel(bucket.ResetsAt);
-                        }
-                        else if (bucket.Bucket == "7d")
-                        {
-                            LongUsagePercent = bucket.UsagePercent;
-                            LongUsed = bucket.UsedAmount;
-                            LongMax = bucket.MaxCredits ?? 0;
-                            LongResetLabel = FormatResetLabel(bucket.ResetsAt);
 
-                            if (bucket.ModelUsage != null)
-                            {
-                                var totalModel = bucket.ModelUsage.Values.Sum();
-                                foreach (var (model, count) in bucket.ModelUsage)
-                                {
-                                    var lower = model.ToLowerInvariant();
-                                    if (lower.Contains("opus"))
-                                    {
-                                        OpusTokens = count;
-                                        OpusPercent = totalModel > 0 ? (double)count / totalModel : 0;
-                                    }
-                                    else if (lower.Contains("sonnet"))
-                                    {
-                                        SonnetTokens = count;
-                                        SonnetPercent = totalModel > 0 ? (double)count / totalModel : 0;
-                                    }
-                                }
-                            }
-                        }
+                    if (usage.FiveHour != null)
+                    {
+                        ShortUsagePercent = usage.FiveHour.UsagePercent;
+                        ShortResetLabel = FormatResetLabel(usage.FiveHour.ResetsAtParsed);
                     }
 
-                    StatusText = ShortMax > 0
-                        ? $"{ShortUsagePercent:P0} used"
-                        : "Connected";
+                    if (usage.SevenDay != null)
+                    {
+                        LongUsagePercent = usage.SevenDay.UsagePercent;
+                        LongResetLabel = FormatResetLabel(usage.SevenDay.ResetsAtParsed);
+                    }
+
+                    if (usage.SevenDayOpus != null)
+                    {
+                        OpusPercent = usage.SevenDayOpus.UsagePercent;
+                        OpusTokens = (long)(usage.SevenDayOpus.Utilization);
+                    }
+
+                    if (usage.SevenDaySonnet != null)
+                    {
+                        SonnetPercent = usage.SevenDaySonnet.UsagePercent;
+                        SonnetTokens = (long)(usage.SevenDaySonnet.Utilization);
+                    }
+
+                    StatusText = $"{ShortUsagePercent:P0} used";
                 }
                 else if (_api.LastError != null)
                 {

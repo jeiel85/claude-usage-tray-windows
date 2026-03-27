@@ -34,7 +34,7 @@ public class UsageApiService
         {
             var request = new HttpRequestMessage(HttpMethod.Get, UsageEndpoint);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            request.Headers.Add("anthropic-version", "2023-06-01");
+            request.Headers.Add("anthropic-beta", "oauth-2025-04-20");
 
             var response = await _http.SendAsync(request);
             LastRawResponse = await response.Content.ReadAsStringAsync();
