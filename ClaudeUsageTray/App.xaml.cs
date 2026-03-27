@@ -23,8 +23,9 @@ public partial class App : Application
         var sessionMonitor = new SessionMonitor();
         var notifier = new NotificationService();
         var settingsService = new SettingsService();
+        var updater = new UpdateService();
 
-        _vm = new MainViewModel(apiService, sessionMonitor, notifier, settingsService);
+        _vm = new MainViewModel(apiService, sessionMonitor, notifier, settingsService, updater);
         _popup = new UsagePopup(_vm);
 
         _trayIcon = new NotifyIcon

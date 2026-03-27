@@ -274,6 +274,15 @@ public static class Loc
         _ => "5-Hour window thresholds"
     };
 
+    // Update
+    public static string UpdateAvailable(string version) => Lang switch
+    {
+        "ko" => $"새 버전 {version} 업데이트 — 클릭하여 설치",
+        "zh" => $"新版本 {version} 可用 — 点击安装",
+        "ja" => $"新バージョン {version} が利用可能 — クリックしてインストール",
+        _ => $"Update {version} available — click to install"
+    };
+
     // Errors
     public static string NoToken => Lang switch
     {

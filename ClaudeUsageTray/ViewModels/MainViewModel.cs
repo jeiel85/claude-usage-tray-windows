@@ -14,6 +14,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly SessionMonitor _session;
     private readonly NotificationService _notifier;
     private readonly SettingsService _settingsService;
+    private readonly UpdateService _updater;
     private readonly Timer _timer;
 
     // Tracks previous 5h usage to detect threshold crossings
@@ -58,6 +59,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _threshold100;
     [ObservableProperty] private string _ntfyTopic = "";
 
+    // Update banner
+    [ObservableProperty] private bool _updateAvailable = false;
+    [ObservableProperty] private string _updateLabel = "";
+    private string _updateDownloadUrl = "";
+    public string CurrentVersionLabel => $"v{UpdateService.CurrentVersion.ToString(3)}";
+
     public string? RawApiResponse { get; private set; }
 
     // Localized static labels
@@ -82,12 +89,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public string LblNtfyPlaceholder => Loc.NtfyPlaceholder;
 
     public MainViewModel(UsageApiService api, SessionMonitor session,
-                         NotificationService notifier, SettingsService settingsService)
+                         NotificationService notifier, SettingsService settingsService,
+                         UpdateService updater)
     {
         _api = api;
         _session = session;
         _notifier = notifier;
         _settingsService = settingsService;
+        _updater = updater;
 
         LoadSettings();
 
@@ -130,6 +139,29 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         await RefreshAsync();
         _timer.Start();
+        _ = CheckForUpdateAsync();
+    }
+
+    private async Task CheckForUpdateAsync()
+    {
+        var result = await _updater.CheckForUpdateAsync();
+        if (result is null) return;
+
+        var (version, url) = result.Value;
+        _updateDownloadUrl = url;
+
+        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+        {
+            UpdateLabel = Loc.UpdateAvailable($"v{version.ToString(3)}");
+            UpdateAvailable = true;
+        });
+    }
+
+    [RelayCommand]
+    public async Task ApplyUpdateAsync()
+    {
+        if (string.IsNullOrEmpty(_updateDownloadUrl)) return;
+        await _updater.ApplyUpdateAsync(_updateDownloadUrl);
     }
 
     public async Task RefreshAsync()

@@ -134,6 +134,18 @@
                     </Grid>
                 </Border>
 
+                <!-- Update banner -->
+                <Border Padding="12,9" Margin="16,8,16,0"
+                        Background="#1A2E1A" CornerRadius="8"
+                        BorderBrush="#10B981" BorderThickness="1"
+                        Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVisibility}}"
+                        Cursor="Hand" MouseLeftButtonUp="UpdateBanner_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="↑ " Foreground="#10B981" FontSize="12" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding UpdateLabel}" Foreground="#6EE7B7" FontSize="11"/>
+                    </StackPanel>
+                </Border>
+
                 <!-- Loading indicator -->
                 <Border Padding="16,8" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
@@ -291,8 +303,11 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="{Binding SessionsLabel}"
-                                   Foreground="#8B92B3" FontSize="11" VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding SessionsLabel}" Foreground="#8B92B3" FontSize="11"/>
+                            <TextBlock Text="{Binding CurrentVersionLabel}" Foreground="#3D4266"
+                                       FontSize="10" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
 
                         <!-- Settings gear button -->
                         <Button Grid.Column="1" Width="28" Height="28" Margin="0,0,4,0"
