@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Timers;
 using CommunityToolkit.Mvvm.ComponentModel;
 using ClaudeUsageTray.Models;
@@ -14,7 +15,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     [ObservableProperty] private string _statusText = "Loading...";
     [ObservableProperty] private bool _isLoading = true;
-    [ObservableProperty] private string _lastUpdated = "Never";
+    [ObservableProperty] private string _lastUpdatedLabel = "";
     [ObservableProperty] private bool _hasError = false;
     [ObservableProperty] private string _errorMessage = "";
 
@@ -22,13 +23,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private double _shortUsagePercent = 0;
     [ObservableProperty] private long _shortUsed = 0;
     [ObservableProperty] private long _shortMax = 0;
-    [ObservableProperty] private string _shortResetTime = "";
+    [ObservableProperty] private string _shortResetLabel = "";
 
     // 7d window
     [ObservableProperty] private double _longUsagePercent = 0;
     [ObservableProperty] private long _longUsed = 0;
     [ObservableProperty] private long _longMax = 0;
-    [ObservableProperty] private string _longResetTime = "";
+    [ObservableProperty] private string _longResetLabel = "";
 
     // Per-model usage (7d)
     [ObservableProperty] private double _opusPercent = 0;
@@ -41,12 +42,27 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private long _todayOutputTokens = 0;
     [ObservableProperty] private long _todayCacheRead = 0;
     [ObservableProperty] private long _todayCacheWrite = 0;
-    [ObservableProperty] private int _todaySessionCount = 0;
+    [ObservableProperty] private string _sessionsLabel = "";
     [ObservableProperty] private bool _hasRateLimitHit = false;
     [ObservableProperty] private string _rateLimitInfo = "";
 
     // Raw response for debugging
     public string? RawApiResponse { get; private set; }
+
+    // Localized static labels (read-once at startup)
+    public string LblAppTitle    => Loc.AppTitle;
+    public string LblApiQuota    => Loc.ApiQuota;
+    public string LblTodayTokens => Loc.TodayTokens;
+    public string LblFiveHour    => Loc.FiveHourWindow;
+    public string LblSevenDay    => Loc.SevenDayWindow;
+    public string LblInput       => Loc.Input;
+    public string LblOutput      => Loc.Output;
+    public string LblCacheRead   => Loc.CacheRead;
+    public string LblCacheWrite  => Loc.CacheWrite;
+    public string LblTokens      => Loc.Tokens;
+    public string LblRefresh     => Loc.Refresh;
+    public string LblQuit        => Loc.Quit;
+    public string LblRefreshing  => Loc.Refreshing;
 
     public MainViewModel(UsageApiService api, SessionMonitor session)
     {
@@ -84,7 +100,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 TodayOutputTokens = sessionStats.TotalOutputTokens;
                 TodayCacheRead = sessionStats.TotalCacheReadTokens;
                 TodayCacheWrite = sessionStats.TotalCacheWriteTokens;
-                TodaySessionCount = sessionStats.SessionCount;
+                SessionsLabel = Loc.Sessions(sessionStats.SessionCount);
                 HasRateLimitHit = sessionStats.HasRateLimitHit;
                 RateLimitInfo = sessionStats.RateLimitResetTime ?? "";
 
@@ -98,14 +114,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
                             ShortUsagePercent = bucket.UsagePercent;
                             ShortUsed = bucket.UsedAmount;
                             ShortMax = bucket.MaxCredits ?? 0;
-                            ShortResetTime = FormatReset(bucket.ResetsAt);
+                            ShortResetLabel = FormatResetLabel(bucket.ResetsAt);
                         }
                         else if (bucket.Bucket == "7d")
                         {
                             LongUsagePercent = bucket.UsagePercent;
                             LongUsed = bucket.UsedAmount;
                             LongMax = bucket.MaxCredits ?? 0;
-                            LongResetTime = FormatReset(bucket.ResetsAt);
+                            LongResetLabel = FormatResetLabel(bucket.ResetsAt);
 
                             if (bucket.ModelUsage != null)
                             {
@@ -135,9 +151,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 else if (_api.LastError != null)
                 {
                     HasError = true;
-                    ErrorMessage = _api.LastError.Length > 80
-                        ? _api.LastError[..80] + "..."
-                        : _api.LastError;
+                    ErrorMessage = ParseFriendlyError(_api.LastError);
                     StatusText = "API Error";
                 }
                 else
@@ -145,7 +159,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     StatusText = "No data";
                 }
 
-                LastUpdated = DateTime.Now.ToString("HH:mm:ss");
+                LastUpdatedLabel = Loc.UpdatedAt(DateTime.Now.ToString("HH:mm:ss"));
                 IsLoading = false;
             });
         }
@@ -161,14 +175,43 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    private static string FormatReset(DateTimeOffset? resetAt)
+    private static string FormatResetLabel(DateTimeOffset? resetAt)
     {
         if (resetAt is null) return "";
         var diff = resetAt.Value - DateTimeOffset.Now;
-        if (diff.TotalSeconds <= 0) return "Now";
-        if (diff.TotalHours < 1) return $"{(int)diff.TotalMinutes}m";
-        if (diff.TotalDays < 1) return $"{(int)diff.TotalHours}h {diff.Minutes}m";
-        return $"{(int)diff.TotalDays}d {diff.Hours}h";
+        if (diff.TotalSeconds <= 0) return "";
+        string time;
+        if (diff.TotalHours < 1) time = $"{(int)diff.TotalMinutes}m";
+        else if (diff.TotalDays < 1) time = $"{(int)diff.TotalHours}h {diff.Minutes}m";
+        else time = $"{(int)diff.TotalDays}d {diff.Hours}h";
+        return Loc.ResetsIn(time);
+    }
+
+    private static string ParseFriendlyError(string raw)
+    {
+        // 429 rate limit
+        if (raw.Contains("429") || raw.Contains("rate_limit"))
+            return Loc.RateLimited;
+
+        // Try to extract just the "message" field from JSON error
+        try
+        {
+            var start = raw.IndexOf('{');
+            if (start >= 0)
+            {
+                var json = raw[start..];
+                using var doc = JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("error", out var err) &&
+                    err.TryGetProperty("message", out var msg))
+                {
+                    var msgText = msg.GetString() ?? raw;
+                    return Loc.ApiError(msgText.Length > 80 ? msgText[..80] + "…" : msgText);
+                }
+            }
+        }
+        catch { /* ignore parse failures */ }
+
+        return Loc.ApiError(raw.Length > 80 ? raw[..80] + "…" : raw);
     }
 
     public void Dispose()

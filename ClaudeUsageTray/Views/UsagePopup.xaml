@@ -15,7 +15,6 @@
         ResizeMode="NoResize">
 
     <Window.Resources>
-        <!-- Colors -->
         <SolidColorBrush x:Key="BgBrush" Color="#0F1117"/>
         <SolidColorBrush x:Key="CardBrush" Color="#1A1D2E"/>
         <SolidColorBrush x:Key="BorderBrush" Color="#2D2F45"/>
@@ -27,7 +26,6 @@
         <SolidColorBrush x:Key="DangerBrush" Color="#EF4444"/>
         <SolidColorBrush x:Key="SuccessBrush" Color="#10B981"/>
 
-        <!-- Progress bar style -->
         <Style x:Key="UsageBarStyle" TargetType="ProgressBar">
             <Setter Property="Height" Value="6"/>
             <Setter Property="Background" Value="#2D2F45"/>
@@ -36,12 +34,9 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="ProgressBar">
                         <Grid>
-                            <Border Background="{TemplateBinding Background}"
-                                    CornerRadius="3"/>
+                            <Border Background="{TemplateBinding Background}" CornerRadius="3"/>
                             <Border x:Name="PART_Track" CornerRadius="3"/>
-                            <Border x:Name="PART_Indicator"
-                                    HorizontalAlignment="Left"
-                                    CornerRadius="3">
+                            <Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="3">
                                 <Border.Background>
                                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
                                         <GradientStop Color="#8B5CF6" Offset="0"/>
@@ -60,54 +55,18 @@
             </Setter>
         </Style>
 
-        <Style x:Key="WarningBarStyle" TargetType="ProgressBar" BasedOn="{StaticResource UsageBarStyle}">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ProgressBar">
-                        <Grid>
-                            <Border Background="#2D2F45" CornerRadius="3"/>
-                            <Border x:Name="PART_Track" CornerRadius="3"/>
-                            <Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="3">
-                                <Border.Background>
-                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                        <GradientStop Color="#F59E0B" Offset="0"/>
-                                        <GradientStop Color="#EF4444" Offset="1"/>
-                                    </LinearGradientBrush>
-                                </Border.Background>
-                            </Border>
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="Value" Value="0">
-                                <Setter TargetName="PART_Indicator" Property="Visibility" Value="Collapsed"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- Section label style -->
         <Style x:Key="SectionLabel" TargetType="TextBlock">
             <Setter Property="FontSize" Value="10"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="#8B92B3"/>
         </Style>
-
-        <!-- Value text style -->
-        <Style x:Key="ValueText" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Foreground" Value="#F1F5F9"/>
-            <Setter Property="FontWeight" Value="Medium"/>
-        </Style>
     </Window.Resources>
 
-    <!-- Drop shadow wrapper -->
     <Border Margin="8">
         <Border.Effect>
             <DropShadowEffect BlurRadius="20" ShadowDepth="4" Opacity="0.5" Color="#000000"/>
         </Border.Effect>
 
-        <!-- Main card -->
         <Border Background="{StaticResource BgBrush}"
                 CornerRadius="16"
                 BorderBrush="{StaticResource BorderBrush}"
@@ -123,7 +82,6 @@
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                            <!-- Claude logo dot -->
                             <Border Width="28" Height="28" CornerRadius="8" Margin="0,0,10,0">
                                 <Border.Background>
                                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
@@ -136,10 +94,9 @@
                                            VerticalAlignment="Center"/>
                             </Border>
                             <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="Claude Usage" Foreground="#F1F5F9"
+                                <TextBlock Text="{Binding LblAppTitle}" Foreground="#F1F5F9"
                                            FontSize="14" FontWeight="SemiBold"/>
-                                <TextBlock x:Name="LastUpdatedText"
-                                           Text="{Binding LastUpdated, StringFormat='Updated {0}'}"
+                                <TextBlock Text="{Binding LastUpdatedLabel}"
                                            Foreground="#8B92B3" FontSize="11"/>
                             </StackPanel>
                         </StackPanel>
@@ -150,7 +107,7 @@
                                 Background="Transparent"
                                 BorderThickness="0"
                                 Cursor="Hand"
-                                ToolTip="Refresh"
+                                ToolTip="{Binding LblRefresh}"
                                 Click="RefreshBtn_Click">
                             <TextBlock Text="↻" Foreground="#8B92B3" FontSize="16"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -160,10 +117,8 @@
                                     <Setter Property="Template">
                                         <Setter.Value>
                                             <ControlTemplate TargetType="Button">
-                                                <Border Background="{TemplateBinding Background}"
-                                                        CornerRadius="8">
-                                                    <ContentPresenter HorizontalAlignment="Center"
-                                                                      VerticalAlignment="Center"/>
+                                                <Border Background="{TemplateBinding Background}" CornerRadius="8">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
@@ -180,15 +135,15 @@
                 </Border>
 
                 <!-- Loading indicator -->
-                <Border x:Name="LoadingBorder" Padding="16,8" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}">
+                <Border Padding="16,8" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                         <TextBlock Text="⟳ " Foreground="#8B5CF6" FontSize="12"/>
-                        <TextBlock Text="Refreshing..." Foreground="#8B92B3" FontSize="12"/>
+                        <TextBlock Text="{Binding LblRefreshing}" Foreground="#8B92B3" FontSize="12"/>
                     </StackPanel>
                 </Border>
 
                 <!-- Error panel -->
-                <Border x:Name="ErrorBorder" Padding="16,8" Margin="16,0"
+                <Border Padding="12,10" Margin="16,4"
                         Background="#2D1515" CornerRadius="8"
                         Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}">
                     <TextBlock Text="{Binding ErrorMessage}" Foreground="#EF4444"
@@ -197,26 +152,25 @@
 
                 <!-- API Usage section -->
                 <StackPanel Margin="16,12,16,0">
-                    <TextBlock Style="{StaticResource SectionLabel}" Text="API Quota" Margin="0,0,0,10"/>
+                    <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblApiQuota}" Margin="0,0,0,10"/>
 
                     <!-- 5-hour window -->
                     <Grid Margin="0,0,0,12">
                         <Grid.RowDefinitions>
                             <RowDefinition/>
                             <RowDefinition Height="8"/>
-                            <RowDefinition/>
                         </Grid.RowDefinitions>
                         <Grid Grid.Row="0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="5-Hour Window"
+                            <TextBlock Grid.Column="0" Text="{Binding LblFiveHour}"
                                        Foreground="#C4C9E0" FontSize="12" FontWeight="Medium"/>
                             <StackPanel Grid.Column="1" Orientation="Horizontal">
                                 <TextBlock Text="{Binding ShortUsagePercent, StringFormat={}{0:P0}}"
                                            Foreground="#A78BFA" FontSize="12" FontWeight="SemiBold"/>
-                                <TextBlock Text="{Binding ShortResetTime, StringFormat=' · resets {0}'}"
+                                <TextBlock Text="{Binding ShortResetLabel}"
                                            Foreground="#8B92B3" FontSize="11"/>
                             </StackPanel>
                         </Grid>
@@ -238,12 +192,12 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="7-Day Window"
+                            <TextBlock Grid.Column="0" Text="{Binding LblSevenDay}"
                                        Foreground="#C4C9E0" FontSize="12" FontWeight="Medium"/>
                             <StackPanel Grid.Column="1" Orientation="Horizontal">
                                 <TextBlock Text="{Binding LongUsagePercent, StringFormat={}{0:P0}}"
                                            Foreground="#A78BFA" FontSize="12" FontWeight="SemiBold"/>
-                                <TextBlock Text="{Binding LongResetTime, StringFormat=' · resets {0}'}"
+                                <TextBlock Text="{Binding LongResetLabel}"
                                            Foreground="#8B92B3" FontSize="11"/>
                             </StackPanel>
                         </Grid>
@@ -260,7 +214,7 @@
 
                 <!-- Today's token usage -->
                 <StackPanel Margin="16,0,16,0">
-                    <TextBlock Style="{StaticResource SectionLabel}" Text="Today's Tokens" Margin="0,0,0,10"/>
+                    <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblTodayTokens}" Margin="0,0,0,10"/>
 
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -268,67 +222,58 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
-                        <!-- Input tokens -->
-                        <StackPanel Grid.Column="0" Margin="0,0,6,0">
-                            <Border Background="#1A1D2E" CornerRadius="10" Padding="12,10">
-                                <StackPanel>
-                                    <TextBlock Text="Input" Foreground="#8B92B3" FontSize="10"
-                                               FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                    <TextBlock Text="{Binding TodayInputTokens, StringFormat={}{0:N0}}"
-                                               Foreground="#A78BFA" FontSize="15" FontWeight="Bold"/>
-                                    <TextBlock Text="tokens" Foreground="#8B92B3" FontSize="10"/>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
+                        <!-- Input -->
+                        <Border Grid.Column="0" Background="#1A1D2E" CornerRadius="10" Padding="12,10" Margin="0,0,6,0">
+                            <StackPanel>
+                                <TextBlock Text="{Binding LblInput}" Foreground="#8B92B3" FontSize="10"
+                                           FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <TextBlock Text="{Binding TodayInputTokens, StringFormat={}{0:N0}}"
+                                           Foreground="#A78BFA" FontSize="15" FontWeight="Bold"/>
+                                <TextBlock Text="{Binding LblTokens}" Foreground="#8B92B3" FontSize="10"/>
+                            </StackPanel>
+                        </Border>
 
-                        <!-- Output tokens -->
-                        <StackPanel Grid.Column="1" Margin="6,0,0,0">
-                            <Border Background="#1A1D2E" CornerRadius="10" Padding="12,10">
-                                <StackPanel>
-                                    <TextBlock Text="Output" Foreground="#8B92B3" FontSize="10"
-                                               FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                    <TextBlock Text="{Binding TodayOutputTokens, StringFormat={}{0:N0}}"
-                                               Foreground="#6EE7B7" FontSize="15" FontWeight="Bold"/>
-                                    <TextBlock Text="tokens" Foreground="#8B92B3" FontSize="10"/>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
+                        <!-- Output -->
+                        <Border Grid.Column="1" Background="#1A1D2E" CornerRadius="10" Padding="12,10" Margin="6,0,0,0">
+                            <StackPanel>
+                                <TextBlock Text="{Binding LblOutput}" Foreground="#8B92B3" FontSize="10"
+                                           FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <TextBlock Text="{Binding TodayOutputTokens, StringFormat={}{0:N0}}"
+                                           Foreground="#6EE7B7" FontSize="15" FontWeight="Bold"/>
+                                <TextBlock Text="{Binding LblTokens}" Foreground="#8B92B3" FontSize="10"/>
+                            </StackPanel>
+                        </Border>
                     </Grid>
 
-                    <!-- Cache tokens -->
+                    <!-- Cache -->
                     <Grid Margin="0,8,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
-                        <StackPanel Grid.Column="0" Margin="0,0,6,0">
-                            <Border Background="#1A1D2E" CornerRadius="10" Padding="12,8">
-                                <StackPanel>
-                                    <TextBlock Text="Cache Read" Foreground="#8B92B3" FontSize="10"
-                                               FontWeight="SemiBold" Margin="0,0,0,2"/>
-                                    <TextBlock Text="{Binding TodayCacheRead, StringFormat={}{0:N0}}"
-                                               Foreground="#93C5FD" FontSize="13" FontWeight="SemiBold"/>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
+                        <Border Grid.Column="0" Background="#1A1D2E" CornerRadius="10" Padding="12,8" Margin="0,0,6,0">
+                            <StackPanel>
+                                <TextBlock Text="{Binding LblCacheRead}" Foreground="#8B92B3" FontSize="10"
+                                           FontWeight="SemiBold" Margin="0,0,0,2"/>
+                                <TextBlock Text="{Binding TodayCacheRead, StringFormat={}{0:N0}}"
+                                           Foreground="#93C5FD" FontSize="13" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
 
-                        <StackPanel Grid.Column="1" Margin="6,0,0,0">
-                            <Border Background="#1A1D2E" CornerRadius="10" Padding="12,8">
-                                <StackPanel>
-                                    <TextBlock Text="Cache Write" Foreground="#8B92B3" FontSize="10"
-                                               FontWeight="SemiBold" Margin="0,0,0,2"/>
-                                    <TextBlock Text="{Binding TodayCacheWrite, StringFormat={}{0:N0}}"
-                                               Foreground="#FCA5A5" FontSize="13" FontWeight="SemiBold"/>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
+                        <Border Grid.Column="1" Background="#1A1D2E" CornerRadius="10" Padding="12,8" Margin="6,0,0,0">
+                            <StackPanel>
+                                <TextBlock Text="{Binding LblCacheWrite}" Foreground="#8B92B3" FontSize="10"
+                                           FontWeight="SemiBold" Margin="0,0,0,2"/>
+                                <TextBlock Text="{Binding TodayCacheWrite, StringFormat={}{0:N0}}"
+                                           Foreground="#FCA5A5" FontSize="13" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
                     </Grid>
                 </StackPanel>
 
                 <!-- Rate limit warning -->
-                <Border x:Name="RateLimitBorder"
-                        Visibility="{Binding HasRateLimitHit, Converter={StaticResource BoolToVisibility}}"
+                <Border Visibility="{Binding HasRateLimitHit, Converter={StaticResource BoolToVisibility}}"
                         Margin="16,10,16,0" Background="#1F1A0A" CornerRadius="10"
                         Padding="12,10" BorderBrush="#F59E0B" BorderThickness="1">
                     <StackPanel Orientation="Horizontal">
@@ -345,11 +290,10 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0"
-                                   Text="{Binding TodaySessionCount, StringFormat={}{0} session(s) today}"
+                        <TextBlock Grid.Column="0" Text="{Binding SessionsLabel}"
                                    Foreground="#8B92B3" FontSize="11"/>
                         <Button Grid.Column="1" x:Name="QuitBtn"
-                                Content="Quit"
+                                Content="{Binding LblQuit}"
                                 Background="Transparent"
                                 BorderThickness="0"
                                 Foreground="#8B92B3"

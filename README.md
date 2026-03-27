@@ -1,38 +1,38 @@
 # Claude Usage Tray (Windows)
 
-A Windows system tray application that monitors your Claude AI usage in real-time.
+Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니터링하는 앱입니다.
 
-> **Inspired by [claude-usage-mini](https://github.com/jeremy-prt/claude-usage-mini) by [@jeremy-prt](https://github.com/jeremy-prt)**
-> The original project is a beautifully crafted macOS menu bar app built in Swift/SwiftUI.
-> This project is a Windows port, reimagined as a WPF application.
-> Full credit to Jeremy Prat and the original [claude-usage-bar](https://github.com/Krystian-key/claude-usage-bar) by Krystian for the concept and inspiration.
+> **[claude-usage-mini](https://github.com/jeremy-prt/claude-usage-mini) by [@jeremy-prt](https://github.com/jeremy-prt) 에서 영감을 받았습니다**
+> 원본 프로젝트는 Swift/SwiftUI로 제작된 macOS 메뉴바 앱입니다.
+> 이 프로젝트는 WPF 기반의 Windows 포팅 버전입니다.
+> 아이디어와 영감을 준 Jeremy Prat, 그리고 [claude-usage-bar](https://github.com/Krystian-key/claude-usage-bar)의 Krystian에게 감사드립니다.
 
 ---
 
-## Features
+## 주요 기능
 
-- **System Tray Icon** — Shows real-time usage level with color-coded indicator (purple → amber → red)
-- **5-Hour & 7-Day API Quota** — Live progress bars from Anthropic's OAuth usage API
-- **Today's Token Stats** — Input, output, cache read, and cache write tokens aggregated from local session files
-- **Rate Limit Detection** — Warns you when a rate limit has been hit, with reset time
-- **Auto-Refresh** — Polls every 30 seconds
-- **Dark UI** — Modern dark theme popup with rounded corners and smooth animations
-- **No login required** — Reuses the OAuth token already stored by Claude Code
+- **시스템 트레이 아이콘** — 사용량에 따라 색상이 변하는 실시간 인디케이터 (보라 → 주황 → 빨강)
+- **5시간 & 7일 API 쿼터** — Anthropic OAuth 사용량 API에서 실시간 진행 바 표시
+- **오늘의 토큰 통계** — 로컬 세션 파일에서 입력/출력/캐시 읽기/쓰기 토큰 합산
+- **레이트 리밋 감지** — 속도 제한이 걸렸을 때 경고 및 리셋 시간 표시
+- **자동 새로고침** — 30초마다 자동 업데이트
+- **다크 UI** — 모던 다크 테마 팝업, 둥근 모서리와 부드러운 애니메이션
+- **별도 로그인 불필요** — Claude Code에 이미 저장된 OAuth 토큰을 재사용
 
-## Screenshots
+## 스크린샷
 
-> *Coming soon*
+> *준비 중*
 
-## Requirements
+## 요구 사항
 
-- Windows 10 or later
+- Windows 10 이상
 - [.NET 9 Runtime](https://dotnet.microsoft.com/download/dotnet/9.0)
-- [Claude Code](https://claude.ai/code) installed and logged in
-  (The app reads credentials from `~/.claude/.credentials.json`)
+- [Claude Code](https://claude.ai/code) 설치 및 로그인 상태
+  (앱이 `~/.claude/.credentials.json`에서 인증 정보를 읽어옵니다)
 
-## Getting Started
+## 시작하기
 
-### Run from source
+### 소스에서 실행
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/claude-usage-tray-windows
@@ -40,86 +40,84 @@ cd claude-usage-tray-windows/ClaudeUsageTray
 dotnet run
 ```
 
-### Build release
+### 릴리즈 빌드
 
 ```bash
 dotnet publish -c Release -r win-x64 --self-contained false
 ```
 
-## How It Works
+## 작동 원리
 
-### Authentication
+### 인증
 
-Rather than implementing a new OAuth flow, this app reuses the access token that Claude Code already stores at:
+OAuth 플로우를 새로 구현하는 대신, Claude Code가 이미 저장해 둔 액세스 토큰을 재사용합니다:
 
 ```
 %USERPROFILE%\.claude\.credentials.json
 ```
 
-This is the same token used by the original macOS app.
+### API 사용량
 
-### API Usage
+Bearer 토큰으로 `https://api.anthropic.com/api/oauth/usage` 를 호출하여 다음 정보를 가져옵니다:
+- 5시간 롤링 윈도우 사용량 및 쿼터
+- 7일 롤링 윈도우 사용량 및 쿼터
 
-Calls `https://api.anthropic.com/api/oauth/usage` with a Bearer token to retrieve:
-- 5-hour rolling window usage and quota
-- 7-day rolling window usage and quota
+### 로컬 세션 데이터
 
-### Local Session Data
+`%USERPROFILE%\.claude\projects\**\*.jsonl` 파일을 스캔하여 Claude Code 세션 파일에서 오늘의 토큰 사용량을 직접 집계합니다 — 추가 API 호출 없이 동작합니다.
 
-Scans `%USERPROFILE%\.claude\projects\**\*.jsonl` to aggregate today's token usage directly from Claude Code session files — no extra API calls needed.
+## 기술 스택
 
-## Tech Stack
-
-| Component | Technology |
-|-----------|-----------|
-| UI Framework | WPF (.NET 9) |
-| System Tray | [H.NotifyIcon.Wpf](https://github.com/HavenDV/H.NotifyIcon) |
+| 구성 요소 | 기술 |
+|-----------|------|
+| UI 프레임워크 | WPF (.NET 9) |
+| 시스템 트레이 | System.Windows.Forms.NotifyIcon |
 | MVVM | [CommunityToolkit.Mvvm](https://github.com/CommunityToolkit/dotnet) |
 | HTTP | System.Net.Http |
 | JSON | System.Text.Json |
 
-## Project Structure
+## 프로젝트 구조
 
 ```
 ClaudeUsageTray/
 ├── Models/
-│   ├── Credentials.cs      # OAuth credentials model
-│   └── UsageData.cs        # API response + session stats models
+│   ├── Credentials.cs      # OAuth 인증 정보 모델
+│   └── UsageData.cs        # API 응답 + 세션 통계 모델
 ├── Services/
-│   ├── CredentialService.cs  # Reads ~/.claude/.credentials.json
-│   ├── UsageApiService.cs    # Calls Anthropic usage API
-│   └── SessionMonitor.cs     # Parses local .jsonl session files
+│   ├── CredentialService.cs  # ~/.claude/.credentials.json 읽기
+│   ├── UsageApiService.cs    # Anthropic 사용량 API 호출
+│   └── SessionMonitor.cs     # 로컬 .jsonl 세션 파일 파싱
 ├── ViewModels/
-│   └── MainViewModel.cs      # Data bindings + refresh logic
+│   └── MainViewModel.cs      # 데이터 바인딩 + 새로고침 로직
 ├── Views/
-│   └── UsagePopup.xaml       # Dark-themed popup UI
-└── App.xaml.cs               # Tray icon setup + app lifecycle
+│   └── UsagePopup.xaml       # 다크 테마 팝업 UI
+└── App.xaml.cs               # 트레이 아이콘 설정 + 앱 수명 주기
 ```
 
-## Differences from the macOS Original
+## macOS 원본과의 차이점
 
-| Feature | macOS (claude-usage-mini) | Windows (this project) |
-|---------|--------------------------|----------------------|
-| Language | Swift 6.2 + SwiftUI | C# 13 + WPF |
-| Platform | macOS 26+ | Windows 10+ |
-| UI location | Menu bar | System tray |
-| Auth | Full OAuth PKCE flow | Reuses Claude Code token |
-| Icon style | Animated bars in menu bar | Color-coded tray icon |
+| 항목 | macOS (claude-usage-mini) | Windows (이 프로젝트) |
+|------|--------------------------|----------------------|
+| 언어 | Swift 6.2 + SwiftUI | C# 13 + WPF |
+| 플랫폼 | macOS 26+ | Windows 10+ |
+| UI 위치 | 메뉴바 | 시스템 트레이 |
+| 인증 | 자체 OAuth PKCE 플로우 | Claude Code 토큰 재사용 |
+| 아이콘 스타일 | 메뉴바 애니메이션 바 | 색상 코드 트레이 아이콘 |
 
-## Contributing
+## 기여하기
 
-Pull requests are welcome! Some ideas for improvement:
+PR은 언제든 환영합니다! 개선 아이디어:
 
-- [ ] Token refresh when access token expires
-- [ ] Configurable refresh interval (settings panel)
-- [ ] Startup with Windows option
-- [ ] Toast notifications when approaching rate limit
-- [ ] Per-model usage breakdown in the popup
+- [ ] 액세스 토큰 만료 시 자동 갱신
+- [ ] 새로고침 간격 설정 (설정 패널)
+- [ ] Windows 시작 시 자동 실행 옵션
+- [ ] 레이트 리밋 임박 시 토스트 알림
+- [ ] 팝업에서 모델별 사용량 상세 표시
 
-## License
+## 라이선스
 
 MIT License
 
 ---
 
-*If you find this useful, please also give a ⭐ to the original [claude-usage-mini](https://github.com/jeremy-prt/claude-usage-mini) project that inspired this work.*
+*유용하게 사용하셨다면 원본 프로젝트 [claude-usage-mini](https://github.com/jeremy-prt/claude-usage-mini)에도 ⭐ 부탁드립니다.*

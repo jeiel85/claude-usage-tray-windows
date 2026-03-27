@@ -31,7 +31,7 @@ public partial class UsagePopup : Window
 
     private void QuitBtn_Click(object sender, RoutedEventArgs e)
     {
-        Application.Current.Shutdown();
+        System.Windows.Application.Current.Shutdown();
     }
 
     public void ShowNearTray()
