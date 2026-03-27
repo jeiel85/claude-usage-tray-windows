@@ -300,6 +300,35 @@
                                   IsEnabled="{Binding NotificationsEnabled}"
                                   Command="{Binding SaveSettingsCommand}"/>
 
+                        <!-- ntfy topic -->
+                        <TextBlock Text="{Binding LblNtfyTopic}" Foreground="#8B92B3" FontSize="10"
+                                   FontWeight="SemiBold" Margin="0,4,0,4"/>
+                        <TextBox Text="{Binding NtfyTopic, UpdateSourceTrigger=LostFocus}"
+                                 Background="#0F1117" Foreground="#F1F5F9"
+                                 BorderBrush="#2D2F45" BorderThickness="1"
+                                 Padding="8,5" FontSize="11"
+                                 IsEnabled="{Binding NotificationsEnabled}"
+                                 LostFocus="NtfyTopicBox_LostFocus">
+                            <TextBox.Style>
+                                <Style TargetType="TextBox">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="TextBox">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                                        CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                                    <ScrollViewer x:Name="PART_ContentHost"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </TextBox.Style>
+                        </TextBox>
+                        <TextBlock Text="{Binding LblNtfyPlaceholder}" Foreground="#5A5F7A"
+                                   FontSize="10" Margin="0,3,0,10"/>
+
                         <!-- Thresholds -->
                         <TextBlock Text="{Binding LblThresholds}" Foreground="#8B92B3" FontSize="10"
                                    FontWeight="SemiBold" Margin="0,0,0,6"/>

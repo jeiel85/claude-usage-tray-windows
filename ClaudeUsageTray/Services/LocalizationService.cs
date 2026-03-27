@@ -210,6 +210,22 @@ public static class Loc
         _ => "Rate limit alert"
     };
 
+    public static string NtfyTopic => Lang switch
+    {
+        "ko" => "ntfy 토픽 (폰 알림)",
+        "zh" => "ntfy 主题（手机通知）",
+        "ja" => "ntfy トピック（スマホ通知）",
+        _ => "ntfy topic (phone push)"
+    };
+
+    public static string NtfyPlaceholder => Lang switch
+    {
+        "ko" => "예: claude-usage-홍길동",
+        "zh" => "例: claude-usage-yourname",
+        "ja" => "例: claude-usage-yourname",
+        _ => "e.g. claude-usage-yourname"
+    };
+
     public static string ThresholdsLabel => Lang switch
     {
         "ko" => "5시간 윈도우 임계값",

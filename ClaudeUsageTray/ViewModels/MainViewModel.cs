@@ -56,6 +56,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _threshold75;
     [ObservableProperty] private bool _threshold90;
     [ObservableProperty] private bool _threshold100;
+    [ObservableProperty] private string _ntfyTopic = "";
     [ObservableProperty] private bool _settingsOpen = false;
 
     public string? RawApiResponse { get; private set; }
@@ -78,6 +79,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public string LblNotiEnabled     => Loc.NotificationsEnabled;
     public string LblNotiRateLimit   => Loc.NotifyRateLimit;
     public string LblThresholds      => Loc.ThresholdsLabel;
+    public string LblNtfyTopic       => Loc.NtfyTopic;
+    public string LblNtfyPlaceholder => Loc.NtfyPlaceholder;
 
     public MainViewModel(UsageApiService api, SessionMonitor session,
                          NotificationService notifier, SettingsService settingsService)
@@ -103,6 +106,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         Threshold75  = s.Thresholds.Contains(75);
         Threshold90  = s.Thresholds.Contains(90);
         Threshold100 = s.Thresholds.Contains(100);
+        NtfyTopic    = s.NtfyTopic;
     }
 
     [RelayCommand]
@@ -118,7 +122,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         {
             Enabled = NotificationsEnabled,
             NotifyOnRateLimit = NotifyRateLimit,
-            Thresholds = thresholds
+            Thresholds = thresholds,
+            NtfyTopic = NtfyTopic.Trim()
         });
     }
 
@@ -152,7 +157,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 if (NotificationsEnabled && NotifyRateLimit &&
                     sessionStats.HasRateLimitHit && !_prevHadRateLimit)
                 {
-                    _notifier.ShowRateLimitAlert();
+                    _notifier.ShowRateLimitAlert(NtfyTopic);
                 }
                 _prevHadRateLimit = sessionStats.HasRateLimitHit;
 
@@ -168,7 +173,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                         // Check threshold crossings (skip on first load)
                         if (NotificationsEnabled && _prevShortPercent >= 0)
                         {
-                            CheckThresholds(newPercent, ShortResetLabel);
+                            CheckThresholds(newPercent, ShortResetLabel, NtfyTopic);
                         }
 
                         ShortUsagePercent = newPercent;
@@ -222,7 +227,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void CheckThresholds(double newPercent, string resetLabel)
+    private void CheckThresholds(double newPercent, string resetLabel, string ntfyTopic)
     {
         var settings = _settingsService.Load();
         foreach (var t in settings.Thresholds.OrderBy(x => x))
@@ -230,7 +235,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             double tf = t / 100.0;
             if (_prevShortPercent < tf && newPercent >= tf)
             {
-                _notifier.ShowUsageAlert(t, Loc.FiveHourWindow, resetLabel);
+                _notifier.ShowUsageAlert(t, Loc.FiveHourWindow, resetLabel, ntfyTopic);
             }
         }
     }

@@ -34,6 +34,11 @@ public partial class UsagePopup : Window
         _vm.SettingsOpen = !_vm.SettingsOpen;
     }
 
+    private void NtfyTopicBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        _vm.SaveSettingsCommand.Execute(null);
+    }
+
     private void QuitBtn_Click(object sender, RoutedEventArgs e)
     {
         System.Windows.Application.Current.Shutdown();

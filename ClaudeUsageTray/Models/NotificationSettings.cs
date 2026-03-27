@@ -8,4 +8,7 @@ public class NotificationSettings
     public List<int> Thresholds { get; set; } = [50, 75, 90, 100];
 
     public bool NotifyOnRateLimit { get; set; } = true;
+
+    // ntfy.sh push notification
+    public string NtfyTopic { get; set; } = "";
 }
