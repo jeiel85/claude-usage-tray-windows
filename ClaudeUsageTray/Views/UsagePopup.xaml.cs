@@ -7,6 +7,7 @@ namespace ClaudeUsageTray.Views;
 public partial class UsagePopup : Window
 {
     private readonly MainViewModel _vm;
+    private SettingsWindow? _settingsWindow;
 
     public UsagePopup(MainViewModel vm)
     {
@@ -14,7 +15,6 @@ public partial class UsagePopup : Window
         _vm = vm;
         DataContext = vm;
 
-        // Close on click outside
         Deactivated += (_, _) => Hide();
         MouseLeftButtonDown += (_, e) => DragMove();
     }
@@ -31,12 +31,18 @@ public partial class UsagePopup : Window
 
     private void SettingsBtn_Click(object sender, RoutedEventArgs e)
     {
-        _vm.SettingsOpen = !_vm.SettingsOpen;
-    }
+        if (_settingsWindow == null)
+            _settingsWindow = new SettingsWindow(_vm);
 
-    private void NtfyTopicBox_LostFocus(object sender, RoutedEventArgs e)
-    {
-        _vm.SaveSettingsCommand.Execute(null);
+        if (_settingsWindow.IsVisible)
+        {
+            _settingsWindow.Hide();
+        }
+        else
+        {
+            Hide(); // 메인 팝업 닫고 설정 창 열기
+            _settingsWindow.ShowNearTray();
+        }
     }
 
     private void QuitBtn_Click(object sender, RoutedEventArgs e)
@@ -46,19 +52,15 @@ public partial class UsagePopup : Window
 
     public void ShowNearTray()
     {
-        // Position near the taskbar (bottom-right)
         var workArea = SystemParameters.WorkArea;
         Left = workArea.Right - Width - 8;
-        Top = workArea.Bottom - ActualHeight - 8;
-
+        Top  = workArea.Bottom - ActualHeight - 8;
         Show();
         Activate();
-
-        // Recalculate after render
         Dispatcher.InvokeAsync(() =>
         {
             Left = workArea.Right - Width - 8;
-            Top = workArea.Bottom - ActualHeight - 8;
+            Top  = workArea.Bottom - ActualHeight - 8;
         }, System.Windows.Threading.DispatcherPriority.Render);
     }
 }

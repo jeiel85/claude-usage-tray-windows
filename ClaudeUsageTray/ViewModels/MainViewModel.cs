@@ -57,7 +57,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _threshold90;
     [ObservableProperty] private bool _threshold100;
     [ObservableProperty] private string _ntfyTopic = "";
-    [ObservableProperty] private bool _settingsOpen = false;
 
     public string? RawApiResponse { get; private set; }
 
