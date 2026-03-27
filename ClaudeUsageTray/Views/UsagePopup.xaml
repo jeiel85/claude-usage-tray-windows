@@ -96,8 +96,13 @@
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Text="{Binding LblAppTitle}" Foreground="#F1F5F9"
                                            FontSize="14" FontWeight="SemiBold"/>
-                                <TextBlock Text="{Binding LastUpdatedLabel}"
-                                           Foreground="#8B92B3" FontSize="11"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding LastUpdatedLabel}"
+                                               Foreground="#8B92B3" FontSize="11"/>
+                                    <TextBlock Text=" · " Foreground="#3D4266" FontSize="11"/>
+                                    <TextBlock Text="{Binding NextRefreshLabel}"
+                                               Foreground="#3D4266" FontSize="11"/>
+                                </StackPanel>
                             </StackPanel>
                         </StackPanel>
 

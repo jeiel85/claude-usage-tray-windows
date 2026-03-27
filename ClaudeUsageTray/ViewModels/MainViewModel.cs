@@ -16,12 +16,21 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly SettingsService _settingsService;
     private readonly UpdateService _updater;
     private readonly Timer _timer;
+    private readonly Timer _countdownTimer;
+    private int _secondsUntilRefresh = 0;
 
     // Tracks previous 5h usage to detect threshold crossings
     private double _prevShortPercent = -1;
     private bool _prevHadRateLimit = false;
 
+    // Last known good API data (kept when rate-limited so UI doesn't reset to 0)
+    private double _lastKnownShortPercent = 0;
+    private double _lastKnownLongPercent = 0;
+    private string _lastKnownShortReset = "";
+    private string _lastKnownLongReset = "";
+
     [ObservableProperty] private string _statusText = "Loading...";
+    [ObservableProperty] private string _nextRefreshLabel = "";
     [ObservableProperty] private bool _isLoading = true;
     [ObservableProperty] private string _lastUpdatedLabel = "";
     [ObservableProperty] private bool _hasError = false;
@@ -100,9 +109,20 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         LoadSettings();
 
-        _timer = new Timer(30_000);
+        _timer = new Timer(120_000); // 2 minutes — API has rate limits
         _timer.Elapsed += async (_, _) => await RefreshAsync();
         _timer.AutoReset = true;
+
+        _countdownTimer = new Timer(1_000);
+        _countdownTimer.Elapsed += (_, _) =>
+        {
+            if (_secondsUntilRefresh > 0)
+                _secondsUntilRefresh--;
+            var s = _secondsUntilRefresh;
+            var label = s >= 60 ? $"{s / 60}:{s % 60:D2}" : $"{s}s";
+            System.Windows.Application.Current.Dispatcher.Invoke(() => NextRefreshLabel = label);
+        };
+        _countdownTimer.AutoReset = true;
     }
 
     private void LoadSettings()
@@ -139,6 +159,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         await RefreshAsync();
         _timer.Start();
+        _countdownTimer.Start();
         _ = CheckForUpdateAsync();
     }
 
@@ -166,6 +187,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public async Task RefreshAsync()
     {
+        _secondsUntilRefresh = 120;
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => IsLoading = true);
 
         try
@@ -209,12 +231,16 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
                         ShortUsagePercent = newPercent;
                         _prevShortPercent = newPercent;
+                        _lastKnownShortPercent = newPercent;
+                        _lastKnownShortReset = ShortResetLabel;
                     }
 
                     if (usage.SevenDay != null)
                     {
                         LongUsagePercent = usage.SevenDay.UsagePercent;
                         LongResetLabel   = FormatResetLabel(usage.SevenDay.ResetsAtParsed);
+                        _lastKnownLongPercent = LongUsagePercent;
+                        _lastKnownLongReset = LongResetLabel;
                     }
 
                     if (usage.SevenDayOpus != null)
@@ -233,16 +259,26 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 }
                 else if (_api.LastError != null)
                 {
+                    // Keep last known data visible — don't reset to 0 on transient errors
+                    ShortUsagePercent = _lastKnownShortPercent;
+                    ShortResetLabel   = _lastKnownShortReset;
+                    LongUsagePercent  = _lastKnownLongPercent;
+                    LongResetLabel    = _lastKnownLongReset;
+
                     HasError = true;
                     ErrorMessage = ParseFriendlyError(_api.LastError);
                     StatusText = "API Error";
+                    // LastUpdatedLabel is NOT updated here — it keeps showing the last successful time
                 }
                 else
                 {
                     StatusText = "No data";
                 }
 
-                LastUpdatedLabel = Loc.UpdatedAt(DateTime.Now.ToString("HH:mm:ss"));
+                // Always show last attempt time; prefix differs on error so users know data may be stale
+                LastUpdatedLabel = HasError
+                    ? $"⚠ {DateTime.Now:HH:mm:ss}"
+                    : Loc.UpdatedAt(DateTime.Now.ToString("HH:mm:ss"));
                 IsLoading = false;
             });
         }
@@ -309,6 +345,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         _timer.Dispose();
+        _countdownTimer.Dispose();
         GC.SuppressFinalize(this);
     }
 }
