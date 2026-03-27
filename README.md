@@ -143,6 +143,15 @@ ClaudeUsageTray/
 | 알림 | macOS 알림 | Windows Toast + ntfy 푸시 |
 | 자동 업데이트 | — | GitHub Releases 기반 |
 
+## 면책 조항
+
+이 앱은 **Claude Code가 로컬에 저장한 데이터를 읽어 시각화하는 참고용 도구**입니다.
+
+- 표시되는 사용량 수치는 Anthropic 공식 대시보드와 **다를 수 있습니다**
+- 이 앱의 수치를 근거로 한 요금 분쟁, 과금 문제 등에 대해 **개발자는 책임을 지지 않습니다**
+- 정확한 사용량 및 요금은 반드시 [Anthropic 공식 콘솔](https://console.anthropic.com)에서 확인하세요
+- 이 앱은 Anthropic의 공식 제품이 아니며, Anthropic과 무관한 개인 프로젝트입니다
+
 ## 기여하기
 
 PR은 언제든 환영합니다!

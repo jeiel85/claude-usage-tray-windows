@@ -177,6 +177,10 @@
 
                 </StackPanel>
 
+                <!-- Disclaimer -->
+                <TextBlock Margin="16,4,16,14" TextWrapping="Wrap" FontSize="10" Foreground="#3D4266"
+                           Text="이 앱은 참고용 도구입니다. 표시되는 수치는 공식 수치와 다를 수 있으며, 요금·과금 관련 문제에 대해 개발자는 책임을 지지 않습니다. 정확한 사용량은 Anthropic 공식 콘솔에서 확인하세요."/>
+
             </StackPanel>
         </Border>
     </Border>
