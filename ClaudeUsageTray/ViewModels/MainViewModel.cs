@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Timers;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using ClaudeUsageTray.Models;
 using ClaudeUsageTray.Services;
 using Timer = System.Timers.Timer;
@@ -11,7 +12,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
 {
     private readonly UsageApiService _api;
     private readonly SessionMonitor _session;
+    private readonly NotificationService _notifier;
+    private readonly SettingsService _settingsService;
     private readonly Timer _timer;
+
+    // Tracks previous 5h usage to detect threshold crossings
+    private double _prevShortPercent = -1;
+    private bool _prevHadRateLimit = false;
 
     [ObservableProperty] private string _statusText = "Loading...";
     [ObservableProperty] private bool _isLoading = true;
@@ -42,32 +49,77 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _hasRateLimitHit = false;
     [ObservableProperty] private string _rateLimitInfo = "";
 
-    // Raw response for debugging
+    // Notification settings
+    [ObservableProperty] private bool _notificationsEnabled;
+    [ObservableProperty] private bool _notifyRateLimit;
+    [ObservableProperty] private bool _threshold50;
+    [ObservableProperty] private bool _threshold75;
+    [ObservableProperty] private bool _threshold90;
+    [ObservableProperty] private bool _threshold100;
+    [ObservableProperty] private bool _settingsOpen = false;
+
     public string? RawApiResponse { get; private set; }
 
-    // Localized static labels (read-once at startup)
-    public string LblAppTitle    => Loc.AppTitle;
-    public string LblApiQuota    => Loc.ApiQuota;
-    public string LblTodayTokens => Loc.TodayTokens;
-    public string LblFiveHour    => Loc.FiveHourWindow;
-    public string LblSevenDay    => Loc.SevenDayWindow;
-    public string LblInput       => Loc.Input;
-    public string LblOutput      => Loc.Output;
-    public string LblCacheRead   => Loc.CacheRead;
-    public string LblCacheWrite  => Loc.CacheWrite;
-    public string LblTokens      => Loc.Tokens;
-    public string LblRefresh     => Loc.Refresh;
-    public string LblQuit        => Loc.Quit;
-    public string LblRefreshing  => Loc.Refreshing;
+    // Localized static labels
+    public string LblAppTitle        => Loc.AppTitle;
+    public string LblApiQuota        => Loc.ApiQuota;
+    public string LblTodayTokens     => Loc.TodayTokens;
+    public string LblFiveHour        => Loc.FiveHourWindow;
+    public string LblSevenDay        => Loc.SevenDayWindow;
+    public string LblInput           => Loc.Input;
+    public string LblOutput          => Loc.Output;
+    public string LblCacheRead       => Loc.CacheRead;
+    public string LblCacheWrite      => Loc.CacheWrite;
+    public string LblTokens          => Loc.Tokens;
+    public string LblRefresh         => Loc.Refresh;
+    public string LblQuit            => Loc.Quit;
+    public string LblRefreshing      => Loc.Refreshing;
+    public string LblNotifications   => Loc.Notifications;
+    public string LblNotiEnabled     => Loc.NotificationsEnabled;
+    public string LblNotiRateLimit   => Loc.NotifyRateLimit;
+    public string LblThresholds      => Loc.ThresholdsLabel;
 
-    public MainViewModel(UsageApiService api, SessionMonitor session)
+    public MainViewModel(UsageApiService api, SessionMonitor session,
+                         NotificationService notifier, SettingsService settingsService)
     {
         _api = api;
         _session = session;
+        _notifier = notifier;
+        _settingsService = settingsService;
 
-        _timer = new Timer(30_000); // 30 second refresh
+        LoadSettings();
+
+        _timer = new Timer(30_000);
         _timer.Elapsed += async (_, _) => await RefreshAsync();
         _timer.AutoReset = true;
+    }
+
+    private void LoadSettings()
+    {
+        var s = _settingsService.Load();
+        NotificationsEnabled = s.Enabled;
+        NotifyRateLimit = s.NotifyOnRateLimit;
+        Threshold50  = s.Thresholds.Contains(50);
+        Threshold75  = s.Thresholds.Contains(75);
+        Threshold90  = s.Thresholds.Contains(90);
+        Threshold100 = s.Thresholds.Contains(100);
+    }
+
+    [RelayCommand]
+    public void SaveSettings()
+    {
+        var thresholds = new List<int>();
+        if (Threshold50)  thresholds.Add(50);
+        if (Threshold75)  thresholds.Add(75);
+        if (Threshold90)  thresholds.Add(90);
+        if (Threshold100) thresholds.Add(100);
+
+        _settingsService.Save(new NotificationSettings
+        {
+            Enabled = NotificationsEnabled,
+            NotifyOnRateLimit = NotifyRateLimit,
+            Thresholds = thresholds
+        });
     }
 
     public async Task StartAsync()
@@ -82,50 +134,63 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         try
         {
-            // Fetch API usage
             var usage = await _api.FetchUsageAsync();
             RawApiResponse = _api.LastRawResponse;
-
-            // Scan local sessions
             var sessionStats = _session.ScanTodayUsage();
 
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                // Update session stats
-                TodayInputTokens = sessionStats.TotalInputTokens;
+                TodayInputTokens  = sessionStats.TotalInputTokens;
                 TodayOutputTokens = sessionStats.TotalOutputTokens;
-                TodayCacheRead = sessionStats.TotalCacheReadTokens;
-                TodayCacheWrite = sessionStats.TotalCacheWriteTokens;
-                SessionsLabel = Loc.Sessions(sessionStats.SessionCount);
-                HasRateLimitHit = sessionStats.HasRateLimitHit;
-                RateLimitInfo = sessionStats.RateLimitResetTime ?? "";
+                TodayCacheRead    = sessionStats.TotalCacheReadTokens;
+                TodayCacheWrite   = sessionStats.TotalCacheWriteTokens;
+                SessionsLabel     = Loc.Sessions(sessionStats.SessionCount);
+                HasRateLimitHit   = sessionStats.HasRateLimitHit;
+                RateLimitInfo     = sessionStats.RateLimitResetTime ?? "";
+
+                // Rate limit notification
+                if (NotificationsEnabled && NotifyRateLimit &&
+                    sessionStats.HasRateLimitHit && !_prevHadRateLimit)
+                {
+                    _notifier.ShowRateLimitAlert();
+                }
+                _prevHadRateLimit = sessionStats.HasRateLimitHit;
 
                 if (usage?.FiveHour != null || usage?.SevenDay != null)
                 {
                     HasError = false;
 
-                    if (usage.FiveHour != null)
+                    if (usage!.FiveHour != null)
                     {
-                        ShortUsagePercent = usage.FiveHour.UsagePercent;
+                        var newPercent = usage.FiveHour.UsagePercent;
                         ShortResetLabel = FormatResetLabel(usage.FiveHour.ResetsAtParsed);
+
+                        // Check threshold crossings (skip on first load)
+                        if (NotificationsEnabled && _prevShortPercent >= 0)
+                        {
+                            CheckThresholds(newPercent, ShortResetLabel);
+                        }
+
+                        ShortUsagePercent = newPercent;
+                        _prevShortPercent = newPercent;
                     }
 
                     if (usage.SevenDay != null)
                     {
                         LongUsagePercent = usage.SevenDay.UsagePercent;
-                        LongResetLabel = FormatResetLabel(usage.SevenDay.ResetsAtParsed);
+                        LongResetLabel   = FormatResetLabel(usage.SevenDay.ResetsAtParsed);
                     }
 
                     if (usage.SevenDayOpus != null)
                     {
                         OpusPercent = usage.SevenDayOpus.UsagePercent;
-                        OpusTokens = (long)(usage.SevenDayOpus.Utilization);
+                        OpusTokens  = (long)usage.SevenDayOpus.Utilization;
                     }
 
                     if (usage.SevenDaySonnet != null)
                     {
                         SonnetPercent = usage.SevenDaySonnet.UsagePercent;
-                        SonnetTokens = (long)(usage.SevenDaySonnet.Utilization);
+                        SonnetTokens  = (long)usage.SevenDaySonnet.Utilization;
                     }
 
                     StatusText = $"{ShortUsagePercent:P0} used";
@@ -157,6 +222,19 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    private void CheckThresholds(double newPercent, string resetLabel)
+    {
+        var settings = _settingsService.Load();
+        foreach (var t in settings.Thresholds.OrderBy(x => x))
+        {
+            double tf = t / 100.0;
+            if (_prevShortPercent < tf && newPercent >= tf)
+            {
+                _notifier.ShowUsageAlert(t, Loc.FiveHourWindow, resetLabel);
+            }
+        }
+    }
+
     private static string FormatResetLabel(DateTimeOffset? resetAt)
     {
         if (resetAt is null) return "";
@@ -171,11 +249,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private static string ParseFriendlyError(string raw)
     {
-        // 429 rate limit
         if (raw.Contains("429") || raw.Contains("rate_limit"))
             return Loc.RateLimited;
-
-        // Try to extract just the "message" field from JSON error
         try
         {
             var start = raw.IndexOf('{');
@@ -191,8 +266,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 }
             }
         }
-        catch { /* ignore parse failures */ }
-
+        catch { }
         return Loc.ApiError(raw.Length > 80 ? raw[..80] + "…" : raw);
     }
 

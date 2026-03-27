@@ -21,8 +21,10 @@ public partial class App : Application
         var credService = new CredentialService();
         var apiService = new UsageApiService(credService);
         var sessionMonitor = new SessionMonitor();
+        var notifier = new NotificationService();
+        var settingsService = new SettingsService();
 
-        _vm = new MainViewModel(apiService, sessionMonitor);
+        _vm = new MainViewModel(apiService, sessionMonitor, notifier, settingsService);
         _popup = new UsagePopup(_vm);
 
         _trayIcon = new NotifyIcon

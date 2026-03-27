@@ -29,6 +29,11 @@ public partial class UsagePopup : Window
         await _vm.RefreshAsync();
     }
 
+    private void SettingsBtn_Click(object sender, RoutedEventArgs e)
+    {
+        _vm.SettingsOpen = !_vm.SettingsOpen;
+    }
+
     private void QuitBtn_Click(object sender, RoutedEventArgs e)
     {
         System.Windows.Application.Current.Shutdown();

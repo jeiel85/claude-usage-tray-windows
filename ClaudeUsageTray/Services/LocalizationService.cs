@@ -160,6 +160,64 @@ public static class Loc
         _ => $"Updated {time}"
     };
 
+    // Notifications
+    public static string NotificationTitle => Lang switch
+    {
+        "ko" => "Claude 사용량 알림",
+        "zh" => "Claude 用量提醒",
+        "ja" => "Claude 使用量アラート",
+        _ => "Claude Usage Alert"
+    };
+
+    public static string NotificationBody(int percent, string window, string resetLabel) => Lang switch
+    {
+        "ko" => $"{window}가 {percent}%에 도달했습니다{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}",
+        "zh" => $"{window} 已达到 {percent}%{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}",
+        "ja" => $"{window} が {percent}% に達しました{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}",
+        _ => $"{window} reached {percent}%{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}"
+    };
+
+    public static string RateLimitTitle => Lang switch
+    {
+        "ko" => "Claude 레이트 리밋 도달",
+        "zh" => "Claude 已达到速率限制",
+        "ja" => "Claude レート制限に達しました",
+        _ => "Claude Rate Limit Reached"
+    };
+
+    // Settings
+    public static string Notifications => Lang switch
+    {
+        "ko" => "알림 설정",
+        "zh" => "通知设置",
+        "ja" => "通知設定",
+        _ => "Notifications"
+    };
+
+    public static string NotificationsEnabled => Lang switch
+    {
+        "ko" => "알림 사용",
+        "zh" => "启用通知",
+        "ja" => "通知を有効にする",
+        _ => "Enable notifications"
+    };
+
+    public static string NotifyRateLimit => Lang switch
+    {
+        "ko" => "레이트 리밋 알림",
+        "zh" => "速率限制通知",
+        "ja" => "レート制限通知",
+        _ => "Rate limit alert"
+    };
+
+    public static string ThresholdsLabel => Lang switch
+    {
+        "ko" => "5시간 윈도우 임계값",
+        "zh" => "5小时窗口阈值",
+        "ja" => "5時間ウィンドウ閾値",
+        _ => "5-Hour window thresholds"
+    };
+
     // Errors
     public static string NoToken => Lang switch
     {
