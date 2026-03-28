@@ -399,6 +399,30 @@ public static class Loc
         _ => "Later"
     };
 
+    public static string CheckUpdate => Lang switch
+    {
+        "ko" => "업데이트 확인",
+        "zh" => "检查更新",
+        "ja" => "アップデートを確認",
+        _ => "Check for updates"
+    };
+
+    public static string CheckingUpdate => Lang switch
+    {
+        "ko" => "업데이트 확인 중...",
+        "zh" => "检查更新中...",
+        "ja" => "アップデートを確認中...",
+        _ => "Checking for updates..."
+    };
+
+    public static string AlreadyUpToDate => Lang switch
+    {
+        "ko" => "✓ 최신 버전입니다",
+        "zh" => "✓ 已是最新版本",
+        "ja" => "✓ 最新バージョンです",
+        _ => "✓ Already up to date"
+    };
+
     public static string ApiError(string msg) => Lang switch
     {
         "ko" => $"API 오류: {msg}",

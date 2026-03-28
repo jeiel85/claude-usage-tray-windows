@@ -18,6 +18,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly HistoryService _history;
     private readonly Timer _timer;
     private readonly Timer _countdownTimer;
+    private readonly Timer _updateTimer;
     private int _secondsUntilRefresh = 0;
 
     // Tracks previous 5h usage to detect threshold crossings
@@ -82,6 +83,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     // Update banner
     [ObservableProperty] private bool _updateAvailable = false;
     [ObservableProperty] private string _updateLabel = "";
+    [ObservableProperty] private string _updateCheckLabel = "";
     private string _updateDownloadUrl = "";
     public string CurrentVersionLabel => $"v{UpdateService.CurrentVersion.ToString(3)}";
 
@@ -108,6 +110,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public string LblThresholds      => Loc.ThresholdsLabel;
     public string LblNtfyTopic       => Loc.NtfyTopic;
     public string LblNtfyPlaceholder => Loc.NtfyPlaceholder;
+    public string LblCheckUpdate     => Loc.CheckUpdate;
 
     public MainViewModel(UsageApiService api, SessionMonitor session,
                          NotificationService notifier, SettingsService settingsService,
@@ -136,6 +139,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
             System.Windows.Application.Current.Dispatcher.Invoke(() => NextRefreshLabel = label);
         };
         _countdownTimer.AutoReset = true;
+
+        _updateTimer = new Timer(86_400_000); // 24 hours
+        _updateTimer.Elapsed += async (_, _) => await CheckForUpdateAsync();
+        _updateTimer.AutoReset = true;
     }
 
     private void LoadSettings()
@@ -175,7 +182,49 @@ public partial class MainViewModel : ObservableObject, IDisposable
         await RefreshAsync();
         _timer.Start();
         _countdownTimer.Start();
+        _updateTimer.Start();
         _ = CheckForUpdateAsync();
+    }
+
+    [RelayCommand]
+    public async Task ManualCheckForUpdateAsync()
+    {
+        UpdateCheckLabel = Loc.CheckingUpdate;
+        var result = await _updater.CheckForUpdateAsync();
+
+        await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
+        {
+            if (result is null)
+            {
+                UpdateCheckLabel = Loc.AlreadyUpToDate;
+                await Task.Delay(3000);
+                UpdateCheckLabel = "";
+                return;
+            }
+
+            var (version, url, releaseNotes) = result.Value;
+            var versionStr = version.ToString(3);
+            UpdateCheckLabel = "";
+
+            var settings = _settingsService.Load();
+            if (settings.SkippedVersion == versionStr)
+            {
+                // User previously skipped — show dialog again on manual check
+                settings.SkippedVersion = "";
+                _settingsService.Save(settings);
+            }
+
+            _updateDownloadUrl = url;
+            UpdateLabel = Loc.UpdateAvailable($"v{versionStr}");
+            UpdateAvailable = true;
+
+            var dialog = new Views.UpdateDialog(
+                $"v{versionStr}",
+                releaseNotes,
+                onUpdate: async () => await ApplyUpdateAsync(),
+                onSkip: () => SkipVersion(versionStr));
+            dialog.Show();
+        });
     }
 
     private async Task CheckForUpdateAsync()
@@ -433,6 +482,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         _timer.Dispose();
         _countdownTimer.Dispose();
+        _updateTimer.Dispose();
         GC.SuppressFinalize(this);
     }
 }

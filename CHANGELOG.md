@@ -5,6 +5,34 @@
 
 ---
 
+## [1.10.0] - 2026-03-28
+
+<!-- ko -->
+### 추가
+- **24시간 자동 업데이트 확인** — 앱이 켜진 상태에서 24시간마다 자동으로 새 버전을 확인 (Issue #19)
+- **수동 업데이트 확인** — 푸터의 버전 텍스트(v1.x.x) 클릭 시 즉시 업데이트 체크. 최신 버전이면 "✓ 최신 버전입니다" 표시 후 3초 후 사라짐. 이전에 건너뛴 버전도 수동 체크 시 재표시 (Issue #19)
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **24-hour auto update check** — Automatically checks for new versions every 24 hours while the app is running (Issue #19)
+- **Manual update check** — Click the version label (v1.x.x) in the footer to check immediately. Shows "✓ Already up to date" for 3 seconds if no update found. Skipped versions reappear on manual check (Issue #19)
+<!-- /en -->
+
+<!-- zh -->
+### 新增
+- **24小时自动检查更新** — 应用运行时每24小时自动检查新版本（Issue #19）
+- **手动检查更新** — 点击底部版本号（v1.x.x）立即检查。无更新时显示"✓ 已是最新版本"，3秒后消失。手动检查时已跳过的版本也会重新显示（Issue #19）
+<!-- /zh -->
+
+<!-- ja -->
+### 追加
+- **24時間自動アップデート確認** — アプリ起動中、24時間ごとに自動で新バージョンを確認（Issue #19）
+- **手動アップデート確認** — フッターのバージョンラベル（v1.x.x）をクリックして即時確認。最新版なら「✓ 最新バージョンです」を3秒表示。手動確認時はスキップ済みバージョンも再表示（Issue #19）
+<!-- /ja -->
+
+---
+
 ## [1.9.0] - 2026-03-28
 
 <!-- ko -->

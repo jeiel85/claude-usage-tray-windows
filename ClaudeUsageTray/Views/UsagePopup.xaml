@@ -388,8 +388,32 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="{Binding SessionsLabel}" Foreground="#8B92B3" FontSize="11"/>
-                            <TextBlock Text="{Binding CurrentVersionLabel}" Foreground="#3D4266"
-                                       FontSize="10" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                            <Button Margin="8,0,0,0" Background="Transparent" BorderThickness="0"
+                                    Cursor="Hand" ToolTip="{Binding LblCheckUpdate}"
+                                    Command="{Binding ManualCheckForUpdateCommand}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding CurrentVersionLabel}" Foreground="#3D4266" FontSize="10" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding UpdateCheckLabel}" Foreground="#A78BFA" FontSize="10" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="2,1">
+                                                        <ContentPresenter/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="#2D2F45"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
                         </StackPanel>
 
                         <!-- Settings gear button -->
