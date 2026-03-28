@@ -350,6 +350,22 @@ public static class Loc
         _ => "Tests Windows toast + phone push (if ntfy topic is set)"
     };
 
+    public static string TestNotificationSent => Lang switch
+    {
+        "ko" => "✓ 전송됨 (Windows + 스마트폰)",
+        "zh" => "✓ 已发送（Windows + 手机）",
+        "ja" => "✓ 送信済み（Windows + スマホ）",
+        _ => "✓ Sent (Windows + phone)"
+    };
+
+    public static string TestNotificationSentNoNtfy => Lang switch
+    {
+        "ko" => "✓ Windows 알림 전송됨 (ntfy 미설정)",
+        "zh" => "✓ Windows 通知已发送（未设置 ntfy）",
+        "ja" => "✓ Windows 通知送信済み（ntfy 未設定）",
+        _ => "✓ Windows toast sent (ntfy not configured)"
+    };
+
     public static string StartWithWindows => Lang switch
     {
         "ko" => "윈도우 시작 시 자동 실행",

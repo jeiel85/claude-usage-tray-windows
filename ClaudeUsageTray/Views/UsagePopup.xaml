@@ -455,7 +455,7 @@
                         </Button>
 
                         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Border Width="1" Height="14" Background="#2D2F45" Margin="4,0,6,0"/>
+                            <Border Width="1" Height="14" Background="#3D2020" Margin="4,0,6,0"/>
                             <Button x:Name="QuitBtn"
                                     Content="{Binding LblQuit}"
                                     Background="Transparent" BorderThickness="0"
@@ -463,7 +463,7 @@
                                     Click="QuitBtn_Click">
                                 <Button.Style>
                                     <Style TargetType="Button">
-                                        <Setter Property="Foreground" Value="#8B92B3"/>
+                                        <Setter Property="Foreground" Value="#B87171"/>
                                         <Setter Property="Background" Value="Transparent"/>
                                         <Setter Property="Template">
                                             <Setter.Value>

@@ -5,6 +5,34 @@
 
 ---
 
+## [1.11.0] - 2026-03-28
+
+<!-- ko -->
+### 개선
+- **종료 버튼 시각적 구분 강화** — 종료 버튼을 평소에도 연한 빨간빛으로 표시해 파괴적 액션임을 명확히 구분 (Issue #17)
+- **알림 테스트 피드백** — 알림 테스트 버튼 클릭 시 "✓ 전송됨" 결과 표시. ntfy 미설정 시 "ntfy 미설정" 안내 포함 (Issue #20)
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Quit button visual distinction** — Quit button now shows in a subtle red tint at rest, making it clearly distinct as a destructive action (Issue #17)
+- **Test notification feedback** — Clicking the test notification button now shows "✓ Sent" result. Shows ntfy status if not configured (Issue #20)
+<!-- /en -->
+
+<!-- zh -->
+### 改进
+- **退出按钮视觉区分增强** — 退出按钮平时显示为淡红色，明确标识其为破坏性操作（Issue #17）
+- **通知测试反馈** — 点击通知测试按钮后显示"✓ 已发送"结果，未设置 ntfy 时显示相应提示（Issue #20）
+<!-- /zh -->
+
+<!-- ja -->
+### 改善
+- **終了ボタンの視覚的区別強化** — 終了ボタンを通常時も淡い赤みで表示し、破壊的アクションであることを明確化（Issue #17）
+- **通知テストのフィードバック** — 通知テストボタン押下後に「✓ 送信済み」を表示。ntfy 未設定時はその旨を案内（Issue #20）
+<!-- /ja -->
+
+---
+
 ## [1.10.0] - 2026-03-28
 
 <!-- ko -->

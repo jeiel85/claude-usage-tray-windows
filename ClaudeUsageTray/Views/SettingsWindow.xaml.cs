@@ -95,9 +95,17 @@ public partial class SettingsWindow : Window
         _vm.SaveSettingsCommand.Execute(null);
     }
 
-    private void BtnTestNotification_Click(object sender, RoutedEventArgs e)
+    private async void BtnTestNotification_Click(object sender, RoutedEventArgs e)
     {
+        var hasNtfy = !string.IsNullOrWhiteSpace(_vm.NtfyTopic);
         _vm.SendTestNotificationCommand.Execute(null);
+
+        var original = BtnTestNotification.Content;
+        BtnTestNotification.Content = hasNtfy ? Loc.TestNotificationSent : Loc.TestNotificationSentNoNtfy;
+        BtnTestNotification.IsEnabled = false;
+        await Task.Delay(2500);
+        BtnTestNotification.Content = original;
+        BtnTestNotification.IsEnabled = true;
     }
 
     private void StartWithWindows_Changed(object sender, RoutedEventArgs e)
