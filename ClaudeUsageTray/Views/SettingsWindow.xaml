@@ -154,7 +154,8 @@
                              Background="#1A1D2E" Foreground="#F1F5F9"
                              BorderBrush="#2D2F45" BorderThickness="1"
                              Padding="10,7" FontSize="12"
-                             LostFocus="TxtNtfyTopic_LostFocus">
+                             LostFocus="TxtNtfyTopic_LostFocus"
+                             KeyDown="TxtNtfyTopic_KeyDown">
                         <TextBox.Style>
                             <Style TargetType="TextBox">
                                 <Setter Property="Template">

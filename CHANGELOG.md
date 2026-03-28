@@ -5,6 +5,34 @@
 
 ---
 
+## [1.12.1] - 2026-03-29
+
+<!-- ko -->
+### 수정
+- **ntfy 스마트폰 알림 미전송 버그 수정** — HTTP 헤더에 한국어 제목을 넣을 때 .NET이 FormatException을 발생시켜 ntfy 요청 전체가 실패하던 문제. JSON API 방식으로 변경하여 해결 (Issue #23)
+- **ntfy 토픽 Enter키 저장** — 토픽 입력 후 Enter를 눌러도 저장되지 않던 문제 수정 (Issue #23)
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **ntfy push notification not sent** — When the app locale was Korean, adding a Korean title to an HTTP header caused a .NET FormatException, silently aborting the entire ntfy request. Switched to JSON API to fix (Issue #23)
+- **ntfy topic saved on Enter key** — Topic was not saved when pressing Enter; now handled via KeyDown event (Issue #23)
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **ntfy 推送通知未发送** — 中文/韩文标题写入 HTTP 头时触发 FormatException，导致请求静默失败。改用 JSON API 方式解决（Issue #23）
+- **ntfy 主题名 Enter 键保存** — 输入主题后按 Enter 不保存的问题已修复（Issue #23）
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **ntfy プッシュ通知が送信されないバグ修正** — 韓国語タイトルを HTTP ヘッダーに設定すると .NET が FormatException を投げて ntfy リクエスト全体が失敗していた問題を、JSON API 方式に変更して解決（Issue #23）
+- **ntfy トピック名の Enter キー保存** — トピック入力後に Enter を押しても保存されなかった問題を修正（Issue #23）
+<!-- /ja -->
+
+---
+
 ## [1.12.0] - 2026-03-28
 
 <!-- ko -->

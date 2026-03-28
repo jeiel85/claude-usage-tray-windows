@@ -95,6 +95,16 @@ public partial class SettingsWindow : Window
         _vm.SaveSettingsCommand.Execute(null);
     }
 
+    private void TxtNtfyTopic_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.Enter)
+        {
+            _vm.NtfyTopic = TxtNtfyTopic.Text.Trim();
+            _vm.SaveSettingsCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
+
     private async void BtnTestNotification_Click(object sender, RoutedEventArgs e)
     {
         var hasNtfy = !string.IsNullOrWhiteSpace(_vm.NtfyTopic);

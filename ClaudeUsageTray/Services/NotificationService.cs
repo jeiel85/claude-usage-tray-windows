@@ -1,5 +1,6 @@
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Toolkit.Uwp.Notifications;
 
 namespace ClaudeUsageTray.Services;
@@ -55,14 +56,20 @@ public class NotificationService
         {
             try
             {
-                var req = new HttpRequestMessage(HttpMethod.Post, $"https://ntfy.sh/{topic.Trim()}")
+                // JSON API로 전송 — HTTP 헤더에 한국어 등 non-ASCII 문자를 넣으면
+                // .NET이 FormatException을 던지므로 JSON body 방식을 사용
+                var payload = JsonSerializer.Serialize(new
                 {
-                    Content = new StringContent(body, Encoding.UTF8, "text/plain")
+                    topic = topic.Trim(),
+                    title,
+                    message = body,
+                    priority = 4,
+                    tags = new[] { "bell" }
+                });
+                var req = new HttpRequestMessage(HttpMethod.Post, "https://ntfy.sh/")
+                {
+                    Content = new StringContent(payload, Encoding.UTF8, "application/json")
                 };
-                req.Headers.Add("Title", title);
-                req.Headers.Add("Priority", "high");
-                req.Headers.Add("Tags", "bell");
-
                 await Http.SendAsync(req);
             }
             catch { }
