@@ -31,8 +31,8 @@ public partial class SettingsWindow : Window
         if (key is null) return;
         if (enable)
         {
-            var exe = System.Reflection.Assembly.GetExecutingAssembly().Location
-                          .Replace(".dll", ".exe");
+            var exe = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName
+                          ?? System.AppContext.BaseDirectory + "ClaudeUsageTray.exe";
             key.SetValue(StartupRegName, $"\"{exe}\"");
         }
         else

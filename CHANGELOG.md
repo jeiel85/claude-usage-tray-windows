@@ -5,6 +5,34 @@
 
 ---
 
+## [1.8.0] - 2026-03-28
+
+<!-- ko -->
+### 수정
+- **단일 실행 파일 크래시 수정** — GitHub에서 다운로드한 exe 실행 시 `DllNotFoundException`으로 앱이 무음 종료되는 문제 수정. WPF 네이티브 DLL(`PresentationNative_cor3.dll` 등)을 단일 파일에 포함하도록 빌드 방식 변경 (Issue #7)
+- **시작 프로그램 경로 수정** — 단일 파일 앱에서 `Assembly.Location`이 빈 문자열을 반환하는 문제 수정, 올바른 실행 파일 경로 사용
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Single-file exe crash fix** — App was silently crashing with `DllNotFoundException` on launch when downloaded from GitHub. Fixed by bundling WPF native DLLs (`PresentationNative_cor3.dll` etc.) into the single-file exe (Issue #7)
+- **Start with Windows path fix** — Fixed `Assembly.Location` returning empty string in single-file apps; now uses the correct executable path
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **单文件启动崩溃修复** — 从 GitHub 下载的 exe 启动时因 `DllNotFoundException` 静默崩溃。修复方案：将 WPF 原生 DLL（`PresentationNative_cor3.dll` 等）打包进单文件（Issue #7）
+- **开机启动路径修复** — 修复单文件应用中 `Assembly.Location` 返回空字符串的问题，改用正确的可执行文件路径
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **単一ファイル exe クラッシュ修正** — GitHub からダウンロードした exe を起動すると `DllNotFoundException` で無音終了する問題を修正。WPF ネイティブ DLL（`PresentationNative_cor3.dll` など）を単一ファイルに同梱するよう変更（Issue #7）
+- **スタートアップパス修正** — 単一ファイルアプリで `Assembly.Location` が空文字を返す問題を修正し、正しい実行ファイルパスを使用するよう変更
+<!-- /ja -->
+
+---
+
 ## [1.7.0] - 2026-03-28
 
 <!-- ko -->
