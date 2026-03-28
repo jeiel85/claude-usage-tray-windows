@@ -106,40 +106,8 @@
                             </StackPanel>
                         </StackPanel>
 
-                        <!-- Close button -->
-                        <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <Button x:Name="ClosePopupBtn"
-                                Width="32" Height="32"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                Cursor="Hand"
-                                ToolTip="닫기"
-                                Click="ClosePopupBtn_Click">
-                            <TextBlock Text="✕" Foreground="#3D4266" FontSize="13"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            <Button.Style>
-                                <Style TargetType="Button">
-                                    <Setter Property="Background" Value="Transparent"/>
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="Button">
-                                                <Border Background="{TemplateBinding Background}" CornerRadius="8">
-                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                </Border>
-                                                <ControlTemplate.Triggers>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter Property="Background" Value="#2D2F45"/>
-                                                    </Trigger>
-                                                </ControlTemplate.Triggers>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-
                         <!-- Refresh button -->
-                        <Button x:Name="RefreshBtn"
+                        <Button Grid.Column="1" x:Name="RefreshBtn"
                                 Width="32" Height="32"
                                 Background="Transparent"
                                 BorderThickness="0"
@@ -168,7 +136,6 @@
                                 </Style>
                             </Button.Style>
                         </Button>
-                        </StackPanel>
                     </Grid>
                 </Border>
 
@@ -463,31 +430,36 @@
                             </Button.Style>
                         </Button>
 
-                        <Button Grid.Column="2" x:Name="QuitBtn"
-                                Content="{Binding LblQuit}"
-                                Background="Transparent" BorderThickness="0"
-                                Foreground="#8B92B3" FontSize="11" Cursor="Hand"
-                                Click="QuitBtn_Click">
-                            <Button.Style>
-                                <Style TargetType="Button">
-                                    <Setter Property="Background" Value="Transparent"/>
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="Button">
-                                                <Border Background="{TemplateBinding Background}" Padding="6,3" CornerRadius="5">
-                                                    <ContentPresenter/>
-                                                </Border>
-                                                <ControlTemplate.Triggers>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter Property="Background" Value="#2D2F45"/>
-                                                    </Trigger>
-                                                </ControlTemplate.Triggers>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </Button.Style>
-                        </Button>
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Width="1" Height="14" Background="#2D2F45" Margin="4,0,6,0"/>
+                            <Button x:Name="QuitBtn"
+                                    Content="{Binding LblQuit}"
+                                    Background="Transparent" BorderThickness="0"
+                                    FontSize="11" Cursor="Hand"
+                                    Click="QuitBtn_Click">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Foreground" Value="#8B92B3"/>
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border Background="{TemplateBinding Background}" Padding="6,3" CornerRadius="5">
+                                                        <ContentPresenter/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="#2D1515"/>
+                                                            <Setter Property="Foreground" Value="#EF4444"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </StackPanel>
                     </Grid>
                 </Border>
 

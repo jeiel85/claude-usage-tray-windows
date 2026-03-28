@@ -19,6 +19,7 @@ public partial class UsagePopup : Window
     private readonly MainViewModel _vm;
     private SettingsWindow? _settingsWindow;
     private bool _showHourly = false;
+    private bool _settingsOpen = false;
 
     public UsagePopup(MainViewModel vm)
     {
@@ -26,7 +27,7 @@ public partial class UsagePopup : Window
         _vm = vm;
         DataContext = vm;
 
-        Deactivated += (_, _) => Hide();
+        Deactivated += (_, _) => { if (!_settingsOpen) Hide(); };
         MouseLeftButtonDown += (_, e) => DragMove();
 
         vm.PropertyChanged += OnVmPropertyChanged;
@@ -240,8 +241,6 @@ public partial class UsagePopup : Window
 
     protected override void OnSourceInitialized(EventArgs e) => base.OnSourceInitialized(e);
 
-    private void ClosePopupBtn_Click(object sender, RoutedEventArgs e) => Hide();
-
     private async void RefreshBtn_Click(object sender, RoutedEventArgs e) => await _vm.RefreshAsync();
 
     private void ExportCsvBtn_Click(object sender, RoutedEventArgs e) =>
@@ -250,13 +249,26 @@ public partial class UsagePopup : Window
     private void SettingsBtn_Click(object sender, RoutedEventArgs e)
     {
         if (_settingsWindow == null)
+        {
             _settingsWindow = new SettingsWindow(_vm);
+            _settingsWindow.IsVisibleChanged += (_, ev) =>
+            {
+                if (!(bool)ev.NewValue)
+                {
+                    _settingsOpen = false;
+                    ShowNearTray();
+                }
+            };
+        }
 
         if (_settingsWindow.IsVisible)
+        {
+            _settingsOpen = false;
             _settingsWindow.Hide();
+        }
         else
         {
-            Hide();
+            _settingsOpen = true;
             _settingsWindow.ShowNearTray();
         }
     }
