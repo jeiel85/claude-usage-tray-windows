@@ -263,6 +263,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 {
                     HasError = false;
 
+                    // API responded successfully — if 5h usage < 100%, rate limit has cleared
+                    if (usage.FiveHour != null && usage.FiveHour.UsagePercent < 1.0)
+                    {
+                        HasRateLimitHit = false;
+                        RateLimitInfo = "";
+                    }
+
                     if (usage!.FiveHour != null)
                     {
                         var newPercent = usage.FiveHour.UsagePercent;

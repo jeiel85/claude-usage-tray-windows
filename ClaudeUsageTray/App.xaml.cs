@@ -18,6 +18,23 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        DispatcherUnhandledException += (_, args) =>
+        {
+            ShowCrashDialog(args.Exception);
+            args.Handled = true;
+            Shutdown(1);
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            if (args.ExceptionObject is Exception ex)
+                ShowCrashDialog(ex);
+        };
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            ShowCrashDialog(args.Exception);
+            args.SetObserved();
+        };
+
         var credService = new CredentialService();
         var apiService = new UsageApiService(credService);
         var sessionMonitor = new SessionMonitor();
@@ -132,6 +149,15 @@ public partial class App : Application
 
         var hIcon = bmp.GetHicon();
         return Icon.FromHandle(hIcon);
+    }
+
+    private static void ShowCrashDialog(Exception ex)
+    {
+        var msg = $"Claude Usage Tray에서 예기치 않은 오류가 발생했습니다.\n\n" +
+                  $"{ex.GetType().Name}: {ex.Message}\n\n" +
+                  $"GitHub Issues에 아래 내용을 첨부해 신고해 주세요:\n{ex}";
+        System.Windows.MessageBox.Show(msg, "Claude Usage Tray — 오류",
+            MessageBoxButton.OK, MessageBoxImage.Error);
     }
 
     protected override void OnExit(ExitEventArgs e)
