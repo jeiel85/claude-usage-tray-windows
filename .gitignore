@@ -12,3 +12,5 @@ Thumbs.db
 *.suo
 *.userprefs
 .vscode/
+publish/
+publish2/

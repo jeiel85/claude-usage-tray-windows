@@ -80,6 +80,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
     // 오늘 시간대별 토큰 (0~23시)
     [ObservableProperty] private long[] _hourlyTokens = new long[24];
 
+    // 5시간 소진 예측
+    [ObservableProperty] private string _shortDepletionLabel = "";
+
+    // 오늘 추정 비용 (API 기준 참고값)
+    [ObservableProperty] private string _todayCostLabel = "";
+
     // Update banner
     [ObservableProperty] private bool _updateAvailable = false;
     [ObservableProperty] private string _updateLabel = "";
@@ -322,6 +328,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     sessionStats.SessionCount);
                 HistoryData = _history.GetLast(7);
                 HourlyTokens = sessionStats.HourlyTokens;
+                TodayCostLabel = CalcCostLabel(sessionStats.TotalInputTokens,
+                    sessionStats.TotalOutputTokens,
+                    sessionStats.TotalCacheReadTokens,
+                    sessionStats.TotalCacheWriteTokens);
                 HasRateLimitHit   = sessionStats.HasRateLimitHit;
                 RateLimitInfo     = sessionStats.RateLimitResetTime ?? "";
 
@@ -348,6 +358,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     {
                         var newPercent = usage.FiveHour.UsagePercent;
                         ShortResetLabel = FormatResetLabel(usage.FiveHour.ResetsAtParsed);
+                        ShortDepletionLabel = CalcDepletionLabel(usage.FiveHour);
 
                         // Check threshold crossings (skip on first load)
                         if (NotificationsEnabled && _prevShortPercent >= 0)
@@ -476,6 +487,38 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
         catch { }
         return Loc.ApiError(raw.Length > 80 ? raw[..80] + "…" : raw);
+    }
+
+    private static string CalcDepletionLabel(Models.UsageWindow w)
+    {
+        if (w.ResetsAtParsed is null || w.UsagePercent <= 0.02) return "";
+
+        var windowStart = w.ResetsAtParsed.Value - TimeSpan.FromHours(5);
+        var elapsed = DateTimeOffset.Now - windowStart;
+        if (elapsed.TotalMinutes < 5) return "";
+
+        double ratePerHour = w.UsagePercent / elapsed.TotalHours;
+        if (ratePerHour <= 0) return "";
+
+        double hoursToFull = (1.0 - w.UsagePercent) / ratePerHour;
+        var remaining = w.ResetsAtParsed.Value - DateTimeOffset.Now;
+
+        // 윈도우 내에 소진되지 않으면 표시 불필요
+        if (hoursToFull >= remaining.TotalHours) return "";
+
+        var depletionAt = DateTimeOffset.Now.AddHours(hoursToFull).ToLocalTime();
+        return Loc.DepletionAt(depletionAt.ToString("HH:mm"));
+    }
+
+    private static string CalcCostLabel(long input, long output, long cacheRead, long cacheWrite)
+    {
+        // Sonnet 3.5/3.7 API 가격 기준 참고값 (Claude Code는 구독제이므로 실제 과금 아님)
+        var cost = input * 3e-6
+                 + output * 15e-6
+                 + cacheRead * 0.3e-6
+                 + cacheWrite * 3.75e-6;
+        if (cost < 0.001) return "";
+        return Loc.CostEstimate(cost);
     }
 
     public void Dispose()

@@ -175,6 +175,7 @@
                     <Grid Margin="0,0,0,12">
                         <Grid.RowDefinitions>
                             <RowDefinition/>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="8"/>
                         </Grid.RowDefinitions>
                         <Grid Grid.Row="0">
@@ -191,7 +192,10 @@
                                            Foreground="#8B92B3" FontSize="11"/>
                             </StackPanel>
                         </Grid>
-                        <ProgressBar Grid.Row="1"
+                        <TextBlock Grid.Row="1" Text="{Binding ShortDepletionLabel}"
+                                   Foreground="#F59E0B" FontSize="10" Margin="0,3,0,0"
+                                   Visibility="{Binding ShortDepletionLabel, Converter={StaticResource StringToVisibility}}"/>
+                        <ProgressBar Grid.Row="2"
                                      Value="{Binding ShortUsagePercent}"
                                      Maximum="1"
                                      Style="{StaticResource UsageBarStyle}"
@@ -287,6 +291,10 @@
                             </StackPanel>
                         </Border>
                     </Grid>
+                    <!-- Cost estimate -->
+                    <TextBlock Text="{Binding TodayCostLabel}"
+                               Foreground="#5A5F7A" FontSize="10" Margin="2,6,0,0"
+                               Visibility="{Binding TodayCostLabel, Converter={StaticResource StringToVisibility}}"/>
                 </StackPanel>
 
                 <!-- History chart -->

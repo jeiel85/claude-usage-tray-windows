@@ -10,6 +10,7 @@ namespace ClaudeUsageTray;
 
 public partial class App : Application
 {
+    private static Mutex? _mutex;
     private NotifyIcon? _trayIcon;
     private MainViewModel? _vm;
     private UsagePopup? _popup;
@@ -17,6 +18,17 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        _mutex = new Mutex(true, "ClaudeUsageTray_SingleInstance_v1", out bool isNewInstance);
+        if (!isNewInstance)
+        {
+            System.Windows.MessageBox.Show(
+                "Claude Usage Tray가 이미 실행 중입니다.\n트레이 아이콘을 확인해 주세요.",
+                "Claude Usage Tray",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            Shutdown();
+            return;
+        }
 
         DispatcherUnhandledException += (_, args) =>
         {
@@ -168,6 +180,8 @@ public partial class App : Application
             _trayIcon.Visible = false;
             _trayIcon.Dispose();
         }
+        _mutex?.ReleaseMutex();
+        _mutex?.Dispose();
         base.OnExit(e);
     }
 }

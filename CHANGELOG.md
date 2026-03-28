@@ -5,6 +5,38 @@
 
 ---
 
+## [1.12.0] - 2026-03-28
+
+<!-- ko -->
+### 추가
+- **중복 실행 방지** — 이미 실행 중인 경우 새 인스턴스 시작 시 안내 메시지 표시 후 종료 (Issue #22)
+- **5시간 소진 예측** — 현재 사용 추세 기준 할당량이 소진될 예상 시각 표시. 윈도우 내 소진이 예상될 때만 표시 (Issue #9)
+- **토큰 비용 참고값 (USD)** — 오늘 사용한 토큰의 Sonnet API 기준 환산 비용 표시. Claude Code는 구독제이므로 참고용 (Issue #11)
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Single instance enforcement** — Shows a message and exits if already running (Issue #22)
+- **5-hour depletion forecast** — Shows estimated time the quota will run out based on current usage rate. Only shown when depletion is expected within the current window (Issue #9)
+- **Token cost estimate (USD)** — Shows today's token usage converted to approximate USD at Sonnet API rates. For reference only — Claude Code uses a subscription model (Issue #11)
+<!-- /en -->
+
+<!-- zh -->
+### 新增
+- **防止重复启动** — 已在运行时，新实例启动后显示提示并退出（Issue #22）
+- **5小时配额耗尽预测** — 根据当前使用趋势，显示配额预计耗尽时间。仅在当前窗口内预计耗尽时显示（Issue #9）
+- **令牌费用参考值（USD）** — 显示今日令牌使用量按 Sonnet API 价格换算的参考费用。Claude Code 为订阅制，仅供参考（Issue #11）
+<!-- /zh -->
+
+<!-- ja -->
+### 追加
+- **重複起動防止** — 既に起動中の場合、新しいインスタンスはメッセージを表示して終了（Issue #22）
+- **5時間クォータ枯渇予測** — 現在の使用ペースに基づき、クォータが枯渇する予想時刻を表示。ウィンドウ内で枯渇が見込まれる場合のみ表示（Issue #9）
+- **トークンコスト参考値（USD）** — 本日のトークン使用量を Sonnet API 価格で換算した参考費用を表示。Claude Code はサブスクリプション制のため参考値（Issue #11）
+<!-- /ja -->
+
+---
+
 ## [1.11.0] - 2026-03-28
 
 <!-- ko -->

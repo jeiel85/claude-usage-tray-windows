@@ -439,6 +439,22 @@ public static class Loc
         _ => "✓ Already up to date"
     };
 
+    public static string DepletionAt(string time) => Lang switch
+    {
+        "ko" => $"⚡ 추세대로면 {time}경 소진",
+        "zh" => $"⚡ 按当前趋势 {time} 耗尽",
+        "ja" => $"⚡ このペースなら {time} 頃に枯渇",
+        _ => $"⚡ at this rate, depletes ~{time}"
+    };
+
+    public static string CostEstimate(double usd) => Lang switch
+    {
+        "ko" => $"≈ ${usd:F3} (Sonnet 기준 참고값)",
+        "zh" => $"≈ ${usd:F3}（Sonnet 参考价格）",
+        "ja" => $"≈ ${usd:F3}（Sonnet 基準の参考値）",
+        _ => $"≈ ${usd:F3} (Sonnet API reference)"
+    };
+
     public static string ApiError(string msg) => Lang switch
     {
         "ko" => $"API 오류: {msg}",
