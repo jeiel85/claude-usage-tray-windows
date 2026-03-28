@@ -13,4 +13,7 @@ public class NotificationSettings
     public string NtfyTopic { get; set; } = "";
 
     public bool StartWithWindows { get; set; } = false;
+
+    // 건너뛴 업데이트 버전 (예: "1.5.0")
+    public string SkippedVersion { get; set; } = "";
 }

@@ -5,13 +5,71 @@
 
 ---
 
+## [1.6.0] - 2026-03-28
+
+<!-- ko -->
+### 추가
+- **업데이트 다이얼로그** — 새 버전 감지 시 체인지로그를 확인하고 업데이트 여부를 선택하는 팝업 표시
+- **이번 버전 건너뛰기** — 업데이트 다이얼로그에서 특정 버전을 건너뛰면 해당 버전에 대해 다시 알림 없음
+- **업데이트 다이얼로그 다국어 지원** — 한국어·영어·중국어·일본어로 현재 언어에 맞는 체인지로그 자동 표시
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Update dialog** — When a new version is detected, a popup shows the changelog and lets you choose whether to update
+- **Skip this version** — Skipping a version in the update dialog suppresses future notifications for that version
+- **Multilingual update dialog** — Changelog is displayed in the user's language (Korean · English · Chinese · Japanese)
+<!-- /en -->
+
+<!-- zh -->
+### 新增
+- **更新对话框** — 检测到新版本时，弹出对话框显示更新日志并询问是否更新
+- **跳过此版本** — 在更新对话框中跳过某版本后，不再显示该版本的提醒
+- **多语言更新日志** — 根据系统语言自动显示对应的更新日志（韩语·英语·中文·日语）
+<!-- /zh -->
+
+<!-- ja -->
+### 追加
+- **アップデートダイアログ** — 新バージョンを検出したとき、更新内容を確認してアップデートを選択できるポップアップを表示
+- **このバージョンをスキップ** — ダイアログでスキップしたバージョンは以降通知されない
+- **多言語アップデートログ** — システム言語に合わせた更新内容を自動表示（韓国語·英語·中国語·日本語）
+<!-- /ja -->
+
+---
+
 ## [1.5.0] - 2026-03-28
 
+<!-- ko -->
 ### 추가
 - **글로벌 예외 핸들러** — 앱 시작 또는 런타임 중 크래시 발생 시 조용히 종료되는 대신 에러 메시지 창 표시, GitHub Issues 신고용 스택트레이스 포함
 
 ### 수정
 - **Rate limit 배너 오표시 수정** — API가 정상 응답하고 5시간 사용률이 100% 미만이면 이전 rate limit 기록을 초기화하여 리셋 이후에도 경고 배너가 남아있는 문제 해결
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Global exception handler** — Instead of silently crashing, the app now shows an error dialog with a stack trace for GitHub Issues reporting
+
+### Fixed
+- **Rate limit banner stale display** — Banner now clears automatically when the API responds successfully with usage below 100%
+<!-- /en -->
+
+<!-- zh -->
+### 新增
+- **全局异常处理** — 应用崩溃时不再静默退出，而是显示包含堆栈跟踪的错误对话框，方便在 GitHub Issues 反馈
+
+### 修复
+- **限速提示横幅误显示** — API 正常响应且使用率低于 100% 时，横幅现在会自动消失
+<!-- /zh -->
+
+<!-- ja -->
+### 追加
+- **グローバル例外ハンドラー** — クラッシュ時に静かに終了する代わりに、GitHub Issues 報告用のスタックトレース付きエラーダイアログを表示
+
+### 修正
+- **レート制限バナーの誤表示** — API が正常に応答し使用率が 100% 未満の場合、バナーが自動的に消えるように修正
+<!-- /ja -->
 
 ---
 

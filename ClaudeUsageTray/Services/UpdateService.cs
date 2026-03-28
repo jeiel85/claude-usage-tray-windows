@@ -23,9 +23,9 @@ public class UpdateService
         Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0);
 
     /// <summary>
-    /// Returns (latestVersion, downloadUrl) if a newer release exists, otherwise null.
+    /// Returns (latestVersion, downloadUrl, releaseNotes) if a newer release exists, otherwise null.
     /// </summary>
-    public async Task<(Version version, string downloadUrl)?> CheckForUpdateAsync()
+    public async Task<(Version version, string downloadUrl, string releaseNotes)?> CheckForUpdateAsync()
     {
         try
         {
@@ -38,6 +38,9 @@ public class UpdateService
             if (!Version.TryParse(versionStr, out var latest)) return null;
             if (latest <= CurrentVersion) return null;
 
+            var releaseNotes = root.TryGetProperty("body", out var bodyEl)
+                ? bodyEl.GetString() ?? "" : "";
+
             // Find the .exe asset
             foreach (var asset in root.GetProperty("assets").EnumerateArray())
             {
@@ -45,12 +48,12 @@ public class UpdateService
                 if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                 {
                     var url = asset.GetProperty("browser_download_url").GetString() ?? "";
-                    return (latest, url);
+                    return (latest, url, releaseNotes);
                 }
             }
 
             // Fallback: no exe asset, link to release page
-            return (latest, ReleasePage);
+            return (latest, ReleasePage, releaseNotes);
         }
         catch
         {

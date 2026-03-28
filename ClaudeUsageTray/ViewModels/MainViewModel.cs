@@ -180,14 +180,35 @@ public partial class MainViewModel : ObservableObject, IDisposable
         var result = await _updater.CheckForUpdateAsync();
         if (result is null) return;
 
-        var (version, url) = result.Value;
+        var (version, url, releaseNotes) = result.Value;
+        var versionStr = version.ToString(3);
+
+        // Check if user skipped this version
+        var settings = _settingsService.Load();
+        if (settings.SkippedVersion == versionStr) return;
+
         _updateDownloadUrl = url;
 
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
-            UpdateLabel = Loc.UpdateAvailable($"v{version.ToString(3)}");
+            UpdateLabel = Loc.UpdateAvailable($"v{versionStr}");
             UpdateAvailable = true;
+
+            var dialog = new Views.UpdateDialog(
+                $"v{versionStr}",
+                releaseNotes,
+                onUpdate: async () => await ApplyUpdateAsync(),
+                onSkip: () => SkipVersion(versionStr));
+            dialog.Show();
         });
+    }
+
+    public void SkipVersion(string version)
+    {
+        var settings = _settingsService.Load();
+        settings.SkippedVersion = version;
+        _settingsService.Save(settings);
+        UpdateAvailable = false;
     }
 
     [RelayCommand]

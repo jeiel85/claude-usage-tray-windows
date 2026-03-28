@@ -18,6 +18,8 @@ public static class Loc
         };
     }
 
+    public static string CurrentLang => Lang;
+
     // Header
     public static string AppTitle => Lang switch
     {
@@ -338,6 +340,47 @@ public static class Loc
         "zh" => "随 Windows 启动",
         "ja" => "Windows 起動時に自動起動",
         _ => "Start with Windows"
+    };
+
+    // Update dialog
+    public static string UpdateDialogTitle => Lang switch
+    {
+        "ko" => "업데이트 사용 가능",
+        "zh" => "有新版本可用",
+        "ja" => "アップデートが利用可能",
+        _ => "Update Available"
+    };
+
+    public static string WhatsNew => Lang switch
+    {
+        "ko" => "변경사항",
+        "zh" => "更新内容",
+        "ja" => "更新内容",
+        _ => "What's New"
+    };
+
+    public static string UpdateNow => Lang switch
+    {
+        "ko" => "지금 업데이트",
+        "zh" => "立即更新",
+        "ja" => "今すぐ更新",
+        _ => "Update Now"
+    };
+
+    public static string SkipThisVersion => Lang switch
+    {
+        "ko" => "이번 버전 건너뛰기",
+        "zh" => "跳过此版本",
+        "ja" => "このバージョンをスキップ",
+        _ => "Skip This Version"
+    };
+
+    public static string Later => Lang switch
+    {
+        "ko" => "나중에",
+        "zh" => "稍后",
+        "ja" => "後で",
+        _ => "Later"
     };
 
     public static string ApiError(string msg) => Lang switch
