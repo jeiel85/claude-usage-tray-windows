@@ -61,6 +61,9 @@ public class SessionStats
     public bool HasRateLimitHit { get; set; }
     public string? RateLimitResetTime { get; set; }
 
+    // 시간대별(0~23시) 전체 토큰 집계
+    public long[] HourlyTokens { get; } = new long[24];
+
     public long TotalTokens => TotalInputTokens + TotalOutputTokens;
     public long GrandTotal => TotalInputTokens + TotalOutputTokens + TotalCacheReadTokens + TotalCacheWriteTokens;
 }

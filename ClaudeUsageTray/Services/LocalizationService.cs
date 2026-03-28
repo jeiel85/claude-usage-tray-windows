@@ -318,6 +318,14 @@ public static class Loc
         _ => "7-Day Usage Trend"
     };
 
+    public static string HourlyChartTitle => Lang switch
+    {
+        "ko" => "오늘 시간대별 사용량",
+        "zh" => "今日各时段用量",
+        "ja" => "本日時間帯別使用量",
+        _ => "Today's Hourly Usage"
+    };
+
     public static string TestNotification => Lang switch
     {
         "ko" => "알림 테스트",

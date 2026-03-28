@@ -18,6 +18,7 @@ public partial class UsagePopup : Window
 {
     private readonly MainViewModel _vm;
     private SettingsWindow? _settingsWindow;
+    private bool _showHourly = false;
 
     public UsagePopup(MainViewModel vm)
     {
@@ -29,13 +30,134 @@ public partial class UsagePopup : Window
         MouseLeftButtonDown += (_, e) => DragMove();
 
         vm.PropertyChanged += OnVmPropertyChanged;
-        Loaded += (_, _) => DrawHistoryChart();
+        Loaded += (_, _) => RefreshChart();
+        UpdateToggleStyle();
     }
 
     private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(MainViewModel.HistoryData))
-            Dispatcher.Invoke(DrawHistoryChart);
+        if (e.PropertyName is nameof(MainViewModel.HistoryData) or nameof(MainViewModel.HourlyTokens))
+            Dispatcher.Invoke(RefreshChart);
+    }
+
+    private void Toggle7DayBtn_Click(object sender, RoutedEventArgs e)
+    {
+        _showHourly = false;
+        UpdateToggleStyle();
+        RefreshChart();
+    }
+
+    private void ToggleHourlyBtn_Click(object sender, RoutedEventArgs e)
+    {
+        _showHourly = true;
+        UpdateToggleStyle();
+        RefreshChart();
+    }
+
+    private void UpdateToggleStyle()
+    {
+        var activeBg   = new SCB(WColor.FromRgb(45, 47, 69));
+        var inactiveBg = new SCB(WColor.FromArgb(0, 0, 0, 0));
+        var activeFg   = new SCB(WColor.FromRgb(167, 139, 250));
+        var inactiveFg = new SCB(WColor.FromRgb(61, 66, 102));
+
+        Toggle7DayBtn.Background   = _showHourly ? inactiveBg : activeBg;
+        Toggle7DayText.Foreground  = _showHourly ? inactiveFg : activeFg;
+        ToggleHourlyBtn.Background = _showHourly ? activeBg : inactiveBg;
+        ToggleHourlyText.Foreground = _showHourly ? activeFg : inactiveFg;
+
+        ChartTitleLabel.Text = _showHourly
+            ? Services.Loc.HourlyChartTitle
+            : Services.Loc.HistoryTitle;
+    }
+
+    private void RefreshChart()
+    {
+        if (_showHourly) DrawHourlyChart();
+        else DrawHistoryChart();
+    }
+
+    private void DrawHourlyChart()
+    {
+        HistoryCanvas.Children.Clear();
+        var data = _vm.HourlyTokens;
+        if (data == null) return;
+
+        const double canvasH  = 60;
+        const double barAreaH = 46;
+        double canvasW = HistoryCanvas.ActualWidth;
+        if (canvasW < 10) canvasW = 288;
+
+        int currentHour = DateTime.Now.Hour;
+        int slotCount   = currentHour + 1; // 0 ~ 현재시각
+
+        long maxVal = 0;
+        for (int h = 0; h <= currentHour; h++)
+            if (data[h] > maxVal) maxVal = data[h];
+        if (maxVal == 0) maxVal = 1;
+
+        double slot = canvasW / slotCount;
+        double gap  = Math.Max(1, slot * 0.12);
+        double barW = slot - gap;
+
+        var grad = new LGBB(
+            WColor.FromRgb(139, 92, 246),
+            WColor.FromRgb(99, 102, 241),
+            new WPoint(0, 0), new WPoint(0, 1));
+
+        for (int h = 0; h <= currentHour; h++)
+        {
+            double ratio = (double)data[h] / maxVal;
+            double barH  = Math.Max(data[h] > 0 ? 3 : 0, ratio * barAreaH);
+            double x     = h * slot + gap / 2;
+            bool isNow   = h == currentHour;
+
+            // Background bar
+            var bg = new WRect
+            {
+                Width = barW, Height = barAreaH,
+                Fill = new SCB(WColor.FromRgb(45, 47, 69)),
+                RadiusX = 2, RadiusY = 2
+            };
+            Canvas.SetLeft(bg, x); Canvas.SetTop(bg, 0);
+            HistoryCanvas.Children.Add(bg);
+
+            // Fill bar
+            if (barH > 0)
+            {
+                var fill = new WRect
+                {
+                    Width = barW, Height = barH,
+                    Fill = isNow
+                        ? (System.Windows.Media.Brush)grad
+                        : new SCB(WColor.FromArgb(160, 99, 102, 241)),
+                    RadiusX = 2, RadiusY = 2
+                };
+                Canvas.SetLeft(fill, x); Canvas.SetTop(fill, barAreaH - barH);
+                HistoryCanvas.Children.Add(fill);
+            }
+
+            // Hour label — 0, 6, 12, 18시 + 현재 시간
+            bool showLabel = h % 6 == 0 || isNow;
+            if (showLabel && slot >= 8)
+            {
+                var label = new TextBlock
+                {
+                    Text = $"{h}",
+                    FontSize = 9,
+                    Foreground = isNow
+                        ? new SCB(WColor.FromRgb(167, 139, 250))
+                        : new SCB(WColor.FromRgb(61, 66, 102)),
+                    Width = slot,
+                    TextAlignment = TextAlignment.Center
+                };
+                Canvas.SetLeft(label, h * slot);
+                Canvas.SetTop(label, barAreaH + 2);
+                HistoryCanvas.Children.Add(label);
+            }
+        }
+
+        HistoryCanvas.Height = canvasH;
     }
 
     private void DrawHistoryChart()

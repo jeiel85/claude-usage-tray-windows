@@ -5,6 +5,30 @@
 
 ---
 
+## [1.7.0] - 2026-03-28
+
+<!-- ko -->
+### 추가
+- **시간대별 사용량 차트** — 차트 섹션에 "7일 / 오늘" 토글 추가. 오늘 탭 선택 시 0시부터 현재 시각까지 시간대별 토큰 사용량 바 차트 표시, 현재 시각 바 보라색 강조 (Issue #15)
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Hourly usage chart** — Added "7-Day / Today" toggle to the chart section. The Today tab shows token usage per hour from midnight to the current time, with the current hour highlighted in purple (Issue #15)
+<!-- /en -->
+
+<!-- zh -->
+### 新增
+- **时段用量图表** — 图表区域新增「7天 / 今日」切换。选择今日后显示从0时到当前时刻的每小时用量柱状图，当前时刻以紫色高亮（Issue #15）
+<!-- /zh -->
+
+<!-- ja -->
+### 追加
+- **時間帯別使用量チャート** — チャートセクションに「7日 / 今日」トグルを追加。今日タブでは0時から現在時刻までの時間帯別トークン使用量を表示し、現在時刻のバーを紫色でハイライト（Issue #15）
+<!-- /ja -->
+
+---
+
 ## [1.6.0] - 2026-03-28
 
 <!-- ko -->

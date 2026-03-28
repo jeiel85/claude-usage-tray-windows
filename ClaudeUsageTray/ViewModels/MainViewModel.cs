@@ -76,6 +76,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
     // History
     [ObservableProperty] private IReadOnlyList<DailyStats> _historyData = [];
 
+    // 오늘 시간대별 토큰 (0~23시)
+    [ObservableProperty] private long[] _hourlyTokens = new long[24];
+
     // Update banner
     [ObservableProperty] private bool _updateAvailable = false;
     [ObservableProperty] private string _updateLabel = "";
@@ -269,6 +272,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     sessionStats.TotalCacheReadTokens, sessionStats.TotalCacheWriteTokens,
                     sessionStats.SessionCount);
                 HistoryData = _history.GetLast(7);
+                HourlyTokens = sessionStats.HourlyTokens;
                 HasRateLimitHit   = sessionStats.HasRateLimitHit;
                 RateLimitInfo     = sessionStats.RateLimitResetTime ?? "";
 
