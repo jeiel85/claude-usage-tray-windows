@@ -342,6 +342,14 @@ public static class Loc
         _ => "Notifications are working correctly!"
     };
 
+    public static string TestNotificationHint => Lang switch
+    {
+        "ko" => "Windows 토스트 + 스마트폰 알림(ntfy 설정 시) 동시 테스트",
+        "zh" => "同时测试 Windows 通知 + 手机推送（已设置 ntfy 时）",
+        "ja" => "Windows トースト + スマホ通知（ntfy 設定済みの場合）を同時テスト",
+        _ => "Tests Windows toast + phone push (if ntfy topic is set)"
+    };
+
     public static string StartWithWindows => Lang switch
     {
         "ko" => "윈도우 시작 시 자동 실행",

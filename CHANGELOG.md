@@ -12,6 +12,7 @@
 - **헤더 ✕ 버튼 제거** — 팝업은 이미 클릭 아웃 시 자동으로 닫히므로 헤더의 중복된 닫기 버튼 제거. ↻ 새로고침 버튼만 유지 (Issue #16)
 - **종료 버튼 시각적 구분** — 설정(⚙)과 종료 사이에 구분선 추가, 마우스 오버 시 붉은 계열 색상으로 파괴적 액션 명확화 (Issue #17)
 - **설정창 닫기 후 메인 팝업 복귀** — 설정창을 닫으면 메인 팝업이 자동으로 다시 표시됨. 설정을 열어도 메인 팝업이 백그라운드에서 유지됨 (Issue #18)
+- **알림 테스트 버튼 안내 추가** — "알림 테스트" 버튼이 Windows 토스트와 스마트폰 ntfy 알림을 동시에 테스트함을 버튼 하단에 명시
 <!-- /ko -->
 
 <!-- en -->
@@ -19,6 +20,7 @@
 - **Remove header ✕ button** — Popup already closes on click-outside (Deactivated), so the redundant close button in the header has been removed. Only the ↻ refresh button remains (Issue #16)
 - **Quit button visual distinction** — Added a separator before the quit button; hover now shows red color to indicate a destructive action (Issue #17)
 - **Return to main popup after closing settings** — Closing the settings window automatically brings the main popup back. The main popup also stays visible in the background while settings is open (Issue #18)
+- **Test notification hint** — Clarified that the "Test notification" button tests both Windows toast and phone push (ntfy) simultaneously
 <!-- /en -->
 
 <!-- zh -->
@@ -26,6 +28,7 @@
 - **移除标题栏 ✕ 按钮** — 弹窗点击外部已自动关闭，标题栏的冗余关闭按钮已移除，仅保留 ↻ 刷新按钮（Issue #16）
 - **退出按钮视觉区分** — 设置与退出之间添加分隔线，鼠标悬停时显示红色，明确提示破坏性操作（Issue #17）
 - **关闭设置后返回主窗口** — 关闭设置窗口后主弹窗自动重新显示，打开设置时主弹窗保持后台可见（Issue #18）
+- **测试通知说明** — 明确标注"测试通知"按钮同时测试 Windows 通知和手机推送（ntfy）
 <!-- /zh -->
 
 <!-- ja -->
@@ -33,6 +36,7 @@
 - **ヘッダーの ✕ ボタンを削除** — ポップアップはクリック外で自動的に閉じるため、ヘッダーの重複した閉じるボタンを削除。↻ 更新ボタンのみを残します（Issue #16）
 - **終了ボタンの視覚的区別** — 設定と終了の間に区切り線を追加、ホバー時に赤色で破壊的操作を明示（Issue #17）
 - **設定を閉じた後にメインポップアップへ戻る** — 設定ウィンドウを閉じると自動的にメインポップアップが再表示。設定中もメインポップアップはバックグラウンドで維持（Issue #18）
+- **テスト通知の説明追加** — 「通知テスト」ボタンが Windows トーストとスマホ通知（ntfy）を同時にテストすることをボタン下部に明示
 <!-- /ja -->
 
 ---

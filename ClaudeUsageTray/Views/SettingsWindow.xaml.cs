@@ -55,6 +55,7 @@ public partial class SettingsWindow : Window
         ChkRateLimit.Content            = Loc.NotifyRateLimit;
         ChkStartWithWindows.Content         = Loc.StartWithWindows;
         BtnTestNotification.Content         = Loc.TestNotification;
+        LblTestNotificationHint.Text        = Loc.TestNotificationHint;
         LblThresholds.Text     = Loc.ThresholdsLabel;
         LblNtfyTitle.Text      = Loc.NtfyTitle;
         LblNtfyDesc.Text       = Loc.NtfyDesc;

@@ -106,7 +106,8 @@
                     <CheckBox x:Name="ChkRateLimit"        Style="{StaticResource CheckStyle}" Click="Setting_Changed"/>
                     <CheckBox x:Name="ChkStartWithWindows" Style="{StaticResource CheckStyle}" Click="StartWithWindows_Changed"/>
                     <Button x:Name="BtnTestNotification" Style="{StaticResource LinkBtn}"
-                            Margin="0,2,0,6" Click="BtnTestNotification_Click"/>
+                            Margin="0,2,0,2" Click="BtnTestNotification_Click"/>
+                    <TextBlock x:Name="LblTestNotificationHint" Foreground="#5A5F7A" FontSize="10" Margin="0,0,0,6"/>
 
                     <!-- Thresholds -->
                     <Border Height="1" Background="#2D2F45" Margin="0,8,0,14"/>
