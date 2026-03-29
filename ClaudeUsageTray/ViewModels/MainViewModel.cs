@@ -89,6 +89,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
     // 오늘 추정 비용 (API 기준 참고값)
     [ObservableProperty] private string _todayCostLabel = "";
 
+    // Extra usage (purchased add-on)
+    [ObservableProperty] private bool _extraUsageEnabled = false;
+    [ObservableProperty] private double _extraUsagePercent = 0;
+    [ObservableProperty] private string _extraCreditsLabel = "";
+
+    public string LblExtraUsage => Loc.ExtraUsageTitle;
+
     // Update banner
     [ObservableProperty] private bool _updateAvailable = false;
     [ObservableProperty] private string _updateLabel = "";
@@ -397,6 +404,19 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     {
                         SonnetPercent = usage.SevenDaySonnet.UsagePercent;
                         SonnetTokens  = (long)usage.SevenDaySonnet.Utilization;
+                    }
+
+                    if (usage.ExtraUsage is { IsEnabled: true } eu)
+                    {
+                        ExtraUsageEnabled  = true;
+                        ExtraUsagePercent  = Math.Min(1.0, (eu.Utilization ?? 0) / 100.0);
+                        ExtraCreditsLabel  = (eu.UsedCredits.HasValue && eu.MonthlyLimit.HasValue)
+                            ? Loc.ExtraCredits(eu.UsedCredits.Value, eu.MonthlyLimit.Value)
+                            : "";
+                    }
+                    else
+                    {
+                        ExtraUsageEnabled = false;
                     }
 
                     StatusText = $"{ShortUsagePercent:P0} used";

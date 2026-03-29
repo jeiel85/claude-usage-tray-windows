@@ -463,6 +463,22 @@ public static class Loc
         _ => $"≈ ${usd:F3} (Sonnet API reference)"
     };
 
+    public static string ExtraUsageTitle => Lang switch
+    {
+        "ko" => "추가 구매 사용량",
+        "zh" => "额外购买用量",
+        "ja" => "追加購入使用量",
+        _ => "Extra Usage"
+    };
+
+    public static string ExtraCredits(double used, double limit) => Lang switch
+    {
+        "ko" => $"{used:N0} / {limit:N0} 크레딧",
+        "zh" => $"{used:N0} / {limit:N0} 积分",
+        "ja" => $"{used:N0} / {limit:N0} クレジット",
+        _ => $"{used:N0} / {limit:N0} credits"
+    };
+
     public static string ApiError(string msg) => Lang switch
     {
         "ko" => $"API 오류: {msg}",

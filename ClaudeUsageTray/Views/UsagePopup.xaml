@@ -234,6 +234,58 @@
                     </Grid>
                 </StackPanel>
 
+                <!-- Extra Usage section (only when purchased) -->
+                <StackPanel Margin="16,12,16,0"
+                            Visibility="{Binding ExtraUsageEnabled, Converter={StaticResource BoolToVisibility}}">
+                    <Border Height="1" Background="#2D2F45" Margin="0,0,0,12"/>
+                    <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblExtraUsage}" Margin="0,0,0,10"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{Binding LblExtraUsage}"
+                                   Foreground="#C4C9E0" FontSize="12" FontWeight="Medium"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <TextBlock Text="{Binding ExtraUsagePercent, StringFormat={}{0:P0}}"
+                                       Foreground="#F59E0B" FontSize="12" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Grid>
+                    <ProgressBar Value="{Binding ExtraUsagePercent}" Maximum="1"
+                                 Margin="0,6,0,6">
+                        <ProgressBar.Style>
+                            <Style TargetType="ProgressBar" BasedOn="{StaticResource UsageBarStyle}">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ProgressBar">
+                                            <Grid>
+                                                <Border Background="#2D2F45" CornerRadius="3"/>
+                                                <Border x:Name="PART_Track" CornerRadius="3"/>
+                                                <Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="3">
+                                                    <Border.Background>
+                                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                            <GradientStop Color="#F59E0B" Offset="0"/>
+                                                            <GradientStop Color="#D97706" Offset="1"/>
+                                                        </LinearGradientBrush>
+                                                    </Border.Background>
+                                                </Border>
+                                            </Grid>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="Value" Value="0">
+                                                    <Setter TargetName="PART_Indicator" Property="Visibility" Value="Collapsed"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ProgressBar.Style>
+                    </ProgressBar>
+                    <TextBlock Text="{Binding ExtraCreditsLabel}"
+                               Foreground="#8B92B3" FontSize="10" Margin="0,0,0,0"
+                               Visibility="{Binding ExtraCreditsLabel, Converter={StaticResource StringToVisibility}}"/>
+                </StackPanel>
+
                 <!-- Divider -->
                 <Border Height="1" Background="#2D2F45" Margin="16,12"/>
 
