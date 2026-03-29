@@ -83,6 +83,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
     // 5시간 소진 예측
     [ObservableProperty] private string _shortDepletionLabel = "";
 
+    // 7일 소진 예측
+    [ObservableProperty] private string _longDepletionLabel = "";
+
     // 오늘 추정 비용 (API 기준 참고값)
     [ObservableProperty] private string _todayCostLabel = "";
 
@@ -227,7 +230,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             var dialog = new Views.UpdateDialog(
                 $"v{versionStr}",
                 releaseNotes,
-                onUpdate: async () => await ApplyUpdateAsync(),
+                onUpdate: async (prog) => await ApplyUpdateCoreAsync(prog),
                 onSkip: () => SkipVersion(versionStr));
             dialog.Show();
         });
@@ -255,7 +258,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             var dialog = new Views.UpdateDialog(
                 $"v{versionStr}",
                 releaseNotes,
-                onUpdate: async () => await ApplyUpdateAsync(),
+                onUpdate: async (prog) => await ApplyUpdateCoreAsync(prog),
                 onSkip: () => SkipVersion(versionStr));
             dialog.Show();
         });
@@ -287,10 +290,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    public async Task ApplyUpdateAsync()
+    public async Task ApplyUpdateAsync() => await ApplyUpdateCoreAsync(null);
+
+    private async Task ApplyUpdateCoreAsync(Action<int>? onProgress)
     {
         if (string.IsNullOrEmpty(_updateDownloadUrl)) return;
-        await _updater.ApplyUpdateAsync(_updateDownloadUrl);
+        var progress = onProgress != null ? new Progress<int>(onProgress) : null;
+        await _updater.ApplyUpdateAsync(_updateDownloadUrl, progress);
     }
 
     public async Task RefreshAsync()
@@ -374,8 +380,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
                     if (usage.SevenDay != null)
                     {
-                        LongUsagePercent = usage.SevenDay.UsagePercent;
-                        LongResetLabel   = FormatResetLabel(usage.SevenDay.ResetsAtParsed);
+                        LongUsagePercent    = usage.SevenDay.UsagePercent;
+                        LongResetLabel      = FormatResetLabel(usage.SevenDay.ResetsAtParsed);
+                        LongDepletionLabel  = CalcLongDepletionLabel(usage.SevenDay);
                         _lastKnownLongPercent = LongUsagePercent;
                         _lastKnownLongReset = LongResetLabel;
                     }
@@ -508,6 +515,30 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         var depletionAt = DateTimeOffset.Now.AddHours(hoursToFull).ToLocalTime();
         return Loc.DepletionAt(depletionAt.ToString("HH:mm"));
+    }
+
+    private static string CalcLongDepletionLabel(Models.UsageWindow w)
+    {
+        if (w.ResetsAtParsed is null || w.UsagePercent <= 0.02) return "";
+
+        var windowStart = w.ResetsAtParsed.Value - TimeSpan.FromDays(7);
+        var elapsed = DateTimeOffset.Now - windowStart;
+        if (elapsed.TotalHours < 2) return ""; // 데이터 부족
+
+        double ratePerDay = w.UsagePercent / elapsed.TotalDays;
+        if (ratePerDay <= 0) return "";
+
+        double daysToFull = (1.0 - w.UsagePercent) / ratePerDay;
+        var remaining = w.ResetsAtParsed.Value - DateTimeOffset.Now;
+
+        // 윈도우 내에 소진되지 않으면 표시 불필요
+        if (daysToFull >= remaining.TotalDays) return "";
+
+        var depletionAt = DateTimeOffset.Now.AddDays(daysToFull).ToLocalTime();
+        var timeStr = daysToFull < 1
+            ? depletionAt.ToString("HH:mm")
+            : depletionAt.ToString("M/d HH:mm");
+        return Loc.DepletionAt(timeStr);
     }
 
     private static string CalcCostLabel(long input, long output, long cacheRead, long cacheWrite)
