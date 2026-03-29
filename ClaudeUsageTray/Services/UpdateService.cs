@@ -64,16 +64,31 @@ public class UpdateService
     /// <summary>
     /// Downloads the new exe, writes a batch updater to %TEMP%, launches it and exits.
     /// </summary>
-    public async Task ApplyUpdateAsync(string downloadUrl)
+    public async Task ApplyUpdateAsync(string downloadUrl, IProgress<int>? progress = null)
     {
         var tempDir    = Path.GetTempPath();
         var newExePath = Path.Combine(tempDir, "ClaudeUsageTray_update.exe");
         var scriptPath = Path.Combine(tempDir, "claude_tray_update.bat");
         var currentExe = Process.GetCurrentProcess().MainModule!.FileName;
 
-        // Download
-        var bytes = await Http.GetByteArrayAsync(downloadUrl);
-        await File.WriteAllBytesAsync(newExePath, bytes);
+        // Download with progress reporting
+        using var response = await Http.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
+        response.EnsureSuccessStatusCode();
+
+        var totalBytes = response.Content.Headers.ContentLength ?? 0;
+        using var srcStream  = await response.Content.ReadAsStreamAsync();
+        using var destStream = new FileStream(newExePath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
+
+        var buffer = new byte[81920];
+        long downloaded = 0;
+        int  read;
+        while ((read = await srcStream.ReadAsync(buffer)) > 0)
+        {
+            await destStream.WriteAsync(buffer.AsMemory(0, read));
+            downloaded += read;
+            if (totalBytes > 0)
+                progress?.Report((int)(downloaded * 100 / totalBytes));
+        }
 
         // Batch script: wait for this process to exit, replace exe, restart
         var script = $"""

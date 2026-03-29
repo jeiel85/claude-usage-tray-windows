@@ -206,6 +206,7 @@
                     <Grid Margin="0,0,0,8">
                         <Grid.RowDefinitions>
                             <RowDefinition/>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="8"/>
                         </Grid.RowDefinitions>
                         <Grid Grid.Row="0">
@@ -222,7 +223,10 @@
                                            Foreground="#8B92B3" FontSize="11"/>
                             </StackPanel>
                         </Grid>
-                        <ProgressBar Grid.Row="1"
+                        <TextBlock Grid.Row="1" Text="{Binding LongDepletionLabel}"
+                                   Foreground="#F59E0B" FontSize="10" Margin="0,3,0,0"
+                                   Visibility="{Binding LongDepletionLabel, Converter={StaticResource StringToVisibility}}"/>
+                        <ProgressBar Grid.Row="2"
                                      Value="{Binding LongUsagePercent}"
                                      Maximum="1"
                                      Style="{StaticResource UsageBarStyle}"

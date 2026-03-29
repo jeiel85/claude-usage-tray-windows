@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Shapes;
 using ClaudeUsageTray.Services;
 using ClaudeUsageTray.ViewModels;
@@ -29,6 +30,7 @@ public partial class UsagePopup : Window
 
         Deactivated += (_, _) => { if (!_settingsOpen) Hide(); };
         MouseLeftButtonDown += (_, e) => DragMove();
+        PreviewKeyDown += OnPreviewKeyDown;
 
         vm.PropertyChanged += OnVmPropertyChanged;
         Loaded += (_, _) => RefreshChart();
@@ -237,6 +239,19 @@ public partial class UsagePopup : Window
         }
 
         HistoryCanvas.Height = canvasH;
+    }
+
+    private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        bool isEsc   = e.Key == Key.Escape;
+        bool isCtrlW = e.Key == Key.W && (Keyboard.Modifiers & ModifierKeys.Control) != 0;
+        bool isAltF4 = e.Key == Key.F4 && (Keyboard.Modifiers & ModifierKeys.Alt) != 0;
+
+        if (isEsc || isCtrlW || isAltF4)
+        {
+            Hide();
+            e.Handled = true;
+        }
     }
 
     protected override void OnSourceInitialized(EventArgs e) => base.OnSourceInitialized(e);

@@ -93,8 +93,30 @@
                     </Border>
                 </StackPanel>
 
+                <!-- Download progress (shown while downloading) -->
+                <Border x:Name="ProgressPanel" Visibility="Collapsed" Margin="16,0,16,0" Padding="0,0,0,12">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock x:Name="DownloadingLabel" Foreground="#8B92B3" FontSize="11"/>
+                            <TextBlock x:Name="ProgressPctLabel" Text="0%" Foreground="#A78BFA"
+                                       FontSize="11" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Border Background="#2D2F45" CornerRadius="3" Height="6">
+                            <Border x:Name="ProgressFill" HorizontalAlignment="Left"
+                                    Width="0" CornerRadius="3">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="#8B5CF6" Offset="0"/>
+                                        <GradientStop Color="#6366F1" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
                 <!-- Buttons -->
-                <StackPanel Margin="16,14,16,16">
+                <StackPanel x:Name="ButtonPanel" Margin="16,14,16,16">
                     <!-- Update button -->
                     <Button x:Name="UpdateBtn"
                             Height="38" Cursor="Hand"
