@@ -6,10 +6,10 @@ namespace ClaudeUsageTray.Views;
 
 public partial class UpdateDialog : Window
 {
-    private readonly Func<Task> _onUpdate;
+    private readonly Func<Action<int>, Task> _onUpdate;
     private readonly Action _onSkip;
 
-    public UpdateDialog(string version, string releaseNotes, Func<Task> onUpdate, Action onSkip)
+    public UpdateDialog(string version, string releaseNotes, Func<Action<int>, Task> onUpdate, Action onSkip)
     {
         InitializeComponent();
         _onUpdate = onUpdate;
@@ -31,8 +31,16 @@ public partial class UpdateDialog : Window
     private async void UpdateBtn_Click(object sender, RoutedEventArgs e)
     {
         UpdateBtn.IsEnabled = false;
-        UpdateBtn.Opacity   = 0.6;
-        await _onUpdate();
+        ButtonPanel.Visibility = Visibility.Collapsed;
+        DownloadingLabel.Text  = Loc.DownloadingUpdate;
+        ProgressPanel.Visibility = Visibility.Visible;
+
+        await _onUpdate(pct => Dispatcher.Invoke(() =>
+        {
+            ProgressPctLabel.Text = $"{pct}%";
+            ProgressFill.Width    = (ProgressFill.Parent as System.Windows.Controls.Border)!
+                                    .ActualWidth * pct / 100;
+        }));
     }
 
     private void SkipBtn_Click(object sender, RoutedEventArgs e)

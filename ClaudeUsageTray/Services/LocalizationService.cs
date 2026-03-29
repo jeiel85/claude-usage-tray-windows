@@ -431,6 +431,14 @@ public static class Loc
         _ => "Checking for updates..."
     };
 
+    public static string DownloadingUpdate => Lang switch
+    {
+        "ko" => "다운로드 중...",
+        "zh" => "下载中...",
+        "ja" => "ダウンロード中...",
+        _ => "Downloading..."
+    };
+
     public static string AlreadyUpToDate => Lang switch
     {
         "ko" => "✓ 최신 버전입니다",

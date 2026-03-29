@@ -68,6 +68,14 @@ public partial class App : Application
         _trayIcon.MouseClick += OnTrayClick;
 
         var contextMenu = new ContextMenuStrip();
+
+        // Status summary items (read-only, non-clickable)
+        var status5hItem = new ToolStripMenuItem("···") { Enabled = false };
+        var status7dItem = new ToolStripMenuItem("···") { Enabled = false };
+        contextMenu.Items.Add(status5hItem);
+        contextMenu.Items.Add(status7dItem);
+        contextMenu.Items.Add(new ToolStripSeparator());
+
         var refreshItem = new ToolStripMenuItem("Refresh");
         refreshItem.Click += async (_, _) => await _vm.RefreshAsync();
         contextMenu.Items.Add(refreshItem);
@@ -76,6 +84,39 @@ public partial class App : Application
         quitItem.Click += (_, _) => Shutdown();
         contextMenu.Items.Add(quitItem);
         _trayIcon.ContextMenuStrip = contextMenu;
+
+        // Update tray context menu status labels on data change
+        _vm.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName is nameof(MainViewModel.ShortUsagePercent)
+                                  or nameof(MainViewModel.LongUsagePercent)
+                                  or nameof(MainViewModel.ShortResetLabel)
+                                  or nameof(MainViewModel.LongResetLabel)
+                                  or nameof(MainViewModel.HasError)
+                                  or nameof(MainViewModel.IsLoading))
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    if (_vm.IsLoading && _vm.ShortUsagePercent == 0)
+                    {
+                        status5hItem.Text = "5h: Loading...";
+                        status7dItem.Text = "7d: Loading...";
+                    }
+                    else if (_vm.HasError)
+                    {
+                        status5hItem.Text = "5h: Unavailable";
+                        status7dItem.Text = "7d: Unavailable";
+                    }
+                    else
+                    {
+                        var reset5h = _vm.ShortResetLabel.Replace(" · ", "  ");
+                        var reset7d = _vm.LongResetLabel.Replace(" · ", "  ");
+                        status5hItem.Text = $"5h: {_vm.ShortUsagePercent:P0}{reset5h}";
+                        status7dItem.Text = $"7d: {_vm.LongUsagePercent:P0}{reset7d}";
+                    }
+                });
+            }
+        };
 
         _vm.PropertyChanged += (_, args) =>
         {
