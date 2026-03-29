@@ -44,10 +44,10 @@ public class ExtraUsage
     public double? Utilization { get; set; }
 
     [JsonPropertyName("used_credits")]
-    public long? UsedCredits { get; set; }
+    public double? UsedCredits { get; set; }
 
     [JsonPropertyName("monthly_limit")]
-    public long? MonthlyLimit { get; set; }
+    public double? MonthlyLimit { get; set; }
 }
 
 public class SessionStats

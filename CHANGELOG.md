@@ -5,6 +5,30 @@
 
 ---
 
+## [1.12.2] - 2026-03-29
+
+<!-- ko -->
+### 수정
+- **API 오류 수정** — `extra_usage`의 `used_credits` / `monthly_limit` 필드가 소수점 숫자로 반환될 때 JSON 역직렬화 실패하던 문제 수정 (`long?` → `double?`)
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **API deserialization error** — Fixed JSON deserialization failure when `used_credits` / `monthly_limit` in `extra_usage` were returned as floating-point numbers (`long?` → `double?`)
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **API 反序列化错误** — 修复 `extra_usage` 中 `used_credits` / `monthly_limit` 返回小数时 JSON 解析失败的问题（`long?` → `double?`）
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **API デシリアライズエラー修正** — `extra_usage` の `used_credits` / `monthly_limit` が小数で返された際に JSON デシリアライズが失敗していた問題を修正（`long?` → `double?`）
+<!-- /ja -->
+
+---
+
 ## [1.12.1] - 2026-03-29
 
 <!-- ko -->
