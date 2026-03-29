@@ -5,6 +5,42 @@
 
 ---
 
+## [1.13.0] - 2026-03-29
+
+<!-- ko -->
+### 추가
+- **키보드 단축키** — ESC / Ctrl+W / Alt+F4 로 팝업 닫기 (Issue #26)
+- **트레이 우클릭 빠른 요약** — 팝업을 열지 않고 우클릭 메뉴에서 5h/7d 사용률과 초기화까지 남은 시간 바로 확인 (Issue #14)
+- **7일 윈도우 소진 예측** — 현재 추세 기준 7일 할당량 소진 예상 시각 표시 (Issue #25)
+- **업데이트 다운로드 진행률** — 업데이트 설치 시 다운로드 % 진행률 표시 (Issue #24)
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Keyboard shortcuts** — ESC / Ctrl+W / Alt+F4 to close the popup (Issue #26)
+- **Tray right-click quick summary** — View 5h/7d usage and reset time directly from the tray context menu, without opening the popup (Issue #14)
+- **7-day depletion forecast** — Shows estimated time the 7-day quota will run out based on current usage rate (Issue #25)
+- **Update download progress** — Shows download percentage while applying an update (Issue #24)
+<!-- /en -->
+
+<!-- zh -->
+### 新增
+- **键盘快捷键** — ESC / Ctrl+W / Alt+F4 关闭弹窗（Issue #26）
+- **托盘右键快速摘要** — 无需打开弹窗，直接在右键菜单查看 5h/7d 使用率及重置倒计时（Issue #14）
+- **7天窗口耗尽预测** — 根据当前使用趋势显示 7 天配额预计耗尽时间（Issue #25）
+- **更新下载进度** — 安装更新时显示下载百分比进度（Issue #24）
+<!-- /zh -->
+
+<!-- ja -->
+### 追加
+- **キーボードショートカット** — ESC / Ctrl+W / Alt+F4 でポップアップを閉じる（Issue #26）
+- **トレイ右クリック簡易表示** — ポップアップを開かずに右クリックメニューで 5h/7d 使用率とリセット時間を確認（Issue #14）
+- **7日間ウィンドウ枯渇予測** — 現在の使用ペースをもとに 7日割り当てが枯渇する予想時刻を表示（Issue #25）
+- **アップデートダウンロード進捗** — アップデート適用中にダウンロードの % 進捗を表示（Issue #24）
+<!-- /ja -->
+
+---
+
 ## [1.12.1] - 2026-03-29
 
 <!-- ko -->
