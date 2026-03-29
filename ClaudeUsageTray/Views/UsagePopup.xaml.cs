@@ -241,7 +241,7 @@ public partial class UsagePopup : Window
         HistoryCanvas.Height = canvasH;
     }
 
-    private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+    private void OnPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
         bool isEsc   = e.Key == Key.Escape;
         bool isCtrlW = e.Key == Key.W && (Keyboard.Modifiers & ModifierKeys.Control) != 0;
