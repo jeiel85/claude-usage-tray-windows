@@ -13,6 +13,9 @@
 - **트레이 우클릭 빠른 요약** — 팝업을 열지 않고 우클릭 메뉴에서 5h/7d 사용률과 초기화까지 남은 시간 바로 확인 (Issue #14)
 - **7일 윈도우 소진 예측** — 현재 추세 기준 7일 할당량 소진 예상 시각 표시 (Issue #25)
 - **업데이트 다운로드 진행률** — 업데이트 설치 시 다운로드 % 진행률 표시 (Issue #24)
+
+### 수정
+- **API 역직렬화 오류 수정** — `extra_usage`의 `used_credits` / `monthly_limit` 필드가 소수점 숫자로 반환될 때 JSON 역직렬화 실패하던 문제 수정 (`long?` → `double?`)
 <!-- /ko -->
 
 <!-- en -->
@@ -21,6 +24,9 @@
 - **Tray right-click quick summary** — View 5h/7d usage and reset time directly from the tray context menu, without opening the popup (Issue #14)
 - **7-day depletion forecast** — Shows estimated time the 7-day quota will run out based on current usage rate (Issue #25)
 - **Update download progress** — Shows download percentage while applying an update (Issue #24)
+
+### Fixed
+- **API deserialization error** — Fixed JSON deserialization failure when `used_credits` / `monthly_limit` in `extra_usage` were returned as floating-point numbers (`long?` → `double?`)
 <!-- /en -->
 
 <!-- zh -->
@@ -29,6 +35,9 @@
 - **托盘右键快速摘要** — 无需打开弹窗，直接在右键菜单查看 5h/7d 使用率及重置倒计时（Issue #14）
 - **7天窗口耗尽预测** — 根据当前使用趋势显示 7 天配额预计耗尽时间（Issue #25）
 - **更新下载进度** — 安装更新时显示下载百分比进度（Issue #24）
+
+### 修复
+- **API 反序列化错误** — 修复 `extra_usage` 中 `used_credits` / `monthly_limit` 返回小数时 JSON 解析失败的问题（`long?` → `double?`）
 <!-- /zh -->
 
 <!-- ja -->
@@ -37,6 +46,9 @@
 - **トレイ右クリック簡易表示** — ポップアップを開かずに右クリックメニューで 5h/7d 使用率とリセット時間を確認（Issue #14）
 - **7日間ウィンドウ枯渇予測** — 現在の使用ペースをもとに 7日割り当てが枯渇する予想時刻を表示（Issue #25）
 - **アップデートダウンロード進捗** — アップデート適用中にダウンロードの % 進捗を表示（Issue #24）
+
+### 修正
+- **API デシリアライズエラー修正** — `extra_usage` の `used_credits` / `monthly_limit` が小数で返された際に JSON デシリアライズが失敗していた問題を修正（`long?` → `double?`）
 <!-- /ja -->
 
 ---
