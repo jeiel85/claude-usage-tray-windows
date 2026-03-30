@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Claude Usage Tray — Windows</title>
+  <meta name="description" content="Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니터링. 단일 .exe, 설치 불필요." />
+  <meta property="og:title" content="Claude Usage Tray" />
+  <meta property="og:description" content="Monitor your Claude AI usage from the Windows system tray." />
+  <meta property="og:image" content="https://jeiel85.github.io/claude-usage-tray-windows/screenshot.png" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f1a;
+      --bg2: #16162a;
+      --card: #1e1e35;
+      --border: #2a2a4a;
+      --purple: #7c3aed;
+      --purple-light: #a78bfa;
+      --purple-dim: #4c1d95;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --green: #10b981;
+      --radius: 14px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(15, 15, 26, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+    }
+    .header-inner {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+    }
+    .logo-small {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .logo-small .icon {
+      width: 28px; height: 28px;
+      background: var(--purple);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+    .header-links {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .btn-xs {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      text-decoration: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      background: transparent;
+      transition: all .2s;
+    }
+    .btn-xs:hover { border-color: var(--purple-light); color: var(--purple-light); }
+
+    /* ── HERO ── */
+    .hero {
+      padding: 80px 2rem 60px;
+      text-align: center;
+    }
+    .app-icon {
+      width: 72px; height: 72px;
+      background: linear-gradient(135deg, #7c3aed, #4c1d95);
+      border-radius: 20px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 36px;
+      margin: 0 auto 28px;
+      box-shadow: 0 8px 32px rgba(124,58,237,.4);
+    }
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #e2e8f0 0%, #a78bfa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 16px;
+    }
+    .hero-sub {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      max-width: 520px;
+      margin: 0 auto 36px;
+    }
+
+    /* ── CTA BUTTONS ── */
+    .cta-group {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 13px 28px;
+      background: var(--purple);
+      color: #fff;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all .2s;
+      box-shadow: 0 4px 20px rgba(124,58,237,.35);
+    }
+    .btn-primary:hover { background: #6d28d9; box-shadow: 0 6px 28px rgba(124,58,237,.5); transform: translateY(-1px); }
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 13px 24px;
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all .2s;
+    }
+    .btn-secondary:hover { border-color: var(--purple-light); color: var(--purple-light); transform: translateY(-1px); }
+    .cta-note {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+    }
+    .cta-note a { color: var(--text-dim); }
+
+    /* ── SCREENSHOT ── */
+    .screenshot-wrap {
+      max-width: 380px;
+      margin: 52px auto 0;
+      position: relative;
+    }
+    .screenshot-wrap::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, var(--purple), transparent, var(--purple-dim));
+      z-index: 0;
+      opacity: .6;
+    }
+    .screenshot-wrap img {
+      width: 100%;
+      border-radius: calc(var(--radius) - 2px);
+      display: block;
+      position: relative;
+      z-index: 1;
+      box-shadow: 0 24px 80px rgba(0,0,0,.6);
+    }
+
+    /* ── FEATURES ── */
+    .features {
+      padding: 80px 2rem;
+    }
+    .section-label {
+      text-align: center;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--purple-light);
+      margin-bottom: 12px;
+    }
+    .section-title {
+      text-align: center;
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 48px;
+      color: var(--text);
+    }
+    .grid {
+      max-width: 900px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      transition: border-color .2s, transform .2s;
+    }
+    .card:hover { border-color: var(--purple); transform: translateY(-2px); }
+    .card-icon {
+      font-size: 1.6rem;
+      margin-bottom: 12px;
+    }
+    .card h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+    .card p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* ── HOW TO INSTALL ── */
+    .install {
+      padding: 0 2rem 80px;
+    }
+    .install-box {
+      max-width: 600px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 36px 40px;
+    }
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      margin-top: 28px;
+    }
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    .step-num {
+      width: 32px; height: 32px;
+      min-width: 32px;
+      background: var(--purple-dim);
+      border: 1px solid var(--purple);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--purple-light);
+    }
+    .step-body h4 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .step-body p {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    .step-body code {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 1px 6px;
+      font-size: 0.8rem;
+      color: var(--purple-light);
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 28px 2rem;
+      text-align: center;
+    }
+    .footer-inner {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .footer-meta {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+    }
+    .footer-meta a {
+      color: var(--text-dim);
+      text-decoration: none;
+    }
+    .footer-meta a:hover { color: var(--purple-light); }
+    .footer-meta span { margin: 0 6px; }
+    .badge-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .badge-row img { height: 20px; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 600px) {
+      .hero { padding: 60px 1.5rem 40px; }
+      .install-box { padding: 28px 24px; }
+      .cta-group { flex-direction: column; align-items: center; }
+      .btn-primary, .btn-secondary { width: 100%; max-width: 300px; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="header-inner">
+    <a href="#" class="logo-small">
+      <span class="icon">C</span>
+      Claude Usage Tray
+    </a>
+    <div class="header-links">
+      <a class="btn-xs" href="https://github.com/jeiel85/claude-usage-tray-windows/releases/latest">Download</a>
+      <a class="btn-xs" href="https://github.com/jeiel85/claude-usage-tray-windows">GitHub</a>
+    </div>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="app-icon">📊</div>
+  <h1>Claude Usage Tray</h1>
+  <p class="hero-sub">
+    Windows 시스템 트레이에서 Claude AI 사용량을<br>
+    실시간으로 모니터링하세요. 가볍고, 빠르고, 설치 없이.
+  </p>
+
+  <div class="cta-group">
+    <a class="btn-primary" href="https://github.com/jeiel85/claude-usage-tray-windows/releases/latest">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download .exe
+    </a>
+    <a class="btn-secondary" href="https://github.com/jeiel85/claude-usage-tray-windows">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+  <p class="cta-note">
+    Windows 10+ &nbsp;·&nbsp; .NET 런타임 불필요 &nbsp;·&nbsp; MIT License
+    &nbsp;&nbsp;
+    <a href="https://github.com/jeiel85/claude-usage-tray-windows/releases">모든 릴리즈 보기 →</a>
+  </p>
+
+  <div class="screenshot-wrap">
+    <img src="screenshot.png" alt="Claude Usage Tray 스크린샷" />
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features">
+  <p class="section-label">Features</p>
+  <h2 class="section-title">필요한 건 다 들어있어요</h2>
+  <div class="grid">
+    <div class="card">
+      <div class="card-icon">📊</div>
+      <h3>실시간 할당량 추적</h3>
+      <p>5시간 · 7일 롤링 윈도우 진행 바와 정확한 초기화 시각을 한눈에.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🔔</div>
+      <h3>스마트 알림</h3>
+      <p>50% · 75% · 90% · 100% 도달 시 Windows Toast 알림. ntfy.sh로 스마트폰 푸시도 지원.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🔄</div>
+      <h3>자동 업데이트</h3>
+      <p>GitHub Releases를 감지해 배너 한 번 클릭으로 새 버전을 자동 교체·재시작.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🌐</div>
+      <h3>다국어 지원</h3>
+      <p>한국어 · 中文 · 日本語 · English — 시스템 언어를 자동 감지해 표시.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">⚡</div>
+      <h3>설치 없음 · 단일 파일</h3>
+      <p>.exe 하나로 끝. .NET 런타임 설치 불필요. 윈도우 시작 시 자동 실행도 지원.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🔐</div>
+      <h3>별도 로그인 없음</h3>
+      <p>Claude Code가 저장한 OAuth 토큰을 자동으로 재사용. 추가 인증 불필요.</p>
+    </div>
+  </div>
+</section>
+
+<!-- HOW TO INSTALL -->
+<section class="install">
+  <div class="install-box">
+    <p class="section-label" style="text-align:left; margin-bottom:6px;">How to install</p>
+    <h2 style="font-size:1.3rem; font-weight:700;">3단계면 끝</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h4>다운로드</h4>
+          <p><a href="https://github.com/jeiel85/claude-usage-tray-windows/releases/latest" style="color:var(--purple-light);">Releases 페이지</a>에서 <code>ClaudeUsageTray.exe</code> 다운로드</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h4>실행</h4>
+          <p>Windows Defender 경고 시 → <strong>추가 정보 → 실행</strong> 클릭</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h4>트레이 아이콘 클릭</h4>
+          <p>시스템 트레이에 <code>C</code> 아이콘이 나타나면 클릭해서 사용량 확인</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="badge-row">
+      <img src="https://img.shields.io/github/v/release/jeiel85/claude-usage-tray-windows?style=flat-square&color=7c3aed" alt="release" />
+      <img src="https://img.shields.io/badge/platform-Windows%2010%2B-0078D4?style=flat-square&logo=windows" alt="platform" />
+      <img src="https://img.shields.io/badge/.NET-9.0-512BD4?style=flat-square&logo=dotnet" alt=".NET" />
+      <img src="https://img.shields.io/badge/license-MIT-10b981?style=flat-square" alt="MIT" />
+    </div>
+    <p class="footer-meta">
+      <a href="https://github.com/jeiel85/claude-usage-tray-windows">GitHub</a>
+      <span>·</span>
+      <a href="https://github.com/jeiel85/claude-usage-tray-windows/releases">Releases</a>
+      <span>·</span>
+      Inspired by <a href="https://jeremy-prt.github.io/claude-usage-mini/">claude-usage-mini</a> by @jeremy-prt
+      <span>·</span>
+      Not affiliated with Anthropic
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>
