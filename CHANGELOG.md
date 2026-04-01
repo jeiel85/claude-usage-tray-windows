@@ -5,6 +5,30 @@
 
 ---
 
+## [1.15.2] - 2026-04-01
+
+<!-- ko -->
+### 수정
+- **로그아웃/재로그인 시 사용량 미갱신** — `FileSystemWatcher`가 `Changed` 이벤트만 감지하여 파일 삭제(로그아웃)/생성(로그인) 시 계정 전환이 감지되지 않던 문제 수정. `Created`, `Deleted` 이벤트 및 `FileName` 필터 추가
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Usage not refreshing after logout/login** — `FileSystemWatcher` only watched `Changed` events, so file deletion (logout) and creation (login) were not detected. Added `Created`, `Deleted` events and `FileName` notify filter
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **注销/重新登录后使用量不更新** — `FileSystemWatcher` 仅监听 `Changed` 事件，导致文件删除（注销）和创建（登录）时无法检测账号变化。添加 `Created`、`Deleted` 事件及 `FileName` 过滤器
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **ログアウト/再ログイン後に使用量が更新されない** — `FileSystemWatcher` が `Changed` イベントのみ監視していたため、ファイル削除（ログアウト）・作成（ログイン）時にアカウント変更を検出できなかった問題を修正。`Created`・`Deleted` イベントと `FileName` フィルタを追加
+<!-- /ja -->
+
+---
+
 ## [1.15.1] - 2026-04-01
 
 <!-- ko -->

@@ -34,12 +34,14 @@ public class CredentialService : IDisposable
         {
             _watcher = new FileSystemWatcher(dir, ".credentials.json")
             {
-                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size,
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName,
                 EnableRaisingEvents = true
             };
 
-            // Changed 이벤트는 짧은 시간에 여러 번 올 수 있으므로 debounce
+            // Changed/Created/Deleted 이벤트 모두 감지 (로그아웃 시 파일 삭제, 로그인 시 새로 생성)
             _watcher.Changed += OnCredentialsFileChanged;
+            _watcher.Created += OnCredentialsFileChanged;
+            _watcher.Deleted += OnCredentialsFileChanged;
         }
     }
 
