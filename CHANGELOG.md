@@ -5,6 +5,32 @@
 
 ---
 
+## [1.15.3] - 2026-04-02
+
+<!-- ko -->
+### 수정
+- **추가 사용량 한도 미설정 시 표시 오류** — 월 한도 미설정 계정에서 프로그레스 바가 0%로 표시되던 문제 수정. 한도 없을 경우 프로그레스 바/퍼센트를 숨기고 사용 크레딧 수만 표시
+- **계정 전환 시 이전 계정 데이터 표시** — 이전 계정에서 발생한 rate-limit 대기(`Retry-After`)가 새 계정 API 조회를 막던 버그 수정. 계정 전환 시 대기 상태 초기화
+- **계정 이름 설정 기능 제거** — 실용성이 낮아 설정 화면에서 제거
+
+### 추가
+- `build.bat` — 빌드 + 기존 프로세스 종료 + 자동 실행
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Extra usage display with no limit set** — Progress bar showed 0% when no monthly limit was configured. Now hides the bar/percentage and shows only the used credit count
+- **Previous account data shown after account switch** — Rate-limit backoff from the previous account was blocking API calls for the new account. Backoff is now cleared on account switch
+
+### Removed
+- Account name setting feature removed from Settings
+
+### Added
+- `build.bat` — build, kill existing process, and launch
+<!-- /en -->
+
+---
+
 ## [1.15.2] - 2026-04-01
 
 <!-- ko -->
