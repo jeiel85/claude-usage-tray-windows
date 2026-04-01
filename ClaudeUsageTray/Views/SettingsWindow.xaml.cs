@@ -20,13 +20,6 @@ public partial class SettingsWindow : Window
 
         ApplyLocalization();
         LoadValues();
-
-        // 계정 전환 시 UI 갱신
-        _vm.PropertyChanged += (_, args) =>
-        {
-            if (args.PropertyName == nameof(MainViewModel.CurrentAccountLabel))
-                Dispatcher.Invoke(RefreshAccountSection);
-        };
     }
 
     private const string StartupRegKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
@@ -71,9 +64,6 @@ public partial class SettingsWindow : Window
         LblStep3.Text                       = Loc.NtfyStep3;
         LblNtfyTopic.Text                   = Loc.NtfyTopic;
         LblNtfyHint.Text                    = Loc.NtfyPlaceholder;
-        LblAccountsTitle.Text               = Loc.AccountsTitle;
-        BtnSaveAccountName.Content          = Loc.AccountSave;
-        LblAccountHint.Text                 = Loc.AccountHint;
     }
 
     private void LoadValues()
@@ -86,36 +76,6 @@ public partial class SettingsWindow : Window
         Chk100.IsChecked              = _vm.Threshold100;
         TxtNtfyTopic.Text             = _vm.NtfyTopic;
         ChkStartWithWindows.IsChecked = IsStartupEnabled();
-        RefreshAccountSection();
-    }
-
-    private void RefreshAccountSection()
-    {
-        var label = _vm.CurrentAccountLabel;
-        if (string.IsNullOrEmpty(label))
-        {
-            LblCurrentAccountKey.Text = Loc.AccountNoAccount;
-            TxtAccountName.Text = "";
-            TxtAccountName.IsEnabled = false;
-            BtnSaveAccountName.IsEnabled = false;
-        }
-        else
-        {
-            LblCurrentAccountKey.Text = Loc.AccountCurrentId(label);
-            TxtAccountName.IsEnabled = true;
-            BtnSaveAccountName.IsEnabled = true;
-            // 이름이 uuid 앞자리가 아닌 실제 이름이면 표시, 아니면 비워둠
-            TxtAccountName.Text = _vm.CurrentAccountLabel == label
-                ? TxtAccountName.Text  // 유지 (포커스 잃지 않도록)
-                : "";
-        }
-    }
-
-    private void SaveAccountName()
-    {
-        var name = TxtAccountName.Text.Trim();
-        if (string.IsNullOrEmpty(name)) return;
-        _vm.RenameCurrentAccount(name);
     }
 
     private void Setting_Changed(object sender, RoutedEventArgs e)
@@ -170,19 +130,6 @@ public partial class SettingsWindow : Window
     {
         Process.Start(new ProcessStartInfo("https://ntfy.sh") { UseShellExecute = true });
     }
-
-    private void TxtAccountName_LostFocus(object sender, RoutedEventArgs e) => SaveAccountName();
-
-    private void TxtAccountName_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
-    {
-        if (e.Key == System.Windows.Input.Key.Enter)
-        {
-            SaveAccountName();
-            e.Handled = true;
-        }
-    }
-
-    private void BtnSaveAccountName_Click(object sender, RoutedEventArgs e) => SaveAccountName();
 
     private void CloseBtn_Click(object sender, RoutedEventArgs e) => Hide();
 

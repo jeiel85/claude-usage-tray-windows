@@ -16,7 +16,4 @@ public class NotificationSettings
 
     // 건너뛴 업데이트 버전 (예: "1.5.0")
     public string SkippedVersion { get; set; } = "";
-
-    // 계정 이름 매핑: organizationUuid → 사용자 지정 이름
-    public Dictionary<string, string> AccountNames { get; set; } = new();
 }

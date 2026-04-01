@@ -177,6 +177,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         var orgUuid = _credentials.GetOrganizationUuid();
         _history.SetOrgUuid(orgUuid);
         UpdateCurrentAccountLabel(orgUuid);
+        // 계정 전환 시 rate-limit 대기를 초기화 — 새 계정은 독립적으로 조회
+        _apiRetryAfter = DateTimeOffset.MinValue;
         // 타이머 카운트다운 리셋 + 즉시 새로고침
         _ = System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
             await RefreshAsync());
@@ -184,25 +186,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private void UpdateCurrentAccountLabel(string? orgUuid)
     {
-        if (string.IsNullOrEmpty(orgUuid))
-        {
-            System.Windows.Application.Current.Dispatcher.Invoke(() => CurrentAccountLabel = "");
-            return;
-        }
-        var settings = _settingsService.Load();
-        var name = settings.AccountNames.TryGetValue(orgUuid, out var n) ? n : null;
-        var label = name ?? orgUuid[..Math.Min(8, orgUuid.Length)];
+        var label = string.IsNullOrEmpty(orgUuid) ? "" : orgUuid[..Math.Min(8, orgUuid.Length)];
         System.Windows.Application.Current.Dispatcher.Invoke(() => CurrentAccountLabel = label);
-    }
-
-    public void RenameCurrentAccount(string name)
-    {
-        var orgUuid = _credentials.GetOrganizationUuid();
-        if (string.IsNullOrEmpty(orgUuid)) return;
-        var settings = _settingsService.Load();
-        settings.AccountNames[orgUuid] = name.Trim();
-        _settingsService.Save(settings);
-        UpdateCurrentAccountLabel(orgUuid);
     }
 
     private void LoadSettings()
@@ -232,7 +217,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         if (Threshold90)  thresholds.Add(90);
         if (Threshold100) thresholds.Add(100);
 
-        // Preserve SkippedVersion + AccountNames from disk
+        // Preserve SkippedVersion from disk
         var existing = _settingsService.Load();
 
         _settingsService.Save(new NotificationSettings
@@ -243,7 +228,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
             NtfyTopic = NtfyTopic.Trim(),
             StartWithWindows = StartWithWindows,
             SkippedVersion = existing.SkippedVersion,
-            AccountNames = existing.AccountNames
         });
     }
 

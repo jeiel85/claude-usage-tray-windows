@@ -495,44 +495,4 @@ public static class Loc
         _ => $"API error: {msg}"
     };
 
-    // Accounts
-    public static string AccountsTitle => Lang switch
-    {
-        "ko" => "계정 이름 설정",
-        "zh" => "账号名称设置",
-        "ja" => "アカウント名設定",
-        _ => "Account Name"
-    };
-
-    public static string AccountSave => Lang switch
-    {
-        "ko" => "저장",
-        "zh" => "保存",
-        "ja" => "保存",
-        _ => "Save"
-    };
-
-    public static string AccountNoAccount => Lang switch
-    {
-        "ko" => "로그인된 계정 없음",
-        "zh" => "未登录账号",
-        "ja" => "ログイン中のアカウントなし",
-        _ => "No account logged in"
-    };
-
-    public static string AccountCurrentId(string label) => Lang switch
-    {
-        "ko" => $"현재 계정 ID: {label}",
-        "zh" => $"当前账号 ID: {label}",
-        "ja" => $"現在のアカウント ID: {label}",
-        _ => $"Current account ID: {label}"
-    };
-
-    public static string AccountHint => Lang switch
-    {
-        "ko" => "Claude 앱에서 계정을 전환하면 자동으로 감지됩니다. 이름을 저장하면 트레이에 표시돼요.",
-        "zh" => "在 Claude 应用中切换账号后将自动检测。保存名称后将显示在托盘中。",
-        "ja" => "Claude アプリでアカウントを切り替えると自動検出されます。名前を保存するとトレイに表示されます。",
-        _ => "Account switches in the Claude app are auto-detected. Save a name to show it in the tray."
-    };
 }
