@@ -182,6 +182,141 @@
 
                 </StackPanel>
 
+                <!-- Accounts divider -->
+                <Border Height="1" Background="#2D2F45" Margin="0,4,0,14"/>
+
+                <!-- Accounts header -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <TextBlock Text="👤  " FontSize="13"/>
+                    <TextBlock x:Name="LblAccountsTitle" Foreground="#F1F5F9"
+                               FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Accounts list -->
+                <Border Background="#1A1D2E" CornerRadius="10" Padding="8,6" Margin="0,0,0,8">
+                    <StackPanel>
+                        <ItemsControl x:Name="AccountsList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding DisplayLabel}"
+                                                   Foreground="#C4C9E0" FontSize="12"
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                        <Button Grid.Column="1"
+                                                Content="Switch" FontSize="10"
+                                                Background="#8B5CF6" Foreground="White"
+                                                BorderThickness="0" Padding="8,3" Margin="4,0"
+                                                Cursor="Hand" Tag="{Binding Index}"
+                                                Click="BtnAccountSwitch_Click">
+                                            <Button.Style>
+                                                <Style TargetType="Button">
+                                                    <Setter Property="Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="Button">
+                                                                <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                </Border>
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                        <Button Grid.Column="2" Content="✕" FontSize="10"
+                                                Background="Transparent" Foreground="#5A5F7A"
+                                                BorderThickness="0" Padding="6,3"
+                                                Cursor="Hand" Tag="{Binding Index}"
+                                                Click="BtnAccountRemove_Click">
+                                            <Button.Style>
+                                                <Style TargetType="Button">
+                                                    <Setter Property="Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="Button">
+                                                                <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                </Border>
+                                                                <ControlTemplate.Triggers>
+                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                        <Setter Property="Background" Value="#2D2F45"/>
+                                                                    </Trigger>
+                                                                </ControlTemplate.Triggers>
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Add account form -->
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="TxtNewAccountName"
+                             Grid.Column="0"
+                             Background="#1A1D2E" Foreground="#F1F5F9"
+                             BorderBrush="#2D2F45" BorderThickness="1"
+                             Padding="8,6" FontSize="11" Margin="0,0,4,0">
+                        <TextBox.Style>
+                            <Style TargetType="TextBox">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="TextBox">
+                                            <Border Background="{TemplateBinding Background}"
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                                    CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                                <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsFocused" Value="True">
+                                                    <Setter Property="BorderBrush" Value="#8B5CF6"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </TextBox.Style>
+                    </TextBox>
+                    <Button Grid.Column="1" x:Name="BtnAddAccount"
+                            Background="#8B5CF6" Foreground="White"
+                            BorderThickness="0" Padding="10,6" FontSize="11"
+                            Cursor="Hand" Click="BtnAddAccount_Click">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="#7C3AED"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </Grid>
+                <TextBlock x:Name="LblAccountHint" Foreground="#5A5F7A" FontSize="10" Margin="2,2,0,14" TextWrapping="Wrap"/>
+
                 <!-- Disclaimer -->
                 <TextBlock Margin="16,4,16,14" TextWrapping="Wrap" FontSize="10" Foreground="#3D4266"
                            Text="이 앱은 참고용 도구입니다. 표시되는 수치는 공식 수치와 다를 수 있으며, 요금·과금 관련 문제에 대해 개발자는 책임을 지지 않습니다. 정확한 사용량은 Anthropic 공식 콘솔에서 확인하세요."/>

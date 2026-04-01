@@ -9,20 +9,38 @@ namespace ClaudeUsageTray.Services;
 
 public class CredentialService
 {
-    private static readonly string CredentialsPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".claude", ".credentials.json");
+    private static readonly SemaphoreSlim _lock = new(1, 1);
+
+    private string _credentialsPath;
 
     private const string TokenUrl    = "https://platform.claude.com/v1/oauth/token";
     private const string ClientId    = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(15) };
 
+    public CredentialService(string? claudeBaseDir = null)
+    {
+        _credentialsPath = BuildCredentialsPath(claudeBaseDir);
+    }
+
+    private static string BuildCredentialsPath(string? claudeBaseDir)
+    {
+        var baseDir = string.IsNullOrEmpty(claudeBaseDir)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude")
+            : claudeBaseDir;
+        return Path.Combine(baseDir, ".credentials.json");
+    }
+
+    public void SetAccount(string? claudeBaseDir)
+    {
+        _credentialsPath = BuildCredentialsPath(claudeBaseDir);
+    }
+
     public ClaudeCredentials? Load()
     {
-        if (!File.Exists(CredentialsPath)) return null;
+        if (!File.Exists(_credentialsPath)) return null;
         try
         {
-            var json = File.ReadAllText(CredentialsPath);
+            var json = File.ReadAllText(_credentialsPath);
             return JsonSerializer.Deserialize<ClaudeCredentials>(json);
         }
         catch { return null; }
@@ -34,47 +52,56 @@ public class CredentialService
         return cred?.ClaudeAiOauth?.AccessToken;
     }
 
-    public bool HasCredentials() => File.Exists(CredentialsPath);
+    public bool HasCredentials() => File.Exists(_credentialsPath);
 
     /// <summary>
     /// Returns a valid access token, refreshing it first if it has expired.
     /// Returns null if no credentials exist or refresh failed.
+    /// Thread-safe: serializes concurrent refresh attempts.
     /// </summary>
     public async Task<string?> GetValidAccessTokenAsync()
     {
-        var cred = Load();
-        if (cred?.ClaudeAiOauth is not { } oauth) return null;
-
-        // Token still valid (with 60s buffer)
-        if (!oauth.IsExpired &&
-            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() < oauth.ExpiresAt - 60_000)
-            return oauth.AccessToken;
-
-        // Try to refresh
-        var refreshed = await TryRefreshAsync(oauth.RefreshToken);
-        if (refreshed is null) return oauth.AccessToken; // fall back to existing token
-
-        // Persist updated credentials
+        await _lock.WaitAsync();
         try
         {
-            oauth.AccessToken = refreshed.AccessToken;
-            oauth.ExpiresAt   = refreshed.ExpiresAt;
-            if (!string.IsNullOrEmpty(refreshed.RefreshToken))
-                oauth.RefreshToken = refreshed.RefreshToken;
+            var cred = Load();
+            if (cred?.ClaudeAiOauth is not { } oauth) return null;
 
-            // Merge back — preserve other fields in the JSON
-            var raw = JsonNode.Parse(File.ReadAllText(CredentialsPath))!;
-            raw["claudeAiOauth"]!["accessToken"] = oauth.AccessToken;
-            raw["claudeAiOauth"]!["expiresAt"]   = oauth.ExpiresAt;
-            if (!string.IsNullOrEmpty(refreshed.RefreshToken))
-                raw["claudeAiOauth"]!["refreshToken"] = oauth.RefreshToken;
+            // Token still valid (with 60s buffer)
+            if (!oauth.IsExpired &&
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() < oauth.ExpiresAt - 60_000)
+                return oauth.AccessToken;
 
-            File.WriteAllText(CredentialsPath,
-                raw.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            // Try to refresh
+            var refreshed = await TryRefreshAsync(oauth.RefreshToken);
+            if (refreshed is null) return oauth.AccessToken; // fall back to existing token
+
+            // Persist updated credentials
+            try
+            {
+                oauth.AccessToken = refreshed.AccessToken;
+                oauth.ExpiresAt   = refreshed.ExpiresAt;
+                if (!string.IsNullOrEmpty(refreshed.RefreshToken))
+                    oauth.RefreshToken = refreshed.RefreshToken;
+
+                // Merge back — preserve other fields in the JSON
+                var raw = JsonNode.Parse(File.ReadAllText(_credentialsPath))!;
+                raw["claudeAiOauth"]!["accessToken"] = oauth.AccessToken;
+                raw["claudeAiOauth"]!["expiresAt"]   = oauth.ExpiresAt;
+                if (!string.IsNullOrEmpty(refreshed.RefreshToken))
+                    raw["claudeAiOauth"]!["refreshToken"] = oauth.RefreshToken;
+
+                File.WriteAllText(_credentialsPath,
+                    raw.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            }
+            catch { /* ignore write errors */ }
+
+            return oauth.AccessToken;
         }
-        catch { /* ignore write errors */ }
-
-        return oauth.AccessToken;
+        finally
+        {
+            _lock.Release();
+        }
     }
 
     private static async Task<RefreshResult?> TryRefreshAsync(string? refreshToken)

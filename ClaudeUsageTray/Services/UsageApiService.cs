@@ -8,7 +8,7 @@ namespace ClaudeUsageTray.Services;
 public class UsageApiService
 {
     private const string UsageEndpoint = "https://api.anthropic.com/api/oauth/usage";
-    private readonly HttpClient _http;
+    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(10) };
     private readonly CredentialService _credentials;
 
     public string? LastRawResponse { get; private set; }
@@ -18,8 +18,6 @@ public class UsageApiService
     public UsageApiService(CredentialService credentials)
     {
         _credentials = credentials;
-        _http = new HttpClient();
-        _http.Timeout = TimeSpan.FromSeconds(10);
     }
 
     public async Task<UsageResponse?> FetchUsageAsync()

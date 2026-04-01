@@ -69,7 +69,9 @@ public class UpdateService
         var tempDir    = Path.GetTempPath();
         var newExePath = Path.Combine(tempDir, "ClaudeUsageTray_update.exe");
         var scriptPath = Path.Combine(tempDir, "claude_tray_update.bat");
-        var currentExe = Process.GetCurrentProcess().MainModule!.FileName;
+        var currentExe = Process.GetCurrentProcess().MainModule?.FileName
+            ?? Environment.ProcessPath
+            ?? Path.Combine(AppContext.BaseDirectory, "ClaudeUsageTray.exe");
 
         // Download with progress reporting
         using var response = await Http.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);

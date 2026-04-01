@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Timers;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -11,6 +12,7 @@ namespace ClaudeUsageTray.ViewModels;
 public partial class MainViewModel : ObservableObject, IDisposable
 {
     private readonly UsageApiService _api;
+    private readonly CredentialService _credentials;
     private readonly SessionMonitor _session;
     private readonly NotificationService _notifier;
     private readonly SettingsService _settingsService;
@@ -96,6 +98,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public string LblExtraUsage => Loc.ExtraUsageTitle;
 
+    // 계정 관리
+    [ObservableProperty] private string _activeAccountName = "Default";
+    [ObservableProperty] private ObservableCollection<AccountProfile> _accounts = [];
+    public int ActiveAccountIndex { get; private set; } = 0;
+
     // Update banner
     [ObservableProperty] private bool _updateAvailable = false;
     [ObservableProperty] private string _updateLabel = "";
@@ -128,11 +135,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public string LblNtfyPlaceholder => Loc.NtfyPlaceholder;
     public string LblCheckUpdate     => Loc.CheckUpdate;
 
-    public MainViewModel(UsageApiService api, SessionMonitor session,
+    public MainViewModel(UsageApiService api, CredentialService credentials,
+                         SessionMonitor session,
                          NotificationService notifier, SettingsService settingsService,
                          UpdateService updater, HistoryService history)
     {
         _api = api;
+        _credentials = credentials;
         _session = session;
         _notifier = notifier;
         _settingsService = settingsService;
@@ -170,8 +179,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
         Threshold75  = s.Thresholds.Contains(75);
         Threshold90  = s.Thresholds.Contains(90);
         Threshold100 = s.Thresholds.Contains(100);
-        NtfyTopic         = s.NtfyTopic;
-        StartWithWindows  = s.StartWithWindows;
+        NtfyTopic        = s.NtfyTopic;
+        StartWithWindows = s.StartWithWindows;
+
+        Accounts = new ObservableCollection<AccountProfile>(s.Accounts);
+        ActiveAccountIndex = Math.Clamp(s.ActiveAccountIndex, 0, Math.Max(0, s.Accounts.Count - 1));
+        ActiveAccountName = ActiveAccountIndex < s.Accounts.Count
+            ? s.Accounts[ActiveAccountIndex].Name
+            : "Default";
     }
 
     [RelayCommand]
@@ -183,14 +198,57 @@ public partial class MainViewModel : ObservableObject, IDisposable
         if (Threshold90)  thresholds.Add(90);
         if (Threshold100) thresholds.Add(100);
 
+        // Preserve SkippedVersion from disk so we don't overwrite it
+        var existing = _settingsService.Load();
+
         _settingsService.Save(new NotificationSettings
         {
             Enabled = NotificationsEnabled,
             NotifyOnRateLimit = NotifyRateLimit,
             Thresholds = thresholds,
             NtfyTopic = NtfyTopic.Trim(),
-            StartWithWindows = StartWithWindows
+            StartWithWindows = StartWithWindows,
+            SkippedVersion = existing.SkippedVersion,
+            Accounts = [.. Accounts],
+            ActiveAccountIndex = ActiveAccountIndex
         });
+    }
+
+    /// <summary>
+    /// 계정 전환: 서비스 경로를 업데이트하고 데이터를 새로고침한다.
+    /// </summary>
+    [RelayCommand]
+    public async Task SwitchAccountAsync(int index)
+    {
+        if (index < 0 || index >= Accounts.Count) return;
+        if (index == ActiveAccountIndex && Accounts.Count > 0) return;
+
+        ActiveAccountIndex = index;
+        var profile = Accounts[index];
+        ActiveAccountName = profile.Name;
+
+        var baseDir = string.IsNullOrEmpty(profile.ClaudeBaseDir) ? null : profile.ClaudeBaseDir;
+        _credentials.SetAccount(baseDir);
+        _session.SetAccount(baseDir);
+        _history.SetAccount(baseDir);
+
+        SaveSettings();
+        await RefreshAsync();
+    }
+
+    public void AddAccount(AccountProfile profile)
+    {
+        Accounts.Add(profile);
+        SaveSettings();
+    }
+
+    public void RemoveAccount(int index)
+    {
+        if (index < 0 || index >= Accounts.Count) return;
+        Accounts.RemoveAt(index);
+        if (ActiveAccountIndex >= Accounts.Count)
+            ActiveAccountIndex = Math.Max(0, Accounts.Count - 1);
+        SaveSettings();
     }
 
     public async Task StartAsync()

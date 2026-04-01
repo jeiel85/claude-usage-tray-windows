@@ -6,18 +6,34 @@ namespace ClaudeUsageTray.Services;
 
 public class SessionMonitor
 {
-    private static readonly string ProjectsPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".claude", "projects");
+    private string _projectsPath;
+
+    public SessionMonitor(string? claudeBaseDir = null)
+    {
+        _projectsPath = BuildProjectsPath(claudeBaseDir);
+    }
+
+    private static string BuildProjectsPath(string? claudeBaseDir)
+    {
+        var baseDir = string.IsNullOrEmpty(claudeBaseDir)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude")
+            : claudeBaseDir;
+        return Path.Combine(baseDir, "projects");
+    }
+
+    public void SetAccount(string? claudeBaseDir)
+    {
+        _projectsPath = BuildProjectsPath(claudeBaseDir);
+    }
 
     public SessionStats ScanTodayUsage()
     {
         var stats = new SessionStats();
         var today = DateTime.UtcNow.Date;
 
-        if (!Directory.Exists(ProjectsPath)) return stats;
+        if (!Directory.Exists(_projectsPath)) return stats;
 
-        var jsonlFiles = Directory.GetFiles(ProjectsPath, "*.jsonl", SearchOption.AllDirectories);
+        var jsonlFiles = Directory.GetFiles(_projectsPath, "*.jsonl", SearchOption.AllDirectories);
 
         foreach (var file in jsonlFiles)
         {

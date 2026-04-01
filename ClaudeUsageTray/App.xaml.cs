@@ -14,6 +14,7 @@ public partial class App : Application
     private NotifyIcon? _trayIcon;
     private MainViewModel? _vm;
     private UsagePopup? _popup;
+    private ToolStripMenuItem? _accountsMenu;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -47,15 +48,21 @@ public partial class App : Application
             args.SetObserved();
         };
 
-        var credService = new CredentialService();
-        var apiService = new UsageApiService(credService);
-        var sessionMonitor = new SessionMonitor();
-        var notifier = new NotificationService();
         var settingsService = new SettingsService();
-        var updater = new UpdateService();
-        var history = new HistoryService();
+        var initialSettings = settingsService.Load();
+        var activeProfile = initialSettings.Accounts.Count > 0
+            ? initialSettings.Accounts[Math.Clamp(initialSettings.ActiveAccountIndex, 0, initialSettings.Accounts.Count - 1)]
+            : null;
+        var initialBaseDir = activeProfile is { ClaudeBaseDir: { Length: > 0 } d } ? d : null;
 
-        _vm = new MainViewModel(apiService, sessionMonitor, notifier, settingsService, updater, history);
+        var credService = new CredentialService(initialBaseDir);
+        var apiService = new UsageApiService(credService);
+        var sessionMonitor = new SessionMonitor(initialBaseDir);
+        var notifier = new NotificationService();
+        var updater = new UpdateService();
+        var history = new HistoryService(initialBaseDir);
+
+        _vm = new MainViewModel(apiService, credService, sessionMonitor, notifier, settingsService, updater, history);
         _popup = new UsagePopup(_vm);
 
         _trayIcon = new NotifyIcon
@@ -79,11 +86,19 @@ public partial class App : Application
         var refreshItem = new ToolStripMenuItem("Refresh");
         refreshItem.Click += async (_, _) => await _vm.RefreshAsync();
         contextMenu.Items.Add(refreshItem);
+
+        // 계정 서브메뉴 (계정이 2개 이상일 때만 표시)
+        _accountsMenu = new ToolStripMenuItem("Account");
+        contextMenu.Items.Add(_accountsMenu);
         contextMenu.Items.Add(new ToolStripSeparator());
+
         var quitItem = new ToolStripMenuItem("Quit");
         quitItem.Click += (_, _) => Shutdown();
         contextMenu.Items.Add(quitItem);
         _trayIcon.ContextMenuStrip = contextMenu;
+
+        // 메뉴 열릴 때 계정 목록 갱신
+        contextMenu.Opening += (_, _) => RebuildAccountsMenu();
 
         // Update tray context menu status labels on data change
         _vm.PropertyChanged += (_, args) =>
@@ -141,6 +156,27 @@ public partial class App : Application
         };
 
         await _vm.StartAsync();
+    }
+
+    private void RebuildAccountsMenu()
+    {
+        if (_accountsMenu is null || _vm is null) return;
+        _accountsMenu.DropDownItems.Clear();
+
+        var accounts = _vm.Accounts;
+        _accountsMenu.Visible = accounts.Count >= 2;
+        if (accounts.Count < 2) return;
+
+        for (int i = 0; i < accounts.Count; i++)
+        {
+            var idx = i;
+            var name = accounts[i].Name;
+            var isActive = idx == _vm.ActiveAccountIndex;
+            var item = new ToolStripMenuItem(isActive ? $"✓ {name}" : $"   {name}");
+            item.Enabled = !isActive;
+            item.Click += async (_, _) => await _vm.SwitchAccountAsync(idx);
+            _accountsMenu.DropDownItems.Add(item);
+        }
     }
 
     private void OnTrayClick(object? sender, MouseEventArgs e)

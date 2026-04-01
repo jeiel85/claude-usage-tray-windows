@@ -486,4 +486,37 @@ public static class Loc
         "ja" => $"API エラー: {msg}",
         _ => $"API error: {msg}"
     };
+
+    // Accounts
+    public static string AccountsTitle => Lang switch
+    {
+        "ko" => "계정 관리",
+        "zh" => "账号管理",
+        "ja" => "アカウント管理",
+        _ => "Accounts"
+    };
+
+    public static string AccountAdd => Lang switch
+    {
+        "ko" => "+ 추가",
+        "zh" => "+ 添加",
+        "ja" => "+ 追加",
+        _ => "+ Add"
+    };
+
+    public static string AccountNamePlaceholder => Lang switch
+    {
+        "ko" => "계정 이름 (예: 업무용)",
+        "zh" => "账号名称（如: 工作）",
+        "ja" => "アカウント名（例: 仕事用）",
+        _ => "Account name (e.g. Work)"
+    };
+
+    public static string AccountHint => Lang switch
+    {
+        "ko" => "이름 입력 후 + 추가 클릭 → Claude 설정 폴더 선택 (기본: ~/.claude)",
+        "zh" => "输入名称后点击 + 添加 → 选择 Claude 配置文件夹（默认: ~/.claude）",
+        "ja" => "名前を入力して + 追加をクリック → Claude 設定フォルダを選択（既定: ~/.claude）",
+        _ => "Enter name and click + Add → select Claude config folder (default: ~/.claude)"
+    };
 }

@@ -14,20 +14,36 @@ public record DailyStats(
 
 public class HistoryService
 {
-    private static readonly string HistoryPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".claude", "claude-usage-tray-history.json");
-
+    private string _historyPath;
     private Dictionary<string, DailyStats> _data = new();
 
-    public HistoryService() => Load();
+    public HistoryService(string? claudeBaseDir = null)
+    {
+        _historyPath = BuildHistoryPath(claudeBaseDir);
+        Load();
+    }
+
+    private static string BuildHistoryPath(string? claudeBaseDir)
+    {
+        var baseDir = string.IsNullOrEmpty(claudeBaseDir)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude")
+            : claudeBaseDir;
+        return Path.Combine(baseDir, "claude-usage-tray-history.json");
+    }
+
+    public void SetAccount(string? claudeBaseDir)
+    {
+        _historyPath = BuildHistoryPath(claudeBaseDir);
+        _data = new();
+        Load();
+    }
 
     private void Load()
     {
         try
         {
-            if (!File.Exists(HistoryPath)) return;
-            var json = File.ReadAllText(HistoryPath);
+            if (!File.Exists(_historyPath)) return;
+            var json = File.ReadAllText(_historyPath);
             _data = JsonSerializer.Deserialize<Dictionary<string, DailyStats>>(json)
                     ?? new Dictionary<string, DailyStats>();
         }
@@ -71,7 +87,7 @@ public class HistoryService
     {
         try
         {
-            File.WriteAllText(HistoryPath,
+            File.WriteAllText(_historyPath,
                 JsonSerializer.Serialize(_data, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch { }

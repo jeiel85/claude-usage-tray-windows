@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Windows;
 using Microsoft.Win32;
+using ClaudeUsageTray.Models;
 using ClaudeUsageTray.ViewModels;
 using ClaudeUsageTray.Services;
 
@@ -64,6 +65,10 @@ public partial class SettingsWindow : Window
         LblStep3.Text          = Loc.NtfyStep3;
         LblNtfyTopic.Text      = Loc.NtfyTopic;
         LblNtfyHint.Text       = Loc.NtfyPlaceholder;
+        LblAccountsTitle.Text  = Loc.AccountsTitle;
+        BtnAddAccount.Content  = Loc.AccountAdd;
+        TxtNewAccountName.Tag  = Loc.AccountNamePlaceholder; // placeholder용
+        LblAccountHint.Text    = Loc.AccountHint;
     }
 
     private void LoadValues()
@@ -76,6 +81,22 @@ public partial class SettingsWindow : Window
         Chk100.IsChecked       = _vm.Threshold100;
         TxtNtfyTopic.Text              = _vm.NtfyTopic;
         ChkStartWithWindows.IsChecked  = IsStartupEnabled();
+        RefreshAccountsList();
+    }
+
+    private void RefreshAccountsList()
+    {
+        var items = _vm.Accounts
+            .Select((a, i) => new AccountListItem(i, a, i == _vm.ActiveAccountIndex))
+            .ToList();
+        AccountsList.ItemsSource = items;
+    }
+
+    private sealed record AccountListItem(int Index, AccountProfile Profile, bool IsActive)
+    {
+        public string DisplayLabel => IsActive
+            ? $"✓  {Profile.Name}"
+            : $"    {Profile.Name}";
     }
 
     private void Setting_Changed(object sender, RoutedEventArgs e)
@@ -129,6 +150,47 @@ public partial class SettingsWindow : Window
     private void BtnNtfyDownload_Click(object sender, RoutedEventArgs e)
     {
         Process.Start(new ProcessStartInfo("https://ntfy.sh") { UseShellExecute = true });
+    }
+
+    private void BtnAccountSwitch_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Button { Tag: int idx }) return;
+        _ = _vm.SwitchAccountAsync(idx);
+        RefreshAccountsList();
+    }
+
+    private void BtnAccountRemove_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Button { Tag: int idx }) return;
+        _vm.RemoveAccount(idx);
+        RefreshAccountsList();
+    }
+
+    private void BtnAddAccount_Click(object sender, RoutedEventArgs e)
+    {
+        var name = TxtNewAccountName.Text.Trim();
+        if (string.IsNullOrEmpty(name)) return;
+
+        // 경로 선택 다이얼로그
+        var dialog = new System.Windows.Forms.FolderBrowserDialog
+        {
+            Description = "Claude 설정 폴더 선택 (~/.claude 또는 대체 경로)",
+            UseDescriptionForTitle = true,
+            InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+        };
+
+        string? selectedDir = null;
+        if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            selectedDir = dialog.SelectedPath;
+
+        _vm.AddAccount(new AccountProfile
+        {
+            Name = name,
+            ClaudeBaseDir = selectedDir ?? ""
+        });
+
+        TxtNewAccountName.Text = "";
+        RefreshAccountsList();
     }
 
     private void CloseBtn_Click(object sender, RoutedEventArgs e) => Hide();

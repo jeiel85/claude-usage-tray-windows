@@ -6,6 +6,15 @@
 
 ## 처리 완료 이슈
 
+### v1.15.0 (2026-04-01)
+| # | 제목 | 분류 |
+|---|------|------|
+| [#5](../../issues/5) | 여러 Claude 계정 지원 | 기능 |
+
+> **구현**: 설정 창에 계정 관리 섹션 추가. `AccountProfile` 모델(이름 + claudeBaseDir 경로)을 `NotificationSettings`에 포함. `CredentialService`, `SessionMonitor`, `HistoryService` 모두 계정별 경로 전환(`SetAccount`) 지원. 트레이 우클릭 메뉴에 계정 서브메뉴 표시(2개 이상 시).
+>
+> **버그픽스**: `CredentialService` 동시 갱신 경쟁 조건(`SemaphoreSlim`), `UsageApiService` `HttpClient` 인스턴스 누수(static), `UpdateService` `MainModule` null 안전 처리.
+
 ### v1.12.1 (2026-03-29)
 | # | 제목 | 분류 |
 |---|------|------|

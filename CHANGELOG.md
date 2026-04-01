@@ -5,6 +5,50 @@
 
 ---
 
+## [1.15.0] - 2026-04-01
+
+<!-- ko -->
+### 추가
+- **다중 계정 지원** — 설정 창에서 여러 Claude 계정(`.claude` 폴더 경로)을 등록하고 전환 가능. 트레이 우클릭 메뉴에서 빠른 계정 전환 지원 (Issue #5)
+
+### 수정
+- **동시 토큰 갱신 경쟁 조건** — 동시 다발 API 호출 시 자격증명 파일이 손상될 수 있던 문제 수정 (`SemaphoreSlim` 적용)
+- **HttpClient 인스턴스 누수** — `UsageApiService`에서 매 인스턴스마다 `HttpClient`를 새로 생성하던 문제 수정 (static 공유)
+- **업데이트 시 `NullReferenceException`** — `Process.MainModule` 이 null일 경우 크래시 가능성 수정
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Multi-account support** — Register multiple Claude accounts (by `.claude` folder path) in Settings and switch between them. Quick account switching from the tray right-click menu (Issue #5)
+
+### Fixed
+- **Credential file race condition** — Concurrent API calls could corrupt the credentials file during token refresh; fixed with `SemaphoreSlim` locking
+- **HttpClient instance leak** — `UsageApiService` was creating a new `HttpClient` per instance; changed to a shared static client
+- **NullReferenceException on update** — `Process.MainModule` could be null, causing a crash during auto-update; added safe null fallback
+<!-- /en -->
+
+<!-- zh -->
+### 新增
+- **多账号支持** — 在设置窗口中注册多个 Claude 账号（`.claude` 文件夹路径）并切换。托盘右键菜单支持快速切换账号（Issue #5）
+
+### 修复
+- **凭据文件竞争条件** — 并发 API 调用时可能损坏凭据文件，已通过 `SemaphoreSlim` 锁定修复
+- **HttpClient 实例泄漏** — `UsageApiService` 每次实例化时创建新 `HttpClient`，已改为共享静态实例
+- **更新时 NullReferenceException** — `Process.MainModule` 可能为 null 导致崩溃，已添加安全 null 回退
+<!-- /zh -->
+
+<!-- ja -->
+### 追加
+- **マルチアカウント対応** — 設定画面で複数の Claude アカウント（`.claude` フォルダパス）を登録・切替可能。トレイ右クリックメニューからクイック切替にも対応（Issue #5）
+
+### 修正
+- **認証情報ファイルの競合状態** — 同時 API 呼び出し時にトークン更新で認証情報ファイルが破損する可能性を `SemaphoreSlim` で修正
+- **HttpClient インスタンスリーク** — `UsageApiService` がインスタンスごとに `HttpClient` を生成していた問題を static 共有に変更
+- **更新時 NullReferenceException** — `Process.MainModule` が null になり得るクラッシュを安全な null フォールバックで修正
+<!-- /ja -->
+
+---
+
 ## [1.14.0] - 2026-03-29
 
 <!-- ko -->
