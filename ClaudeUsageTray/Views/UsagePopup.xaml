@@ -246,12 +246,14 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="{Binding LblExtraUsage}"
                                    Foreground="#C4C9E0" FontSize="12" FontWeight="Medium"/>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                    Visibility="{Binding ExtraHasLimit, Converter={StaticResource BoolToVisibility}}">
                             <TextBlock Text="{Binding ExtraUsagePercent, StringFormat={}{0:P0}}"
                                        Foreground="#F59E0B" FontSize="12" FontWeight="SemiBold"/>
                         </StackPanel>
                     </Grid>
                     <ProgressBar Value="{Binding ExtraUsagePercent}" Maximum="1"
+                                 Visibility="{Binding ExtraHasLimit, Converter={StaticResource BoolToVisibility}}"
                                  Margin="0,6,0,6">
                         <ProgressBar.Style>
                             <Style TargetType="ProgressBar" BasedOn="{StaticResource UsageBarStyle}">

@@ -92,6 +92,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     // Extra usage (purchased add-on)
     [ObservableProperty] private bool _extraUsageEnabled = false;
+    [ObservableProperty] private bool _extraHasLimit = false;
     [ObservableProperty] private double _extraUsagePercent = 0;
     [ObservableProperty] private string _extraCreditsLabel = "";
 
@@ -461,15 +462,21 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
                     if (usage.ExtraUsage is { IsEnabled: true } eu)
                     {
-                        ExtraUsageEnabled  = true;
-                        ExtraUsagePercent  = Math.Min(1.0, (eu.Utilization ?? 0) / 100.0);
-                        ExtraCreditsLabel  = (eu.UsedCredits.HasValue && eu.MonthlyLimit.HasValue)
+                        ExtraUsageEnabled = true;
+                        ExtraHasLimit     = eu.MonthlyLimit.HasValue;
+                        ExtraUsagePercent = eu.MonthlyLimit.HasValue
+                            ? Math.Min(1.0, (eu.Utilization ?? 0) / 100.0)
+                            : 0;
+                        ExtraCreditsLabel = (eu.UsedCredits.HasValue && eu.MonthlyLimit.HasValue)
                             ? Loc.ExtraCredits(eu.UsedCredits.Value, eu.MonthlyLimit.Value)
-                            : "";
+                            : eu.UsedCredits.HasValue
+                                ? Loc.ExtraCreditsUsedOnly(eu.UsedCredits.Value)
+                                : "";
                     }
                     else
                     {
                         ExtraUsageEnabled = false;
+                        ExtraHasLimit     = false;
                     }
 
                     StatusText = $"{ShortUsagePercent:P0} used";

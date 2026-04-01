@@ -479,6 +479,14 @@ public static class Loc
         _ => $"{used:N0} / {limit:N0} credits"
     };
 
+    public static string ExtraCreditsUsedOnly(double used) => Lang switch
+    {
+        "ko" => $"{used:N0} 크레딧 사용됨 (한도 미설정)",
+        "zh" => $"已使用 {used:N0} 积分（未设限额）",
+        "ja" => $"{used:N0} クレジット使用済み（上限未設定）",
+        _ => $"{used:N0} credits used (no limit set)"
+    };
+
     public static string ApiError(string msg) => Lang switch
     {
         "ko" => $"API 오류: {msg}",
