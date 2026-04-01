@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Windows;
 using Microsoft.Win32;
-using ClaudeUsageTray.Models;
 using ClaudeUsageTray.ViewModels;
 using ClaudeUsageTray.Services;
 
@@ -21,6 +20,13 @@ public partial class SettingsWindow : Window
 
         ApplyLocalization();
         LoadValues();
+
+        // 계정 전환 시 UI 갱신
+        _vm.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(MainViewModel.CurrentAccountLabel))
+                Dispatcher.Invoke(RefreshAccountSection);
+        };
     }
 
     private const string StartupRegKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
@@ -50,53 +56,66 @@ public partial class SettingsWindow : Window
 
     private void ApplyLocalization()
     {
-        TitleText.Text                  = Loc.Notifications;
-        LblGeneral.Text                 = Loc.NotificationsEnabled;
-        ChkEnabled.Content              = Loc.NotificationsEnabled;
-        ChkRateLimit.Content            = Loc.NotifyRateLimit;
+        TitleText.Text                      = Loc.Notifications;
+        LblGeneral.Text                     = Loc.NotificationsEnabled;
+        ChkEnabled.Content                  = Loc.NotificationsEnabled;
+        ChkRateLimit.Content                = Loc.NotifyRateLimit;
         ChkStartWithWindows.Content         = Loc.StartWithWindows;
         BtnTestNotification.Content         = Loc.TestNotification;
         LblTestNotificationHint.Text        = Loc.TestNotificationHint;
-        LblThresholds.Text     = Loc.ThresholdsLabel;
-        LblNtfyTitle.Text      = Loc.NtfyTitle;
-        LblNtfyDesc.Text       = Loc.NtfyDesc;
-        BtnNtfyDownload.Content = Loc.NtfyDownload;
-        LblStep2.Text          = Loc.NtfyStep2;
-        LblStep3.Text          = Loc.NtfyStep3;
-        LblNtfyTopic.Text      = Loc.NtfyTopic;
-        LblNtfyHint.Text       = Loc.NtfyPlaceholder;
-        LblAccountsTitle.Text  = Loc.AccountsTitle;
-        BtnAddAccount.Content  = Loc.AccountAdd;
-        TxtNewAccountName.Tag  = Loc.AccountNamePlaceholder; // placeholder용
-        LblAccountHint.Text    = Loc.AccountHint;
+        LblThresholds.Text                  = Loc.ThresholdsLabel;
+        LblNtfyTitle.Text                   = Loc.NtfyTitle;
+        LblNtfyDesc.Text                    = Loc.NtfyDesc;
+        BtnNtfyDownload.Content             = Loc.NtfyDownload;
+        LblStep2.Text                       = Loc.NtfyStep2;
+        LblStep3.Text                       = Loc.NtfyStep3;
+        LblNtfyTopic.Text                   = Loc.NtfyTopic;
+        LblNtfyHint.Text                    = Loc.NtfyPlaceholder;
+        LblAccountsTitle.Text               = Loc.AccountsTitle;
+        BtnSaveAccountName.Content          = Loc.AccountSave;
+        LblAccountHint.Text                 = Loc.AccountHint;
     }
 
     private void LoadValues()
     {
-        ChkEnabled.IsChecked   = _vm.NotificationsEnabled;
-        ChkRateLimit.IsChecked = _vm.NotifyRateLimit;
-        Chk50.IsChecked        = _vm.Threshold50;
-        Chk75.IsChecked        = _vm.Threshold75;
-        Chk90.IsChecked        = _vm.Threshold90;
-        Chk100.IsChecked       = _vm.Threshold100;
-        TxtNtfyTopic.Text              = _vm.NtfyTopic;
-        ChkStartWithWindows.IsChecked  = IsStartupEnabled();
-        RefreshAccountsList();
+        ChkEnabled.IsChecked          = _vm.NotificationsEnabled;
+        ChkRateLimit.IsChecked        = _vm.NotifyRateLimit;
+        Chk50.IsChecked               = _vm.Threshold50;
+        Chk75.IsChecked               = _vm.Threshold75;
+        Chk90.IsChecked               = _vm.Threshold90;
+        Chk100.IsChecked              = _vm.Threshold100;
+        TxtNtfyTopic.Text             = _vm.NtfyTopic;
+        ChkStartWithWindows.IsChecked = IsStartupEnabled();
+        RefreshAccountSection();
     }
 
-    private void RefreshAccountsList()
+    private void RefreshAccountSection()
     {
-        var items = _vm.Accounts
-            .Select((a, i) => new AccountListItem(i, a, i == _vm.ActiveAccountIndex))
-            .ToList();
-        AccountsList.ItemsSource = items;
+        var label = _vm.CurrentAccountLabel;
+        if (string.IsNullOrEmpty(label))
+        {
+            LblCurrentAccountKey.Text = Loc.AccountNoAccount;
+            TxtAccountName.Text = "";
+            TxtAccountName.IsEnabled = false;
+            BtnSaveAccountName.IsEnabled = false;
+        }
+        else
+        {
+            LblCurrentAccountKey.Text = Loc.AccountCurrentId(label);
+            TxtAccountName.IsEnabled = true;
+            BtnSaveAccountName.IsEnabled = true;
+            // 이름이 uuid 앞자리가 아닌 실제 이름이면 표시, 아니면 비워둠
+            TxtAccountName.Text = _vm.CurrentAccountLabel == label
+                ? TxtAccountName.Text  // 유지 (포커스 잃지 않도록)
+                : "";
+        }
     }
 
-    private sealed record AccountListItem(int Index, AccountProfile Profile, bool IsActive)
+    private void SaveAccountName()
     {
-        public string DisplayLabel => IsActive
-            ? $"✓  {Profile.Name}"
-            : $"    {Profile.Name}";
+        var name = TxtAccountName.Text.Trim();
+        if (string.IsNullOrEmpty(name)) return;
+        _vm.RenameCurrentAccount(name);
     }
 
     private void Setting_Changed(object sender, RoutedEventArgs e)
@@ -152,46 +171,18 @@ public partial class SettingsWindow : Window
         Process.Start(new ProcessStartInfo("https://ntfy.sh") { UseShellExecute = true });
     }
 
-    private void BtnAccountSwitch_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not System.Windows.Controls.Button { Tag: int idx }) return;
-        _ = _vm.SwitchAccountAsync(idx);
-        RefreshAccountsList();
-    }
+    private void TxtAccountName_LostFocus(object sender, RoutedEventArgs e) => SaveAccountName();
 
-    private void BtnAccountRemove_Click(object sender, RoutedEventArgs e)
+    private void TxtAccountName_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
-        if (sender is not System.Windows.Controls.Button { Tag: int idx }) return;
-        _vm.RemoveAccount(idx);
-        RefreshAccountsList();
-    }
-
-    private void BtnAddAccount_Click(object sender, RoutedEventArgs e)
-    {
-        var name = TxtNewAccountName.Text.Trim();
-        if (string.IsNullOrEmpty(name)) return;
-
-        // 경로 선택 다이얼로그
-        var dialog = new System.Windows.Forms.FolderBrowserDialog
+        if (e.Key == System.Windows.Input.Key.Enter)
         {
-            Description = "Claude 설정 폴더 선택 (~/.claude 또는 대체 경로)",
-            UseDescriptionForTitle = true,
-            InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
-        };
-
-        string? selectedDir = null;
-        if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-            selectedDir = dialog.SelectedPath;
-
-        _vm.AddAccount(new AccountProfile
-        {
-            Name = name,
-            ClaudeBaseDir = selectedDir ?? ""
-        });
-
-        TxtNewAccountName.Text = "";
-        RefreshAccountsList();
+            SaveAccountName();
+            e.Handled = true;
+        }
     }
+
+    private void BtnSaveAccountName_Click(object sender, RoutedEventArgs e) => SaveAccountName();
 
     private void CloseBtn_Click(object sender, RoutedEventArgs e) => Hide();
 

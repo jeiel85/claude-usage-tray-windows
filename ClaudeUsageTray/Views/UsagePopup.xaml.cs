@@ -254,6 +254,13 @@ public partial class UsagePopup : Window
         }
     }
 
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        // Alt+F4 또는 시스템 닫기 → 실제 종료 대신 숨김 처리
+        e.Cancel = true;
+        Hide();
+    }
+
     protected override void OnSourceInitialized(EventArgs e) => base.OnSourceInitialized(e);
 
     private async void RefreshBtn_Click(object sender, RoutedEventArgs e) => await _vm.RefreshAsync();

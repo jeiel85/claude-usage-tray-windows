@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Timers;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -98,10 +97,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public string LblExtraUsage => Loc.ExtraUsageTitle;
 
-    // 계정 관리
-    [ObservableProperty] private string _activeAccountName = "Default";
-    [ObservableProperty] private ObservableCollection<AccountProfile> _accounts = [];
-    public int ActiveAccountIndex { get; private set; } = 0;
+    // 현재 활성 계정 표시 (자동 감지)
+    [ObservableProperty] private string _currentAccountLabel = "";
 
     // Update banner
     [ObservableProperty] private bool _updateAvailable = false;
@@ -148,6 +145,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _updater = updater;
         _history = history;
 
+        // 계정 전환 자동 감지: credentials 파일 변경 → 새로고침
+        _credentials.CredentialsChanged += OnCredentialsChanged;
+
         LoadSettings();
 
         _timer = new Timer(120_000); // 2 minutes — API has rate limits
@@ -170,6 +170,40 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _updateTimer.AutoReset = true;
     }
 
+    private void OnCredentialsChanged()
+    {
+        // 계정 전환 감지 — 히스토리를 새 계정으로 전환하고 즉시 새로고침
+        var orgUuid = _credentials.GetOrganizationUuid();
+        _history.SetOrgUuid(orgUuid);
+        UpdateCurrentAccountLabel(orgUuid);
+        // 타이머 카운트다운 리셋 + 즉시 새로고침
+        _ = System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
+            await RefreshAsync());
+    }
+
+    private void UpdateCurrentAccountLabel(string? orgUuid)
+    {
+        if (string.IsNullOrEmpty(orgUuid))
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(() => CurrentAccountLabel = "");
+            return;
+        }
+        var settings = _settingsService.Load();
+        var name = settings.AccountNames.TryGetValue(orgUuid, out var n) ? n : null;
+        var label = name ?? orgUuid[..Math.Min(8, orgUuid.Length)];
+        System.Windows.Application.Current.Dispatcher.Invoke(() => CurrentAccountLabel = label);
+    }
+
+    public void RenameCurrentAccount(string name)
+    {
+        var orgUuid = _credentials.GetOrganizationUuid();
+        if (string.IsNullOrEmpty(orgUuid)) return;
+        var settings = _settingsService.Load();
+        settings.AccountNames[orgUuid] = name.Trim();
+        _settingsService.Save(settings);
+        UpdateCurrentAccountLabel(orgUuid);
+    }
+
     private void LoadSettings()
     {
         var s = _settingsService.Load();
@@ -182,11 +216,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
         NtfyTopic        = s.NtfyTopic;
         StartWithWindows = s.StartWithWindows;
 
-        Accounts = new ObservableCollection<AccountProfile>(s.Accounts);
-        ActiveAccountIndex = Math.Clamp(s.ActiveAccountIndex, 0, Math.Max(0, s.Accounts.Count - 1));
-        ActiveAccountName = ActiveAccountIndex < s.Accounts.Count
-            ? s.Accounts[ActiveAccountIndex].Name
-            : "Default";
+        // 현재 로그인된 계정의 orgUuid로 히스토리 경로 초기화
+        var orgUuid = _credentials.GetOrganizationUuid();
+        _history.SetOrgUuid(orgUuid);
+        UpdateCurrentAccountLabel(orgUuid);
     }
 
     [RelayCommand]
@@ -198,7 +231,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         if (Threshold90)  thresholds.Add(90);
         if (Threshold100) thresholds.Add(100);
 
-        // Preserve SkippedVersion from disk so we don't overwrite it
+        // Preserve SkippedVersion + AccountNames from disk
         var existing = _settingsService.Load();
 
         _settingsService.Save(new NotificationSettings
@@ -209,46 +242,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
             NtfyTopic = NtfyTopic.Trim(),
             StartWithWindows = StartWithWindows,
             SkippedVersion = existing.SkippedVersion,
-            Accounts = [.. Accounts],
-            ActiveAccountIndex = ActiveAccountIndex
+            AccountNames = existing.AccountNames
         });
-    }
-
-    /// <summary>
-    /// 계정 전환: 서비스 경로를 업데이트하고 데이터를 새로고침한다.
-    /// </summary>
-    [RelayCommand]
-    public async Task SwitchAccountAsync(int index)
-    {
-        if (index < 0 || index >= Accounts.Count) return;
-        if (index == ActiveAccountIndex && Accounts.Count > 0) return;
-
-        ActiveAccountIndex = index;
-        var profile = Accounts[index];
-        ActiveAccountName = profile.Name;
-
-        var baseDir = string.IsNullOrEmpty(profile.ClaudeBaseDir) ? null : profile.ClaudeBaseDir;
-        _credentials.SetAccount(baseDir);
-        _session.SetAccount(baseDir);
-        _history.SetAccount(baseDir);
-
-        SaveSettings();
-        await RefreshAsync();
-    }
-
-    public void AddAccount(AccountProfile profile)
-    {
-        Accounts.Add(profile);
-        SaveSettings();
-    }
-
-    public void RemoveAccount(int index)
-    {
-        if (index < 0 || index >= Accounts.Count) return;
-        Accounts.RemoveAt(index);
-        if (ActiveAccountIndex >= Accounts.Count)
-            ActiveAccountIndex = Math.Max(0, Accounts.Count - 1);
-        SaveSettings();
     }
 
     public async Task StartAsync()
@@ -632,6 +627,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        _credentials.CredentialsChanged -= OnCredentialsChanged;
+        _credentials.Dispose();
         _timer.Dispose();
         _countdownTimer.Dispose();
         _updateTimer.Dispose();

@@ -5,6 +5,34 @@
 
 ---
 
+## [1.15.1] - 2026-04-01
+
+<!-- ko -->
+### 수정
+- **Alt+F4 후 트레이 클릭 시 크래시** — 팝업 창이 실제로 닫힌 후 다시 열려는 시도로 `InvalidOperationException` 발생하던 문제 수정. `OnClosing` 오버라이드로 실제 종료 대신 숨김 처리
+- **다중 계정 방식 재설계** — 폴더 선택 방식 제거. Claude 앱에서 로그아웃/로그인하면 `~/.claude/.credentials.json` 변경을 `FileSystemWatcher`로 자동 감지하여 즉시 새로고침. 계정별 히스토리를 `organizationUuid` 기준으로 분리 저장. 설정 창에서 현재 계정에 이름 부여 가능 (트레이 툴팁에 표시)
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Crash after Alt+F4 then tray click** — After the popup window was closed with Alt+F4, clicking the tray icon threw `InvalidOperationException`. Fixed by overriding `OnClosing` to hide instead of close
+- **Multi-account redesign** — Removed folder-selection approach. Now uses `FileSystemWatcher` on `~/.claude/.credentials.json` to auto-detect account switches done in the Claude app. Per-account history stored by `organizationUuid`. Account can be named in Settings and shown in tray tooltip
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **Alt+F4 后点击托盘图标崩溃** — 通过 Alt+F4 关闭弹窗后点击托盘会抛出 `InvalidOperationException`，通过重写 `OnClosing` 改为隐藏窗口而非关闭来修复
+- **多账号方式重新设计** — 移除文件夹选择方式。改用 `FileSystemWatcher` 监听 `~/.claude/.credentials.json`，在 Claude 应用切换账号后自动检测并刷新。按 `organizationUuid` 分别存储各账号历史记录。可在设置中为当前账号命名（显示在托盘提示中）
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **Alt+F4 後にトレイクリックでクラッシュ** — Alt+F4 でポップアップを閉じた後トレイをクリックすると `InvalidOperationException` が発生する問題を `OnClosing` のオーバーライドで修正（閉じる代わりに非表示に）
+- **マルチアカウント方式の再設計** — フォルダ選択方式を廃止。`FileSystemWatcher` で `~/.claude/.credentials.json` を監視し、Claude アプリでのアカウント切替を自動検出して即時更新。`organizationUuid` 単位でアカウント別の履歴を保存。設定画面でアカウントに名前を付けてトレイツールチップに表示可能
+<!-- /ja -->
+
+---
+
 ## [1.15.0] - 2026-04-01
 
 <!-- ko -->

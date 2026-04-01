@@ -14,28 +14,34 @@ public record DailyStats(
 
 public class HistoryService
 {
+    private static readonly string ClaudeDir = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude");
+
     private string _historyPath;
     private Dictionary<string, DailyStats> _data = new();
 
-    public HistoryService(string? claudeBaseDir = null)
+    public HistoryService()
     {
-        _historyPath = BuildHistoryPath(claudeBaseDir);
+        _historyPath = BuildHistoryPath(null);
         Load();
     }
 
-    private static string BuildHistoryPath(string? claudeBaseDir)
+    /// <summary>
+    /// 계정 전환 시 호출. orgUuid가 있으면 계정 전용 파일, 없으면 공용 파일 사용.
+    /// </summary>
+    public void SetOrgUuid(string? orgUuid)
     {
-        var baseDir = string.IsNullOrEmpty(claudeBaseDir)
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude")
-            : claudeBaseDir;
-        return Path.Combine(baseDir, "claude-usage-tray-history.json");
-    }
-
-    public void SetAccount(string? claudeBaseDir)
-    {
-        _historyPath = BuildHistoryPath(claudeBaseDir);
+        _historyPath = BuildHistoryPath(orgUuid);
         _data = new();
         Load();
+    }
+
+    private static string BuildHistoryPath(string? orgUuid)
+    {
+        var suffix = string.IsNullOrEmpty(orgUuid)
+            ? ""
+            : $"-{orgUuid[..Math.Min(8, orgUuid.Length)]}"; // UUID 앞 8자로 짧게
+        return Path.Combine(ClaudeDir, $"claude-usage-tray-history{suffix}.json");
     }
 
     private void Load()

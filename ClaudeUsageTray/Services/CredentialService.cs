@@ -7,40 +7,59 @@ using ClaudeUsageTray.Models;
 
 namespace ClaudeUsageTray.Services;
 
-public class CredentialService
+public class CredentialService : IDisposable
 {
     private static readonly SemaphoreSlim _lock = new(1, 1);
 
-    private string _credentialsPath;
+    private static readonly string CredentialsPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        ".claude", ".credentials.json");
 
-    private const string TokenUrl    = "https://platform.claude.com/v1/oauth/token";
-    private const string ClientId    = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
+    private const string TokenUrl = "https://platform.claude.com/v1/oauth/token";
+    private const string ClientId = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(15) };
 
-    public CredentialService(string? claudeBaseDir = null)
+    private readonly FileSystemWatcher? _watcher;
+
+    /// <summary>
+    /// credentials.json 이 변경되면 발생 (계정 전환 감지용).
+    /// 쓰기 완료 후 최소 500ms 지연을 두어 파일 잠금 방지.
+    /// </summary>
+    public event Action? CredentialsChanged;
+
+    public CredentialService()
     {
-        _credentialsPath = BuildCredentialsPath(claudeBaseDir);
+        var dir = Path.GetDirectoryName(CredentialsPath)!;
+        if (Directory.Exists(dir))
+        {
+            _watcher = new FileSystemWatcher(dir, ".credentials.json")
+            {
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size,
+                EnableRaisingEvents = true
+            };
+
+            // Changed 이벤트는 짧은 시간에 여러 번 올 수 있으므로 debounce
+            _watcher.Changed += OnCredentialsFileChanged;
+        }
     }
 
-    private static string BuildCredentialsPath(string? claudeBaseDir)
-    {
-        var baseDir = string.IsNullOrEmpty(claudeBaseDir)
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude")
-            : claudeBaseDir;
-        return Path.Combine(baseDir, ".credentials.json");
-    }
+    private System.Timers.Timer? _debounceTimer;
 
-    public void SetAccount(string? claudeBaseDir)
+    private void OnCredentialsFileChanged(object sender, FileSystemEventArgs e)
     {
-        _credentialsPath = BuildCredentialsPath(claudeBaseDir);
+        // 500ms debounce — 파일 저장 중 여러 이벤트 방지
+        _debounceTimer?.Dispose();
+        _debounceTimer = new System.Timers.Timer(500) { AutoReset = false };
+        _debounceTimer.Elapsed += (_, _) => CredentialsChanged?.Invoke();
+        _debounceTimer.Start();
     }
 
     public ClaudeCredentials? Load()
     {
-        if (!File.Exists(_credentialsPath)) return null;
+        if (!File.Exists(CredentialsPath)) return null;
         try
         {
-            var json = File.ReadAllText(_credentialsPath);
+            var json = File.ReadAllText(CredentialsPath);
             return JsonSerializer.Deserialize<ClaudeCredentials>(json);
         }
         catch { return null; }
@@ -52,7 +71,9 @@ public class CredentialService
         return cred?.ClaudeAiOauth?.AccessToken;
     }
 
-    public bool HasCredentials() => File.Exists(_credentialsPath);
+    public string? GetOrganizationUuid() => Load()?.OrganizationUuid;
+
+    public bool HasCredentials() => File.Exists(CredentialsPath);
 
     /// <summary>
     /// Returns a valid access token, refreshing it first if it has expired.
@@ -85,13 +106,13 @@ public class CredentialService
                     oauth.RefreshToken = refreshed.RefreshToken;
 
                 // Merge back — preserve other fields in the JSON
-                var raw = JsonNode.Parse(File.ReadAllText(_credentialsPath))!;
+                var raw = JsonNode.Parse(File.ReadAllText(CredentialsPath))!;
                 raw["claudeAiOauth"]!["accessToken"] = oauth.AccessToken;
                 raw["claudeAiOauth"]!["expiresAt"]   = oauth.ExpiresAt;
                 if (!string.IsNullOrEmpty(refreshed.RefreshToken))
                     raw["claudeAiOauth"]!["refreshToken"] = oauth.RefreshToken;
 
-                File.WriteAllText(_credentialsPath,
+                File.WriteAllText(CredentialsPath,
                     raw.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
             }
             catch { /* ignore write errors */ }
@@ -139,6 +160,13 @@ public class CredentialService
             return new RefreshResult(at.GetString()!, expiresAt, newRefresh);
         }
         catch { return null; }
+    }
+
+    public void Dispose()
+    {
+        _watcher?.Dispose();
+        _debounceTimer?.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     private record RefreshResult(string AccessToken, long ExpiresAt, string? RefreshToken);
