@@ -9,9 +9,7 @@ echo ======================================
 echo  Claude Usage Tray - Release Helper
 echo ======================================
 
-:: --------------------------------------------
 :: 1. Commit and push code changes
-:: --------------------------------------------
 echo.
 echo -- [1/6] Git status check --
 git fetch origin >nul 2>&1
@@ -38,10 +36,9 @@ if not "%DIRTY_COUNT%"=="0" (
     )
 ) else (
     echo   [OK] Working directory clean
-
     for /f %%N in ('git rev-list --count origin/master..HEAD 2^>nul') do set "AHEAD=%%N"
     if not "!AHEAD!"=="0" (
-        echo   [!] !AHEAD! unpushed commit(s) found
+        echo   [!] !AHEAD! unpushed commit(s)
         set /p "DO_PUSH=Push now? (Y/N): "
         if /i "!DO_PUSH!"=="Y" (
             git push origin master
@@ -53,9 +50,7 @@ if not "%DIRTY_COUNT%"=="0" (
     )
 )
 
-:: --------------------------------------------
 :: 2. Read current version and select bump type
-:: --------------------------------------------
 set "CUR_VERSION="
 for /f "tokens=*" %%L in ('findstr /i "<Version>" "%CSPROJ%"') do (
     set "LINE=%%L"
@@ -111,60 +106,29 @@ if /i not "%CONFIRM%"=="Y" (
     pause & exit /b 0
 )
 
-:: Check if tag already exists
 gh release view %TAG% >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
     echo [ERROR] Release %TAG% already exists.
     pause & exit /b 1
 )
 
-:: --------------------------------------------
 :: 3. Update csproj version + CHANGELOG
-:: --------------------------------------------
 echo.
 echo -- [3/6] Version update --
-python -c "
-import re, sys
-new = sys.argv[1]
-with open('ClaudeUsageTray/ClaudeUsageTray.csproj', encoding='utf-8') as f:
-    content = f.read()
-content = re.sub(r'<Version>.*?</Version>', f'<Version>{new}</Version>', content)
-content = re.sub(r'<AssemblyVersion>.*?</AssemblyVersion>', f'<AssemblyVersion>{new}</AssemblyVersion>', content)
-with open('ClaudeUsageTray/ClaudeUsageTray.csproj', 'w', encoding='utf-8') as f:
-    f.write(content)
-print(f'  csproj -> {new}')
-" "%NEW_VERSION%"
+python -c "import re,sys;new=sys.argv[1];f=open('ClaudeUsageTray/ClaudeUsageTray.csproj',encoding='utf-8');c=f.read();f.close();c=re.sub(r'<Version>.*?</Version>',f'<Version>{new}</Version>',c);c=re.sub(r'<AssemblyVersion>.*?</AssemblyVersion>',f'<AssemblyVersion>{new}</AssemblyVersion>',c);f=open('ClaudeUsageTray/ClaudeUsageTray.csproj','w',encoding='utf-8');f.write(c);f.close();print(f'  csproj -> {new}')" "%NEW_VERSION%"
 if %ERRORLEVEL% NEQ 0 ( echo [ERROR] csproj update failed & pause & exit /b 1 )
 
-python -c "
-import re, sys
-from datetime import date
-ver = sys.argv[1]
-today = date.today().strftime('%Y-%m-%d')
-header = f'## [{ver}] - {today}'
-with open('CHANGELOG.md', encoding='utf-8') as f:
-    content = f.read()
-if header in content:
-    print(f'  CHANGELOG: {header} already exists, skipping')
-else:
-    content = content.replace('---\n\n## [', f'---\n\n{header}\n\n<!-- ko -->\n### 수정\n- \n<!-- /ko -->\n\n<!-- en -->\n### Fixed\n- \n<!-- /en -->\n\n---\n\n## [', 1)
-    with open('CHANGELOG.md', 'w', encoding='utf-8') as f:
-        f.write(content)
-    print(f'  CHANGELOG: {header} section added')
-    sys.exit(2)
-" "%NEW_VERSION%"
+python -c "import re,sys;from datetime import date;ver=sys.argv[1];today=date.today().strftime('%%Y-%%m-%%d');header=f'## [{ver}] - {today}';f=open('CHANGELOG.md',encoding='utf-8');c=f.read();f.close();(print(f'  CHANGELOG: {header} already exists'),sys.exit(0)) if header in c else (c.__setitem__(0,None),open('CHANGELOG.md','w',encoding='utf-8').write(c.replace('---\n\n## [',f'---\n\n{header}\n\n<!-- ko -->\n### \uc218\uc815\n- \n<!-- /ko -->\n\n<!-- en -->\n### Fixed\n- \n<!-- /en -->\n\n---\n\n## [',1)),print(f'  CHANGELOG: {header} added'),sys.exit(2))" "%NEW_VERSION%"
 
 if %ERRORLEVEL% EQU 2 (
     echo.
-    echo   Please write release notes in CHANGELOG.md, then run release.bat again.
+    echo   Edit CHANGELOG.md with release notes, then run release.bat again.
     start notepad CHANGELOG.md
     pause & exit /b 0
 )
 if %ERRORLEVEL% NEQ 0 ( echo [ERROR] CHANGELOG update failed & pause & exit /b 1 )
 
-:: --------------------------------------------
 :: 4. Publish
-:: --------------------------------------------
 echo.
 echo -- [4/6] Publish --
 dotnet publish ClaudeUsageTray/ClaudeUsageTray.csproj ^
@@ -172,9 +136,7 @@ dotnet publish ClaudeUsageTray/ClaudeUsageTray.csproj ^
     -p:PublishSingleFile=true -o publish/ --nologo
 if %ERRORLEVEL% NEQ 0 ( echo [ERROR] Publish failed & pause & exit /b 1 )
 
-:: --------------------------------------------
 :: 5. Git commit + tag + push
-:: --------------------------------------------
 echo.
 echo -- [5/6] Git commit / tag / push --
 git add -A
@@ -186,25 +148,17 @@ if %ERRORLEVEL% NEQ 0 (
 git tag %TAG%
 if %ERRORLEVEL% NEQ 0 ( echo [ERROR] Git tag failed & pause & exit /b 1 )
 git push origin master --tags
-if %ERRORLEVEL% NEQ 0 ( echo [ERROR] Git push failed & pause & exit /b 1 )
+if %ERRORLEVEL! NEQ 0 ( echo [ERROR] Git push failed & pause & exit /b 1 )
 echo   [OK] Pushed
 
-:: --------------------------------------------
 :: 6. GitHub Release
-:: --------------------------------------------
 echo.
 echo -- [6/6] GitHub Release --
 set "NOTES_FILE=%TEMP%\release_notes_%NEW_VERSION%.md"
-python -c "
-import re, sys
-with open('CHANGELOG.md', encoding='utf-8') as f:
-    content = f.read()
-match = re.search(r'## \[' + re.escape(sys.argv[1]) + r'\].*?(?=\n## |\Z)', content, re.DOTALL)
-print(match.group().strip() if match else 'No release notes found.')
-" "%NEW_VERSION%" > "%NOTES_FILE%"
+python -c "import re,sys;f=open('CHANGELOG.md',encoding='utf-8');c=f.read();f.close();m=re.search(r'## \['+re.escape(sys.argv[1])+r'\].*?(?=\n## |\Z)',c,re.DOTALL);print(m.group().strip() if m else 'No release notes.')" "%NEW_VERSION%" > "%NOTES_FILE%"
 
 gh release create %TAG% publish\ClaudeUsageTray.exe --title "%TAG%" --notes-file "%NOTES_FILE%"
-if %ERRORLEVEL% NEQ 0 ( echo [ERROR] GitHub Release creation failed & pause & exit /b 1 )
+if %ERRORLEVEL% NEQ 0 ( echo [ERROR] GitHub Release failed & pause & exit /b 1 )
 del "%NOTES_FILE%" >nul 2>&1
 
 echo.
