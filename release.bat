@@ -90,9 +90,9 @@ echo.
 echo ── [2/6] 버전 선택 ─────────────────────
 echo  현재: v%CUR_VERSION%
 echo.
-echo    [1] patch  →  v%V_MAJOR%.%V_MINOR%.!NEXT_PATCH!
-echo    [2] minor  →  v%V_MAJOR%.!NEXT_MINOR!.0
-echo    [3] major  →  v!NEXT_MAJOR!.0.0
+echo    [1] patch  -^>  v%V_MAJOR%.%V_MINOR%.!NEXT_PATCH!
+echo    [2] minor  -^>  v%V_MAJOR%.!NEXT_MINOR!.0
+echo    [3] major  -^>  v!NEXT_MAJOR!.0.0
 echo    [4] 직접 입력
 echo.
 set /p "BUMP_TYPE=선택 (1/2/3/4): "
@@ -113,7 +113,7 @@ if "%BUMP_TYPE%"=="1" (
 set "TAG=v%NEW_VERSION%"
 
 echo.
-echo  %CUR_VERSION%  →  %NEW_VERSION%
+echo  %CUR_VERSION%  -^>  %NEW_VERSION%
 echo.
 set /p "CONFIRM=릴리즈 진행하시겠습니까? (Y/N): "
 if /i not "%CONFIRM%"=="Y" (
