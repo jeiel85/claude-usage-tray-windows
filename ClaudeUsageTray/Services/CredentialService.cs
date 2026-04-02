@@ -38,10 +38,12 @@ public class CredentialService : IDisposable
                 EnableRaisingEvents = true
             };
 
-            // Changed/Created/Deleted 이벤트 모두 감지 (로그아웃 시 파일 삭제, 로그인 시 새로 생성)
+            // Changed/Created/Deleted/Renamed 이벤트 모두 감지
+            // Electron 앱은 atomic write(임시파일 → rename) 방식으로 저장하므로 Renamed 필수
             _watcher.Changed += OnCredentialsFileChanged;
             _watcher.Created += OnCredentialsFileChanged;
             _watcher.Deleted += OnCredentialsFileChanged;
+            _watcher.Renamed += (s, e) => OnCredentialsFileChanged(s, e);
         }
     }
 

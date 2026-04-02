@@ -100,6 +100,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     // 현재 활성 계정 표시 (자동 감지)
     [ObservableProperty] private string _currentAccountLabel = "";
+    private string? _lastKnownOrgUuid;
 
     // Update banner
     [ObservableProperty] private bool _updateAvailable = false;
@@ -347,6 +348,16 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public async Task RefreshAsync()
     {
         _secondsUntilRefresh = 120;
+
+        // FileSystemWatcher 미감지 폴백: 정기 새로고침마다 orgUuid 변경 여부 확인
+        var currentOrgUuid = _credentials.GetOrganizationUuid();
+        if (currentOrgUuid != _lastKnownOrgUuid)
+        {
+            _lastKnownOrgUuid = currentOrgUuid;
+            _history.SetOrgUuid(currentOrgUuid);
+            UpdateCurrentAccountLabel(currentOrgUuid);
+            _apiRetryAfter = DateTimeOffset.MinValue;
+        }
 
         // Honour Retry-After: skip API call but still refresh session stats
         bool skipApi = DateTimeOffset.UtcNow < _apiRetryAfter;
