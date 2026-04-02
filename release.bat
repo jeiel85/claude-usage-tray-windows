@@ -61,6 +61,50 @@ if "%BUMP_TYPE%"=="1" (
 )
 
 set "TAG=v%NEW_VERSION%"
+
+:: ─────────────────────────────────────────────
+:: Git 상태 확인
+:: ─────────────────────────────────────────────
+echo.
+echo ── Git 상태 확인 ──────────────────────
+git fetch origin >nul 2>&1
+
+:: 커밋되지 않은 변경사항
+for /f %%C in ('git status --porcelain ^| find /c /v ""') do set "DIRTY_COUNT=%%C"
+if "%DIRTY_COUNT%"=="0" (
+    echo  [OK] 워킹 디렉토리 깨끗함
+) else (
+    echo  [!] 커밋되지 않은 변경사항 %DIRTY_COUNT%개:
+    git status --short
+    echo.
+    set /p "DIRTY_OK=커밋 안 된 파일이 있습니다. 그냥 진행하면 release.bat이 함께 커밋합니다. 계속? (Y/N): "
+    if /i not "!DIRTY_OK!"=="Y" (
+        echo 취소되었습니다.
+        pause & exit /b 0
+    )
+)
+
+:: origin/master 와 동기화 여부
+for /f %%A in ('git rev-parse HEAD') do set "LOCAL_SHA=%%A"
+for /f %%A in ('git rev-parse origin/master 2^>nul') do set "REMOTE_SHA=%%A"
+if not "%LOCAL_SHA%"=="%REMOTE_SHA%" (
+    echo.
+    echo  [!] 로컬과 origin/master 가 다릅니다.
+    for /f %%N in ('git rev-list --count origin/master..HEAD') do set "AHEAD=%%N"
+    for /f %%N in ('git rev-list --count HEAD..origin/master') do set "BEHIND=%%N"
+    if not "!AHEAD!"=="0" echo      로컬이 !AHEAD!개 커밋 앞서 있음 (push 필요)
+    if not "!BEHIND!"=="0" echo      origin이 !BEHIND!개 커밋 앞서 있음 (pull 필요)
+    echo.
+    set /p "SYNC_OK=그래도 계속 진행하시겠습니까? (Y/N): "
+    if /i not "!SYNC_OK!"=="Y" (
+        echo 취소되었습니다.
+        pause & exit /b 0
+    )
+) else (
+    echo  [OK] origin/master 와 동기화됨
+)
+echo ────────────────────────────────────────
+
 echo.
 echo  %CUR_VERSION% → %NEW_VERSION% 으로 릴리즈합니다.
 echo.
