@@ -98,8 +98,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public string LblExtraUsage => Loc.ExtraUsageTitle;
 
-    // 현재 활성 계정 표시 (자동 감지)
-    [ObservableProperty] private string _currentAccountLabel = "";
     private string? _lastKnownOrgUuid;
 
     // Update banner
@@ -177,18 +175,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // 계정 전환 감지 — 히스토리를 새 계정으로 전환하고 즉시 새로고침
         var orgUuid = _credentials.GetOrganizationUuid();
         _history.SetOrgUuid(orgUuid);
-        UpdateCurrentAccountLabel(orgUuid);
         // 계정 전환 시 rate-limit 대기를 초기화 — 새 계정은 독립적으로 조회
         _apiRetryAfter = DateTimeOffset.MinValue;
         // 타이머 카운트다운 리셋 + 즉시 새로고침
         _ = System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
             await RefreshAsync());
-    }
-
-    private void UpdateCurrentAccountLabel(string? orgUuid)
-    {
-        var label = string.IsNullOrEmpty(orgUuid) ? "" : orgUuid[..Math.Min(8, orgUuid.Length)];
-        System.Windows.Application.Current.Dispatcher.Invoke(() => CurrentAccountLabel = label);
     }
 
     private void LoadSettings()
@@ -206,7 +197,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // 현재 로그인된 계정의 orgUuid로 히스토리 경로 초기화
         var orgUuid = _credentials.GetOrganizationUuid();
         _history.SetOrgUuid(orgUuid);
-        UpdateCurrentAccountLabel(orgUuid);
     }
 
     [RelayCommand]
@@ -355,7 +345,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
         {
             _lastKnownOrgUuid = currentOrgUuid;
             _history.SetOrgUuid(currentOrgUuid);
-            UpdateCurrentAccountLabel(currentOrgUuid);
             _apiRetryAfter = DateTimeOffset.MinValue;
         }
 

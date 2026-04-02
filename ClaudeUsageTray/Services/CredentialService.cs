@@ -48,9 +48,13 @@ public class CredentialService : IDisposable
     }
 
     private System.Timers.Timer? _debounceTimer;
+    private volatile bool _isSelfWriting = false;
 
     private void OnCredentialsFileChanged(object sender, FileSystemEventArgs e)
     {
+        // 앱 자체가 토큰 갱신으로 쓴 경우 무시 — self-triggered loop 방지
+        if (_isSelfWriting) return;
+
         // 500ms debounce — 파일 저장 중 여러 이벤트 방지
         _debounceTimer?.Dispose();
         _debounceTimer = new System.Timers.Timer(500) { AutoReset = false };
@@ -116,8 +120,18 @@ public class CredentialService : IDisposable
                 if (!string.IsNullOrEmpty(refreshed.RefreshToken))
                     raw["claudeAiOauth"]!["refreshToken"] = oauth.RefreshToken;
 
-                File.WriteAllText(CredentialsPath,
-                    raw.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+                // 자가 쓰기 플래그 설정 — FileSystemWatcher self-trigger 방지
+                _isSelfWriting = true;
+                try
+                {
+                    File.WriteAllText(CredentialsPath,
+                        raw.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+                }
+                finally
+                {
+                    // 파일시스템 이벤트가 드레인될 시간 확보 후 플래그 해제
+                    _ = Task.Delay(800).ContinueWith(_ => _isSelfWriting = false);
+                }
             }
             catch { /* ignore write errors */ }
 

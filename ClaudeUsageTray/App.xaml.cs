@@ -122,23 +122,20 @@ public partial class App : Application
         _vm.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName is nameof(MainViewModel.ShortUsagePercent)
-                                  or nameof(MainViewModel.HasError)
-                                  or nameof(MainViewModel.CurrentAccountLabel))
+                                  or nameof(MainViewModel.HasError))
             {
                 Dispatcher.Invoke(() =>
                 {
                     var oldIcon = _trayIcon.Icon;
-                    var account = string.IsNullOrEmpty(_vm.CurrentAccountLabel)
-                        ? "" : $" [{_vm.CurrentAccountLabel}]";
                     if (_vm.HasError)
                     {
                         _trayIcon.Icon = DrawTrayIcon(-1);
-                        _trayIcon.Text = $"Claude Usage{account} · ? (조회 실패)";
+                        _trayIcon.Text = "Claude Usage · ? (조회 실패)";
                     }
                     else
                     {
                         _trayIcon.Icon = DrawTrayIcon(_vm.ShortUsagePercent);
-                        _trayIcon.Text = $"Claude Usage{account} · {_vm.ShortUsagePercent:P0} (5h)";
+                        _trayIcon.Text = $"Claude Usage · {_vm.ShortUsagePercent:P0} (5h)";
                     }
                     oldIcon?.Dispose();
                 });
