@@ -17,7 +17,7 @@ git fetch origin >nul 2>&1
 for /f %%C in ('git status --porcelain ^| find /c /v ""') do set "DIRTY_COUNT=%%C"
 
 if not "%DIRTY_COUNT%"=="0" (
-    echo   %DIRTY_COUNT% uncommitted change(s) found:
+    echo   Uncommitted changes found:
     echo.
     git status --short
     echo.
