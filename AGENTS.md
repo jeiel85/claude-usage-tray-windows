@@ -13,7 +13,7 @@ Windows 시스템 트레이 기반 Claude AI 사용량 모니터링 앱.
 | **Target Framework** | `net9.0-windows10.0.17763.0` |
 | **주요 NuGet** | `CommunityToolkit.Mvvm 8.4.2`, `Microsoft.Extensions.Http 10.0.5`, `Microsoft.Toolkit.Uwp.Notifications 7.1.3` |
 | **릴리즈 형식** | self-contained (기본) + framework-dependent (선택) |
-| **현재 버전** | `v1.15.4` (릴리즈 시 csproj의 `<Version>` 참조) |
+| **현재 버전** | `v1.15.8` (릴리즈 시 csproj의 `<Version>` 참조) |
 
 ---
 
@@ -47,11 +47,14 @@ dotnet publish ClaudeUsageTray/ClaudeUsageTray.csproj `
 
 ### 빌드 출력 경로
 
-| 형식 | 경로 |
-|------|------|
-| **Release DLL** | `ClaudeUsageTray\bin\Release\net9.0-windows10.0.17763.0\ClaudeUsageTray.dll` |
-| **self-contained exe** | `ClaudeUsageTray\bin\Release\net9.0-windows10.0.17763.0\win-x64\publish\ClaudeUsageTray.exe` |
-| **framework-dependent exe** | `ClaudeUsageTray\bin\Release\net9.0-windows10.0.17763.0\publish\ClaudeUsageTray.exe` |
+| 형식 | 로컬 경로 | GitHub Actions 경로 |
+|------|-----------|---------------------|
+| **self-contained exe** | `ClaudeUsageTray\bin\sc\ClaudeUsageTray.exe` | `ClaudeUsageTray/bin/sc/ClaudeUsageTray.exe` |
+| **framework-dependent exe** | `ClaudeUsageTray\bin\fd\ClaudeUsageTray.exe` | `ClaudeUsageTray/bin/fd/ClaudeUsageTray-framework-dependent.exe` |
+| **SHA256 (sc)** | `SHA256.txt` | `SHA256.txt` |
+| **SHA256 (fd)** | `SHA256-framework-dependent.txt` | `SHA256-framework-dependent.txt` |
+
+> ⚠️ **csproj 경로 주의**: `dotnet publish` 명령어에서 csproj 경로는 **프로젝트 루트 기준** (`ClaudeUsageTray/ClaudeUsageTray.csproj`). GitHub Actions의 작업 디렉토리는 레포 루트이므로 `-p:PublishDir=bin/sc`는 `ClaudeUsageTray/bin/sc/`에 출력됨.
 
 ### 릴리즈 워크플로우 (GitHub Actions)
 
@@ -65,6 +68,11 @@ dotnet publish ClaudeUsageTray/ClaudeUsageTray.csproj `
 | `SHA256.txt` | self-contained exe의 SHA256 해시 |
 | `ClaudeUsageTray-framework-dependent.exe` | framework-dependent exe (dotnet 9 설치 PC용) |
 | `SHA256-framework-dependent.txt` | framework-dependent exe의 SHA256 해시 |
+
+> ⚠️ **릴리즈 워크플로우 수정 시 주의사항**:
+> - self-contained와 framework-dependent 빌드는 `-p:PublishDir`로 **서로 다른 경로**에 출력해야 파일이 덮어씌워지지 않음
+> - GitHub Release에서 같은 이름의 파일은 **같은 애셋**으로 인식되므로, framework-dependent exe는 반드시 리네임 후 게시 (`ClaudeUsageTray-framework-dependent.exe`)
+> - SHA256 해시 생성 단계의 경로와 게시 단계의 경로가 **정확히 일치**해야 함
 
 ---
 
@@ -93,8 +101,8 @@ git push origin master --tags
 
 ### 주의: csproj 버전 vs 태그 버전
 
-- **csproj `<Version>`**: 현재 앱에 표시되는 버전 (예: `1.15.4`)
-- **Git 태그**: `v` prefix 필요 (예: `v1.15.4`)
+- **csproj `<Version>`**: 현재 앱에 표시되는 버전 (예: `1.15.8`)
+- **Git 태그**: `v` prefix 필요 (예: `v1.15.8`)
 - GitHub Actions는 태그에서 버전을 파싱하여 exe에 삽입 (`-p:Version=`)
 
 ---
@@ -253,10 +261,13 @@ A: .NET 9 SDK 설치 필요. `winget install Microsoft.DotNet.SDK.9`
 A: 저장소가 git 초기화되지 않았거나, 원격 origin이 없거나, 태그가 `v*` 패턴이 아닙니다
 
 **Q: self-contained vs framework-dependent 차이**
-A: self-contained는 .NET 런타임 포함 (~100MB), 모든 PC에서 실행 가능. framework-dependent는 .NET 9 설치 PC에서만 실행 (~200KB)
+A: self-contained는 .NET 런타임 포함 (~77MB), 모든 PC에서 실행 가능. framework-dependent는 .NET 9 설치 PC에서만 실행 (~25MB)
 
-**Q: 릴리즈 산출물 경로가 다릅니다**
-A: GitHub Actions의 `runs-on: windows-latest`는 `C:\actions-runner\_work\...`에서 실행됩니다. 워크플로우의 절대 경로는 빌드_OUTPUT 기준입니다.
+**Q: GitHub Actions 빌드/릴리즈가 실패합니다**
+A: 주로 경로 문제입니다. csproj 경로는 **프로젝트 루트 기준**, `-p:PublishDir` 출력은 `ClaudeUsageTray/` 서브디렉토리 기준입니다.
+
+**Q: GitHub Release에 framework-dependent exe가 업로드되지 않습니다**
+A: 같은 이름(`ClaudeUsageTray.exe`)의 파일이 있으면 GitHub가 같은 애셋으로 인식합니다. 게시 전에 `ClaudeUsageTray-framework-dependent.exe`로 리네임해야 합니다.
 
 **Q: CHANGELOG 형식**
 A: `<!-- ko -->`, `<!-- /ko -->` 블록으로 4개 언어 병기. `release.bat`이 새 섹션 헤더를 자동 생성합니다.
