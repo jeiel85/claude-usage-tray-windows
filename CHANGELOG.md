@@ -5,6 +5,54 @@
 
 ---
 
+## [1.15.4] - 2026-04-13
+
+<!-- ko -->
+### 보안
+- **ntfy 토픽 입력 검증 강화** — 토픽 이름 20자 미만 저장 차단, 허용 문자(a-z0-9-_.@)외 입력 차단
+- **ntfy 보안 경고 추가** — 설정창에 "예측 불가능한 긴 이름 사용" 경고 텍스트 표시 (4개 언어)
+- **exe SHA256 해시 검증** — GitHub에서 다운로드한 업데이트 파일의 해시를 검증하여 변조된 파일 설치 방지. sha256 파일 불일치 시 설치 차단 및 에러 표시
+- **릴리즈 SHA256 자동 게시** — GitHub Actions에서 릴리즈 시 SHA256.txt 파일을 자동으로 함께 게시
+
+### 수정
+- **업데이트 다운로드 에러 처리 강화** — SHA256 불일치·네트워크 오류 발생 시 빨간색 에러 메시지 표시, 버튼 복구
+<!-- /ko -->
+
+<!-- en -->
+### Security
+- **ntfy topic input validation** — Topic names under 20 characters are now blocked; only allowed characters (a-z0-9-_.@)
+- **ntfy security warning** — Settings window now shows a security warning to use a long, unpredictable topic name (4 languages)
+- **exe SHA256 hash verification** — Verifies the hash of downloaded updates against SHA256.txt published on GitHub; blocks installation on mismatch with error message
+- **Automated SHA256 publishing** — GitHub Actions now automatically publishes SHA256.txt alongside the exe on each release
+
+### Fixed
+- **Update download error handling** — SHA256 mismatch and network errors now display a red error message and restore the button
+<!-- /en -->
+
+<!-- zh -->
+### 安全
+- **ntfy 主题输入验证** — 主题名称少于 20 字时保存被阻止；只允许 a-z0-9-_.@ 字符
+- **ntfy 安全警告** — 设置窗口显示安全警告，提示使用难以预测的长主题名（4种语言）
+- **exe SHA256 哈希验证** — 验证从 GitHub 下载的更新文件哈希，不匹配时阻止安装并显示错误
+- **自动发布 SHA256** — GitHub Actions 在每次发布时自动同时发布 SHA256.txt
+
+### 修复
+- **更新下载错误处理** — SHA256 不匹配和网络错误时显示红色错误消息并恢复按钮
+<!-- /zh -->
+
+<!-- ja -->
+### セキュリティ
+- **ntfy トピック入力検証** — 20文字未満のトピック名は保存をブロック、使用可能文字(a-z0-9-_.@)以外をブロック
+- **ntfy セキュリティ警告** — 設定ウィンドウに予測困難な長いトピック名を使用するようセキュリティ警告を表示（4言語）
+- **exe SHA256 ハッシュ検証** — GitHub からダウンロードした更新ファイルのハッシュを SHA256.txt と照合、不一致時はインストールをブロックしエラー表示
+- **SHA256 自動公開** — GitHub Actions がリリース時に SHA256.txt を自動的に一緒に公開
+
+### 修正
+- **アップデートダウンロードエラー処理** — SHA256 不一致・ネットワークエラー発生時に赤いエラーメッセージを表示しボタンを復元
+<!-- /ja -->
+
+---
+
 ## [1.15.3] - 2026-04-02
 
 <!-- ko -->

@@ -105,6 +105,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _updateLabel = "";
     [ObservableProperty] private string _updateCheckLabel = "";
     private string _updateDownloadUrl = "";
+    private string _updateSha256Url = "";
     public string CurrentVersionLabel => $"v{UpdateService.CurrentVersion.ToString(3)}";
 
     public string? RawApiResponse { get; private set; }
@@ -247,8 +248,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            var (version, url, releaseNotes) = result.Value;
-            var versionStr = version.ToString(3);
+            var info = result;
+            var versionStr = info.version.ToString(3);
             UpdateCheckLabel = "";
 
             var settings = _settingsService.Load();
@@ -259,13 +260,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 _settingsService.Save(settings);
             }
 
-            _updateDownloadUrl = url;
+            _updateDownloadUrl = info.downloadUrl;
+            _updateSha256Url = info.sha256Url;
             UpdateLabel = Loc.UpdateAvailable($"v{versionStr}");
             UpdateAvailable = true;
 
             var dialog = new Views.UpdateDialog(
                 $"v{versionStr}",
-                releaseNotes,
+                info.releaseNotes,
                 onUpdate: async (prog) => await ApplyUpdateCoreAsync(prog),
                 onSkip: () => SkipVersion(versionStr));
             dialog.Show();
@@ -277,14 +279,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
         var result = await _updater.CheckForUpdateAsync();
         if (result is null) return;
 
-        var (version, url, releaseNotes) = result.Value;
-        var versionStr = version.ToString(3);
+        var info = result;
+        var versionStr = info.version.ToString(3);
 
         // Check if user skipped this version
         var settings = _settingsService.Load();
         if (settings.SkippedVersion == versionStr) return;
 
-        _updateDownloadUrl = url;
+        _updateDownloadUrl = info.downloadUrl;
+        _updateSha256Url = info.sha256Url;
 
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
@@ -293,7 +296,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
             var dialog = new Views.UpdateDialog(
                 $"v{versionStr}",
-                releaseNotes,
+                info.releaseNotes,
                 onUpdate: async (prog) => await ApplyUpdateCoreAsync(prog),
                 onSkip: () => SkipVersion(versionStr));
             dialog.Show();
@@ -332,7 +335,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         if (string.IsNullOrEmpty(_updateDownloadUrl)) return;
         var progress = onProgress != null ? new Progress<int>(onProgress) : null;
-        await _updater.ApplyUpdateAsync(_updateDownloadUrl, progress);
+        await _updater.ApplyUpdateAsync(_updateDownloadUrl, _updateSha256Url, progress);
     }
 
     public async Task RefreshAsync()

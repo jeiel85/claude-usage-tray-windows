@@ -37,6 +37,14 @@ jobs:
             -p:IncludeNativeLibrariesForSelfExtract=true `
             -p:Version=${{ steps.version.outputs.VERSION }}
 
+      - name: Generate SHA256 hash
+        shell: powershell
+        run: |
+          $exe = "ClaudeUsageTray/bin/Release/net9.0-windows10.0.17763.0/win-x64/publish/ClaudeUsageTray.exe"
+          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  ClaudeUsageTray.exe" | Out-File -FilePath "SHA256.txt" -Encoding ASCII
+          Write-Host "SHA256: $hash"
+
       - name: Extract changelog for this version
         id: changelog
         shell: bash
@@ -53,4 +61,6 @@ jobs:
         with:
           name: "v${{ steps.version.outputs.VERSION }}"
           body: ${{ steps.changelog.outputs.NOTES }}
-          files: ClaudeUsageTray/bin/Release/net9.0-windows10.0.17763.0/win-x64/publish/ClaudeUsageTray.exe
+          files: |
+            ClaudeUsageTray/bin/Release/net9.0-windows10.0.17763.0/win-x64/publish/ClaudeUsageTray.exe
+            SHA256.txt

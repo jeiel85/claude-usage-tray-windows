@@ -35,12 +35,35 @@ public partial class UpdateDialog : Window
         DownloadingLabel.Text  = Loc.DownloadingUpdate;
         ProgressPanel.Visibility = Visibility.Visible;
 
-        await _onUpdate(pct => Dispatcher.Invoke(() =>
+        try
         {
-            ProgressPctLabel.Text = $"{pct}%";
-            ProgressFill.Width    = (ProgressFill.Parent as System.Windows.Controls.Border)!
-                                    .ActualWidth * pct / 100;
-        }));
+            await _onUpdate(pct => Dispatcher.Invoke(() =>
+            {
+                ProgressPctLabel.Text = $"{pct}%";
+                ProgressFill.Width    = (ProgressFill.Parent as System.Windows.Controls.Border)!
+                                        .ActualWidth * pct / 100;
+            }));
+        }
+        catch (InvalidOperationException)
+        {
+            ProgressPanel.Visibility = Visibility.Collapsed;
+            ButtonPanel.Visibility = Visibility.Visible;
+            UpdateBtn.IsEnabled = true;
+            DownloadingLabel.Text = Loc.UpdateHashMismatch;
+            DownloadingLabel.Foreground = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(239, 68, 68));
+            return;
+        }
+        catch (Exception ex)
+        {
+            ProgressPanel.Visibility = Visibility.Collapsed;
+            ButtonPanel.Visibility = Visibility.Visible;
+            UpdateBtn.IsEnabled = true;
+            DownloadingLabel.Text = Loc.UpdateDownloadFailed(ex.Message);
+            DownloadingLabel.Foreground = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(239, 68, 68));
+            return;
+        }
     }
 
     private void SkipBtn_Click(object sender, RoutedEventArgs e)

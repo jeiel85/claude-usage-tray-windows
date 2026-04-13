@@ -268,6 +268,30 @@ public static class Loc
         _ => "e.g. claude-usage-yourname  (use something unique)"
     };
 
+    public static string NtfySecurityWarning => Lang switch
+    {
+        "ko" => "⚠️ 예측 불가능한 긴 이름(20자 이상)을 사용하세요. 짧거나 익숙한 이름은 제3자가 메시지를 보낼 수 있습니다.",
+        "zh" => "⚠️ 请使用难以预测的长名称（20字以上）。短名称或常见名称可能被他人用来发送消息。",
+        "ja" => "⚠️ 予測困難な長い名前（20文字以上）を使用してください。短い名前は第三者がメッセージを送る可能性があります。",
+        _ => "⚠️ Use a long, unpredictable name (20+ chars). Short or guessable names can be used by others to send fake alerts."
+    };
+
+    public static string NtfyTopicTooShort => Lang switch
+    {
+        "ko" => "토픽 이름은 20자 이상이어야 합니다.",
+        "zh" => "主题名称必须至少20个字。",
+        "ja" => "トピック名は20文字以上にしてください。",
+        _ => "Topic name must be at least 20 characters."
+    };
+
+    public static string NtfyTopicInvalidChars => Lang switch
+    {
+        "ko" => "토픽 이름에는 영문 소문자, 숫자, dash(-), underscore(_), @, 점(.)만 사용할 수 있습니다.",
+        "zh" => "主题名称只能使用小写字母、数字、破折号(-)、下划线(_)、@和点(.)。",
+        "ja" => "トピック名には小文字、数字、dash(-)、underscore(_)、@、点(.)のみ使用できます。",
+        _ => "Topic name can only contain lowercase letters, numbers, dash(-), underscore(_), @, and dot(.)"
+    };
+
     public static string ThresholdsLabel => Lang switch
     {
         "ko" => "5시간 윈도우 임계값",
@@ -493,6 +517,22 @@ public static class Loc
         "zh" => $"API 错误: {msg}",
         "ja" => $"API エラー: {msg}",
         _ => $"API error: {msg}"
+    };
+
+    public static string UpdateHashMismatch => Lang switch
+    {
+        "ko" => "다운로드된 파일이 손상되었거나 변조되었습니다. 다시 시도하거나 개발자에게 보고하세요.",
+        "zh" => "下载的文件已损坏或被篡改。请重试或向开发者报告。",
+        "ja" => "ダウンロードしたファイルが破損しているか、改ざんされています。再試行するか開発者に報告してください。",
+        _ => "Downloaded file is corrupted or may have been tampered with. Please retry or report to the developer."
+    };
+
+    public static string UpdateDownloadFailed(string msg) => Lang switch
+    {
+        "ko" => $"업데이트 다운로드 실패: {msg}",
+        "zh" => $"更新下载失败: {msg}",
+        "ja" => $"アップデートダウンロード失敗: {msg}",
+        _ => $"Update download failed: {msg}"
     };
 
 }

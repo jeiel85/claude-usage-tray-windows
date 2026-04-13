@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 using System.Windows;
 using Microsoft.Win32;
 using ClaudeUsageTray.ViewModels;
@@ -64,6 +65,7 @@ public partial class SettingsWindow : Window
         LblStep3.Text                       = Loc.NtfyStep3;
         LblNtfyTopic.Text                   = Loc.NtfyTopic;
         LblNtfyHint.Text                    = Loc.NtfyPlaceholder;
+        LblNtfySecurityWarning.Text         = Loc.NtfySecurityWarning;
     }
 
     private void LoadValues()
@@ -91,18 +93,55 @@ public partial class SettingsWindow : Window
 
     private void TxtNtfyTopic_LostFocus(object sender, RoutedEventArgs e)
     {
-        _vm.NtfyTopic = TxtNtfyTopic.Text.Trim();
-        _vm.SaveSettingsCommand.Execute(null);
+        if (ValidateAndSaveNtfyTopic())
+            _vm.SaveSettingsCommand.Execute(null);
     }
 
     private void TxtNtfyTopic_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (e.Key == System.Windows.Input.Key.Enter)
         {
-            _vm.NtfyTopic = TxtNtfyTopic.Text.Trim();
-            _vm.SaveSettingsCommand.Execute(null);
+            if (ValidateAndSaveNtfyTopic())
+                _vm.SaveSettingsCommand.Execute(null);
             e.Handled = true;
         }
+    }
+
+    private static readonly Regex ValidTopicChars = new(@"^[a-z0-9_\-@.]+$",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private bool ValidateAndSaveNtfyTopic()
+    {
+        var topic = TxtNtfyTopic.Text.Trim();
+
+        if (string.IsNullOrEmpty(topic))
+        {
+            LblNtfySecurityWarning.Visibility = Visibility.Collapsed;
+            _vm.NtfyTopic = "";
+            return true;
+        }
+
+        if (!ValidTopicChars.IsMatch(topic))
+        {
+            LblNtfySecurityWarning.Text = Loc.NtfyTopicInvalidChars;
+            LblNtfySecurityWarning.Foreground = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(239, 68, 68));
+            LblNtfySecurityWarning.Visibility = Visibility.Visible;
+            return false;
+        }
+
+        if (topic.Length < 20)
+        {
+            LblNtfySecurityWarning.Text = Loc.NtfyTopicTooShort;
+            LblNtfySecurityWarning.Foreground = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(251, 191, 36));
+            LblNtfySecurityWarning.Visibility = Visibility.Visible;
+            return false;
+        }
+
+        LblNtfySecurityWarning.Visibility = Visibility.Collapsed;
+        _vm.NtfyTopic = topic;
+        return true;
     }
 
     private async void BtnTestNotification_Click(object sender, RoutedEventArgs e)

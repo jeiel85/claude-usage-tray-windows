@@ -178,7 +178,10 @@
                             </Style>
                         </TextBox.Style>
                     </TextBox>
-                    <TextBlock x:Name="LblNtfyHint" Foreground="#5A5F7A" FontSize="10" Margin="2,4,0,16"/>
+                    <TextBlock x:Name="LblNtfySecurityWarning" Foreground="#FCD34D" FontSize="10"
+                               TextWrapping="Wrap" Margin="2,4,0,2"
+                               Visibility="Collapsed"/>
+                    <TextBlock x:Name="LblNtfyHint" Foreground="#5A5F7A" FontSize="10" Margin="2,2,0,16"/>
 
                 </StackPanel>
 

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace ClaudeUsageTray.Services;
@@ -14,6 +15,8 @@ public class UpdateService
 
     private static readonly HttpClient Http = new();
 
+    public record UpdateInfo(Version version, string downloadUrl, string sha256Url, string releaseNotes);
+
     static UpdateService()
     {
         Http.DefaultRequestHeaders.Add("User-Agent", "ClaudeUsageTray-Updater");
@@ -23,9 +26,9 @@ public class UpdateService
         Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0);
 
     /// <summary>
-    /// Returns (latestVersion, downloadUrl, releaseNotes) if a newer release exists, otherwise null.
+    /// Returns UpdateInfo if a newer release exists, otherwise null.
     /// </summary>
-    public async Task<(Version version, string downloadUrl, string releaseNotes)?> CheckForUpdateAsync()
+    public async Task<UpdateInfo?> CheckForUpdateAsync()
     {
         try
         {
@@ -41,19 +44,24 @@ public class UpdateService
             var releaseNotes = root.TryGetProperty("body", out var bodyEl)
                 ? bodyEl.GetString() ?? "" : "";
 
-            // Find the .exe asset
+            string? exeUrl = null;
+            string? sha256Url = null;
+
             foreach (var asset in root.GetProperty("assets").EnumerateArray())
             {
                 var name = asset.GetProperty("name").GetString() ?? "";
+                var url  = asset.GetProperty("browser_download_url").GetString() ?? "";
+
                 if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                {
-                    var url = asset.GetProperty("browser_download_url").GetString() ?? "";
-                    return (latest, url, releaseNotes);
-                }
+                    exeUrl = url;
+                else if (name.EndsWith(".sha256", StringComparison.OrdinalIgnoreCase))
+                    sha256Url = url;
             }
 
-            // Fallback: no exe asset, link to release page
-            return (latest, ReleasePage, releaseNotes);
+            if (exeUrl is null) return null;
+
+            return new UpdateInfo(latest, exeUrl,
+                sha256Url ?? "", releaseNotes);
         }
         catch
         {
@@ -64,7 +72,8 @@ public class UpdateService
     /// <summary>
     /// Downloads the new exe, writes a batch updater to %TEMP%, launches it and exits.
     /// </summary>
-    public async Task ApplyUpdateAsync(string downloadUrl, IProgress<int>? progress = null)
+    public async Task ApplyUpdateAsync(string downloadUrl, string sha256Url = "",
+        IProgress<int>? progress = null)
     {
         var tempDir    = Path.GetTempPath();
         var newExePath = Path.Combine(tempDir, "ClaudeUsageTray_update.exe");
@@ -90,6 +99,34 @@ public class UpdateService
             downloaded += read;
             if (totalBytes > 0)
                 progress?.Report((int)(downloaded * 100 / totalBytes));
+        }
+
+        // SHA256 verification — try to download sha256 file and verify
+        if (!string.IsNullOrEmpty(sha256Url))
+        {
+            try
+            {
+                var sha256Raw = await Http.GetStringAsync(sha256Url);
+                var expectedHash = sha256Raw.Split(' ')[0].Trim().ToLowerInvariant();
+
+                using var exeStream = File.OpenRead(newExePath);
+                var actualHash = Convert.ToHexString(SHA256.HashData(exeStream)).ToLowerInvariant();
+
+                if (actualHash != expectedHash)
+                {
+                    File.Delete(newExePath);
+                    throw new InvalidOperationException("SHA256 mismatch");
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                throw;
+            }
+            catch
+            {
+                // sha256 fetch/parse failed — log and continue without verification
+                // (old releases before sha256 support)
+            }
         }
 
         // Batch script: wait for this process to exit, replace exe, restart
