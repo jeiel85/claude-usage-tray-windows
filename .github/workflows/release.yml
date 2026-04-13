@@ -37,13 +37,32 @@ jobs:
             -p:IncludeNativeLibrariesForSelfExtract=true `
             -p:Version=${{ steps.version.outputs.VERSION }}
 
-      - name: Generate SHA256 hash
+      - name: Build framework-dependent release
+        run: |
+          dotnet publish ClaudeUsageTray/ClaudeUsageTray.csproj `
+            -c Release `
+            --self-contained false `
+            -p:PublishSingleFile=true `
+            -p:Version=${{ steps.version.outputs.VERSION }}
+
+      - name: Generate SHA256 hashes
         shell: powershell
         run: |
-          $exe = "ClaudeUsageTray/bin/Release/net9.0-windows10.0.17763.0/win-x64/publish/ClaudeUsageTray.exe"
-          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
-          "$hash  ClaudeUsageTray.exe" | Out-File -FilePath "SHA256.txt" -Encoding ASCII
-          Write-Host "SHA256: $hash"
+          $scExe = "ClaudeUsageTray/bin/Release/net9.0-windows10.0.17763.0/win-x64/publish/ClaudeUsageTray.exe"
+          $fdExe = "ClaudeUsageTray/bin/Release/net9.0-windows10.0.17763.0/publish/ClaudeUsageTray.exe"
+
+          $scHash = (Get-FileHash $scExe -Algorithm SHA256).Hash.ToLower()
+          "$scHash  ClaudeUsageTray.exe" | Out-File -FilePath "SHA256.txt" -Encoding ASCII
+
+          if (Test-Path $fdExe) {
+            $fdHash = (Get-FileHash $fdExe -Algorithm SHA256).Hash.ToLower()
+            "$fdHash  ClaudeUsageTray-framework-dependent.exe" | Out-File -FilePath "SHA256-framework-dependent.txt" -Encoding ASCII
+          }
+
+          Write-Host "SHA256 (self-contained): $scHash"
+          if (Test-Path $fdExe) {
+            Write-Host "SHA256 (framework-dependent): $fdHash"
+          }
 
       - name: Extract changelog for this version
         id: changelog
@@ -64,3 +83,5 @@ jobs:
           files: |
             ClaudeUsageTray/bin/Release/net9.0-windows10.0.17763.0/win-x64/publish/ClaudeUsageTray.exe
             SHA256.txt
+            ClaudeUsageTray/bin/Release/net9.0-windows10.0.17763.0/publish/ClaudeUsageTray.exe
+            SHA256-framework-dependent.txt

@@ -171,7 +171,6 @@ public partial class UsagePopup : Window
 
         const double canvasH   = 60;
         const double barAreaH  = 46;
-        const double labelH    = 14;
         double canvasW         = HistoryCanvas.ActualWidth;
         if (canvasW < 10) canvasW = 288; // fallback before layout
 
