@@ -5,6 +5,30 @@
 
 ---
 
+## [1.15.5] - 2026-04-13
+
+<!-- ko -->
+### 추가
+- **릴리즈 산출물 확장** — self-contained exe + framework-dependent exe 모두 GitHub Release에 게시. SHA256 해시 파일도 각각 생성
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Release artifacts expanded** — Both self-contained and framework-dependent exe published to GitHub Release with separate SHA256 hash files
+<!-- /en -->
+
+<!-- zh -->
+### 新增
+- **发布产物扩展** — GitHub Release 同时发布 self-contained 和 framework-dependent exe，并各附 SHA256 哈希文件
+<!-- /zh -->
+
+<!-- ja -->
+### 追加
+- **リリース成果物を拡張** — self-contained exe と framework-dependent exe の両方を GitHub Release に公開、各 SHA256 ハッシュファイル付き
+<!-- /ja -->
+
+---
+
 ## [1.15.4] - 2026-04-13
 
 <!-- ko -->
