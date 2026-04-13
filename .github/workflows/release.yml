@@ -50,8 +50,8 @@ jobs:
       - name: Generate SHA256 hashes
         shell: powershell
         run: |
-          $scExe = "bin/sc/ClaudeUsageTray.exe"
-          $fdExe = "bin/fd/ClaudeUsageTray.exe"
+          $scExe = "ClaudeUsageTray/bin/sc/ClaudeUsageTray.exe"
+          $fdExe = "ClaudeUsageTray/bin/fd/ClaudeUsageTray.exe"
 
           $scHash = (Get-FileHash $scExe -Algorithm SHA256).Hash.ToLower()
           "$scHash  ClaudeUsageTray.exe" | Out-File -FilePath "SHA256.txt" -Encoding ASCII
@@ -79,7 +79,7 @@ jobs:
           name: "v${{ steps.version.outputs.VERSION }}"
           body: ${{ steps.changelog.outputs.NOTES }}
           files: |
-            bin/sc/ClaudeUsageTray.exe
+            ClaudeUsageTray/bin/sc/ClaudeUsageTray.exe
             SHA256.txt
-            bin/fd/ClaudeUsageTray.exe
+            ClaudeUsageTray/bin/fd/ClaudeUsageTray.exe
             SHA256-framework-dependent.txt

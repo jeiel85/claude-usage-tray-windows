@@ -5,31 +5,31 @@
 
 ---
 
-## [1.15.6] - 2026-04-13
+## [1.15.7] - 2026-04-13
 
 <!-- ko -->
 ### 수정
-- **릴리즈 워크플로우 빌드 경로 오류** — self-contained와 framework-dependent 빌드 출력 경로가 동일하여 파일이 덮어씌워지던 문제 수정. `-p:PublishDir`로 경로 명시적으로 분리
+- **릴리즈 워크플로우 SHA256 경로 오류** — 빌드 출력 경로(`ClaudeUsageTray/bin/sc/`)와 SHA256 단계 경로가 맞지 않아 파일을 못 찾던 문제 수정
 <!-- /ko -->
 
 <!-- en -->
 ### Fixed
-- **Release workflow build path conflict** — Self-contained and framework-dependent builds were outputting to the same directory, causing overwrites. Added `-p:PublishDir` to explicitly separate paths
+- **Release workflow SHA256 path mismatch** — Fixed path mismatch between build output (`ClaudeUsageTray/bin/sc/`) and SHA256 step
 <!-- /en -->
 
 <!-- zh -->
 ### 修复
-- **发布工作流构建路径冲突** — Self-contained 和 framework-dependent 构建输出到同一目录导致文件被覆盖。使用 `-p:PublishDir` 明确分离路径
+- **发布工作流 SHA256 路径不匹配** — 修复了构建输出路径与 SHA256 步骤路径不匹配的问题
 <!-- /zh -->
 
 <!-- ja -->
 ### 修正
-- **リリースワークフローのビルドパス競合** — self-contained と framework-dependent ビルドが同じディレクトリに出力され上書きされる問題を修正。`-p:PublishDir` でパスを明示的に分離
+- **リリースワークフロー SHA256 パス不一致** — ビルド出力パスと SHA256 ステップのパスが一致しない問題を修正
 <!-- /ja -->
 
 ---
 
-## [1.15.5] - 2026-04-13
+## [1.15.6] - 2026-04-13
 
 <!-- ko -->
 ### 보안
