@@ -5,31 +5,31 @@
 
 ---
 
-## [1.15.5] - 2026-04-13
+## [1.15.6] - 2026-04-13
 
 <!-- ko -->
-### 추가
-- **릴리즈 산출물 확장** — self-contained exe + framework-dependent exe 모두 GitHub Release에 게시. SHA256 해시 파일도 각각 생성
+### 수정
+- **릴리즈 워크플로우 빌드 경로 오류** — self-contained와 framework-dependent 빌드 출력 경로가 동일하여 파일이 덮어씌워지던 문제 수정. `-p:PublishDir`로 경로 명시적으로 분리
 <!-- /ko -->
 
 <!-- en -->
-### Added
-- **Release artifacts expanded** — Both self-contained and framework-dependent exe published to GitHub Release with separate SHA256 hash files
+### Fixed
+- **Release workflow build path conflict** — Self-contained and framework-dependent builds were outputting to the same directory, causing overwrites. Added `-p:PublishDir` to explicitly separate paths
 <!-- /en -->
 
 <!-- zh -->
-### 新增
-- **发布产物扩展** — GitHub Release 同时发布 self-contained 和 framework-dependent exe，并各附 SHA256 哈希文件
+### 修复
+- **发布工作流构建路径冲突** — Self-contained 和 framework-dependent 构建输出到同一目录导致文件被覆盖。使用 `-p:PublishDir` 明确分离路径
 <!-- /zh -->
 
 <!-- ja -->
-### 追加
-- **リリース成果物を拡張** — self-contained exe と framework-dependent exe の両方を GitHub Release に公開、各 SHA256 ハッシュファイル付き
+### 修正
+- **リリースワークフローのビルドパス競合** — self-contained と framework-dependent ビルドが同じディレクトリに出力され上書きされる問題を修正。`-p:PublishDir` でパスを明示的に分離
 <!-- /ja -->
 
 ---
 
-## [1.15.4] - 2026-04-13
+## [1.15.5] - 2026-04-13
 
 <!-- ko -->
 ### 보안

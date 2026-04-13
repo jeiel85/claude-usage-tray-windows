@@ -35,6 +35,7 @@ jobs:
             -p:PublishSingleFile=true `
             -p:EnableCompressionInSingleFile=true `
             -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:PublishDir=bin/sc `
             -p:Version=${{ steps.version.outputs.VERSION }}
 
       - name: Build framework-dependent release
@@ -43,26 +44,23 @@ jobs:
             -c Release `
             --self-contained false `
             -p:PublishSingleFile=true `
+            -p:PublishDir=bin/fd `
             -p:Version=${{ steps.version.outputs.VERSION }}
 
       - name: Generate SHA256 hashes
         shell: powershell
         run: |
-          $scExe = "ClaudeUsageTray/bin/Release/net9.0-windows10.0.17763.0/win-x64/publish/ClaudeUsageTray.exe"
-          $fdExe = "ClaudeUsageTray/bin/Release/net9.0-windows10.0.17763.0/publish/ClaudeUsageTray.exe"
+          $scExe = "bin/sc/ClaudeUsageTray.exe"
+          $fdExe = "bin/fd/ClaudeUsageTray.exe"
 
           $scHash = (Get-FileHash $scExe -Algorithm SHA256).Hash.ToLower()
           "$scHash  ClaudeUsageTray.exe" | Out-File -FilePath "SHA256.txt" -Encoding ASCII
 
-          if (Test-Path $fdExe) {
-            $fdHash = (Get-FileHash $fdExe -Algorithm SHA256).Hash.ToLower()
-            "$fdHash  ClaudeUsageTray-framework-dependent.exe" | Out-File -FilePath "SHA256-framework-dependent.txt" -Encoding ASCII
-          }
+          $fdHash = (Get-FileHash $fdExe -Algorithm SHA256).Hash.ToLower()
+          "$fdHash  ClaudeUsageTray-framework-dependent.exe" | Out-File -FilePath "SHA256-framework-dependent.txt" -Encoding ASCII
 
           Write-Host "SHA256 (self-contained): $scHash"
-          if (Test-Path $fdExe) {
-            Write-Host "SHA256 (framework-dependent): $fdHash"
-          }
+          Write-Host "SHA256 (framework-dependent): $fdHash"
 
       - name: Extract changelog for this version
         id: changelog
@@ -81,7 +79,7 @@ jobs:
           name: "v${{ steps.version.outputs.VERSION }}"
           body: ${{ steps.changelog.outputs.NOTES }}
           files: |
-            ClaudeUsageTray/bin/Release/net9.0-windows10.0.17763.0/win-x64/publish/ClaudeUsageTray.exe
+            bin/sc/ClaudeUsageTray.exe
             SHA256.txt
-            ClaudeUsageTray/bin/Release/net9.0-windows10.0.17763.0/publish/ClaudeUsageTray.exe
+            bin/fd/ClaudeUsageTray.exe
             SHA256-framework-dependent.txt
