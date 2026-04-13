@@ -5,6 +5,30 @@
 
 ---
 
+## [1.15.8] - 2026-04-13
+
+<!-- ko -->
+### 수정
+- **릴리즈 워크플로우 exe 파일명 충돌** — framework-dependent exe를 릴리즈에 게시할 때 이름이 `ClaudeUsageTray.exe`로 같아 GitHub가 같은 애셋으로 인식하던 문제 수정. 게시 전 `ClaudeUsageTray-framework-dependent.exe`로 리네임
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Release workflow exe filename conflict** — Both exe files had the same name causing GitHub to treat them as the same asset. Renamed framework-dependent exe to `ClaudeUsageTray-framework-dependent.exe` before publishing
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **发布工作流 exe 文件名冲突** — 两个 exe 文件名相同导致 GitHub 视为同一资产。发布前将 framework-dependent exe 重命名为 `ClaudeUsageTray-framework-dependent.exe`
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **リリースワークフロー exe ファイル名衝突** — 両方の exe が同じ名前で GitHub が同じアセットとして認識していた問題を修正。公開前に framework-dependent exe を `ClaudeUsageTray-framework-dependent.exe` にリネーム
+<!-- /ja -->
+
+---
+
 ## [1.15.7] - 2026-04-13
 
 <!-- ko -->
