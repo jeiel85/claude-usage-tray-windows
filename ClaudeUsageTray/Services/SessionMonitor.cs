@@ -36,7 +36,8 @@ public class SessionMonitor
 
     private static void ProcessFile(string filePath, DateTime sinceDate, SessionStats stats)
     {
-        using var reader = new StreamReader(filePath);
+        using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var reader = new StreamReader(fs);
         string? line;
         bool fileHadActivity = false;
 

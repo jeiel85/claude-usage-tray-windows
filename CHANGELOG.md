@@ -5,6 +5,30 @@
 
 ---
 
+## [1.15.9] - 2026-04-14
+
+<!-- ko -->
+### 수정
+- **파일 잠금으로 인한 팝업** — Claude 앱 업데이트 후 "다른 응용 프로그램에서 사용 중" 팝업이 가끔 뜨던 문제 수정. `SessionMonitor`가 `.jsonl` 파일을 `FileShare.Read`로 열어 Claude의 쓰기를 차단하던 문제를 `FileShare.ReadWrite`로 변경하여 해결
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **File lock popup** — Fixed occasional "file is being used by another application" popup after Claude app updates. `SessionMonitor` was opening `.jsonl` files with `FileShare.Read`, blocking Claude's writes. Changed to `FileShare.ReadWrite` to allow concurrent access
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **文件锁定弹窗** — 修复 Claude 应用更新后偶发"文件正被其他应用程序使用"弹窗。`SessionMonitor` 以 `FileShare.Read` 打开 `.jsonl` 文件导致阻塞 Claude 写入，改为 `FileShare.ReadWrite` 解决
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **ファイルロックポップアップ** — Claude アップデート後に「別のアプリケーションが使用中」ポップアップが表示される問題を修正。`SessionMonitor` が `FileShare.Read` で `.jsonl` ファイルを開き Claude の書き込みをブロックしていた問題を `FileShare.ReadWrite` に変更して解決
+<!-- /ja -->
+
+---
+
 ## [1.15.8] - 2026-04-13
 
 <!-- ko -->
