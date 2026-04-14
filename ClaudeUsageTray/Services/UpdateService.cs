@@ -52,9 +52,9 @@ public class UpdateService
                 var name = asset.GetProperty("name").GetString() ?? "";
                 var url  = asset.GetProperty("browser_download_url").GetString() ?? "";
 
-                if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                if (name.EndsWith("-sc.exe", StringComparison.OrdinalIgnoreCase))
                     exeUrl = url;
-                else if (name.EndsWith(".sha256", StringComparison.OrdinalIgnoreCase))
+                else if (name.EndsWith("-sc.sha256", StringComparison.OrdinalIgnoreCase))
                     sha256Url = url;
             }
 

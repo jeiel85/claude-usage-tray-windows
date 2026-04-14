@@ -18,9 +18,14 @@ Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니�
 
 > **[최신 릴리즈 다운로드 →](https://github.com/jeiel85/claude-usage-tray-windows/releases/latest)**
 
-1. `ClaudeUsageTray.exe` 다운로드
+1. `ClaudeUsageTray-sc.exe` 다운로드 (권장)
 2. 실행 — .NET 설치 불필요, 별도 설치 과정 없음
 3. 시스템 트레이 아이콘 클릭으로 사용량 확인
+
+| 파일 | 크기 | 설명 |
+|------|------|------|
+| `ClaudeUsageTray-sc.exe` | ~77 MB | **Self-contained** — .NET 런타임 포함, 설치 불필요 (권장) |
+| `ClaudeUsageTray-fd.exe` | ~178 MB | **Framework-dependent** — .NET 9 런타임 설치 필요 |
 
 ## 요구 사항
 
@@ -60,7 +65,7 @@ Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니�
 
 ### 바로 실행 (권장)
 
-[Releases 페이지](https://github.com/jeiel85/claude-usage-tray-windows/releases)에서 최신 `ClaudeUsageTray.exe` 다운로드 후 실행하세요.
+[Releases 페이지](https://github.com/jeiel85/claude-usage-tray-windows/releases)에서 최신 `ClaudeUsageTray-sc.exe` 다운로드 후 실행하세요.
 
 > Windows Defender 경고가 뜰 수 있어요 → **추가 정보 → 실행** 클릭
 

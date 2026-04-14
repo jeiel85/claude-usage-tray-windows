@@ -54,19 +54,20 @@ jobs:
           $fdExe = "ClaudeUsageTray/bin/fd/ClaudeUsageTray.exe"
 
           $scHash = (Get-FileHash $scExe -Algorithm SHA256).Hash.ToLower()
-          "$scHash  ClaudeUsageTray.exe" | Out-File -FilePath "SHA256.txt" -Encoding ASCII
+          "$scHash  ClaudeUsageTray-sc.exe" | Out-File -FilePath "ClaudeUsageTray-sc.sha256" -Encoding ASCII
 
           $fdHash = (Get-FileHash $fdExe -Algorithm SHA256).Hash.ToLower()
-          "$fdHash  ClaudeUsageTray-framework-dependent.exe" | Out-File -FilePath "SHA256-framework-dependent.txt" -Encoding ASCII
+          "$fdHash  ClaudeUsageTray-fd.exe" | Out-File -FilePath "ClaudeUsageTray-fd.sha256" -Encoding ASCII
 
           Write-Host "SHA256 (self-contained): $scHash"
           Write-Host "SHA256 (framework-dependent): $fdHash"
 
-      - name: Rename framework-dependent exe for release
+      - name: Rename executables for release
         shell: powershell
         run: |
-          Copy-Item "ClaudeUsageTray/bin/fd/ClaudeUsageTray.exe" "ClaudeUsageTray/bin/fd/ClaudeUsageTray-framework-dependent.exe"
-          Write-Host "Renamed fd exe"
+          Copy-Item "ClaudeUsageTray/bin/sc/ClaudeUsageTray.exe" "ClaudeUsageTray/bin/sc/ClaudeUsageTray-sc.exe"
+          Copy-Item "ClaudeUsageTray/bin/fd/ClaudeUsageTray.exe" "ClaudeUsageTray/bin/fd/ClaudeUsageTray-fd.exe"
+          Write-Host "Renamed sc and fd exes"
 
       - name: Extract changelog for this version
         id: changelog
@@ -85,7 +86,7 @@ jobs:
           name: "v${{ steps.version.outputs.VERSION }}"
           body: ${{ steps.changelog.outputs.NOTES }}
           files: |
-            ClaudeUsageTray/bin/sc/ClaudeUsageTray.exe
-            SHA256.txt
-            ClaudeUsageTray/bin/fd/ClaudeUsageTray-framework-dependent.exe
-            SHA256-framework-dependent.txt
+            ClaudeUsageTray/bin/sc/ClaudeUsageTray-sc.exe
+            ClaudeUsageTray-sc.sha256
+            ClaudeUsageTray/bin/fd/ClaudeUsageTray-fd.exe
+            ClaudeUsageTray-fd.sha256

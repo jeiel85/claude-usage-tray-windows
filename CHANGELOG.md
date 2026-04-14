@@ -5,6 +5,46 @@
 
 ---
 
+## [1.15.10] - 2026-04-14
+
+<!-- ko -->
+### 변경
+- **릴리즈 파일명 정리** — 어떤 파일을 받아야 할지 명확히 알 수 있도록 이름 변경
+  - `ClaudeUsageTray.exe` → `ClaudeUsageTray-sc.exe` (self-contained, .NET 불필요)
+  - `ClaudeUsageTray-framework-dependent.exe` → `ClaudeUsageTray-fd.exe`
+  - SHA256 파일도 동일한 접미사로 통일 (`-sc.sha256`, `-fd.sha256`)
+- **자동 업데이트 SHA256 검증 수정** — 이전 버전에서 `.txt` 확장자로 인해 SHA256 검증이 스킵되던 버그 수정
+<!-- /ko -->
+
+<!-- en -->
+### Changed
+- **Release file naming clarified** — renamed files so it's obvious which one to download
+  - `ClaudeUsageTray.exe` → `ClaudeUsageTray-sc.exe` (self-contained, no .NET needed)
+  - `ClaudeUsageTray-framework-dependent.exe` → `ClaudeUsageTray-fd.exe`
+  - SHA256 files unified with matching suffix (`-sc.sha256`, `-fd.sha256`)
+- **Auto-update SHA256 verification fixed** — previous releases silently skipped hash verification due to `.txt` extension mismatch
+<!-- /en -->
+
+<!-- zh -->
+### 变更
+- **发布文件命名优化** — 重命名文件，让用户一眼就能知道应该下载哪个
+  - `ClaudeUsageTray.exe` → `ClaudeUsageTray-sc.exe`（自包含版，无需 .NET）
+  - `ClaudeUsageTray-framework-dependent.exe` → `ClaudeUsageTray-fd.exe`
+  - SHA256 文件统一使用相同后缀（`-sc.sha256`、`-fd.sha256`）
+- **自动更新 SHA256 校验修复** — 修复因 `.txt` 扩展名导致哈希校验被静默跳过的问题
+<!-- /zh -->
+
+<!-- ja -->
+### 変更
+- **リリースファイル名の整理** — どのファイルをダウンロードすればよいか一目でわかるよう名称変更
+  - `ClaudeUsageTray.exe` → `ClaudeUsageTray-sc.exe`（セルフコンテインド、.NET 不要）
+  - `ClaudeUsageTray-framework-dependent.exe` → `ClaudeUsageTray-fd.exe`
+  - SHA256 ファイルも同じ接尾辞に統一（`-sc.sha256`、`-fd.sha256`）
+- **自動更新の SHA256 検証修正** — `.txt` 拡張子の不一致によりハッシュ検証がスキップされていたバグを修正
+<!-- /ja -->
+
+---
+
 ## [1.15.9] - 2026-04-14
 
 <!-- ko -->

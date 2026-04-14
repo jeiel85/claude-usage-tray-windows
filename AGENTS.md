@@ -64,15 +64,16 @@ dotnet publish ClaudeUsageTray/ClaudeUsageTray.csproj `
 
 | 파일 | 설명 |
 |------|------|
-| `ClaudeUsageTray.exe` | self-contained exe (.NET 설치 없이 실행 가능) |
-| `SHA256.txt` | self-contained exe의 SHA256 해시 |
-| `ClaudeUsageTray-framework-dependent.exe` | framework-dependent exe (dotnet 9 설치 PC용) |
-| `SHA256-framework-dependent.txt` | framework-dependent exe의 SHA256 해시 |
+| `ClaudeUsageTray-sc.exe` | self-contained exe (.NET 설치 없이 실행 가능, 권장) |
+| `ClaudeUsageTray-sc.sha256` | self-contained exe의 SHA256 해시 |
+| `ClaudeUsageTray-fd.exe` | framework-dependent exe (dotnet 9 설치 PC용) |
+| `ClaudeUsageTray-fd.sha256` | framework-dependent exe의 SHA256 해시 |
 
 > ⚠️ **릴리즈 워크플로우 수정 시 주의사항**:
 > - self-contained와 framework-dependent 빌드는 `-p:PublishDir`로 **서로 다른 경로**에 출력해야 파일이 덮어씌워지지 않음
-> - GitHub Release에서 같은 이름의 파일은 **같은 애셋**으로 인식되므로, framework-dependent exe는 반드시 리네임 후 게시 (`ClaudeUsageTray-framework-dependent.exe`)
+> - GitHub Release에서 같은 이름의 파일은 **같은 애셋**으로 인식되므로, 두 exe 모두 리네임 후 게시 (`ClaudeUsageTray-sc.exe`, `ClaudeUsageTray-fd.exe`)
 > - SHA256 해시 생성 단계의 경로와 게시 단계의 경로가 **정확히 일치**해야 함
+> - `UpdateService.cs`는 `-sc.exe` / `-sc.sha256`를 명시적으로 검색 — 자동 업데이트는 항상 sc 빌드를 받음
 
 ---
 
