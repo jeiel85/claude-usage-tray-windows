@@ -87,19 +87,22 @@ public class UpdateService
         response.EnsureSuccessStatusCode();
 
         var totalBytes = response.Content.Headers.ContentLength ?? 0;
-        using var srcStream  = await response.Content.ReadAsStreamAsync();
-        using var destStream = new FileStream(newExePath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
+        using var srcStream = await response.Content.ReadAsStreamAsync();
 
-        var buffer = new byte[81920];
-        long downloaded = 0;
-        int  read;
-        while ((read = await srcStream.ReadAsync(buffer)) > 0)
         {
-            await destStream.WriteAsync(buffer.AsMemory(0, read));
-            downloaded += read;
-            if (totalBytes > 0)
-                progress?.Report((int)(downloaded * 100 / totalBytes));
-        }
+            using var destStream = new FileStream(newExePath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
+
+            var buffer = new byte[81920];
+            long downloaded = 0;
+            int  read;
+            while ((read = await srcStream.ReadAsync(buffer)) > 0)
+            {
+                await destStream.WriteAsync(buffer.AsMemory(0, read));
+                downloaded += read;
+                if (totalBytes > 0)
+                    progress?.Report((int)(downloaded * 100 / totalBytes));
+            }
+        } // destStream closed here — before SHA256 verification and before batch script
 
         // SHA256 verification — try to download sha256 file and verify
         if (!string.IsNullOrEmpty(sha256Url))
@@ -134,15 +137,22 @@ public class UpdateService
             @echo off
             timeout /t 2 /nobreak >nul
             copy /y "{newExePath}" "{currentExe}"
+            if errorlevel 1 (
+                echo [%date% %time%] copy failed: {newExePath} -^> {currentExe} >> "%TEMP%\claude_update_error.log"
+                exit /b 1
+            )
             start "" "{currentExe}"
-            del "{newExePath}"
+            del "{newExePath}" 2>nul
             del "%~f0"
             """;
         await File.WriteAllTextAsync(scriptPath, script);
 
-        Process.Start(new ProcessStartInfo("cmd.exe", $"/c \"{scriptPath}\"")
+        // Double-quote the script path inside /c "..." so cmd.exe correctly handles
+        // paths that contain spaces (e.g. username with a space in %TEMP%).
+        // Without double-quoting: cmd.exe strips the outer quotes then parses on spaces,
+        // causing silent failure when the TEMP path contains a space.
+        Process.Start(new ProcessStartInfo("cmd.exe", $"/c \"\"{scriptPath}\"\"")
         {
-            WindowStyle = ProcessWindowStyle.Hidden,
             CreateNoWindow = true
         });
 
