@@ -167,10 +167,64 @@
 
 ---
 
+## 배포 / CI 재발 방지 메모
+
+### ❌ GitHub Actions YAML에서 bash 문법 사용 금지
+
+**증상 (v1.15.12~v1.15.17):** GitHub Release 제목이 `v${GITHUB_REF_NAME#v}` 문자열 그대로 표시됨.
+
+**원인:** `softprops/action-gh-release`의 `name:` 필드는 YAML 값이므로 bash 변수 치환(`${}`)이 동작하지 않음.
+
+**올바른 방법:**
+```yaml
+# ❌ 잘못된 방법 — bash syntax, YAML에서 무시됨
+name: "v${GITHUB_REF_NAME#v}"
+
+# ✅ 올바른 방법 — GitHub Actions 표현식 사용
+name: ${{ github.ref_name }}
+```
+
+**릴리즈 제목 깨졌을 때 수동 수정:**
+```bash
+gh release edit v1.X.X --title "v1.X.X"
+```
+
+---
+
+### ❌ fd(framework-dependent) 빌드 폐기 결정 (v1.15.12~v1.15.17)
+
+**목표:** .NET 런타임 미포함 슬림 빌드 제공 (로컬 ~1.4 MB 확인)
+
+**시도한 방법들과 결과:**
+
+| 버전 | 시도 | CI 결과 |
+|------|------|---------|
+| v1.15.12 | sc + fd 단일 job 순차 빌드 | fd 178 MB (sc 캐시 오염 추정) |
+| v1.15.13 | WinRT 토스트 제거 → BalloonTip 전환, TFM `net9.0-windows` 변경 | fd 178 MB |
+| v1.15.14 | `dotnet clean` 추가 후 재빌드 | fd 178 MB |
+| v1.15.15 | TFM `net9.0-windows10.0.17763.0` 복귀 | fd ~25 MB (성공했으나 목표치 미달) |
+| v1.15.16 | sc/fd를 별도 job으로 완전 분리 | fd 178 MB (다시 재발) |
+| v1.15.17 | **fd 빌드 완전 제거** | sc 단독 배포로 단순화 |
+
+**근본 원인:** CI 환경(`windows-latest` runner)에서 `--self-contained false`임에도 `Microsoft.Windows.SDK.NET.dll` (23 MB) 및 WPF 런타임 DLL이 번들링됨. 로컬 재현 불가. TFM·clean·job 분리 모두 근본 해결 실패.
+
+**결론:**
+- fd 빌드는 더 이상 제공하지 않음
+- `ClaudeUsageTray-sc.exe` → `ClaudeUsageTray.exe` 파일명 단순화
+- SHA256 파일도 동일하게 `ClaudeUsageTray.sha256`
+
+---
+
 ## 버전 히스토리 요약
 
 | 버전 | 주요 내용 |
 |------|-----------|
+| v1.15.17 | fd 빌드 완전 제거, 파일명 `-sc` 접미사 제거 (`ClaudeUsageTray.exe`) |
+| v1.15.16 | sc/fd 빌드를 독립 job으로 분리 (fd 178 MB 문제 미해결) |
+| v1.15.15 | fd 크기 ~25 MB 안정화 (TFM `net9.0-windows10.0.17763.0` 복귀) |
+| v1.15.14 | `dotnet clean` 추가로 fd 빌드 캐시 오염 방지 시도 |
+| v1.15.13 | WinRT 토스트 제거 → BalloonTip 전환, fd 슬림화 시도 |
+| v1.15.12 | sc/fd 이중 배포 첫 시도, 파일 설명 추가 |
 | v1.15.3 | 추가 사용량 한도 미설정 표시 수정, 계정 전환 감지 개선(Renamed 이벤트 + 폴백), 계정 이름 기능 제거 |
 | v1.15.2 | 로그아웃/재로그인 감지 수정 (Created/Deleted/FileName 이벤트 추가) |
 | v1.15.1 | Alt+F4 크래시 수정, 다중 계정 재설계 |
