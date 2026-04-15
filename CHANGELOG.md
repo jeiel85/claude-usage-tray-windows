@@ -5,6 +5,46 @@
 
 ---
 
+## [1.15.17] - 2026-04-15
+
+<!-- ko -->
+### 변경
+- **fd 빌드 제거** — CI 환경에서 178 MB 문제를 해결하지 못해 fd 빌드를 완전히 중단. sc 빌드만 유지.
+- **파일명 단순화** — `ClaudeUsageTray-sc.exe` → `ClaudeUsageTray.exe` (SHA256 파일 동일)
+
+### 다운로드
+
+| 파일 | 크기 | 설명 |
+|------|------|------|
+| `ClaudeUsageTray.exe` | ~78 MB | Self-contained — .NET 런타임 포함, 설치 불필요 |
+<!-- /ko -->
+
+<!-- en -->
+### Changed
+- **Removed fd build** — After multiple failed attempts to fix the 178 MB CI output, framework-dependent builds are discontinued. Only the self-contained build remains.
+- **Simplified filename** — `ClaudeUsageTray-sc.exe` → `ClaudeUsageTray.exe` (SHA256 file likewise)
+
+### Download
+
+| File | Size | Description |
+|------|------|-------------|
+| `ClaudeUsageTray.exe` | ~78 MB | Self-contained — includes .NET runtime, nothing to install |
+<!-- /en -->
+
+<!-- zh -->
+### 变更
+- **移除 fd 构建** — 多次尝试修复 CI 输出 178 MB 问题均未成功，停止提供 framework-dependent 构建，仅保留 self-contained 构建。
+- **文件名简化** — `ClaudeUsageTray-sc.exe` → `ClaudeUsageTray.exe`（SHA256 文件同理）
+<!-- /zh -->
+
+<!-- ja -->
+### 変更
+- **fd ビルドを廃止** — CI で 178 MB 問題を解決できなかったため、framework-dependent ビルドを廃止。self-contained ビルドのみ提供。
+- **ファイル名を簡略化** — `ClaudeUsageTray-sc.exe` → `ClaudeUsageTray.exe`（SHA256 ファイルも同様）
+<!-- /ja -->
+
+---
+
 ## [1.15.16] - 2026-04-15
 
 <!-- ko -->
