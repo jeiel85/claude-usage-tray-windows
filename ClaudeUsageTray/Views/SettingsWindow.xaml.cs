@@ -66,6 +66,7 @@ public partial class SettingsWindow : Window
         LblNtfyTopic.Text                   = Loc.NtfyTopic;
         LblNtfyHint.Text                    = Loc.NtfyPlaceholder;
         LblNtfySecurityWarning.Text         = Loc.NtfySecurityWarning;
+        LblDisclaimer.Text                  = Loc.Disclaimer;
     }
 
     private void LoadValues()
