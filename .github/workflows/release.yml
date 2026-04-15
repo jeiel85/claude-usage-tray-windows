@@ -38,6 +38,9 @@ jobs:
             -p:PublishDir=bin/sc `
             -p:Version=${{ steps.version.outputs.VERSION }}
 
+      - name: Clean between builds
+        run: dotnet clean ClaudeUsageTray/ClaudeUsageTray.csproj -c Release
+
       - name: Build framework-dependent release
         run: |
           dotnet publish ClaudeUsageTray/ClaudeUsageTray.csproj `

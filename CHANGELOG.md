@@ -5,6 +5,30 @@
 
 ---
 
+## [1.15.14] - 2026-04-15
+
+<!-- ko -->
+### 수정
+- **fd 빌드 크기 여전히 큰 문제 근본 수정** — sc 빌드 후 `obj/` 캐시가 남아 fd 빌드가 self-contained 아티팩트를 재사용하던 문제 해결. sc → `dotnet clean` → fd 순서로 워크플로우 변경
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Root-cause fix for fd still building large** — sc build left behind `obj/` cache, causing the fd build to reuse self-contained artifacts without rebuilding. Workflow now runs `dotnet clean` between sc and fd builds
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **fd 构建仍然偏大的根本原因修复** — sc 构建后遗留的 `obj/` 缓存导致 fd 构建复用了 self-contained 产物。已在 sc 和 fd 构建之间插入 `dotnet clean`
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **fd ビルドが依然として大きい根本原因を修正** — sc ビルド後に残った `obj/` キャッシュにより、fd ビルドが self-contained のアーティファクトを再利用していた問題を解消。ワークフローを sc → `dotnet clean` → fd の順に変更
+<!-- /ja -->
+
+---
+
 ## [1.15.13] - 2026-04-15
 
 <!-- ko -->
