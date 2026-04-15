@@ -1,20 +1,26 @@
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using Microsoft.Toolkit.Uwp.Notifications;
+using System.Windows.Forms;
 
 namespace ClaudeUsageTray.Services;
 
 public class NotificationService
 {
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(5) };
+    private readonly Func<NotifyIcon?> _getIcon;
+
+    public NotificationService(Func<NotifyIcon?> getNotifyIcon)
+    {
+        _getIcon = getNotifyIcon;
+    }
 
     public void ShowUsageAlert(int thresholdPercent, string windowLabel, string resetLabel, string ntfyTopic)
     {
         var title = Loc.NotificationTitle;
         var body  = Loc.NotificationBody(thresholdPercent, windowLabel, resetLabel);
 
-        ShowToast(title, body);
+        ShowBalloon(title, body);
         SendNtfy(ntfyTopic, title, body);
     }
 
@@ -22,7 +28,7 @@ public class NotificationService
     {
         var title = Loc.NotificationTitle;
         var body  = Loc.TestNotificationBody;
-        ShowToast(title, body);
+        ShowBalloon(title, body);
         SendNtfy(ntfyTopic, title, body);
     }
 
@@ -31,18 +37,15 @@ public class NotificationService
         var title = Loc.RateLimitTitle;
         var body  = Loc.RateLimited;
 
-        ShowToast(title, body);
+        ShowBalloon(title, body);
         SendNtfy(ntfyTopic, title, body);
     }
 
-    private static void ShowToast(string title, string body)
+    private void ShowBalloon(string title, string body)
     {
         try
         {
-            new ToastContentBuilder()
-                .AddText(title)
-                .AddText(body)
-                .Show();
+            _getIcon()?.ShowBalloonTip(4000, title, body, ToolTipIcon.None);
         }
         catch { }
     }

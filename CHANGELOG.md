@@ -5,6 +5,94 @@
 
 ---
 
+## [1.15.13] - 2026-04-15
+
+<!-- ko -->
+### 변경
+- **Windows 알림 방식 변경: WinRT 토스트 → 시스템 트레이 balloon tip**
+  - `Microsoft.Toolkit.Uwp.Notifications` 패키지 제거, TFM을 `net9.0-windows10.0.17763.0` → `net9.0-windows`로 하향
+  - 이로 인해 `Microsoft.Windows.SDK.NET.dll` (23 MB)이 fd 빌드에서 제거됨
+
+### ⚠ 알림 외관 변경
+- **이전**: Windows 알림 센터 스타일의 WinRT 토스트 팝업
+- **이후**: 시스템 트레이 아이콘 우측 하단의 balloon tip (Windows 10/11 모두 알림 센터에 기록됨)
+
+### 다운로드 안내
+
+| 파일 | 크기 | 알림 방식 |
+|------|------|-----------|
+| `ClaudeUsageTray-sc.exe` | ~72 MB | Balloon tip (트레이 아이콘 풍선) |
+| `ClaudeUsageTray-fd.exe` | ~1.5 MB | Balloon tip (트레이 아이콘 풍선) |
+
+> fd 파일이 1.5 MB인 이유: WinRT 런타임 DLL(23 MB)을 완전히 제거했습니다.  
+> .NET 9 Desktop Runtime이 설치된 환경이라면 fd를 추천합니다.
+<!-- /ko -->
+
+<!-- en -->
+### Changed
+- **Notification method: WinRT toast → system tray balloon tip**
+  - Removed `Microsoft.Toolkit.Uwp.Notifications` package; downgraded TFM from `net9.0-windows10.0.17763.0` to `net9.0-windows`
+  - This eliminates `Microsoft.Windows.SDK.NET.dll` (23 MB) from the fd build
+
+### ⚠ Notification appearance change
+- **Before**: WinRT toast popup in the Windows notification center style
+- **After**: Balloon tip from the system tray icon (still logged to the Action Center on Windows 10/11)
+
+### Which file should I download?
+
+| File | Size | Notifications |
+|------|------|---------------|
+| `ClaudeUsageTray-sc.exe` | ~72 MB | Balloon tip (tray icon bubble) |
+| `ClaudeUsageTray-fd.exe` | ~1.5 MB | Balloon tip (tray icon bubble) |
+
+> Why is fd only 1.5 MB? The WinRT runtime DLL (23 MB) has been completely removed.  
+> If you have .NET 9 Desktop Runtime installed, fd is the recommended download.
+<!-- /en -->
+
+<!-- zh -->
+### 变更
+- **通知方式变更：WinRT Toast → 系统托盘气泡提示**
+  - 移除 `Microsoft.Toolkit.Uwp.Notifications` 包；目标框架从 `net9.0-windows10.0.17763.0` 降级为 `net9.0-windows`
+  - fd 构建中的 `Microsoft.Windows.SDK.NET.dll`（23 MB）已完全删除
+
+### ⚠ 通知外观变更
+- **之前**：Windows 操作中心样式的 WinRT Toast 弹窗
+- **之后**：来自系统托盘图标的气泡提示（在 Windows 10/11 上仍会记录到操作中心）
+
+### 应该下载哪个文件？
+
+| 文件 | 大小 | 通知方式 |
+|------|------|---------|
+| `ClaudeUsageTray-sc.exe` | ~72 MB | 气泡提示（托盘图标气泡） |
+| `ClaudeUsageTray-fd.exe` | ~1.5 MB | 气泡提示（托盘图标气泡） |
+
+> fd 为何只有 1.5 MB？WinRT 运行时 DLL（23 MB）已被完全移除。  
+> 如果已安装 .NET 9 Desktop Runtime，推荐使用 fd 版本。
+<!-- /zh -->
+
+<!-- ja -->
+### 変更
+- **通知方式の変更：WinRT トースト → システムトレイのバルーンチップ**
+  - `Microsoft.Toolkit.Uwp.Notifications` パッケージを削除；TFM を `net9.0-windows10.0.17763.0` から `net9.0-windows` にダウングレード
+  - fd ビルドから `Microsoft.Windows.SDK.NET.dll`（23 MB）を完全に除去
+
+### ⚠ 通知の見た目の変更
+- **以前**：Windows 通知センタースタイルの WinRT トーストポップアップ
+- **以後**：システムトレイアイコンからのバルーンチップ（Windows 10/11 ではアクションセンターに記録されます）
+
+### どのファイルをダウンロードすればいい？
+
+| ファイル | サイズ | 通知方式 |
+|----------|--------|---------|
+| `ClaudeUsageTray-sc.exe` | ~72 MB | バルーンチップ（トレイアイコンの吹き出し） |
+| `ClaudeUsageTray-fd.exe` | ~1.5 MB | バルーンチップ（トレイアイコンの吹き出し） |
+
+> fd が 1.5 MB の理由：WinRT ランタイム DLL（23 MB）を完全に除去しました。  
+> .NET 9 Desktop Runtime がインストール済みの環境では fd をおすすめします。
+<!-- /ja -->
+
+---
+
 ## [1.15.12] - 2026-04-15
 
 <!-- ko -->

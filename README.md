@@ -20,12 +20,13 @@ Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니�
 
 ### 어떤 파일을 받아야 하나요?
 
-| 파일 | 크기 | 설명 |
-|------|------|------|
-| `ClaudeUsageTray-sc.exe` | ~77 MB | **Self-contained (권장)** — .NET 런타임 포함. 다운로드 후 바로 실행, 아무것도 설치할 필요 없음 |
-| `ClaudeUsageTray-fd.exe` | ~25 MB | **Framework-dependent** — 파일이 더 작지만 [.NET 9 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) 설치 필요 |
+| 파일 | 크기 | 설명 | 알림 방식 |
+|------|------|------|-----------|
+| `ClaudeUsageTray-sc.exe` | ~72 MB | **Self-contained** — .NET 런타임 포함. 아무것도 설치 없이 바로 실행 **(권장)** | 트레이 balloon tip |
+| `ClaudeUsageTray-fd.exe` | ~1.5 MB | **Framework-dependent** — [.NET 9 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) 설치 필요 | 트레이 balloon tip |
 
-> 대부분의 경우 **`ClaudeUsageTray-sc.exe`** 를 받으세요. 크기 차이가 신경 쓰여서 fd를 받는다면 .NET 9이 설치되어 있어야 합니다.
+> **fd가 1.5 MB인 이유**: WinRT 토스트 알림을 제거하고 트레이 아이콘 기반 balloon tip으로 전환하면서 `Microsoft.Windows.SDK.NET.dll` (23 MB)이 사라졌습니다.  
+> fd는 알림 외관이 다르지만(WinRT 토스트 → balloon tip) 기능은 동일합니다. .NET 9이 이미 설치된 환경이라면 fd를 추천합니다.
 
 **실행 방법:**
 1. 위 표에서 파일 선택 후 다운로드
@@ -138,7 +139,7 @@ Claude Code가 저장한 OAuth 토큰을 재사용합니다:
 |-----------|------|
 | UI 프레임워크 | WPF (.NET 9) |
 | 시스템 트레이 | System.Windows.Forms.NotifyIcon |
-| Toast 알림 | Microsoft.Toolkit.Uwp.Notifications |
+| 트레이 알림 | System.Windows.Forms.NotifyIcon (balloon tip) |
 | MVVM | CommunityToolkit.Mvvm |
 | HTTP | System.Net.Http |
 | 푸시 알림 | ntfy.sh |

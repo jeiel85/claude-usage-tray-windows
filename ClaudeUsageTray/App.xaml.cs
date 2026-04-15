@@ -51,7 +51,7 @@ public partial class App : Application
         var credService = new CredentialService();
         var apiService = new UsageApiService(credService);
         var sessionMonitor = new SessionMonitor();
-        var notifier = new NotificationService();
+        var notifier = new NotificationService(() => _trayIcon);
         var updater = new UpdateService();
         var history = new HistoryService();
 
