@@ -365,7 +365,7 @@
                                 <StackPanel Orientation="Horizontal">
                                     <Button x:Name="Toggle7DayBtn" Click="Toggle7DayBtn_Click"
                                             BorderThickness="0" Cursor="Hand" Padding="6,2">
-                                        <TextBlock x:Name="Toggle7DayText" Text="7일" FontSize="10"/>
+                                        <TextBlock x:Name="Toggle7DayText" FontSize="10"/>
                                         <Button.Style>
                                             <Style TargetType="Button">
                                                 <Setter Property="Background" Value="#2D2F45"/>
@@ -383,7 +383,7 @@
                                     </Button>
                                     <Button x:Name="ToggleHourlyBtn" Click="ToggleHourlyBtn_Click"
                                             BorderThickness="0" Cursor="Hand" Padding="6,2">
-                                        <TextBlock x:Name="ToggleHourlyText" Text="오늘" FontSize="10"/>
+                                        <TextBlock x:Name="ToggleHourlyText" FontSize="10"/>
                                         <Button.Style>
                                             <Style TargetType="Button">
                                                 <Setter Property="Background" Value="Transparent"/>
@@ -402,8 +402,8 @@
                                 </StackPanel>
                             </Border>
                             <!-- CSV export -->
-                            <Button Background="Transparent" BorderThickness="0"
-                                    Cursor="Hand" Click="ExportCsvBtn_Click" ToolTip="CSV로 내보내기">
+                            <Button x:Name="CsvExportBtn" Background="Transparent" BorderThickness="0"
+                                    Cursor="Hand" Click="ExportCsvBtn_Click">
                                 <TextBlock Text="↓ CSV" Foreground="#3D4266" FontSize="10"/>
                                 <Button.Style>
                                     <Style TargetType="Button">

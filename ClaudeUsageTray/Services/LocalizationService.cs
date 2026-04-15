@@ -511,6 +511,39 @@ public static class Loc
         _ => $"{used:N0} credits used (no limit set)"
     };
 
+    // Chart toggle labels
+    public static string SevenDayToggle => Lang switch
+    {
+        "ko" => "7일",
+        "zh" => "7天",
+        "ja" => "7日",
+        _ => "7d"
+    };
+
+    public static string TodayToggle => Lang switch
+    {
+        "ko" => "오늘",
+        "zh" => "今日",
+        "ja" => "今日",
+        _ => "Today"
+    };
+
+    public static string ExportCsvTooltip => Lang switch
+    {
+        "ko" => "CSV로 내보내기",
+        "zh" => "导出为 CSV",
+        "ja" => "CSV に書き出す",
+        _ => "Export to CSV"
+    };
+
+    public static string Disclaimer => Lang switch
+    {
+        "ko" => "이 앱은 참고용 도구입니다. 표시되는 수치는 공식 수치와 다를 수 있으며, 요금·과금 관련 문제에 대해 개발자는 책임을 지지 않습니다. 정확한 사용량은 Anthropic 공식 콘솔에서 확인하세요.",
+        "zh" => "本应用仅供参考。显示数值可能与官方数据不同，开发者不对任何计费问题承担责任。请通过 Anthropic 官方控制台确认准确用量。",
+        "ja" => "このアプリは参考ツールです。表示される数値は公式データと異なる場合があります。料金関連の問題について開発者は責任を負いません。正確な使用量は Anthropic の公式コンソールで確認してください。",
+        _ => "This app is a reference tool only. Displayed values may differ from official figures. The developer is not liable for any billing issues. Please verify accurate usage on the official Anthropic console."
+    };
+
     public static string ApiError(string msg) => Lang switch
     {
         "ko" => $"API 오류: {msg}",

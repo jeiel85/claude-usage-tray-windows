@@ -35,6 +35,7 @@ public partial class UsagePopup : Window
         vm.PropertyChanged += OnVmPropertyChanged;
         Loaded += (_, _) => RefreshChart();
         UpdateToggleStyle();
+        CsvExportBtn.ToolTip = Loc.ExportCsvTooltip;
     }
 
     private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -66,8 +67,10 @@ public partial class UsagePopup : Window
 
         Toggle7DayBtn.Background   = _showHourly ? inactiveBg : activeBg;
         Toggle7DayText.Foreground  = _showHourly ? inactiveFg : activeFg;
+        Toggle7DayText.Text        = Loc.SevenDayToggle;
         ToggleHourlyBtn.Background = _showHourly ? activeBg : inactiveBg;
         ToggleHourlyText.Foreground = _showHourly ? activeFg : inactiveFg;
+        ToggleHourlyText.Text      = Loc.TodayToggle;
 
         ChartTitleLabel.Text = _showHourly
             ? Services.Loc.HourlyChartTitle
