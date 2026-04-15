@@ -5,6 +5,64 @@
 
 ---
 
+## [1.15.15] - 2026-04-15
+
+<!-- ko -->
+### 수정
+- **fd 빌드 크기 확정 (~25 MB)** — `net9.0-windows`(버전 미지정) TFM이 GitHub Actions 환경에서 WPF 런타임을 포함해 155 MB를 만드는 문제 확인. `net9.0-windows10.0.17763.0`으로 복귀하여 일관된 fd 크기(~25 MB) 확보
+- `dotnet clean` 단계에 `-r win-x64` 추가 — RID 지정 없이 clean 시 sc 빌드 캐시가 완전히 제거되지 않던 문제 보완
+
+### 참고
+- v1.15.13·14 에서 예고한 "fd ~1.4 MB" 는 로컬에서만 재현됐고 CI 환경에서는 달성하지 못했습니다.
+- 현재 fd 크기 25 MB 는 `Microsoft.Windows.SDK.NET.dll` (23 MB) 이 원인이며 TFM을 유지하는 한 제거 불가합니다.
+
+### 다운로드 안내
+
+| 파일 | 크기 | 설명 |
+|------|------|------|
+| `ClaudeUsageTray-sc.exe` | ~78 MB | **Self-contained** — .NET 런타임 포함, 설치 불필요 **(권장)** |
+| `ClaudeUsageTray-fd.exe` | ~25 MB | **Framework-dependent** — [.NET 9 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) 설치 필요 |
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **fd build size stabilized (~25 MB)** — `net9.0-windows` (unversioned) TFM was found to include the full WPF runtime on GitHub Actions (155 MB). Reverted to `net9.0-windows10.0.17763.0` for consistent fd output (~25 MB)
+- Added `-r win-x64` to the `dotnet clean` step — without a RID, the sc build cache was not fully cleared
+
+### Note
+- The "fd ~1.4 MB" announced in v1.15.13 and v1.15.14 only reproduced locally and could not be achieved in CI.
+- The current fd size of 25 MB is caused by `Microsoft.Windows.SDK.NET.dll` (23 MB), which cannot be removed while keeping the current TFM.
+
+### Which file should I download?
+
+| File | Size | Description |
+|------|------|-------------|
+| `ClaudeUsageTray-sc.exe` | ~78 MB | **Self-contained** — includes .NET runtime, nothing to install **(recommended)** |
+| `ClaudeUsageTray-fd.exe` | ~25 MB | **Framework-dependent** — requires [.NET 9 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) |
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **fd 构建大小稳定（~25 MB）** — 确认 `net9.0-windows`（无版本号）TFM 在 GitHub Actions 上会引入完整 WPF 运行时（155 MB）。已回退到 `net9.0-windows10.0.17763.0` 以获得稳定的 fd 大小（~25 MB）
+- `dotnet clean` 步骤添加 `-r win-x64` — 不指定 RID 时 sc 构建缓存未被完全清除
+
+### 说明
+- v1.15.13·14 中预告的"fd ~1.4 MB"仅在本地环境复现，CI 环境无法实现
+- 当前 fd 大小 25 MB 源于 `Microsoft.Windows.SDK.NET.dll`（23 MB），在保持当前 TFM 的情况下无法去除
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **fd ビルドサイズを安定化（~25 MB）** — `net9.0-windows`（バージョン未指定）TFM が GitHub Actions 上で WPF ランタイムを含めてしまい 155 MB になる問題を確認。`net9.0-windows10.0.17763.0` に戻すことで安定した fd サイズ（~25 MB）を確保
+- `dotnet clean` ステップに `-r win-x64` を追加 — RID 未指定では sc ビルドのキャッシュが完全にクリアされなかった問題を補完
+
+### 備考
+- v1.15.13·14 で予告した「fd ~1.4 MB」はローカル環境でのみ再現し、CI 環境では達成できませんでした
+- 現在の fd サイズ 25 MB は `Microsoft.Windows.SDK.NET.dll`（23 MB）が原因で、現行 TFM を維持する限り除去できません
+<!-- /ja -->
+
+---
+
 ## [1.15.14] - 2026-04-15
 
 <!-- ko -->

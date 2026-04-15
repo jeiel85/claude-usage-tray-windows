@@ -22,11 +22,11 @@ Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니�
 
 | 파일 | 크기 | 설명 | 알림 방식 |
 |------|------|------|-----------|
-| `ClaudeUsageTray-sc.exe` | ~72 MB | **Self-contained** — .NET 런타임 포함. 아무것도 설치 없이 바로 실행 **(권장)** | 트레이 balloon tip |
-| `ClaudeUsageTray-fd.exe` | ~1.5 MB | **Framework-dependent** — [.NET 9 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) 설치 필요 | 트레이 balloon tip |
+| `ClaudeUsageTray-sc.exe` | ~78 MB | **Self-contained (권장)** — .NET 런타임 포함. 아무것도 설치 없이 바로 실행 |
+| `ClaudeUsageTray-fd.exe` | ~25 MB | **Framework-dependent** — [.NET 9 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) 설치 필요 |
 
-> **fd가 1.5 MB인 이유**: WinRT 토스트 알림을 제거하고 트레이 아이콘 기반 balloon tip으로 전환하면서 `Microsoft.Windows.SDK.NET.dll` (23 MB)이 사라졌습니다.  
-> fd는 알림 외관이 다르지만(WinRT 토스트 → balloon tip) 기능은 동일합니다. .NET 9이 이미 설치된 환경이라면 fd를 추천합니다.
+> **알림 방식**: WinRT 토스트(v1.15.12 이전) → **트레이 balloon tip**(v1.15.13~). 기능은 동일하고 Windows 알림 센터에도 기록됩니다.  
+> fd가 25 MB인 이유: `net9.0-windows10.0.17763.0` TFM이 요구하는 Windows SDK 바인딩 DLL (`Microsoft.Windows.SDK.NET.dll`, 23 MB)이 포함됩니다.
 
 **실행 방법:**
 1. 위 표에서 파일 선택 후 다운로드

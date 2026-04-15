@@ -39,7 +39,7 @@ jobs:
             -p:Version=${{ steps.version.outputs.VERSION }}
 
       - name: Clean between builds
-        run: dotnet clean ClaudeUsageTray/ClaudeUsageTray.csproj -c Release
+        run: dotnet clean ClaudeUsageTray/ClaudeUsageTray.csproj -c Release -r win-x64
 
       - name: Build framework-dependent release
         run: |
