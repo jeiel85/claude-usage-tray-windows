@@ -5,6 +5,70 @@
 
 ---
 
+## [1.15.12] - 2026-04-15
+
+<!-- ko -->
+### 수정
+- **fd 빌드 크기 버그 (178 MB → 25 MB)** — sc 빌드의 `-r win-x64` RID가 fd 빌드에 전파되어 fd가 self-contained로 빌드되던 문제 수정. fd 빌드에 `-r win-x64`를 명시하여 해결
+
+### 개선
+- **릴리즈 파일 설명 추가** — 어떤 파일을 받아야 하는지 릴리즈 노트 및 README에 안내 추가
+
+### 다운로드 안내
+
+| 파일 | 크기 | 설명 |
+|------|------|------|
+| `ClaudeUsageTray-sc.exe` | ~77 MB | **Self-contained** — .NET 런타임 포함. 아무것도 설치 없이 바로 실행 **(권장)** |
+| `ClaudeUsageTray-fd.exe` | ~25 MB | **Framework-dependent** — 파일이 더 작지만 [.NET 9 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) 설치 필요 |
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **fd build size bug (178 MB → 25 MB)** — The `-r win-x64` RID from the sc build leaked into the fd build, causing fd to be built as self-contained. Fixed by explicitly setting `-r win-x64` on the fd build step
+
+### Improved
+- **Release file descriptions** — Added download guide to release notes and README so it's clear which file to grab
+
+### Which file should I download?
+
+| File | Size | Description |
+|------|------|-------------|
+| `ClaudeUsageTray-sc.exe` | ~77 MB | **Self-contained** — includes the .NET runtime. Just download and run — nothing to install **(recommended)** |
+| `ClaudeUsageTray-fd.exe` | ~25 MB | **Framework-dependent** — smaller file, but requires [.NET 9 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) to be installed |
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **fd 构建体积 bug（178 MB → 25 MB）** — sc 构建的 `-r win-x64` RID 泄漏到 fd 构建中，导致 fd 实际上以 self-contained 模式构建。已通过在 fd 构建步骤中显式指定 `-r win-x64` 修复
+
+### 改进
+- **发布文件说明** — 在发布说明和 README 中添加下载指引，明确应下载哪个文件
+
+### 应该下载哪个文件？
+
+| 文件 | 大小 | 说明 |
+|------|------|------|
+| `ClaudeUsageTray-sc.exe` | ~77 MB | **独立运行版** — 包含 .NET 运行时，下载即用，无需安装 **（推荐）** |
+| `ClaudeUsageTray-fd.exe` | ~25 MB | **依赖框架版** — 文件更小，但需要先安装 [.NET 9 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) |
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **fd ビルドサイズのバグ（178 MB → 25 MB）** — sc ビルドの `-r win-x64` RID が fd ビルドに引き継がれ、fd が self-contained としてビルドされていた問題を修正。fd ビルドに `-r win-x64` を明示することで解決
+
+### 改善
+- **リリースファイルの説明を追加** — どのファイルをダウンロードすべきか、リリースノートと README に案内を追加
+
+### どのファイルをダウンロードすればいい？
+
+| ファイル | サイズ | 説明 |
+|----------|--------|------|
+| `ClaudeUsageTray-sc.exe` | ~77 MB | **自己完結型** — .NET ランタイム同梱。ダウンロードしてすぐ実行できます **（推奨）** |
+| `ClaudeUsageTray-fd.exe` | ~25 MB | **フレームワーク依存型** — ファイルが小さい分、[.NET 9 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) のインストールが必要 |
+<!-- /ja -->
+
+---
+
 ## [1.15.11] - 2026-04-15
 
 <!-- ko -->
