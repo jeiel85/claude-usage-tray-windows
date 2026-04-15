@@ -5,6 +5,44 @@
 
 ---
 
+## [1.15.16] - 2026-04-15
+
+<!-- ko -->
+### 수정
+- **fd 빌드 격리 — sc/fd 빌드를 독립 job으로 분리** — 동일 job 내에서 sc 빌드 후 `--self-contained false`를 무시하는 GitHub Actions 환경 문제 근본 해결. sc와 fd를 각각 별도 runner에서 실행하여 완전한 환경 격리 보장
+
+### 다운로드 안내
+
+| 파일 | 크기 | 설명 |
+|------|------|------|
+| `ClaudeUsageTray-sc.exe` | ~78 MB | **Self-contained** — .NET 런타임 포함, 설치 불필요 **(권장)** |
+| `ClaudeUsageTray-fd.exe` | ~25 MB | **Framework-dependent** — [.NET 9 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) 설치 필요 |
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **fd build isolation — sc and fd now run as separate jobs** — Root-cause fix for GitHub Actions ignoring `--self-contained false` after an sc build in the same job. Each build now runs on its own fresh runner with a completely isolated environment
+
+### Which file should I download?
+
+| File | Size | Description |
+|------|------|-------------|
+| `ClaudeUsageTray-sc.exe` | ~78 MB | **Self-contained** — includes .NET runtime, nothing to install **(recommended)** |
+| `ClaudeUsageTray-fd.exe` | ~25 MB | **Framework-dependent** — requires [.NET 9 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) |
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **fd 构建隔离 — sc 和 fd 拆分为独立 job** — 根本解决 GitHub Actions 在同一 job 中 sc 构建后忽略 `--self-contained false` 的问题。每个构建现在在独立的 runner 上运行，环境完全隔离
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **fd ビルドの分離 — sc と fd を独立した job に分割** — 同一 job 内で sc ビルド後に `--self-contained false` が無視される GitHub Actions 環境の問題を根本解決。各ビルドを独立した runner で実行し、環境を完全に分離
+<!-- /ja -->
+
+---
+
 ## [1.15.15] - 2026-04-15
 
 <!-- ko -->
