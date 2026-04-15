@@ -5,6 +5,38 @@
 
 ---
 
+## [1.15.11] - 2026-04-15
+
+<!-- ko -->
+### 수정
+- **자동 업데이트 프로세스 중단** — TEMP 경로에 공백이 있는 환경(예: 사용자명에 공백)에서 업데이트 후 트레이 프로세스만 종료되고 파일이 교체되지 않던 버그 수정 (`cmd.exe /c` 경로 인용 방식 수정)
+- **SHA256 검증 무시 버그** — 다운로드 스트림이 열려 있는 동안 동일 파일을 열어 검증하려다 실패하여 SHA256 검증이 항상 스킵되던 버그 수정
+- 업데이트 스크립트 `copy` 실패 시 `%TEMP%\claude_update_error.log`에 오류 기록
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Auto-update process hang** — Fixed file not being replaced when TEMP path contains spaces (e.g. username with a space). `cmd.exe /c` argument now uses double-double-quoting to handle paths correctly
+- **SHA256 verification always skipped** — Download stream was held open with `FileShare.None`, preventing the SHA256 check from reading the same file. Stream is now closed before verification runs
+- Batch script now logs `copy` failures to `%TEMP%\claude_update_error.log`
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **自动更新进程挂起** — 修复 TEMP 路径包含空格时（如用户名有空格）更新后只有托盘进程退出、文件未被替换的问题（修正 `cmd.exe /c` 路径引号处理方式）
+- **SHA256 校验被跳过** — 下载流以 `FileShare.None` 打开时阻止了校验代码读取同一文件，导致 SHA256 校验始终被跳过，现已修复
+- 批处理脚本 `copy` 失败时记录错误到 `%TEMP%\claude_update_error.log`
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **自動更新プロセスのハング** — TEMP パスにスペースが含まれる環境（例：ユーザー名にスペース）でトレイプロセスのみ終了し、ファイルが置換されないバグを修正（`cmd.exe /c` の引数クォート方式を修正）
+- **SHA256 検証が常にスキップ** — ダウンロードストリームが `FileShare.None` で開かれており、同じファイルを検証コードが開けず SHA256 検証が常にスキップされていたバグを修正
+- バッチスクリプトの `copy` 失敗時に `%TEMP%\claude_update_error.log` にエラーを記録
+<!-- /ja -->
+
+---
+
 ## [1.15.10] - 2026-04-14
 
 <!-- ko -->
