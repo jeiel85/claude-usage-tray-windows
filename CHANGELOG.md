@@ -5,6 +5,34 @@
 
 ---
 
+## [1.15.18] - 2026-04-16
+
+<!-- ko -->
+### 수정
+- **자동 업데이트 파일명 호환성 수정** — v1.15.17에서 파일명을 `ClaudeUsageTray.exe`로 단순화했지만, 구버전 앱이 여전히 `-sc.exe`Suffix를 찾아 실패하던 버그 수정
+- 이제 새、旧 파일명 모두 정상 인식
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Auto-update filename compatibility fixed** — v1.15.17 simplified filename to `ClaudeUsageTray.exe`, but older app versions were still looking for `-sc.exe` suffix and failing
+- Now correctly recognizes both new and old filename formats
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **自动更新文件名兼容性修复** — v1.15.17 将文件名简化为 `ClaudeUsageTray.exe`，但旧版应用仍在查找 `-sc.exe` 后缀而导致更新失败
+- 现在可以正确识别新旧文件名格式
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **自動更新のファイル名互換性を修正** — v1.15.17 でファイル名を `ClaudeUsageTray.exe` に簡略化しましたが、旧バージョンのアプリが `-sc.exe` サフィックスを探していたため更新に失敗していたバグを修正
+- 新旧のファイル名を正しく認識するようになりました
+<!-- /ja -->
+
+---
+
 ## [1.15.17] - 2026-04-15
 
 <!-- ko -->
