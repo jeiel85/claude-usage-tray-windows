@@ -5,6 +5,58 @@
 
 ---
 
+## [1.15.22] - 2026-04-16
+
+<!-- ko -->
+### 추가
+- **세션 파일 실시간 감시** — FileSystemWatcher 기반 파일 변경 감지 + 캐시된 통계로 즉시 UI 업데이트
+- **히스토리 차트 30일 지원** — 히스토리 보관 90일, 차트 표시 30일로 확장
+- **ntfy 중복 방지** — 기기 고유 식별자를 topic suffix에 추가하여 동일 토픽 중복 푸시 문제 해결
+- **단위 테스트 추가** — SessionMonitor, SettingsService, HistoryService 테스트 프로젝트 추가
+
+### 수정
+- **빌드 경고 제거** — TreatWarningsAsErrors 적용 및 경고 해결
+- **타이머 정리** — SessionMonitor IDisposable 구현으로 리소스 누수 방지
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Real-time session file monitoring** — FileSystemWatcher-based change detection with cached stats for instant UI updates
+- **30-day history chart** — Extended history retention to 90 days, chart display to 30 days
+- **ntfy duplicate prevention** — Added device unique identifier to topic suffix to prevent duplicate pushes
+- **Unit tests** — Added test project for SessionMonitor, SettingsService, HistoryService
+
+### Fixed
+- **Build warnings** — Applied TreatWarningsAsErrors and resolved warnings
+- **Timer cleanup** — Implemented IDisposable on SessionMonitor to prevent resource leaks
+<!-- /en -->
+
+<!-- zh -->
+### 新增
+- **实时会话文件监控** — 基于FileSystemWatcher的文件变更检测，使用缓存统计实现即时UI更新
+- **30天历史图表** — 历史保留期扩展至90天，图表显示期扩展至30天
+- **ntfy重复预防** — 在topic后缀中添加设备唯一标识符，防止重复推送
+- **单元测试** — 为SessionMonitor、SettingsService、HistoryService添加测试项目
+
+### 修复
+- **构建警告** — 应用TreatWarningsAsErrors并解决警告
+- **定时器清理** — 在SessionMonitor上实现IDisposable以防止资源泄漏
+<!-- /zh -->
+
+<!-- ja -->
+### 追加
+- **リアルタイムセッションファイル監視** — FileSystemWatcherベースのファイル変更検出とキャッシュ統計によるインスタントUI更新
+- **30日間ヒストリー.chart** — ヒストリー保持期間を90日間、チャート表示期間を30日間に拡張
+- **ntfy重複防止** — トピックスフィックスにデバイス固有識別子を追加して重複プッシュ問題を解決
+- **ユニットテスト** — SessionMonitor、SettingsService、HistoryServiceのテストプロジェクトを追加
+
+### 修正
+- **ビルド警告** — TreatWarningsAsErrorsを適用し、警告を解決
+- **タイマークリーンアップ** — SessionMonitorでIDisposableを実装してリソースリークを防止
+<!-- /ja -->
+
+---
+
 ## [1.15.21] - 2026-04-16
 
 <!-- ko -->

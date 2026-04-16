@@ -31,7 +31,7 @@ internal static class AppConstants
     public const int HistoryRetentionDays = 90;
 
     /// <summary>히스토리 차트 표시 일수</summary>
-    public const int HistoryChartDays = 7;
+    public const int HistoryChartDays = 30;
 
     // ============== 파일 감시 ==============
     /// <summary>파일 쓰기 디바운스 시간 (500ms)</summary>

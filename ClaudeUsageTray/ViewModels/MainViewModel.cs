@@ -151,6 +151,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // 계정 전환 자동 감지: credentials 파일 변경 → 새로고침
         _credentials.CredentialsChanged += OnCredentialsChanged;
 
+        // 세션 파일 변경 감지 → 캐시된 통계 사용
+        _session.UsageChanged += OnSessionChanged;
+
         LoadSettings();
 
         _timer = new Timer(AppConstants.PollingIntervalMs); // 2 minutes — API has rate limits
@@ -183,6 +186,34 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // 타이머 카운트다운 리셋 + 즉시 새로고침
         _ = System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
             await RefreshAsync());
+    }
+
+    private void OnSessionChanged(object? sender, EventArgs e)
+    {
+        // 파일 변경 감지 시 캐시된 통계로 즉시 UI 업데이트 (API 호출 없음)
+        var sessionStats = _session.GetCachedStats();
+
+        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+        {
+            TodayInputTokens  = sessionStats.TotalInputTokens;
+            TodayOutputTokens = sessionStats.TotalOutputTokens;
+            TodayCacheRead    = sessionStats.TotalCacheReadTokens;
+            TodayCacheWrite   = sessionStats.TotalCacheWriteTokens;
+            SessionsLabel     = Loc.Sessions(sessionStats.SessionCount);
+            HourlyTokens      = sessionStats.HourlyTokens;
+            TodayCostLabel    = CalcCostLabel(sessionStats.TotalInputTokens,
+                sessionStats.TotalOutputTokens,
+                sessionStats.TotalCacheReadTokens,
+                sessionStats.TotalCacheWriteTokens);
+            HasRateLimitHit   = sessionStats.HasRateLimitHit;
+            RateLimitInfo     = sessionStats.RateLimitResetTime ?? "";
+
+            // Record today's stats for history
+            _history.RecordToday(sessionStats.TotalInputTokens, sessionStats.TotalOutputTokens,
+                sessionStats.TotalCacheReadTokens, sessionStats.TotalCacheWriteTokens,
+                sessionStats.SessionCount);
+            HistoryData = _history.GetLast(AppConstants.HistoryChartDays);
+        });
     }
 
     private void LoadSettings()
@@ -227,6 +258,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public async Task StartAsync()
     {
+        _session.StartWatching(); // 파일 변경 감시 시작
         await RefreshAsync();
         _timer.Start();
         _countdownTimer.Start();
@@ -382,7 +414,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 _history.RecordToday(sessionStats.TotalInputTokens, sessionStats.TotalOutputTokens,
                     sessionStats.TotalCacheReadTokens, sessionStats.TotalCacheWriteTokens,
                     sessionStats.SessionCount);
-                HistoryData = _history.GetLast(7);
+                HistoryData = _history.GetLast(AppConstants.HistoryChartDays);
                 HourlyTokens = sessionStats.HourlyTokens;
                 TodayCostLabel = CalcCostLabel(sessionStats.TotalInputTokens,
                     sessionStats.TotalOutputTokens,
@@ -662,6 +694,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         _credentials.CredentialsChanged -= OnCredentialsChanged;
+        _session.UsageChanged -= OnSessionChanged;
+        _session.Dispose();
         _credentials.Dispose();
         _timer.Dispose();
         _countdownTimer.Dispose();

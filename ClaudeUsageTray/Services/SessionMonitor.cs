@@ -1,21 +1,129 @@
+using System.Collections.Concurrent;
 using System.IO;
 using System.Text.Json;
+using System.Timers;
 using ClaudeUsageTray.Models;
+using Timer = System.Timers.Timer;
 
 namespace ClaudeUsageTray.Services;
 
-public class SessionMonitor
+public class SessionMonitor : IDisposable
 {
     private static readonly string ProjectsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         ".claude", "projects");
 
-    public SessionStats ScanTodayUsage()
+    private readonly ConcurrentDictionary<string, DateTime> _fileLastModified = new();
+    private readonly ConcurrentDictionary<string, SessionStats> _fileStats = new();
+    private FileSystemWatcher? _watcher;
+    private readonly Timer _debounceTimer;
+    private readonly HashSet<string> _pendingFiles = new();
+    private readonly object _pendingLock = new();
+
+    public event EventHandler? UsageChanged;
+
+    public SessionMonitor()
+    {
+        // Debounce timer for file changes
+        _debounceTimer = new Timer(AppConstants.FileWriteDebounceMs);
+        _debounceTimer.Elapsed += OnDebounceElapsed;
+        _debounceTimer.AutoReset = false;
+    }
+
+    public void StartWatching()
+    {
+        if (!Directory.Exists(ProjectsPath)) return;
+
+        _watcher = new FileSystemWatcher(ProjectsPath)
+        {
+            Filter = "*.jsonl",
+            IncludeSubdirectories = true,
+            NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName
+        };
+
+        _watcher.Changed += OnFileChanged;
+        _watcher.Created += OnFileChanged;
+        _watcher.EnableRaisingEvents = true;
+    }
+
+    private void OnFileChanged(object sender, FileSystemEventArgs e)
+    {
+        lock (_pendingLock)
+        {
+            _pendingFiles.Add(e.FullPath);
+            _debounceTimer.Stop();
+            _debounceTimer.Start();
+        }
+    }
+
+    private async void OnDebounceElapsed(object? sender, ElapsedEventArgs e)
+    {
+        HashSet<string> filesToUpdate;
+        lock (_pendingLock)
+        {
+            filesToUpdate = new HashSet<string>(_pendingFiles);
+            _pendingFiles.Clear();
+        }
+
+        await Task.Run(() =>
+        {
+            foreach (var file in filesToUpdate)
+            {
+                if (!File.Exists(file)) continue;
+
+                var lastMod = File.GetLastWriteTime(file);
+                if (_fileLastModified.TryGetValue(file, out var cached) && cached == lastMod)
+                    continue;
+
+                _fileLastModified[file] = lastMod;
+                var stats = ScanFileIncremental(file);
+                _fileStats[file] = stats;
+            }
+        });
+
+        UsageChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private static SessionStats ScanFileIncremental(string filePath)
     {
         var stats = new SessionStats();
-        var today = DateTime.UtcNow.Date;
+        ProcessFile(filePath, DateTime.UtcNow.Date, stats);
+        return stats;
+    }
 
-        if (!Directory.Exists(ProjectsPath)) return stats;
+    /// <summary>
+    /// Get aggregated session stats from cache (fast, no I/O)
+    /// </summary>
+    public SessionStats GetCachedStats()
+    {
+        var result = new SessionStats();
+        foreach (var (_, stats) in _fileStats)
+        {
+            result.TotalInputTokens += stats.TotalInputTokens;
+            result.TotalOutputTokens += stats.TotalOutputTokens;
+            result.TotalCacheReadTokens += stats.TotalCacheReadTokens;
+            result.TotalCacheWriteTokens += stats.TotalCacheWriteTokens;
+            result.SessionCount += stats.SessionCount;
+            if (stats.LastActivity > result.LastActivity)
+                result.LastActivity = stats.LastActivity;
+            result.HasRateLimitHit |= stats.HasRateLimitHit;
+            if (!string.IsNullOrEmpty(stats.RateLimitResetTime))
+                result.RateLimitResetTime = stats.RateLimitResetTime;
+
+            for (int i = 0; i < 24; i++)
+                result.HourlyTokens[i] += stats.HourlyTokens[i];
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Full scan - use on startup or periodically
+    /// </summary>
+    public SessionStats ScanTodayUsage()
+    {
+        var result = new SessionStats();
+
+        if (!Directory.Exists(ProjectsPath)) return result;
 
         var jsonlFiles = Directory.GetFiles(ProjectsPath, "*.jsonl", SearchOption.AllDirectories);
 
@@ -23,7 +131,26 @@ public class SessionMonitor
         {
             try
             {
-                ProcessFile(file, today, stats);
+                var lastMod = File.GetLastWriteTime(file);
+                _fileLastModified[file] = lastMod;
+
+                var stats = new SessionStats();
+                ProcessFile(file, DateTime.UtcNow.Date, stats);
+                _fileStats[file] = stats;
+
+                result.TotalInputTokens += stats.TotalInputTokens;
+                result.TotalOutputTokens += stats.TotalOutputTokens;
+                result.TotalCacheReadTokens += stats.TotalCacheReadTokens;
+                result.TotalCacheWriteTokens += stats.TotalCacheWriteTokens;
+                result.SessionCount += stats.SessionCount;
+                if (stats.LastActivity > result.LastActivity)
+                    result.LastActivity = stats.LastActivity;
+                result.HasRateLimitHit |= stats.HasRateLimitHit;
+                if (!string.IsNullOrEmpty(stats.RateLimitResetTime))
+                    result.RateLimitResetTime = stats.RateLimitResetTime;
+
+                for (int i = 0; i < 24; i++)
+                    result.HourlyTokens[i] += stats.HourlyTokens[i];
             }
             catch
             {
@@ -31,7 +158,7 @@ public class SessionMonitor
             }
         }
 
-        return stats;
+        return result;
     }
 
     private static void ProcessFile(string filePath, DateTime sinceDate, SessionStats stats)
@@ -107,5 +234,11 @@ public class SessionMonitor
         }
 
         if (fileHadActivity) stats.SessionCount++;
+    }
+
+    public void Dispose()
+    {
+        _watcher?.Dispose();
+        _debounceTimer.Dispose();
     }
 }
