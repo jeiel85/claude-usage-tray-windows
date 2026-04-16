@@ -72,8 +72,10 @@ public partial class App : Application
         // Status summary items (read-only, non-clickable)
         var status5hItem = new ToolStripMenuItem("···") { Enabled = false };
         var status7dItem = new ToolStripMenuItem("···") { Enabled = false };
+        var nextRefreshItem = new ToolStripMenuItem("Next refresh: --") { Enabled = false };
         contextMenu.Items.Add(status5hItem);
         contextMenu.Items.Add(status7dItem);
+        contextMenu.Items.Add(nextRefreshItem);
         contextMenu.Items.Add(new ToolStripSeparator());
 
         var refreshItem = new ToolStripMenuItem("Refresh");
@@ -94,7 +96,8 @@ public partial class App : Application
                                   or nameof(MainViewModel.ShortResetLabel)
                                   or nameof(MainViewModel.LongResetLabel)
                                   or nameof(MainViewModel.HasError)
-                                  or nameof(MainViewModel.IsLoading))
+                                  or nameof(MainViewModel.IsLoading)
+                                  or nameof(MainViewModel.NextRefreshLabel))
             {
                 Dispatcher.Invoke(() =>
                 {
@@ -102,11 +105,13 @@ public partial class App : Application
                     {
                         status5hItem.Text = "5h: Loading...";
                         status7dItem.Text = "7d: Loading...";
+                        nextRefreshItem.Text = $"Next: {_vm.NextRefreshLabel}";
                     }
                     else if (_vm.HasError)
                     {
                         status5hItem.Text = "5h: Unavailable";
                         status7dItem.Text = "7d: Unavailable";
+                        nextRefreshItem.Text = "Next: --";
                     }
                     else
                     {
@@ -114,6 +119,7 @@ public partial class App : Application
                         var reset7d = _vm.LongResetLabel.Replace(" · ", "  ");
                         status5hItem.Text = $"5h: {_vm.ShortUsagePercent:P0}{reset5h}";
                         status7dItem.Text = $"7d: {_vm.LongUsagePercent:P0}{reset7d}";
+                        nextRefreshItem.Text = $"Next: {_vm.NextRefreshLabel}";
                     }
                 });
             }
