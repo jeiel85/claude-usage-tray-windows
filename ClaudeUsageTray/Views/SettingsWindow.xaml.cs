@@ -18,9 +18,23 @@ public partial class SettingsWindow : Window
 
         MouseLeftButtonDown += (_, e) => DragMove();
         Deactivated += (_, _) => Hide();
+        PreviewKeyDown += OnPreviewKeyDown;
 
         ApplyLocalization();
         LoadValues();
+    }
+
+    private void OnPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        bool isEsc   = e.Key == System.Windows.Input.Key.Escape;
+        bool isCtrlW = e.Key == System.Windows.Input.Key.W && (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) != 0;
+        bool isAltF4 = e.Key == System.Windows.Input.Key.F4 && (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Alt) != 0;
+
+        if (isEsc || isCtrlW || isAltF4)
+        {
+            Hide();
+            e.Handled = true;
+        }
     }
 
     private const string StartupRegKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
@@ -153,7 +167,7 @@ public partial class SettingsWindow : Window
         var original = BtnTestNotification.Content;
         BtnTestNotification.Content = hasNtfy ? Loc.TestNotificationSent : Loc.TestNotificationSentNoNtfy;
         BtnTestNotification.IsEnabled = false;
-        await Task.Delay(2500);
+        await Task.Delay(AppConstants.UiFeedbackDelayMs);
         BtnTestNotification.Content = original;
         BtnTestNotification.IsEnabled = true;
     }

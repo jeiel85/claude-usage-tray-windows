@@ -17,7 +17,7 @@ public class CredentialService : IDisposable
 
     private const string TokenUrl = "https://platform.claude.com/v1/oauth/token";
     private const string ClientId = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(15) };
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(AppConstants.AuthTimeoutSeconds) };
 
     private readonly FileSystemWatcher? _watcher;
 
@@ -57,7 +57,7 @@ public class CredentialService : IDisposable
 
         // 500ms debounce — 파일 저장 중 여러 이벤트 방지
         _debounceTimer?.Dispose();
-        _debounceTimer = new System.Timers.Timer(500) { AutoReset = false };
+        _debounceTimer = new System.Timers.Timer(AppConstants.FileWriteDebounceMs) { AutoReset = false };
         _debounceTimer.Elapsed += (_, _) => CredentialsChanged?.Invoke();
         _debounceTimer.Start();
     }
@@ -70,7 +70,13 @@ public class CredentialService : IDisposable
             var json = File.ReadAllText(CredentialsPath);
             return JsonSerializer.Deserialize<ClaudeCredentials>(json);
         }
-        catch { return null; }
+        catch (Exception ex)
+        {
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine($"[CredentialService] Load failed: {ex.Message}");
+#endif
+            return null;
+        }
     }
 
     public string? GetAccessToken()
@@ -133,7 +139,13 @@ public class CredentialService : IDisposable
                     _ = Task.Delay(800).ContinueWith(_ => _isSelfWriting = false);
                 }
             }
-            catch { /* ignore write errors */ }
+            catch (Exception ex)
+            {
+#if DEBUG
+                System.Diagnostics.Debug.WriteLine($"[CredentialService] Save failed: {ex.Message}");
+#endif
+                /* ignore write errors */
+            }
 
             return oauth.AccessToken;
         }
@@ -177,7 +189,13 @@ public class CredentialService : IDisposable
 
             return new RefreshResult(at.GetString()!, expiresAt, newRefresh);
         }
-        catch { return null; }
+        catch (Exception ex)
+        {
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine($"[CredentialService] Refresh failed: {ex.Message}");
+#endif
+            return null;
+        }
     }
 
     public void Dispose()

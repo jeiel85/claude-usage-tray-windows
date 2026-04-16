@@ -151,7 +151,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         LoadSettings();
 
-        _timer = new Timer(120_000); // 2 minutes — API has rate limits
+        _timer = new Timer(AppConstants.PollingIntervalMs); // 2 minutes — API has rate limits
         _timer.Elapsed += async (_, _) => await RefreshAsync();
         _timer.AutoReset = true;
 
@@ -166,7 +166,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         };
         _countdownTimer.AutoReset = true;
 
-        _updateTimer = new Timer(86_400_000); // 24 hours
+        _updateTimer = new Timer(AppConstants.UpdateCheckIntervalMs); // 24 hours
         _updateTimer.Elapsed += async (_, _) => await CheckForUpdateAsync();
         _updateTimer.AutoReset = true;
     }
@@ -544,6 +544,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         if (raw.Contains("429") || raw.Contains("rate_limit"))
             return Loc.RateLimited;
+#if DEBUG
         try
         {
             var start = raw.IndexOf('{');
@@ -560,6 +561,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             }
         }
         catch { }
+#endif
         return Loc.ApiError(raw.Length > 80 ? raw[..80] + "…" : raw);
     }
 

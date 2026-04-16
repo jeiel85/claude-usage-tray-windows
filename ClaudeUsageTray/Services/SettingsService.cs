@@ -22,7 +22,12 @@ public class SettingsService
                 return JsonSerializer.Deserialize<NotificationSettings>(json) ?? new();
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine($"[SettingsService] Load failed: {ex.Message}");
+#endif
+        }
         return new NotificationSettings();
     }
 
@@ -32,6 +37,11 @@ public class SettingsService
         {
             File.WriteAllText(SettingsPath, JsonSerializer.Serialize(settings, JsonOpts));
         }
-        catch { }
+        catch (Exception ex)
+        {
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine($"[SettingsService] Save failed: {ex.Message}");
+#endif
+        }
     }
 }

@@ -5,6 +5,50 @@
 
 ---
 
+## [1.15.20] - 2026-04-16
+
+<!-- ko -->
+### 추가
+- **설정 창 단축키 지원** — 설정 창에서도 ESC, Alt+F4, Ctrl+W로 닫기 가능
+
+### 수정
+- **예외 처리 로깅 추가** — DEBUG 모드에서 빈 catch 블록에 예외 메시지 로깅 추가
+- **설정값 중앙화** — AppConstants.cs 생성하여 매직 넘버 상수化管理
+  - 폴링 간격, 타임아웃, 알림 임계값, 히스토리 보관 기간 등
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Settings window shortcuts** — ESC, Alt+F4, Ctrl+W now close the settings window
+
+### Fixed
+- **Exception handling logging** — Added DEBUG-mode logging to empty catch blocks
+- **Centralized constants** — Created AppConstants.cs to manage magic numbers
+  - Polling intervals, timeouts, notification thresholds, history retention, etc.
+<!-- /en -->
+
+<!-- zh -->
+### 新增
+- **设置窗口快捷键** — 设置窗口也支持 ESC、Alt+F4、Ctrl+W 关闭
+
+### 修复
+- **异常处理日志** — 在 DEBUG 模式下为空 catch 块添加了异常消息日志
+- **集中常量** — 创建 AppConstants.cs 管理魔数
+  - 轮询间隔、超时、通知阈值、历史保留期等
+<!-- /zh -->
+
+<!-- ja -->
+### 追加
+- **設定ウィンドウショートカット** — 設定ウィンドウでも ESC、Alt+F4、Ctrl+W で閉じることに対応
+
+### 修正
+- **例外処理ロギング追加** — DEBUG モードで空の catch ブロックに例外メッセージロギングを追加
+- **定数の中央集管理** — AppConstants.cs を作成してマジックナンバーを管理
+  - ポーリング間隔、タイムアウト通知閾値、履歴保持期間など
+<!-- /ja -->
+
+---
+
 ## [1.15.19] - 2026-04-16
 
 <!-- ko -->

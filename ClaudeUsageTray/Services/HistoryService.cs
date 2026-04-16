@@ -53,7 +53,13 @@ public class HistoryService
             _data = JsonSerializer.Deserialize<Dictionary<string, DailyStats>>(json)
                     ?? new Dictionary<string, DailyStats>();
         }
-        catch { _data = new(); }
+        catch (Exception ex)
+        {
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine($"[HistoryService] Load failed: {ex.Message}");
+#endif
+            _data = new();
+        }
     }
 
     public void RecordToday(long input, long output, long cacheRead, long cacheWrite, int sessions)
@@ -84,7 +90,7 @@ public class HistoryService
 
     private void TrimOldEntries()
     {
-        var cutoff = DateTime.UtcNow.AddDays(-90).ToString("yyyy-MM-dd");
+        var cutoff = DateTime.UtcNow.AddDays(-AppConstants.HistoryRetentionDays).ToString("yyyy-MM-dd");
         foreach (var key in _data.Keys.Where(k => string.Compare(k, cutoff, StringComparison.Ordinal) < 0).ToList())
             _data.Remove(key);
     }
@@ -96,6 +102,11 @@ public class HistoryService
             File.WriteAllText(_historyPath,
                 JsonSerializer.Serialize(_data, new JsonSerializerOptions { WriteIndented = true }));
         }
-        catch { }
+        catch (Exception ex)
+        {
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine($"[HistoryService] Save failed: {ex.Message}");
+#endif
+        }
     }
 }

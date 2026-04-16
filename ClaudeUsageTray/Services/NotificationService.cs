@@ -7,7 +7,7 @@ namespace ClaudeUsageTray.Services;
 
 public class NotificationService
 {
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(5) };
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(AppConstants.PushTimeoutSeconds) };
     private readonly Func<NotifyIcon?> _getIcon;
 
     public NotificationService(Func<NotifyIcon?> getNotifyIcon)
@@ -47,7 +47,12 @@ public class NotificationService
         {
             _getIcon()?.ShowBalloonTip(4000, title, body, ToolTipIcon.None);
         }
-        catch { }
+        catch (Exception ex)
+        {
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine($"[NotificationService] Balloon failed: {ex.Message}");
+#endif
+        }
     }
 
     private static void SendNtfy(string topic, string title, string body)
@@ -75,7 +80,12 @@ public class NotificationService
                 };
                 await Http.SendAsync(req);
             }
-            catch { }
+            catch (Exception ex)
+            {
+#if DEBUG
+                System.Diagnostics.Debug.WriteLine($"[NotificationService] Ntfy failed: {ex.Message}");
+#endif
+            }
         });
     }
 }
