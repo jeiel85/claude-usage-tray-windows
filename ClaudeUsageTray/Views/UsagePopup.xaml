@@ -151,13 +151,66 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Loading indicator -->
-                <Border Padding="16,8" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <TextBlock Text="⟳ " Foreground="#8B5CF6" FontSize="12"/>
-                        <TextBlock Text="{Binding LblRefreshing}" Foreground="#8B92B3" FontSize="12"/>
-                    </StackPanel>
-                </Border>
+                <!-- Loading / Skeleton UI -->
+                <StackPanel Margin="16,12,16,0" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}">
+
+                    <!-- API Usage Skeleton -->
+                    <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblApiQuota}" Margin="0,0,0,10"/>
+
+                    <!-- 5h skeleton -->
+                    <Grid Margin="0,0,0,12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Height="14" Width="50" CornerRadius="3" Background="#2D2F45"/>
+                            <Border Grid.Column="1" Height="14" CornerRadius="3" Background="#2D2F45" HorizontalAlignment="Right" Width="80"/>
+                        </Grid>
+                        <Border Grid.Row="2" Height="6" CornerRadius="3" Background="#2D2F45"/>
+                    </Grid>
+
+                    <!-- 7d skeleton -->
+                    <Grid Margin="0,0,0,8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Height="14" Width="50" CornerRadius="3" Background="#2D2F45"/>
+                            <Border Grid.Column="1" Height="14" CornerRadius="3" Background="#2D2F45" HorizontalAlignment="Right" Width="80"/>
+                        </Grid>
+                        <Border Grid.Row="2" Height="6" CornerRadius="3" Background="#2D2F45"/>
+                    </Grid>
+
+                    <!-- Divider skeleton -->
+                    <Border Height="1" Background="#2D2F45" Margin="0,12"/>
+
+                    <!-- Token stats skeleton -->
+                    <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblTodayTokens}" Margin="0,0,0,10"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" Height="70" CornerRadius="10" Background="#1A1D2E" Margin="0,0,6,0"/>
+                        <Border Grid.Column="1" Height="70" CornerRadius="10" Background="#1A1D2E" Margin="6,0,0,0"/>
+                    </Grid>
+
+                    <!-- Chart skeleton -->
+                    <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblHistory}" Margin="0,12,0,6"/>
+                    <Border Height="60" CornerRadius="8" Background="#1A1D2E"/>
+                </StackPanel>
 
                 <!-- Error panel -->
                 <Border Padding="12,10" Margin="16,4"
@@ -168,7 +221,7 @@
                 </Border>
 
                 <!-- API Usage section -->
-                <StackPanel Margin="16,12,16,0">
+                <StackPanel Margin="16,12,16,0" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityInverse}}">
                     <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblApiQuota}" Margin="0,0,0,10"/>
 
                     <!-- 5-hour window -->
@@ -292,7 +345,7 @@
                 <Border Height="1" Background="#2D2F45" Margin="16,12"/>
 
                 <!-- Today's token usage -->
-                <StackPanel Margin="16,0,16,0">
+                <StackPanel Margin="16,0,16,0" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityInverse}}">
                     <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblTodayTokens}" Margin="0,0,0,10"/>
 
                     <Grid>
@@ -356,7 +409,7 @@
                 </StackPanel>
 
                 <!-- History chart -->
-                <StackPanel Margin="16,12,16,0">
+                <StackPanel Margin="16,12,16,0" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityInverse}}">
                     <Grid Margin="0,0,0,6">
                         <TextBlock x:Name="ChartTitleLabel" Style="{StaticResource SectionLabel}"/>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">

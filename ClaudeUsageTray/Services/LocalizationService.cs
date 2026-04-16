@@ -300,6 +300,22 @@ public static class Loc
         _ => "5-Hour window thresholds"
     };
 
+    public static string PollingIntervalLabel => Lang switch
+    {
+        "ko" => "갱신 주기",
+        "zh" => "刷新间隔",
+        "ja" => "更新間隔",
+        _ => "Refresh interval"
+    };
+
+    public static string PollingIntervalMinutes(int minutes) => Lang switch
+    {
+        "ko" => $"{minutes}분",
+        "zh" => $"{minutes}分钟",
+        "ja" => $"{minutes}分",
+        _ => $"{minutes} min"
+    };
+
     // Update
     public static string UpdateAvailable(string version) => Lang switch
     {

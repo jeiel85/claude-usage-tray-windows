@@ -5,6 +5,46 @@
 
 ---
 
+## [1.15.23] - 2026-04-16
+
+<!-- ko -->
+### 추가
+- **갱신 주기 커스터마이징** — 설정창에서 1~10분 슬라이더로 조절 가능
+- **스켈레톤 로딩 UI** — 초기 로딩 시 실제 데이터 레이아웃으로 스켈레톤 표시
+
+### 수정
+- **경고 제거** — TreatWarningsAsErrors 적용으로 빌드 경고 해결
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Customizable refresh interval** — Settings slider to adjust 1-10 minute polling interval
+- **Skeleton loading UI** — Initial loading shows skeleton in actual data layout
+
+### Fixed
+- **Warning cleanup** — Applied TreatWarningsAsErrors to resolve build warnings
+<!-- /en -->
+
+<!-- zh -->
+### 新增
+- **可自定义刷新间隔** — 设置滑块可调整1-10分钟轮询间隔
+- **骨架屏加载UI** — 初始加载显示实际数据布局的骨架屏
+
+### 修复
+- **警告清理** — 应用TreatWarningsAsErrors解决构建警告
+<!-- /zh -->
+
+<!-- ja -->
+### 追加
+- **更新間隔のカスタマイズ** — 設定スライダーで1〜10分のポーリング間隔を調整
+- **スケルトンローディングUI** — 初期ローディング時に実際のデータレイアウトでスケルトンを表示
+
+### 修正
+- **警告クリーンアップ** — TreatWarningsAsErrorsを適用してビルド警告を解決
+<!-- /ja -->
+
+---
+
 ## [1.15.22] - 2026-04-16
 
 <!-- ko -->

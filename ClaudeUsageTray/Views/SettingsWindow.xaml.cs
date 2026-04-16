@@ -72,6 +72,7 @@ public partial class SettingsWindow : Window
         BtnTestNotification.Content         = Loc.TestNotification;
         LblTestNotificationHint.Text        = Loc.TestNotificationHint;
         LblThresholds.Text                  = Loc.ThresholdsLabel;
+        LblPollingInterval.Text             = Loc.PollingIntervalLabel;
         LblNtfyTitle.Text                   = Loc.NtfyTitle;
         LblNtfyDesc.Text                    = Loc.NtfyDesc;
         BtnNtfyDownload.Content             = Loc.NtfyDownload;
@@ -81,6 +82,12 @@ public partial class SettingsWindow : Window
         LblNtfyHint.Text                    = Loc.NtfyPlaceholder;
         LblNtfySecurityWarning.Text         = Loc.NtfySecurityWarning;
         LblDisclaimer.Text                  = Loc.Disclaimer;
+        UpdatePollingLabel();
+    }
+
+    private void UpdatePollingLabel()
+    {
+        TxtPollingValue.Text = Loc.PollingIntervalMinutes((int)SliderPolling.Value);
     }
 
     private void LoadValues()
@@ -93,6 +100,15 @@ public partial class SettingsWindow : Window
         Chk100.IsChecked              = _vm.Threshold100;
         TxtNtfyTopic.Text             = _vm.NtfyTopic;
         ChkStartWithWindows.IsChecked = IsStartupEnabled();
+        SliderPolling.Value           = _vm.PollingIntervalMinutes;
+    }
+
+    private void SliderPolling_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_vm is null) return;
+        UpdatePollingLabel();
+        _vm.PollingIntervalMinutes = (int)e.NewValue;
+        _vm.SaveSettingsCommand.Execute(null);
     }
 
     private void Setting_Changed(object sender, RoutedEventArgs e)
