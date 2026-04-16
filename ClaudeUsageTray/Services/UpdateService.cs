@@ -135,11 +135,13 @@ public class UpdateService
         }
 
         // Batch script: wait for this process to exit, replace exe, restart
+        // Use UTF-8 with BOM for cmd.exe to correctly handle paths with Korean characters
         var script = $"""
             @echo off
+            chcp 65001 >nul
             timeout /t 2 /nobreak >nul
-            copy /y "{newExePath}" "{currentExe}"
-            if errorlevel 1 (
+            robocopy "{newExePath}" "{Path.GetDirectoryName(currentExe) ?? "."}" /NFL /NDL /NJH /NJS /nc /ns /np
+            if errorlevel 8 (
                 echo [%date% %time%] copy failed: {newExePath} -^> {currentExe} >> "%TEMP%\claude_update_error.log"
                 exit /b 1
             )
@@ -147,7 +149,7 @@ public class UpdateService
             del "{newExePath}" 2>nul
             del "%~f0"
             """;
-        await File.WriteAllTextAsync(scriptPath, script);
+        await File.WriteAllTextAsync(scriptPath, script, new System.Text.UTF8Encoding(true));
 
         // Double-quote the script path inside /c "..." so cmd.exe correctly handles
         // paths that contain spaces (e.g. username with a space in %TEMP%).

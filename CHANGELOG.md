@@ -5,6 +5,34 @@
 
 ---
 
+## [1.15.19] - 2026-04-16
+
+<!-- ko -->
+### 수정
+- **자동 업데이트 한글 경로 처리 개선** — 사용자 폴더 경로에 한글이 포함된 환경에서 배치 스크립트 실행 시 파일 복사 실패하던 문제 수정
+- UTF-8 BOM 추가 + robocopy로 변경하여 한글 경로 정상 처리
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Auto-update Korean path handling improved** — Fixed batch script failing to copy files when user folder path contains Korean characters
+- Added UTF-8 BOM and changed to robocopy for proper Korean path handling
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **自动更新韩文路径处理改进** — 修复了用户文件夹路径包含韩文时批处理脚本无法复制文件的问题
+- 添加了 UTF-8 BOM 并改用 robocopy 以正确处理韩文路径
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **自動更新の日本語パス処理を改善** — ユーザーフォルダー경로에 한글이 포함된 환경에서 배치 스크립트가 파일을 복사하지 못하던 문제를修正
+- UTF-8 BOMを追加し、robocopyに変更して한글 경로를正しく処理
+<!-- /ja -->
+
+---
+
 ## [1.15.18] - 2026-04-16
 
 <!-- ko -->
