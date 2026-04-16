@@ -172,7 +172,7 @@
                     <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblApiQuota}" Margin="0,0,0,10"/>
 
                     <!-- 5-hour window -->
-                    <Grid Margin="0,0,0,12">
+                    <Grid Margin="0,0,0,12" Visibility="{Binding IsExtraOnlyMode, Converter={StaticResource BoolToVisibilityInverse}}">
                         <Grid.RowDefinitions>
                             <RowDefinition/>
                             <RowDefinition Height="Auto"/>
@@ -203,7 +203,7 @@
                     </Grid>
 
                     <!-- 7-day window -->
-                    <Grid Margin="0,0,0,8">
+                    <Grid Margin="0,0,0,8" Visibility="{Binding IsExtraOnlyMode, Converter={StaticResource BoolToVisibilityInverse}}">
                         <Grid.RowDefinitions>
                             <RowDefinition/>
                             <RowDefinition Height="Auto"/>

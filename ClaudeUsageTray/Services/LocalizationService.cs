@@ -495,6 +495,14 @@ public static class Loc
         _ => "Extra Usage"
     };
 
+    public static string ExtraUsageExhausted => Lang switch
+    {
+        "ko" => "기본 사용량 소진 - 추가 사용량 모니터링 중",
+        "zh" => "基本用量耗尽 - 监控额外用量中",
+        "ja" => "基本使用量枯渇 - 追加使用量を監視中",
+        _ => "Base quota exhausted - monitoring extra usage"
+    };
+
     public static string ExtraCredits(double used, double limit) => Lang switch
     {
         "ko" => $"{used:N0} / {limit:N0} 크레딧",

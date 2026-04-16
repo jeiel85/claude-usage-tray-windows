@@ -52,6 +52,7 @@ public class NotificationService
 #if DEBUG
             System.Diagnostics.Debug.WriteLine($"[NotificationService] Balloon failed: {ex.Message}");
 #endif
+            GC.KeepAlive(ex);
         }
     }
 
@@ -85,6 +86,7 @@ public class NotificationService
 #if DEBUG
                 System.Diagnostics.Debug.WriteLine($"[NotificationService] Ntfy failed: {ex.Message}");
 #endif
+                GC.KeepAlive(ex);
             }
         });
     }

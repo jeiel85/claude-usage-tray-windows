@@ -58,6 +58,7 @@ public class HistoryService
 #if DEBUG
             System.Diagnostics.Debug.WriteLine($"[HistoryService] Load failed: {ex.Message}");
 #endif
+            GC.KeepAlive(ex);
             _data = new();
         }
     }
@@ -107,6 +108,7 @@ public class HistoryService
 #if DEBUG
             System.Diagnostics.Debug.WriteLine($"[HistoryService] Save failed: {ex.Message}");
 #endif
+            GC.KeepAlive(ex);
         }
     }
 }

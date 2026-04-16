@@ -5,6 +5,7 @@
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+        <conv:InverseBooleanToVisibilityConverter x:Key="BoolToVisibilityInverse"/>
         <conv:StringToVisibilityConverter x:Key="StringToVisibility"/>
     </Application.Resources>
 </Application>

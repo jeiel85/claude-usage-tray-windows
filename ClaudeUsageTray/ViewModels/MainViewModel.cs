@@ -24,6 +24,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     // Tracks previous 5h usage to detect threshold crossings
     private double _prevShortPercent = -1;
+    private double _prevExtraPercent = -1;
     private bool _prevHadRateLimit = false;
 
     // Last known good API data (kept when rate-limited so UI doesn't reset to 0)
@@ -95,6 +96,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _extraHasLimit = false;
     [ObservableProperty] private double _extraUsagePercent = 0;
     [ObservableProperty] private string _extraCreditsLabel = "";
+    [ObservableProperty] private bool _isExtraOnlyMode = false; // 기본 사용량 100% 소진 후 추가 사용량만 표시
 
     public string LblExtraUsage => Loc.ExtraUsageTitle;
 
@@ -459,6 +461,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
                             : eu.UsedCredits.HasValue
                                 ? Loc.ExtraCreditsUsedOnly(eu.UsedCredits.Value)
                                 : "";
+
+                        // 추가 사용량 알림을 위한 이전 값 추적
+                        if (_prevExtraPercent < 0) _prevExtraPercent = ExtraUsagePercent;
                     }
                     else
                     {
@@ -466,7 +471,23 @@ public partial class MainViewModel : ObservableObject, IDisposable
                         ExtraHasLimit     = false;
                     }
 
-                    StatusText = $"{ShortUsagePercent:P0} used";
+                    // 기본 사용량 100% 소진 시 추가 사용량 모니터링 모드 전환
+                    if (ExtraUsageEnabled && ShortUsagePercent >= 1.0)
+                    {
+                        IsExtraOnlyMode = true;
+                        StatusText = Loc.ExtraUsageExhausted; // "기본 사용량 소진 - 추가 사용량 모니터링 중"
+                    }
+                    else if (ShortUsagePercent < 0.5)
+                    {
+                        // 복구: 기본 사용량이 50% 미만으로 감소하면 عاد 모드로
+                        IsExtraOnlyMode = false;
+                        StatusText = $"{ShortUsagePercent:P0} used";
+                    }
+                    else if (!IsExtraOnlyMode)
+                    {
+                        StatusText = $"{ShortUsagePercent:P0} used";
+                    }
+                    // IsExtraOnlyMode이 true이고 ShortUsagePercent < 100%인 경우 (예: 80%)는 상태 текст 그대로
                 }
                 else if (skipApi || _api.LastError != null)
                 {
@@ -518,6 +539,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private void CheckThresholds(double newPercent, string resetLabel, string ntfyTopic)
     {
         var settings = _settingsService.Load();
+
+        // 기본 사용량 알림
         foreach (var t in settings.Thresholds.OrderBy(x => x))
         {
             double tf = t / 100.0;
@@ -525,6 +548,21 @@ public partial class MainViewModel : ObservableObject, IDisposable
             {
                 _notifier.ShowUsageAlert(t, Loc.FiveHourWindow, resetLabel, ntfyTopic);
             }
+        }
+
+        // 추가 사용량 알림 (기본 사용량 100% 소진 후 모드인 경우)
+        if (IsExtraOnlyMode && ExtraHasLimit)
+        {
+            foreach (var t in settings.Thresholds.OrderBy(x => x))
+            {
+                double tf = t / 100.0;
+                // 이전 값과 현재 값 비교 (초기값 0에서 첫 알림이 가지 않도록)
+                if (_prevExtraPercent < tf && ExtraUsagePercent >= tf)
+                {
+                    _notifier.ShowUsageAlert(t, Loc.ExtraUsageTitle, "", ntfyTopic);
+                }
+            }
+            _prevExtraPercent = ExtraUsagePercent;
         }
     }
 

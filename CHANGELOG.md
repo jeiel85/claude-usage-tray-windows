@@ -5,6 +5,46 @@
 
 ---
 
+## [1.15.21] - 2026-04-16
+
+<!-- ko -->
+### 추가
+- **기본 사용량 소진 후 추가 사용량 모니터링** — 5시간 윈도우 100% 소진 시 자동으로 추가 사용량으로 모니터링 대상 전환
+- **추가 사용량 알림** — 추가 사용량도 기본 임계값(50/75/90/100%) 도달 시 알림
+
+### 수정
+- **경고 제거** — 사용하지 않는 변수 경고 제거 (GC.KeepAlive 추가)
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Extra usage monitoring after base quota exhaustion** — Automatically switches to extra usage monitoring when 5-hour window reaches 100%
+- **Extra usage notifications** — Notifications for extra usage at the same thresholds (50/75/90/100%)
+
+### Fixed
+- **Warning cleanup** — Removed unused variable warnings (added GC.KeepAlive)
+<!-- /en -->
+
+<!-- zh -->
+### 新增
+- **基本用量耗尽后监控额外用量** — 5小时窗口达到100%时自动切换到额外用量监控
+- **额外用量通知** — 额外用量达到相同阈值(50/75/90/100%)时发送通知
+
+### 修复
+- **警告清理** — 移除未使用变量警告(添加GC.KeepAlive)
+<!-- /zh -->
+
+<!-- ja -->
+### 追加
+- **基本使用量枯渇後の追加使用量監視** — 5時間ウィンドウが100%に達すると自動的に追加使用量への監視を切り替え
+- **追加使用量通知** — 追加使用量も閾値(50/75/90/100%)到達時に通知
+
+### 修正
+- **警告クリーンアップ** — 未使用変数の警告を削除(GC.KeepAliveを追加)
+<!-- /ja -->
+
+---
+
 ## [1.15.20] - 2026-04-16
 
 <!-- ko -->

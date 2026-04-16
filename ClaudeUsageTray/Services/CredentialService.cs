@@ -75,6 +75,7 @@ public class CredentialService : IDisposable
 #if DEBUG
             System.Diagnostics.Debug.WriteLine($"[CredentialService] Load failed: {ex.Message}");
 #endif
+            GC.KeepAlive(ex);
             return null;
         }
     }
@@ -144,6 +145,7 @@ public class CredentialService : IDisposable
 #if DEBUG
                 System.Diagnostics.Debug.WriteLine($"[CredentialService] Save failed: {ex.Message}");
 #endif
+                GC.KeepAlive(ex);
                 /* ignore write errors */
             }
 
@@ -194,6 +196,7 @@ public class CredentialService : IDisposable
 #if DEBUG
             System.Diagnostics.Debug.WriteLine($"[CredentialService] Refresh failed: {ex.Message}");
 #endif
+            GC.KeepAlive(ex);
             return null;
         }
     }

@@ -27,6 +27,7 @@ public class SettingsService
 #if DEBUG
             System.Diagnostics.Debug.WriteLine($"[SettingsService] Load failed: {ex.Message}");
 #endif
+            GC.KeepAlive(ex);
         }
         return new NotificationSettings();
     }
@@ -42,6 +43,7 @@ public class SettingsService
 #if DEBUG
             System.Diagnostics.Debug.WriteLine($"[SettingsService] Save failed: {ex.Message}");
 #endif
+            GC.KeepAlive(ex);
         }
     }
 }
