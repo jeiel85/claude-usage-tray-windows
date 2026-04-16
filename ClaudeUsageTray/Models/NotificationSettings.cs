@@ -12,12 +12,6 @@ public class NotificationSettings
     // ntfy.sh push notification
     public string NtfyTopic { get; set; } = "";
 
-    // Discord/Slack webhook URL
-    public string WebhookUrl { get; set; } = "";
-
-    // Webhook 타입: "discord" 또는 "slack"
-    public string WebhookType { get; set; } = "";
-
     public bool StartWithWindows { get; set; } = false;
 
     // 건너뛴 업데이트 버전 (예: "1.5.0")
@@ -25,4 +19,7 @@ public class NotificationSettings
 
     // 갱신 주기 (분 단위), 0이면 기본값 사용
     public int PollingIntervalMinutes { get; set; } = 0;
+
+    // ntfy 토픽 경고 표시 (중복 PC 경고)
+    public bool NtfyTopicWarningShown { get; set; } = false;
 }
