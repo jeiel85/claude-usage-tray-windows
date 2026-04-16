@@ -5,6 +5,54 @@
 
 ---
 
+## [1.15.23] - 2026-04-16
+
+<!-- ko -->
+### 추가
+- **세션 파일 스캔 최적화** — FileSystemWatcher로增量 업데이트로 변경, 변경된 파일만 스캔
+- **단위 테스트 추가** — xunit 프로젝트 생성, SessionMonitor/HistoryService 테스트
+
+### 이슈 닫기
+- #5: 여러 Claude 계정 지원 (기존 구현으로 이미 지원)
+- #30: 세션 파일 스캔 최적화
+- #34: 단위 테스트 추가
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Session file scan optimization** — FileSystemWatcher for incremental updates
+- **Unit tests** — xunit project with SessionMonitor/HistoryService tests
+
+### Closed Issues
+- #5: Multi-account support (already implemented)
+- #30: Session file scan optimization
+- #34: Unit tests added
+<!-- /en -->
+
+<!-- zh -->
+### 新增
+- **会话文件扫描优化** — FileSystemWatcher实现增量更新
+- **单元测试** — xunit项目，包含SessionMonitor/HistoryService测试
+
+### 关闭的问题
+- #5: 多账户支持（已实现）
+- #30: 会话文件扫描优化
+- #34: 单元测试添加
+<!-- /zh -->
+
+<!-- ja -->
+### 追加
+- **セッションファイルスキャン最適化** — FileSystemWatcherで增量更新
+- **ユニットテスト** — xunitプロジェクト、SessionMonitor/HistoryServiceテスト
+
+### クローズした 이슈
+- #5: 複数のClaudeアカウントサポート（既に実装済み）
+- #30: セッションファイルスキャン最適化
+- #34: ユニットテスト追加
+<!-- /ja -->
+
+---
+
 ## [1.15.22] - 2026-04-16
 
 <!-- ko -->

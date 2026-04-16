@@ -12,6 +12,12 @@ public class NotificationSettings
     // ntfy.sh push notification
     public string NtfyTopic { get; set; } = "";
 
+    // Discord/Slack webhook URL
+    public string WebhookUrl { get; set; } = "";
+
+    // Webhook 타입: "discord" 또는 "slack"
+    public string WebhookType { get; set; } = "";
+
     public bool StartWithWindows { get; set; } = false;
 
     // 건너뛴 업데이트 버전 (예: "1.5.0")
