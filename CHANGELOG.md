@@ -67,6 +67,13 @@
 ### 변경
 - **fd 빌드 제거** — CI 환경에서 178 MB 문제를 해결하지 못해 fd 빌드를 완전히 중단. sc 빌드만 유지.
 - **파일명 단순화** — `ClaudeUsageTray-sc.exe` → `ClaudeUsageTray.exe` (SHA256 파일 동일)
+- **한글 경로 지원** — 사용자명 또는 프로젝트 폴더명에 한글이 포함된 환경에서도 정상 동작
+
+### ⚠️ v1.15.16 이하 사용자께
+
+이번 버전부터 배포 파일명이 변경(`-sc.exe` → `.exe`)되어 **구버전의 자동 업데이트 감지가 작동하지 않습니다.**  
+특히 경로에 한글이 포함된 환경에서는 자동 업데이트가 실패할 수 있습니다.  
+**아래 링크에서 직접 다운로드**하여 기존 파일을 덮어쓰세요.
 
 ### 다운로드
 
@@ -79,6 +86,13 @@
 ### Changed
 - **Removed fd build** — After multiple failed attempts to fix the 178 MB CI output, framework-dependent builds are discontinued. Only the self-contained build remains.
 - **Simplified filename** — `ClaudeUsageTray-sc.exe` → `ClaudeUsageTray.exe` (SHA256 file likewise)
+- **Korean path support** — Paths containing Korean characters (username or project folder names) are now fully supported
+
+### ⚠️ Users on v1.15.16 or older
+
+The asset filename changed in this release (`-sc.exe` → `.exe`), so **auto-update detection will not work** from older versions.  
+If your path contains Korean (non-ASCII) characters, auto-update may also fail silently.  
+Please **download manually** from the link below and overwrite your existing file.
 
 ### Download
 
@@ -91,12 +105,26 @@
 ### 变更
 - **移除 fd 构建** — 多次尝试修复 CI 输出 178 MB 问题均未成功，停止提供 framework-dependent 构建，仅保留 self-contained 构建。
 - **文件名简化** — `ClaudeUsageTray-sc.exe` → `ClaudeUsageTray.exe`（SHA256 文件同理）
+- **韩文路径支持** — 用户名或项目文件夹名包含韩文字符的环境现在可正常运行
+
+### ⚠️ v1.15.16 及以下版本用户
+
+本次发布更改了资产文件名（`-sc.exe` → `.exe`），旧版本的**自动更新检测将无法工作**。  
+如果路径中包含非 ASCII 字符（如韩文），自动更新也可能静默失败。  
+请从下方链接**手动下载**并覆盖现有文件。
 <!-- /zh -->
 
 <!-- ja -->
 ### 変更
 - **fd ビルドを廃止** — CI で 178 MB 問題を解決できなかったため、framework-dependent ビルドを廃止。self-contained ビルドのみ提供。
 - **ファイル名を簡略化** — `ClaudeUsageTray-sc.exe` → `ClaudeUsageTray.exe`（SHA256 ファイルも同様）
+- **韓国語パスのサポート** — ユーザー名やプロジェクトフォルダ名に韓国語が含まれる環境でも正常動作
+
+### ⚠️ v1.15.16 以下のユーザーへ
+
+今回のリリースからアセットのファイル名が変更（`-sc.exe` → `.exe`）されたため、旧バージョンの**自動アップデート検出が機能しません**。  
+パスに韓国語（非 ASCII）文字が含まれる場合、自動更新がサイレントに失敗することもあります。  
+下記リンクから**手動でダウンロード**して既存ファイルを上書きしてください。
 <!-- /ja -->
 
 ---

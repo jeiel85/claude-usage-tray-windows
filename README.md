@@ -18,26 +18,25 @@ Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니�
 
 > **[최신 릴리즈 다운로드 →](https://github.com/jeiel85/claude-usage-tray-windows/releases/latest)**
 
-### 어떤 파일을 받아야 하나요?
-
-| 파일 | 크기 | 설명 | 알림 방식 |
-|------|------|------|-----------|
-| `ClaudeUsageTray-sc.exe` | ~78 MB | **Self-contained (권장)** — .NET 런타임 포함. 아무것도 설치 없이 바로 실행 |
-| `ClaudeUsageTray-fd.exe` | ~25 MB | **Framework-dependent** — [.NET 9 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) 설치 필요 |
-
-> **알림 방식**: WinRT 토스트(v1.15.12 이전) → **트레이 balloon tip**(v1.15.13~). 기능은 동일하고 Windows 알림 센터에도 기록됩니다.  
-> fd가 25 MB인 이유: `net9.0-windows10.0.17763.0` TFM이 요구하는 Windows SDK 바인딩 DLL (`Microsoft.Windows.SDK.NET.dll`, 23 MB)이 포함됩니다.
+| 파일 | 크기 | 설명 |
+|------|------|------|
+| `ClaudeUsageTray.exe` | ~78 MB | Self-contained — .NET 런타임 포함, 아무것도 설치 없이 바로 실행 |
 
 **실행 방법:**
-1. 위 표에서 파일 선택 후 다운로드
+1. 위 링크에서 `ClaudeUsageTray.exe` 다운로드
 2. 실행 (Windows Defender 경고 → **추가 정보 → 실행**)
 3. 시스템 트레이 아이콘 클릭으로 사용량 확인
+
+> **v1.15.16 이하에서 자동 업데이트가 안 되는 경우**  
+> v1.15.17부터 배포 파일명이 `ClaudeUsageTray-sc.exe` → `ClaudeUsageTray.exe`로 바뀌었습니다.  
+> 구버전의 자동 업데이트는 `-sc.exe` 파일을 찾으므로 최신 릴리즈를 감지하지 못할 수 있습니다.  
+> **이 경우 위 링크에서 직접 다운로드**하여 기존 파일을 덮어쓰세요.
 
 ## 요구 사항
 
 - Windows 10 이상
 - [Claude Code](https://claude.ai/code) 설치 및 로그인 상태
-- .NET 런타임 **불필요** — 단일 실행 파일에 모두 포함됨
+- .NET 런타임 불필요 — 단일 실행 파일에 모두 포함됨
 
 ## 주요 기능
 
@@ -51,7 +50,7 @@ Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니�
 - **스마트 에러 처리** — 조회 실패 시 마지막 성공 데이터 유지, 트레이 아이콘 `?` 표시
 
 **알림**
-- **Windows 토스트 알림** — 사용량 임계값(50% / 75% / 90% / 100%) 도달 시 알림
+- **Windows 알림** — 사용량 임계값(50% / 75% / 90% / 100%) 도달 시 알림
 - **스마트폰 푸시 알림** — [ntfy.sh](https://ntfy.sh) 연동으로 iOS · Android 수신
 
 **업데이트**
@@ -61,6 +60,7 @@ Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니�
 
 **편의**
 - **다국어 지원** — 한국어 · 중국어 · 일본어 · 영어 (시스템 언어 자동 감지)
+- **한글 경로 지원** — 사용자명 또는 프로젝트 폴더에 한글이 포함된 환경 지원
 - **중복 실행 방지** — 이미 실행 중이면 안내 메시지 표시 후 종료
 - **2분마다 자동 갱신** (API Retry-After 준수, 과호출 방지)
 - **윈도우 시작 시 자동 실행** — 설정창에서 토글 한 번으로 설정
@@ -71,7 +71,7 @@ Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니�
 
 ### 바로 실행 (권장)
 
-[Releases 페이지](https://github.com/jeiel85/claude-usage-tray-windows/releases)에서 최신 `ClaudeUsageTray-sc.exe` 다운로드 후 실행하세요.
+[Releases 페이지](https://github.com/jeiel85/claude-usage-tray-windows/releases)에서 최신 `ClaudeUsageTray.exe` 다운로드 후 실행하세요.
 
 > Windows Defender 경고가 뜰 수 있어요 → **추가 정보 → 실행** 클릭
 
@@ -93,7 +93,7 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 
 팝업 하단 **⚙** 버튼으로 설정 창을 열 수 있어요.
 
-### Windows 토스트 알림
+### Windows 알림
 
 5시간 윈도우 기준으로 임계값(기본: 50% / 75% / 90% / 100%) 도달 시 Windows 알림 센터에 알림이 표시됩니다.
 
@@ -111,6 +111,8 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 
 앱 시작 시 GitHub Releases를 확인하여 새 버전이 있으면 팝업 상단에 배너가 표시됩니다. 배너를 클릭하면 백그라운드에서 다운로드 후 자동으로 교체·재시작됩니다.
 
+> **v1.15.16 이하 사용자 주의** — 자동 업데이트 감지가 되지 않을 수 있습니다. [Releases 페이지](https://github.com/jeiel85/claude-usage-tray-windows/releases/latest)에서 직접 다운로드하세요.
+
 ## 작동 원리
 
 ### 인증
@@ -126,7 +128,8 @@ Claude Code가 저장한 OAuth 토큰을 재사용합니다:
 
 ### 로컬 세션 데이터
 
-`%USERPROFILE%\.claude\projects\**\*.jsonl` 파일을 스캔하여 오늘의 토큰 사용량을 집계합니다.
+`%USERPROFILE%\.claude\projects\**\*.jsonl` 파일을 스캔하여 오늘의 토큰 사용량을 집계합니다.  
+한글이 포함된 경로(사용자명, 프로젝트 폴더명 등)도 정상 지원합니다.
 
 ## 기술 스택
 
@@ -156,10 +159,10 @@ ClaudeUsageTray/
 │   ├── UsageData.cs            # API 응답 + 세션 통계 모델
 │   └── NotificationSettings.cs # 알림 설정 모델
 ├── Services/
-│   ├── CredentialService.cs    # ~/.claude/.credentials.json 읽기
+│   ├── CredentialService.cs    # ~/.claude/.credentials.json 읽기 + 자동 갱신
 │   ├── UsageApiService.cs      # Anthropic 사용량 API 호출
 │   ├── SessionMonitor.cs       # 로컬 .jsonl 세션 파일 파싱
-│   ├── NotificationService.cs  # Windows toast + ntfy 알림
+│   ├── NotificationService.cs  # Windows 알림 + ntfy 푸시
 │   ├── SettingsService.cs      # 설정 저장/불러오기
 │   ├── UpdateService.cs        # GitHub 자동 업데이트
 │   ├── HistoryService.cs       # 7일 사용 히스토리 저장
@@ -181,7 +184,7 @@ ClaudeUsageTray/
 | 플랫폼 | macOS 26+ | Windows 10+ |
 | UI 위치 | 메뉴바 | 시스템 트레이 |
 | 인증 | 자체 OAuth PKCE 플로우 | Claude Code 토큰 재사용 |
-| 알림 | macOS 알림 | Windows Toast + ntfy 푸시 |
+| 알림 | macOS 알림 | Windows 알림 + ntfy 푸시 |
 | 자동 업데이트 | — | GitHub Releases 기반 |
 
 ## 면책 조항
