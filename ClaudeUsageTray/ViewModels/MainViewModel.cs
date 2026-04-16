@@ -75,6 +75,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _threshold100;
     [ObservableProperty] private string _ntfyTopic = "";
     [ObservableProperty] private bool _startWithWindows;
+    [ObservableProperty] private int _pollingIntervalMinutes;
 
     // History
     [ObservableProperty] private IReadOnlyList<DailyStats> _historyData = [];
@@ -196,10 +197,25 @@ public partial class MainViewModel : ObservableObject, IDisposable
         Threshold100 = s.Thresholds.Contains(100);
         NtfyTopic        = s.NtfyTopic;
         StartWithWindows = s.StartWithWindows;
+        PollingIntervalMinutes = s.PollingIntervalMinutes;
 
         // 현재 로그인된 계정의 orgUuid로 히스토리 경로 초기화
         var orgUuid = _credentials.GetOrganizationUuid();
         _history.SetOrgUuid(orgUuid);
+
+        // Apply polling interval
+        ApplyPollingInterval();
+    }
+
+    /// <summary>
+    /// Apply the polling interval from settings or default.
+    /// </summary>
+    public void ApplyPollingInterval()
+    {
+        var interval = PollingIntervalMinutes > 0 
+            ? PollingIntervalMinutes * 60_000 
+            : AppConstants.PollingIntervalMs;
+        _timer.Interval = interval;
     }
 
     [RelayCommand]
@@ -222,6 +238,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             NtfyTopic = NtfyTopic.Trim(),
             StartWithWindows = StartWithWindows,
             SkippedVersion = existing.SkippedVersion,
+            PollingIntervalMinutes = PollingIntervalMinutes,
         });
     }
 

@@ -5,6 +5,82 @@
 
 ---
 
+## [1.15.22] - 2026-04-16
+
+<!-- ko -->
+### 추가
+- **갱신 주기 커스터마이징** — 설정 창에서 갱신 주기를 1~N분으로 변경 가능 (기본 2분)
+
+### 수정
+- **초기 로딩 상태 표시 개선** — 앱 시작 시 트레이 메뉴에 "Loading..." 상태 표시
+
+### 이슈 닫기
+- #41: 설정 창 단축키 (ESC, Alt+F4, Ctrl+W)
+- #38: 추가 사용량 트레이 표시
+- #37: 추가 사용량 알림
+- #33: 앱 초기 로딩 중 스켈레톤/로딩 상태 표시
+- #32: 설정값 중앙화 (AppConstants.cs)
+- #28: 예외 처리 로깅 추가
+- #13: 히스토리 보관 기간 확장 (90일)
+- #12: 갱신 주기 커스터마이징
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Customizable refresh interval** — Change refresh interval in settings (default 2 minutes)
+
+### Fixed
+- **Initial loading state display** — Tray menu shows "Loading..." on app start
+
+### Closed Issues
+- #41: Settings window shortcuts (ESC, Alt+F4, Ctrl+W)
+- #38: Extra usage tray display
+- #37: Extra usage notifications
+- #33: App initial loading state display
+- #32: Centralized constants (AppConstants.cs)
+- #28: Exception handling logging
+- #13: History retention period (90 days)
+- #12: Refresh interval customization
+<!-- /en -->
+
+<!-- zh -->
+### 新增
+- **可自定义刷新间隔** — 在设置中更改刷新间隔（默认2分钟）
+
+### 修复
+- **初始加载状态显示** — 应用启动时托盘菜单显示"Loading..."
+
+### 关闭的问题
+- #41: 设置窗口快捷键 (ESC, Alt+F4, Ctrl+W)
+- #38: 额外用量托盘显示
+- #37: 额外用量通知
+- #33: 应用初始加载状态显示
+- #32: 集中常量 (AppConstants.cs)
+- #28: 异常处理日志
+- #13: 历史保留期（90天）
+- #12: 刷新间隔自定义
+<!-- /zh -->
+
+<!-- ja -->
+### 追加
+- **更新間隔のカスタマイズ** — 設定で更新間隔を変更可能（デフォルト2分）
+
+### 修正
+- **初期ローディング状态的表示** — アプリ起動時にトレイメニューに"Loading..."を表示
+
+### クローズした 이슈
+- #41: 設定ウィンドウショートカット (ESC, Alt+F4, Ctrl+W)
+- #38: 追加使用量のトレイ表示
+- #37: 追加使用量通知
+- #33: アプリの初期ローディング状态的表示
+- #32: 定数の中央集管理 (AppConstants.cs)
+- #28: 例外処理ロギング
+- #13: 履歴保持期間（90日）
+- #12: 更新間隔のカスタマイズ
+<!-- /ja -->
+
+---
+
 ## [1.15.21] - 2026-04-16
 
 <!-- ko -->

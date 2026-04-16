@@ -105,6 +105,44 @@
                     <CheckBox x:Name="ChkEnabled"          Style="{StaticResource CheckStyle}" Click="Setting_Changed"/>
                     <CheckBox x:Name="ChkRateLimit"        Style="{StaticResource CheckStyle}" Click="Setting_Changed"/>
                     <CheckBox x:Name="ChkStartWithWindows" Style="{StaticResource CheckStyle}" Click="StartWithWindows_Changed"/>
+
+                    <!-- Polling Interval -->
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,4">
+                        <TextBlock x:Name="LblPollingInterval" Foreground="#C4C9E0" FontSize="12" VerticalAlignment="Center"/>
+                        <TextBox x:Name="TxtPollingInterval"
+                                 Width="50" Margin="8,0,0,0"
+                                 Background="#1A1D2E" Foreground="#F1F5F9"
+                                 BorderBrush="#2D2F45" BorderThickness="1"
+                                 Padding="8,4" FontSize="12"
+                                 HorizontalContentAlignment="Center"
+                                 LostFocus="TxtPollingInterval_LostFocus"
+                                 KeyDown="TxtPollingInterval_KeyDown">
+                            <TextBox.Style>
+                                <Style TargetType="TextBox">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="TextBox">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                                        CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                                    <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsFocused" Value="True">
+                                                        <Setter Property="BorderBrush" Value="#8B5CF6"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </TextBox.Style>
+                        </TextBox>
+                        <TextBlock x:Name="LblPollingIntervalHint" Foreground="#5A5F7A" FontSize="10" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock x:Name="LblPollingIntervalWarning" Foreground="#FCD34D" FontSize="10" Margin="0,0,0,4" Visibility="Collapsed"/>
+
                     <Button x:Name="BtnTestNotification" Style="{StaticResource LinkBtn}"
                             Margin="0,2,0,2" Click="BtnTestNotification_Click"/>
                     <TextBlock x:Name="LblTestNotificationHint" Foreground="#5A5F7A" FontSize="10" Margin="0,0,0,6"/>

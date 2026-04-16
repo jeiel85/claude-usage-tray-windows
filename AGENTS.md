@@ -13,7 +13,7 @@ Windows 시스템 트레이 기반 Claude AI 사용량 모니터링 앱.
 | **Target Framework** | `net9.0-windows10.0.17763.0` |
 | **주요 NuGet** | `CommunityToolkit.Mvvm 8.4.2`, `Microsoft.Extensions.Http 10.0.5`, `Microsoft.Toolkit.Uwp.Notifications 7.1.3` |
 | **릴리즈 형식** | self-contained (기본) + framework-dependent (선택) |
-| **현재 버전** | `v1.15.8` (릴리즈 시 csproj의 `<Version>` 참조) |
+| **현재 버전** | `v1.15.21` (릴리즈 시 csproj의 `<Version>` 참조) |
 
 ---
 
@@ -113,22 +113,25 @@ git push origin master --tags
 ```
 ClaudeUsageTray/
 ├── App.xaml[.cs]          # 앱 진입점 — 트레이 아이콘, 중복실행방지(Mutex), 예외핸들러
-├── Converters/            # XAML value converter
+├── Converters/
+│   ├── InverseBooleanToVisibilityConverter.cs  #Inverse bool → Visibility 컨버터
+│   └── StringToVisibilityConverter.cs      # 빈 문자열 → Collapsed 컨버터
 ├── Models/
 │   ├── Credentials.cs     # OAuth 인증 모델 (AccessToken, RefreshToken, ExpiresAt)
 │   ├── UsageData.cs      # API 응답 모델
 │   └── NotificationSettings.cs  # 설정 직렬화 모델
 ├── Services/
+│   ├── AppConstants.cs         # 매직 넘버 중앙化管理 (폴링 간격, 타임아웃 등)
 │   ├── CredentialService.cs     # OAuth 토큰 갱신 + FileSystemWatcher로 계정 전환 감지
 │   ├── UsageApiService.cs       # api.anthropic.com/api/oauth/usage 호출
 │   ├── SessionMonitor.cs         # ~/.claude/projects/*.jsonl 파싱 → 토큰 집계
-│   ├── NotificationService.cs   # Windows Toast + ntfy.sh 푸시
+│   ├── NotificationService.cs   # Windows 알림 + ntfy.sh 푸시
 │   ├── SettingsService.cs       # 설정 저장/불러오기
 │   ├── UpdateService.cs         # GitHub Releases → SHA256 검증 → 배치 스크립트 업데이트
 │   ├── HistoryService.cs        # 7일 이력 저장 (orgUuid별 분리) + CSV 내보내기
 │   └── LocalizationService.cs   # 한국어/영어/중국어/일본어 — 모든 문자열
 ├── ViewModels/
-│   └── MainViewModel.cs         # 전체 비즈니스 로직 (628줄)
+│   └── MainViewModel.cs         # 전체 비즈니스 로직
 └── Views/
     ├── UsagePopup.xaml[.cs]    # 메인 팝업 — 차트, 토글, 드래그, 키보드 단축키
     ├── SettingsWindow.xaml[.cs] # 설정 모달

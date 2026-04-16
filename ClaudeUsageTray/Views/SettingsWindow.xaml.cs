@@ -81,6 +81,8 @@ public partial class SettingsWindow : Window
         LblNtfyHint.Text                    = Loc.NtfyPlaceholder;
         LblNtfySecurityWarning.Text         = Loc.NtfySecurityWarning;
         LblDisclaimer.Text                  = Loc.Disclaimer;
+        LblPollingInterval.Text             = Loc.PollingInterval;
+        LblPollingIntervalHint.Text         = Loc.PollingIntervalHint;
     }
 
     private void LoadValues()
@@ -93,6 +95,8 @@ public partial class SettingsWindow : Window
         Chk100.IsChecked              = _vm.Threshold100;
         TxtNtfyTopic.Text             = _vm.NtfyTopic;
         ChkStartWithWindows.IsChecked = IsStartupEnabled();
+        TxtPollingInterval.Text       = _vm.PollingIntervalMinutes > 0 
+            ? _vm.PollingIntervalMinutes.ToString() : "";
     }
 
     private void Setting_Changed(object sender, RoutedEventArgs e)
@@ -186,6 +190,50 @@ public partial class SettingsWindow : Window
     }
 
     private void CloseBtn_Click(object sender, RoutedEventArgs e) => Hide();
+
+    private void TxtPollingInterval_LostFocus(object sender, RoutedEventArgs e)
+    {
+        ValidateAndSavePollingInterval();
+    }
+
+    private void TxtPollingInterval_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.Enter)
+        {
+            ValidateAndSavePollingInterval();
+            e.Handled = true;
+        }
+    }
+
+    private bool ValidateAndSavePollingInterval()
+    {
+        var text = TxtPollingInterval.Text.Trim();
+        if (string.IsNullOrEmpty(text))
+        {
+            LblPollingIntervalWarning.Visibility = Visibility.Collapsed;
+            _vm.PollingIntervalMinutes = 0;
+            _vm.SaveSettingsCommand.Execute(null);
+            _vm.ApplyPollingInterval();
+            return true;
+        }
+
+        if (int.TryParse(text, out int minutes) && minutes >= 1)
+        {
+            LblPollingIntervalWarning.Visibility = Visibility.Collapsed;
+            _vm.PollingIntervalMinutes = minutes;
+            _vm.SaveSettingsCommand.Execute(null);
+            _vm.ApplyPollingInterval();
+            return true;
+        }
+        else
+        {
+            LblPollingIntervalWarning.Text = Loc.PollingIntervalInvalid;
+            LblPollingIntervalWarning.Foreground = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(251, 191, 36));
+            LblPollingIntervalWarning.Visibility = Visibility.Visible;
+            return false;
+        }
+    }
 
     public void ShowNearTray()
     {

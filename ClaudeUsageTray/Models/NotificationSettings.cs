@@ -16,4 +16,7 @@ public class NotificationSettings
 
     // 건너뛴 업데이트 버전 (예: "1.5.0")
     public string SkippedVersion { get; set; } = "";
+
+    // 갱신 주기 (분 단위), 0이면 기본값 사용
+    public int PollingIntervalMinutes { get; set; } = 0;
 }

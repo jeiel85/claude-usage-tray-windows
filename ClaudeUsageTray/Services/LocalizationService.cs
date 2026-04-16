@@ -576,4 +576,29 @@ public static class Loc
         _ => $"Update download failed: {msg}"
     };
 
+    // Polling interval
+    public static string PollingInterval => Lang switch
+    {
+        "ko" => "갱신 주기",
+        "zh" => "刷新间隔",
+        "ja" => "更新間隔",
+        _ => "Refresh Interval"
+    };
+
+    public static string PollingIntervalHint => Lang switch
+    {
+        "ko" => "분 단위 (최소 1분, 기본값: 2분)",
+        "zh" => "分钟 (最小1分钟, 默认2分钟)",
+        "ja" => "分単位 (最小1分, デフォルト2分)",
+        _ => "Minutes (min 1, default 2)"
+    };
+
+    public static string PollingIntervalInvalid => Lang switch
+    {
+        "ko" => "1 이상의 숫자를 입력하세요",
+        "zh" => "请输入1以上的数字",
+        "ja" => "1以上の数字を入力してください",
+        _ => "Enter a number greater than 0"
+    };
+
 }
