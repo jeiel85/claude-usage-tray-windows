@@ -21,6 +21,7 @@ Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니�
 | 파일 | 크기 | 설명 |
 |------|------|------|
 | `ClaudeUsageTray.exe` | ~78 MB | Self-contained — .NET 런타임 포함, 아무것도 설치 없이 바로 실행 |
+| **현재 버전** | `v1.15.24` | Latest |
 
 **실행 방법:**
 1. 위 링크에서 `ClaudeUsageTray.exe` 다운로드
@@ -70,10 +71,12 @@ Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니�
 - **한글 경로 지원** — 사용자명 또는 프로젝트 폴더에 한글이 포함된 환경 지원
 - **중복 실행 방지** — 이미 실행 중이면 안내 메시지 표시 후 종료
 - **설정 창 단축키** — ESC, Alt+F4, Ctrl+W로 설정 창 닫기
+- **갱신 주기 커스터마이징** — 설정창에서 1~N분으로 변경 가능
 - **2분마다 자동 갱신** (API Retry-After 준수, 과호출 방지)
 - **윈도우 시작 시 자동 실행** — 설정창에서 토글 한 번으로 설정
 - **다크 테마 팝업 UI**
-- **별도 로그인 불필요** — Claude Code 토큰 자동 재사용
+- **別도 로그인 불필요** — Claude Code 토큰 자동 재사용
+- **Tray 메뉴 상태 표시** — 우클릭 메뉴에 5시간/7일 사용량 + 다음 갱신 시간 표시
 
 ## 시작하기
 
@@ -161,19 +164,21 @@ Claude Code가 저장한 OAuth 토큰을 재사용합니다:
 ```
 ClaudeUsageTray/
 ├── Converters/
-│   └── StringToVisibilityConverter.cs  # 빈 문자열 → Collapsed 컨버터
+│   ├── InverseBooleanToVisibilityConverter.cs  #Inverse bool → Visibility 컨버터
+│   └── StringToVisibilityConverter.cs      # 빈 문자열 → Collapsed 컨버터
 ├── Models/
 │   ├── Credentials.cs          # OAuth 인증 정보 모델
 │   ├── UsageData.cs            # API 응답 + 세션 통계 모델
 │   └── NotificationSettings.cs # 알림 설정 모델
 ├── Services/
+│   ├── AppConstants.cs         # 매직 넘버 중앙化管理 (폴링 간격, 타임아웃 등)
 │   ├── CredentialService.cs    # ~/.claude/.credentials.json 읽기 + 자동 갱신
 │   ├── UsageApiService.cs      # Anthropic 사용량 API 호출
-│   ├── SessionMonitor.cs       # 로컬 .jsonl 세션 파일 파싱
+│   ├── SessionMonitor.cs       # 로컬 .jsonl 세션 파일 파싱 (FileSystemWatcher 최적화)
 │   ├── NotificationService.cs  # Windows 알림 + ntfy 푸시
 │   ├── SettingsService.cs      # 설정 저장/불러오기
-│   ├── UpdateService.cs        # GitHub 자동 업데이트
-│   ├── HistoryService.cs       # 7일 사용 히스토리 저장
+│   ├── UpdateService.cs        # GitHub 자동 업데이트 + SHA256 검증
+│   ├── HistoryService.cs       # 7일 사용 히스토리 저장 (90일 보관)
 │   └── LocalizationService.cs  # 다국어 문자열
 ├── ViewModels/
 │   └── MainViewModel.cs        # 데이터 바인딩 + 비즈니스 로직
