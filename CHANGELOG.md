@@ -5,6 +5,34 @@
 
 ---
 
+## [1.15.29] - 2026-04-17
+
+<!-- ko -->
+### 수정
+- **SHA256 검증 개선** — GitHub Release의 SHA256.txt 파일도 인식하도록 수정 (이전에는 .sha256 확장자만 인식)
+- **Updater 파일 검사 개선** — exe 파일 검사 시 ClaudeUsageTray-Updater.exe가 아닌 ClaudeUsageTray.exe만 다운로드 URL로 설정
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **SHA256 verification improved** — Now recognizes SHA256.txt files in GitHub Release (previously only .sha256 extension)
+- **Updater file detection improved** — Only ClaudeUsageTray.exe (not ClaudeUsageTray-Updater.exe) is set as download URL
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **SHA256验证改进** — 现在识别GitHub Release中的SHA256.txt文件（之前仅识别.sha256扩展名）
+- **Updater文件检测改进** — 仅ClaudeUsageTray.exe（而非ClaudeUsageTray-Updater.exe）被设置为下载URL
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **SHA256検証の改善** — GitHub ReleaseのSHA256.txtファイルも認識するように修正（以前は.sha256拡張子のみ認識）
+- **Updaterファイル検出の改善** — ClaudeUsageTray-Updater.exeではなくClaudeUsageTray.exeのみをダウンロードURLとして設定
+<!-- /ja -->
+
+---
+
 ## [1.15.28] - 2026-04-17
 
 <!-- ko -->

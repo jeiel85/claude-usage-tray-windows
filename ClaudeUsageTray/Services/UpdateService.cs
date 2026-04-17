@@ -51,11 +51,12 @@ public class UpdateService
                 var name = asset.GetProperty("name").GetString() ?? "";
                 var url  = asset.GetProperty("browser_download_url").GetString() ?? "";
 
-                // Support both new format (ClaudeUsageTray.exe) and old format (ClaudeUsageTray-sc.exe)
-                if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
-                    !name.EndsWith(".sha256", StringComparison.OrdinalIgnoreCase))
+                // ClaudeUsageTray.exe — 메인 앱 (Updater가 아닌 것만)
+                if (name.Equals("ClaudeUsageTray.exe", StringComparison.OrdinalIgnoreCase))
                     exeUrl = url;
-                else if (name.EndsWith(".sha256", StringComparison.OrdinalIgnoreCase))
+                // SHA256.txt 또는 .sha256 파일 모두 지원
+                else if (name.EndsWith(".sha256", StringComparison.OrdinalIgnoreCase) ||
+                         name.Equals("SHA256.txt", StringComparison.OrdinalIgnoreCase))
                     sha256Url = url;
             }
 

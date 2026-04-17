@@ -4,6 +4,23 @@ Windows 시스템 트레이 기반 Claude AI 사용량 모니터링 앱.
 
 ---
 
+## ⚠️ 작업 전 필수 확인 사항
+
+**매 작업 전에 반드시 실행:**
+
+```powershell
+# 1. 최신 소스 동기화
+git fetch origin
+git pull origin master
+
+# 2. 상태 확인
+git status
+```
+
+이유: 다른 환경에서 push된 변경사항이 있을 수 있으며, 구버전 소스로 작업하면 충돌이나 불필요한 변경이 발생할 수 있습니다.
+
+---
+
 ## 프로젝트 기본 정보
 
 | 항목 | 내용 |
@@ -13,7 +30,7 @@ Windows 시스템 트레이 기반 Claude AI 사용량 모니터링 앱.
 | **Target Framework** | `net9.0-windows10.0.17763.0` |
 | **주요 NuGet** | `CommunityToolkit.Mvvm 8.4.2`, `Microsoft.Extensions.Http 10.0.5`, `Microsoft.Toolkit.Uwp.Notifications 7.1.3` |
 | **릴리즈 형식** | self-contained (기본) + framework-dependent (선택) |
-| **현재 버전** | `v1.15.21` (릴리즈 시 csproj의 `<Version>` 참조) |
+| **현재 버전** | `v1.15.28` (릴리즈 시 csproj의 `<Version>` 참조) |
 
 ---
 
