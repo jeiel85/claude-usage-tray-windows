@@ -5,38 +5,26 @@
 
 ---
 
-## [1.15.30] - 2026-04-17
+## [1.15.31] - 2026-04-17
 
 <!-- ko -->
 ### 수정
-- **메모리 누수 방지** — App.xaml.cs에서 PropertyChanged 이벤트 핸들러를 명시적으로 해제하여 메모리 누수 방지
-- **리소스 정리** — UsagePopup, SettingsWindow에 IDisposable 패턴 적용
-- **타이밍 개선** — CredentialService의 FileSystemWatcher self-trigger 방지를 위한 대기 로직 개선 (최대 2초 safety timeout 추가)
-- **GDI 리소스 관리** — Icon.FromHandle의 GDI 리소스 관리 주석 추가
+- **갱신 주기 설정 UI 개선** — 텍스트 입력 대신 슬라이더로 변경 (1~10분, 드래그로 간편하게 조절)
 <!-- /ko -->
 
 <!-- en -->
 ### Fixed
-- **Memory leak prevention** — Explicitly unsubscribe PropertyChanged event handlers in App.xaml.cs
-- **Resource cleanup** — Implement IDisposable pattern in UsagePopup and SettingsWindow
-- **Timing improvement** — Improved FileSystemWatcher self-trigger prevention with safety timeout (max 2s)
-- **GDI resource management** — Added comments about Icon.FromHandle GDI resource management
+- **Refresh interval UI improved** — Changed from text input to slider (1-10 minutes, easy drag adjustment)
 <!-- /en -->
 
 <!-- zh -->
 ### 修复
-- **防止内存泄漏** — 在App.xaml.cs中显式取消订阅PropertyChanged事件处理程序
-- **资源清理** — 在UsagePopup和SettingsWindow中实现IDisposable模式
-- **时序改进** — 改进FileSystemWatcher自触发防护，增加安全超时（最多2秒）
-- **GDI资源管理** — 添加Icon.FromHandle GDI资源管理说明
+- **刷新间隔UI改进** — 从文本输入改为滑块（1-10分钟，拖动调节）
 <!-- /zh -->
 
 <!-- ja -->
 ### 修正
-- **メモリリーク防止** — App.xaml.csでPropertyChangedイベントハンドラを明示的に解除
-- **リソースクリーンアップ** — UsagePopupとSettingsWindowにIDisposableパターンを実装
-- **タイミング改善** — FileSystemWatcher自己トリガー防止を安全timeout（最大2秒）で改善
-- **GDIリソース管理** — Icon.FromHandleのGDIリソース管理に関するコメントを追加
+- **更新間隔UIの改善** — テキスト入力からスライダーに変更（1〜10分、ドラッグで簡単調整）
 <!-- /ja -->
 
 ---
