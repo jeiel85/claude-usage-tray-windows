@@ -5,6 +5,30 @@
 
 ---
 
+## [1.15.32] - 2026-04-17
+
+<!-- ko -->
+### 수정
+- **업데이트 SmartScreen 경고 해결** — 배치 스크립트를 통해 Updater.exe 실행하여 "게시자를 확인할 수 없습니다" 보안 경고 우회
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Update SmartScreen warning bypass** — Launch Updater.exe via batch script to avoid "publisher cannot be verified" security warning
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **更新SmartScreen警告绕过** — 通过批处理脚本启动Updater.exe，避免"无法验证发布者"安全警告
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **アップデートSmartScreen警告バイパス** — バッチスクリプト経由でUpdater.exeを実行し、"発行者を確認できません"セキュリティ警告を回避
+<!-- /ja -->
+
+---
+
 ## [1.15.31] - 2026-04-17
 
 <!-- ko -->

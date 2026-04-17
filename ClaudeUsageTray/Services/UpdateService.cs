@@ -74,6 +74,7 @@ public class UpdateService
     /// <summary>
     /// Launches the Updater with download URL and exits.
     /// The Updater will: download exe → verify SHA256 → wait for process → copy → restart.
+    /// Uses a batch script to avoid SmartScreen warnings.
     /// </summary>
     public void ApplyUpdateAsync(string downloadUrl, string sha256Url = "")
     {
@@ -90,13 +91,31 @@ public class UpdateService
             updaterPath = Path.Combine(AppContext.BaseDirectory, "ClaudeUsageTray-Updater.exe");
         }
 
-        // Launch Updater with arguments: downloadUrl, sha256Url, current exe path, target directory
-        // The Updater will: download → verify → wait for process exit → copy → start new process
-        var args = $"\"{downloadUrl}\" \"{sha256Url}\" \"{currentExe}\" \"{currentDir}\"";
-        Process.Start(new ProcessStartInfo(updaterPath, args)
+        // Create a batch script to launch Updater without SmartScreen warning
+        // CreateNoWindow = true hides the command prompt window
+        var batchPath = Path.Combine(Path.GetTempPath(), $"claude_update_{Guid.NewGuid():N}.bat");
+        var escapedUpdater = updaterPath.Replace("\\", "\\\\");
+        var batchContent = $"@echo off\n\"{updaterPath}\" \"{downloadUrl}\" \"{sha256Url}\" \"{currentExe}\" \"{currentDir}\"\n";
+
+        try
         {
-            UseShellExecute = true
-        });
+            File.WriteAllText(batchPath, batchContent);
+
+            Process.Start(new ProcessStartInfo(batchPath)
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
+        }
+        finally
+        {
+            // Schedule batch file deletion after a short delay (give it time to start)
+            Task.Delay(2000).ContinueWith(_ =>
+            {
+                try { if (File.Exists(batchPath)) File.Delete(batchPath); } catch { }
+            });
+        }
 
         // Exit this process so Updater can proceed
         System.Windows.Application.Current.Dispatcher.Invoke(() =>
