@@ -8,6 +8,8 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>ClaudeUsageTray-Updater</AssemblyName>
     <ApplicationIcon>..\ClaudeUsageTray\icon.ico</ApplicationIcon>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>false</SelfContained>
   </PropertyGroup>
 
 </Project>

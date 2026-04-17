@@ -20,7 +20,8 @@ Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니�
 
 | 파일 | 크기 | 설명 |
 |------|------|------|
-| `ClaudeUsageTray.exe` | ~78 MB | Self-contained — .NET 런타임 포함, 아무것도 설치 없이 바로 실행 |
+| `ClaudeUsageTray.exe` | ~25 MB | Framework-dependent — [.NET 9.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0/runtime) 필요 |
+| `ClaudeUsageTray-Updater.exe` | ~24 MB | 자동 업데이트 도구 (메인 앱과 같은 폴더에 위치) |
 | **현재 버전** | `v1.15.24` | Latest |
 
 **실행 방법:**
@@ -37,7 +38,7 @@ Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니�
 
 - Windows 10 이상
 - [Claude Code](https://claude.ai/code) 설치 및 로그인 상태
-- .NET 런타임 불필요 — 단일 실행 파일에 모두 포함됨
+- [**.NET 9.0 Desktop Runtime**](https://dotnet.microsoft.com/download/dotnet/9.0/runtime) — 미설치 시 앱이 실행되지 않음
 
 ## 주요 기능
 

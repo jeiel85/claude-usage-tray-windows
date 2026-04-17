@@ -5,6 +5,34 @@
 
 ---
 
+## [1.15.35] - 2026-04-17
+
+<!-- ko -->
+### 수정
+- **실행 불가 버그 수정** — framework-dependent 빌드 시 `PublishSingleFile=true`가 누락되어 DLL 없이 런처 스텁만 배포되던 문제 수정
+- **요구 사항 명시** — .NET 9.0 Desktop Runtime 설치 필요 안내 추가 (README)
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **App not launching bug fixed** — framework-dependent build was missing `PublishSingleFile=true`, causing only the launcher stub (no DLLs) to be distributed
+- **Prerequisites documented** — Added .NET 9.0 Desktop Runtime requirement to README
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **修复无法启动的错误** — framework-dependent构建缺少`PublishSingleFile=true`，导致仅分发启动器存根（无DLL）
+- **明确先决条件** — 在README中添加.NET 9.0 Desktop Runtime安装要求说明
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **起動不能バグの修正** — framework-dependentビルドで`PublishSingleFile=true`が欠落しており、ランチャースタブのみが配布されていた問題を修正
+- **前提条件の明記** — READMEに.NET 9.0 Desktop Runtimeのインストール要件を追加
+<!-- /ja -->
+
+---
+
 ## [1.15.34] - 2026-04-17
 
 <!-- ko -->
