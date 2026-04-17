@@ -109,6 +109,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _updateCheckLabel = "";
     private string _updateDownloadUrl = "";
     private string _updateSha256Url = "";
+    private string _updateUpdaterUrl = "";
     public string CurrentVersionLabel => $"v{UpdateService.CurrentVersion.ToString(3)}";
 
     public string? RawApiResponse { get; private set; }
@@ -282,6 +283,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
             _updateDownloadUrl = info.downloadUrl;
             _updateSha256Url = info.sha256Url;
+            _updateUpdaterUrl = info.updaterUrl;
             UpdateLabel = Loc.UpdateAvailable($"v{versionStr}");
             UpdateAvailable = true;
 
@@ -308,6 +310,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         _updateDownloadUrl = info.downloadUrl;
         _updateSha256Url = info.sha256Url;
+        _updateUpdaterUrl = info.updaterUrl;
 
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
@@ -352,7 +355,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public void ApplyUpdate()
     {
         if (string.IsNullOrEmpty(_updateDownloadUrl)) return;
-        _updater.ApplyUpdateAsync(_updateDownloadUrl, _updateSha256Url);
+        _updater.ApplyUpdateAsync(_updateDownloadUrl, _updateSha256Url, _updateUpdaterUrl);
     }
 
     public async Task RefreshAsync()

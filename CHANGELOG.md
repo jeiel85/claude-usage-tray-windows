@@ -5,6 +5,46 @@
 
 ---
 
+## [1.15.36] - 2026-04-18
+
+<!-- ko -->
+### 수정
+- **업데이트 버튼 무반응 수정** — `ClaudeUsageTray-Updater.exe`가 없을 때 앱만 종료되던 버그 수정. 이제 안내 메시지와 함께 브라우저에서 다운로드 페이지를 열고 앱은 종료되지 않음
+- **새 exe 트레이 미표시 수정** — 업데이트 후 새 앱 실행에 실패하면 .NET 9.0 Desktop Runtime 설치 안내 메시지 표시
+- **Updater 자체 업데이트** — 메인 앱 업데이트 시 `ClaudeUsageTray-Updater.exe`도 함께 최신 버전으로 교체
+- **Updater args 체크 버그 수정** — `args.Length < 4` 조건이 `< 5`여야 하는 오류 수정
+- **릴리스 에셋에서 Updater URL 파싱** — GitHub 릴리스에서 Updater.exe URL도 함께 파싱하여 전달
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Update button no-op fixed** — When `ClaudeUsageTray-Updater.exe` is missing, the app no longer silently exits. Now shows a message and opens the download page in browser
+- **New exe not appearing in tray fixed** — If the new app fails to start after update, a helpful message guides users to install .NET 9.0 Desktop Runtime
+- **Updater self-update** — When updating the main app, `ClaudeUsageTray-Updater.exe` is also replaced with the latest version
+- **Updater args check bug fixed** — `args.Length < 4` condition corrected to `< 5`
+- **Updater URL parsed from release assets** — GitHub release assets now also parse the Updater.exe URL and pass it through
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **修复更新按钮无响应** — 当`ClaudeUsageTray-Updater.exe`不存在时，应用不再静默退出，改为显示提示信息并在浏览器中打开下载页面
+- **修复新exe不显示在托盘中** — 更新后新应用启动失败时，显示.NET 9.0 Desktop Runtime安装指引
+- **Updater自我更新** — 更新主应用时，同时将`ClaudeUsageTray-Updater.exe`替换为最新版本
+- **修复Updater参数检查错误** — 将`args.Length < 4`条件更正为`< 5`
+- **从发布资产解析Updater URL** — GitHub发布资产中同时解析Updater.exe的URL并传递
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **更新ボタン無反応の修正** — `ClaudeUsageTray-Updater.exe`がない場合、アプリがサイレント終了しなくなりました。案内メッセージを表示し、ブラウザでダウンロードページを開きます
+- **新しいexeがトレイに表示されない問題の修正** — 更新後に新しいアプリの起動に失敗した場合、.NET 9.0 Desktop Runtimeのインストール案内を表示
+- **Updater自己更新** — メインアプリ更新時に`ClaudeUsageTray-Updater.exe`も最新版に置き換え
+- **Updater引数チェックバグの修正** — `args.Length < 4`条件を`< 5`に修正
+- **リリースアセットからUpdater URLを解析** — GitHubリリースアセットからUpdater.exe URLも解析して渡すよう変更
+<!-- /ja -->
+
+---
+
 ## [1.15.35] - 2026-04-17
 
 <!-- ko -->
