@@ -5,6 +5,30 @@
 
 ---
 
+## [1.15.34] - 2026-04-17
+
+<!-- ko -->
+### 수정
+- **업데이트 안정성 개선** — 배치 스크립트 대신 PowerShell 스크립트 사용 (더 안정적인 프로세스 시작)
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Update stability improved** — Use PowerShell script instead of batch script (more reliable process startup)
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **更新稳定性改进** — 使用PowerShell脚本代替批处理脚本（更可靠的进程启动）
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **更新安定性改善** — バッチスクリプトの代わりにPowerShellスクリプトを使用（より安定したプロセス起動）
+<!-- /ja -->
+
+---
+
 ## [1.15.33] - 2026-04-17
 
 <!-- ko -->

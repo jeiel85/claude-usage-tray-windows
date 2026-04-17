@@ -29,8 +29,18 @@ git status
 | **언어** | C# (WPF, .NET 9) |
 | **Target Framework** | `net9.0-windows10.0.17763.0` |
 | **주요 NuGet** | `CommunityToolkit.Mvvm 8.4.2`, `Microsoft.Extensions.Http 10.0.5`, `Microsoft.Toolkit.Uwp.Notifications 7.1.3` |
-| **릴리즈 형식** | self-contained (기본) + framework-dependent (선택) |
-| **현재 버전** | `v1.15.28` (릴리즈 시 csproj의 `<Version>` 참조) |
+| **릴리즈 형식** | framework-dependent (총 ~350KB) |
+| **현재 버전** | `v1.15.33` (릴리즈 시 csproj의 `<Version>` 참조) |
+
+### .NET 9 런타임 요구사항
+
+릴리즈 exe 실행 시 **.NET 9 Desktop Runtime**이 설치되어 있어야 합니다.
+
+| 설치 방법 | 설명 |
+|----------|------|
+| **Microsoft Store** | "NET Desktop Runtime 9" 검색 |
+| **직접 다운로드** | https://dotnet.microsoft.com/download/dotnet/9.0 |
+| **Windows Update** | 대부분의 Windows 10/11 PC에 자동 설치됨 |
 
 ---
 
@@ -39,39 +49,29 @@ git status
 ### 로컬 빌드
 
 ```powershell
-# Release 빌드
+# Release 빌드 (개발/테스트용)
 dotnet build ClaudeUsageTray/ClaudeUsageTray.csproj -c Release --nologo
 
 # 빌드 + 실행 (기존 프로세스 자동 종료)
-# 프로젝트 루트의 build.bat 실행
 .\build.bat
 
-# self-contained exe만 생성
-dotnet publish ClaudeUsageTray/ClaudeUsageTray.csproj `
-  -c Release `
-  -r win-x64 `
-  --self-contained true `
-  -p:PublishSingleFile=true `
-  -p:EnableCompressionInSingleFile=true `
-  -p:IncludeNativeLibrariesForSelfExtract=true
+# framework-dependent exe 생성 (릴리즈용)
+dotnet publish ClaudeUsageTray/ClaudeUsageTray.csproj -c Release -p:PublishDir=bin/release
 
-# framework-dependent exe만 생성
-dotnet publish ClaudeUsageTray/ClaudeUsageTray.csproj `
-  -c Release `
-  --self-contained false `
-  -p:PublishSingleFile=true
+# Updater framework-dependent exe 생성
+dotnet publish ClaudeUsageTray.Updater/ClaudeUsageTray.Updater.csproj -c Release -p:PublishDir=bin/updater
 ```
 
 ### 빌드 출력 경로
 
-| 형식 | 로컬 경로 | GitHub Actions 경로 |
-|------|-----------|---------------------|
-| **self-contained exe** | `ClaudeUsageTray\bin\sc\ClaudeUsageTray.exe` | `ClaudeUsageTray/bin/sc/ClaudeUsageTray.exe` |
-| **framework-dependent exe** | `ClaudeUsageTray\bin\fd\ClaudeUsageTray.exe` | `ClaudeUsageTray/bin/fd/ClaudeUsageTray-framework-dependent.exe` |
-| **SHA256 (sc)** | `SHA256.txt` | `SHA256.txt` |
-| **SHA256 (fd)** | `SHA256-framework-dependent.txt` | `SHA256-framework-dependent.txt` |
+| 프로젝트 | 로컬 경로 |
+|---------|-----------|
+| **메인 앱** | `ClaudeUsageTray\bin\Release\net9.0-windows10.0.17763.0\ClaudeUsageTray.exe` |
+| **Updater** | `ClaudeUsageTray.Updater\bin\Release\net9.0-windows10.0.17763.0\ClaudeUsageTray-Updater.exe` |
+| **릴리즈 publish** | `bin\release\ClaudeUsageTray.exe` |
+| **Updater publish** | `bin\updater\ClaudeUsageTray-Updater.exe` |
 
-> ⚠️ **csproj 경로 주의**: `dotnet publish` 명령어에서 csproj 경로는 **프로젝트 루트 기준** (`ClaudeUsageTray/ClaudeUsageTray.csproj`). GitHub Actions의 작업 디렉토리는 레포 루트이므로 `-p:PublishDir=bin/sc`는 `ClaudeUsageTray/bin/sc/`에 출력됨.
+> ⚠️ **csproj 경로 주의**: `dotnet publish` 명령어에서 csproj 경로는 **프로젝트 루트 기준** (`ClaudeUsageTray/ClaudeUsageTray.csproj`).
 
 ### 릴리즈 워크플로우 (GitHub Actions)
 
@@ -79,18 +79,14 @@ dotnet publish ClaudeUsageTray/ClaudeUsageTray.csproj `
 - **위치**: `.github/workflows/release.yml`
 - **산출물**: GitHub Release에 아래 파일 게시
 
-| 파일 | 설명 |
-|------|------|
-| `ClaudeUsageTray-sc.exe` | self-contained exe (.NET 설치 없이 실행 가능, 권장) |
-| `ClaudeUsageTray-sc.sha256` | self-contained exe의 SHA256 해시 |
-| `ClaudeUsageTray-fd.exe` | framework-dependent exe (dotnet 9 설치 PC용) |
-| `ClaudeUsageTray-fd.sha256` | framework-dependent exe의 SHA256 해시 |
+| 파일 | 설명 | 크기 |
+|------|------|------|
+| `ClaudeUsageTray.exe` | 메인 앱 (framework-dependent) | ~170KB |
+| `ClaudeUsageTray-Updater.exe` | 업데이트 실행기 (framework-dependent) | ~170KB |
+| `SHA256.txt` | SHA256 해시 | 66B |
 
 > ⚠️ **릴리즈 워크플로우 수정 시 주의사항**:
-> - self-contained와 framework-dependent 빌드는 `-p:PublishDir`로 **서로 다른 경로**에 출력해야 파일이 덮어씌워지지 않음
-> - GitHub Release에서 같은 이름의 파일은 **같은 애셋**으로 인식되므로, 두 exe 모두 리네임 후 게시 (`ClaudeUsageTray-sc.exe`, `ClaudeUsageTray-fd.exe`)
 > - SHA256 해시 생성 단계의 경로와 게시 단계의 경로가 **정확히 일치**해야 함
-> - `UpdateService.cs`는 `-sc.exe` / `-sc.sha256`를 명시적으로 검색 — 자동 업데이트는 항상 sc 빌드를 받음
 
 ---
 
@@ -150,9 +146,14 @@ ClaudeUsageTray/
 ├── ViewModels/
 │   └── MainViewModel.cs         # 전체 비즈니스 로직
 └── Views/
-    ├── UsagePopup.xaml[.cs]    # 메인 팝업 — 차트, 토글, 드래그, 키보드 단축키
+    ├── UsagePopup.xaml[.cs]    # 메인 팝업 — 차트, 토글, 드래그, 키버드 단축키
     ├── SettingsWindow.xaml[.cs] # 설정 모달
     └── UpdateDialog.xaml[.cs]   # 업데이트 대화상자
+
+ClaudeUsageTray.Updater/            # 업데이트 실행기 프로젝트
+├── App.xaml[.cs]
+├── MainWindow.xaml[.cs]          # 업데이트 진행률 UI
+└── ClaudeUsageTray.Updater.csproj
 
 .github/workflows/release.yml     # GitHub Actions 빌드/릴리즈 자동화
 CHANGELOG.md                    # 버전별 변경 이력 (한국어+영어+중국어+일본어)
@@ -224,6 +225,12 @@ _trayIcon.Icon = newIcon;
 oldIcon?.Dispose();
 ```
 
+### 7. 메모리 누수 방지
+
+- 이벤트 핸들러 구독 해제 필수 (`PropertyChanged`, `Elapsed` 등)
+- `IDisposable` 구현 클래스는 `Dispose()`에서 정리
+- `App.OnExit()`에서 모든 리소스 정리
+
 ---
 
 ## CI/CD 보안 고려사항
@@ -236,12 +243,17 @@ GitHub Actions (릴리즈 시):
 
 앱 (업데이트 시):
   CheckForUpdateAsync()
-    → GitHub API assets에서 .exe + .sha256 URL 추출
+    → GitHub API assets에서 .exe + SHA256.txt URL 추출
   ApplyUpdateAsync(downloadUrl, sha256Url)
-    → exe 다운로드 → SHA256.txt 다운로드 → 해시 비교
-      - 불일치 → InvalidOperationException → 빨간색 에러
+    → 배치 스크립트 실행 → Updater.exe 실행
+    → Updater: exe 다운로드 → SHA256.txt 다운로드 → 해시 비교
+      - 불일치 → InvalidOperationException → 에러 표시
       - sha256 파일 없음 → 기존대로 설치 (예전 버전 호환)
 ```
+
+### SmartScreen 우회
+
+Updater.exe 실행 시 SmartScreen 경고 우회를 위해 배치 스크립트를 통해 실행됩니다.
 
 ### ntfy 보안 설계 한계
 
@@ -281,14 +293,14 @@ A: .NET 9 SDK 설치 필요. `winget install Microsoft.DotNet.SDK.9`
 **Q: GitHub Actions가 안 돌아갑니다**
 A: 저장소가 git 초기화되지 않았거나, 원격 origin이 없거나, 태그가 `v*` 패턴이 아닙니다
 
-**Q: self-contained vs framework-dependent 차이**
-A: self-contained는 .NET 런타임 포함 (~77MB), 모든 PC에서 실행 가능. framework-dependent는 .NET 9 설치 PC에서만 실행 (~25MB)
+**Q: 릴리즈 exe가 실행 안 됩니다**
+A: .NET 9 Desktop Runtime이 필요합니다. Microsoft Store에서 "NET Desktop Runtime 9"를 검색하여 설치하세요.
 
 **Q: GitHub Actions 빌드/릴리즈가 실패합니다**
 A: 주로 경로 문제입니다. csproj 경로는 **프로젝트 루트 기준**, `-p:PublishDir` 출력은 `ClaudeUsageTray/` 서브디렉토리 기준입니다.
 
-**Q: GitHub Release에 framework-dependent exe가 업로드되지 않습니다**
-A: 같은 이름(`ClaudeUsageTray.exe`)의 파일이 있으면 GitHub가 같은 애셋으로 인식합니다. 게시 전에 `ClaudeUsageTray-framework-dependent.exe`로 리네임해야 합니다.
-
 **Q: CHANGELOG 형식**
 A: `<!-- ko -->`, `<!-- /ko -->` 블록으로 4개 언어 병기. `release.bat`이 새 섹션 헤더를 자동 생성합니다.
+
+**Q: 업데이트 시 SmartScreen 경고**
+A: 배치 스크립트를 통해 Updater를 실행하여 경고를 최소화합니다. 코드 서명 인증서를 구매하면 완전히 제거할 수 있습니다.

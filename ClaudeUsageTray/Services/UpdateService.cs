@@ -74,7 +74,7 @@ public class UpdateService
     /// <summary>
     /// Launches the Updater with download URL and exits.
     /// The Updater will: download exe → verify SHA256 → wait for process → copy → restart.
-    /// Uses a batch script to avoid SmartScreen warnings.
+    /// Uses PowerShell script to avoid SmartScreen warnings.
     /// </summary>
     public void ApplyUpdateAsync(string downloadUrl, string sha256Url = "")
     {
@@ -91,29 +91,38 @@ public class UpdateService
             updaterPath = Path.Combine(AppContext.BaseDirectory, "ClaudeUsageTray-Updater.exe");
         }
 
-        // Create a batch script to launch Updater without SmartScreen warning
-        // CreateNoWindow = true hides the command prompt window
-        var batchPath = Path.Combine(Path.GetTempPath(), $"claude_update_{Guid.NewGuid():N}.bat");
-        var escapedUpdater = updaterPath.Replace("\\", "\\\\");
-        var batchContent = $"@echo off\n\"{updaterPath}\" \"{downloadUrl}\" \"{sha256Url}\" \"{currentExe}\" \"{currentDir}\"\n";
+        // Escape paths for PowerShell
+        var escapedUpdater = updaterPath.Replace("'", "''");
+        var escapedDownloadUrl = downloadUrl.Replace("'", "''");
+        var escapedSha256Url = sha256Url.Replace("'", "''");
+        var escapedCurrentExe = currentExe.Replace("'", "''");
+        var escapedCurrentDir = currentDir.Replace("'", "''");
+
+        // Create PowerShell script to launch Updater
+        var ps1Path = Path.Combine(Path.GetTempPath(), $"claude_update_{Guid.NewGuid():N}.ps1");
+        var psCommand = $@"
+Start-Process -FilePath '{escapedUpdater}' -ArgumentList '{escapedDownloadUrl}', '{escapedSha256Url}', '{escapedCurrentExe}', '{escapedCurrentDir}' -WindowStyle Hidden
+Remove-Item -Path '{ps1Path}' -Force -ErrorAction SilentlyContinue
+";
 
         try
         {
-            File.WriteAllText(batchPath, batchContent);
+            File.WriteAllText(ps1Path, psCommand);
 
-            Process.Start(new ProcessStartInfo(batchPath)
+            Process.Start(new ProcessStartInfo("powershell.exe")
             {
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{ps1Path}\"",
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden
             });
         }
-        finally
+        catch
         {
-            // Schedule batch file deletion after a short delay (give it time to start)
-            Task.Delay(2000).ContinueWith(_ =>
+            // Fallback: direct launch if PowerShell fails
+            Process.Start(new ProcessStartInfo(updaterPath, $"\"{downloadUrl}\" \"{sha256Url}\" \"{currentExe}\" \"{currentDir}\"")
             {
-                try { if (File.Exists(batchPath)) File.Delete(batchPath); } catch { }
+                UseShellExecute = true
             });
         }
 
