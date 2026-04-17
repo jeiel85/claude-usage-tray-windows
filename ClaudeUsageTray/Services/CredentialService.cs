@@ -137,7 +137,8 @@ public class CredentialService : IDisposable
                 finally
                 {
                     // 파일시스템 이벤트가 드레인될 시간 확보 후 플래그 해제
-                    _ = Task.Delay(800).ContinueWith(_ => _isSelfWriting = false);
+                    // 최대 2초 대기 후에도 플래그 해제 (timeout safety)
+                    _ = ResetSelfWriteFlagAsync();
                 }
             }
             catch (Exception ex)
@@ -155,6 +156,28 @@ public class CredentialService : IDisposable
         {
             _lock.Release();
         }
+    }
+
+    /// <summary>
+    /// 파일쓰기 후 플래그를 안전하게 해제.
+    /// 즉시 해제 시 FileSystemWatcher가 아직 이벤트를 처리 중이면 무한 루프 발생.
+    /// 최대 2초 대기 후에도 플래그 해제 (timeout safety).
+    /// </summary>
+    private async Task ResetSelfWriteFlagAsync()
+    {
+        const int debounceMs = 800;  // FileSystemWatcher debounce + buffer
+        const int maxWaitMs = 2000; // Safety timeout
+
+        await Task.Delay(debounceMs);
+
+        // Safety: 최대 대기시간 후에도 플래그 해제
+        var deadline = DateTime.UtcNow.AddMilliseconds(maxWaitMs - debounceMs);
+        while (_isSelfWriting && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(100);
+        }
+
+        _isSelfWriting = false;
     }
 
     private static async Task<RefreshResult?> TryRefreshAsync(string? refreshToken)

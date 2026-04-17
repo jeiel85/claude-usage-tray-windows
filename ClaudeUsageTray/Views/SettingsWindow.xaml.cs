@@ -7,9 +7,10 @@ using ClaudeUsageTray.Services;
 
 namespace ClaudeUsageTray.Views;
 
-public partial class SettingsWindow : Window
+public partial class SettingsWindow : Window, IDisposable
 {
     private readonly MainViewModel _vm;
+    private bool _disposed = false;
 
     public SettingsWindow(MainViewModel vm)
     {
@@ -247,5 +248,23 @@ public partial class SettingsWindow : Window
             Left = workArea.Right - Width - 8;
             Top  = workArea.Bottom - ActualHeight - 8;
         }, System.Windows.Threading.DispatcherPriority.Render);
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed) return;
+
+        if (disposing)
+        {
+            // 정리할 리소스가 있으면 여기서 처리
+        }
+
+        _disposed = true;
     }
 }

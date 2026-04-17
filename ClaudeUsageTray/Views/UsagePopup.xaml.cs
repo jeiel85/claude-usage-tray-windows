@@ -15,12 +15,13 @@ using SCB     = System.Windows.Media.SolidColorBrush;
 
 namespace ClaudeUsageTray.Views;
 
-public partial class UsagePopup : Window
+public partial class UsagePopup : Window, IDisposable
 {
     private readonly MainViewModel _vm;
     private SettingsWindow? _settingsWindow;
     private bool _showHourly = false;
     private bool _settingsOpen = false;
+    private bool _disposed = false;
 
     public UsagePopup(MainViewModel vm)
     {
@@ -42,6 +43,25 @@ public partial class UsagePopup : Window
     {
         if (e.PropertyName is nameof(MainViewModel.HistoryData) or nameof(MainViewModel.HourlyTokens))
             Dispatcher.Invoke(RefreshChart);
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed) return;
+
+        if (disposing)
+        {
+            _vm.PropertyChanged -= OnVmPropertyChanged;
+            _settingsWindow?.Dispose();
+        }
+
+        _disposed = true;
     }
 
     private void Toggle7DayBtn_Click(object sender, RoutedEventArgs e)
