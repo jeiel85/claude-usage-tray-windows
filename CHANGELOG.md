@@ -5,6 +5,34 @@
 
 ---
 
+## [1.15.33] - 2026-04-17
+
+<!-- ko -->
+### 수정
+- **릴리즈 파일 용량 대폭 감소** — 메인 exe와 Updater 모두 framework-dependent 빌드로 변경 (총 용량: 142MB → ~3-5MB)
+- **빌드 워크플로우 단순화** — self-contained 빌드 제거
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Release file size drastically reduced** — Both main exe and Updater now use framework-dependent build (total size: 142MB → ~3-5MB)
+- **Build workflow simplified** — Removed self-contained builds
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **发布文件大小大幅减少** — 主程序和Updater均改为framework-dependent构建（总大小：142MB → ~3-5MB）
+- **构建工作流简化** — 移除self-contained构建
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **リリースファイルサイズ大幅削減** — メインexeとUpdaterをframework-dependentビルドに変更（合計サイズ：142MB → ~3-5MB）
+- **ビルドワークフロー簡略化** — self-containedビルドを削除
+<!-- /ja -->
+
+---
+
 ## [1.15.32] - 2026-04-17
 
 <!-- ko -->

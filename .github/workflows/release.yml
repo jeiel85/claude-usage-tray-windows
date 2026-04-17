@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  build-sc:
+  build-fd:
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -25,55 +25,45 @@ jobs:
         shell: bash
         run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
 
-      - name: Build main app
+      - name: Build main app (framework-dependent)
         run: |
           dotnet publish ClaudeUsageTray/ClaudeUsageTray.csproj `
             -c Release `
-            -r win-x64 `
-            --self-contained true `
-            -p:PublishSingleFile=true `
-            -p:EnableCompressionInSingleFile=true `
-            -p:IncludeNativeLibrariesForSelfExtract=true `
-            -p:PublishDir=bin/sc `
+            -p:PublishDir=bin/fd `
             -p:Version=${{ steps.version.outputs.VERSION }}
 
-      - name: Build Updater
+      - name: Build Updater (framework-dependent)
         run: |
           dotnet publish ClaudeUsageTray.Updater/ClaudeUsageTray.Updater.csproj `
             -c Release `
-            -r win-x64 `
-            --self-contained true `
-            -p:PublishSingleFile=true `
-            -p:EnableCompressionInSingleFile=true `
-            -p:IncludeNativeLibrariesForSelfExtract=true `
             -p:PublishDir=bin/updater `
             -p:Version=${{ steps.version.outputs.VERSION }}
 
       - name: Generate SHA256 for main app
         shell: powershell
         run: |
-          $hash = (Get-FileHash "ClaudeUsageTray/bin/sc/ClaudeUsageTray.exe" -Algorithm SHA256).Hash.ToLower()
+          $hash = (Get-FileHash "ClaudeUsageTray/bin/fd/ClaudeUsageTray.exe" -Algorithm SHA256).Hash.ToLower()
           "$hash" | Out-File -FilePath "SHA256.txt" -Encoding ASCII
-          Write-Host "sc size: $([math]::Round((Get-Item 'ClaudeUsageTray/bin/sc/ClaudeUsageTray.exe').Length/1MB, 1)) MB"
+          Write-Host "fd size: $([math]::Round((Get-Item 'ClaudeUsageTray/bin/fd/ClaudeUsageTray.exe').Length/1MB, 1)) MB"
           Write-Host "SHA256: $hash"
 
       - name: Copy executables to root
         shell: powershell
         run: |
-          Copy-Item "ClaudeUsageTray/bin/sc/ClaudeUsageTray.exe" "ClaudeUsageTray.exe"
+          Copy-Item "ClaudeUsageTray/bin/fd/ClaudeUsageTray.exe" "ClaudeUsageTray.exe"
           Copy-Item "ClaudeUsageTray.Updater/bin/updater/ClaudeUsageTray-Updater.exe" "ClaudeUsageTray-Updater.exe"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sc-release
+          name: fd-release
           path: |
             ClaudeUsageTray.exe
             ClaudeUsageTray-Updater.exe
             SHA256.txt
 
   release:
-    needs: [build-sc]
+    needs: [build-fd]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -82,7 +72,7 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: sc-release
+          name: fd-release
           path: artifacts/
 
       - name: Extract changelog for this version
