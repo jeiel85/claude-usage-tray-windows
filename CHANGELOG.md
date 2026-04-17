@@ -5,6 +5,30 @@
 
 ---
 
+## [1.15.28] - 2026-04-17
+
+<!-- ko -->
+### 수정
+- **버그 수정** — 앱 시작 시 NullReferenceException 오류 수정 (타이머 초기화 순서 문제)
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Bug fix** — Fixed NullReferenceException on startup (timer initialization order issue)
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **错误修复** — 修复启动时空引用异常错误（计时器初始化顺序问题）
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **バグ修正** — アプリ起動時のNullReferenceExceptionエラーを修正（タイマー初期化順序の問題）
+<!-- /ja -->
+
+---
+
 ## [1.15.27] - 2026-04-17
 
 <!-- ko -->

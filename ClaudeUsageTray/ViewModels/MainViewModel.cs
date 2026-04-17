@@ -152,11 +152,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // 계정 전환 자동 감지: credentials 파일 변경 → 새로고침
         _credentials.CredentialsChanged += OnCredentialsChanged;
 
-        LoadSettings();
-
+        // _timer 초기화는 LoadSettings 이전에 필요 (ApplyPollingInterval에서 사용)
         _timer = new Timer(AppConstants.PollingIntervalMs); // 2 minutes — API has rate limits
         _timer.Elapsed += async (_, _) => await RefreshAsync();
         _timer.AutoReset = true;
+
+        LoadSettings();
 
         _countdownTimer = new Timer(1_000);
         _countdownTimer.Elapsed += (_, _) =>
