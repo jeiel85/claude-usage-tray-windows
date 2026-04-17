@@ -135,11 +135,15 @@ public class UpdateService
         }
 
         // Batch script: wait for this process to exit, replace exe, restart
+        // CRITICAL: Wait for old process to fully terminate BEFORE copying
         // Use UTF-8 with BOM for cmd.exe to correctly handle paths with Korean characters
         var script = $"""
             @echo off
             chcp 65001 >nul
-            timeout /t 2 /nobreak >nul
+            :wait_loop
+            timeout /t 1 /nobreak >nul
+            tasklist /FI "IMAGENAME eq ClaudeUsageTray.exe" 2>nul | findstr /I "ClaudeUsageTray.exe" >nul
+            if %errorlevel%==0 goto wait_loop
             robocopy "{newExePath}" "{Path.GetDirectoryName(currentExe) ?? "."}" /NFL /NDL /NJH /NJS /nc /ns /np
             if errorlevel 8 (
                 echo [%date% %time%] copy failed: {newExePath} -^> {currentExe} >> "%TEMP%\claude_update_error.log"
