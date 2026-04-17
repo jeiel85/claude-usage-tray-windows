@@ -25,7 +25,7 @@ jobs:
         shell: bash
         run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
 
-      - name: Build self-contained release
+      - name: Build main app
         run: |
           dotnet publish ClaudeUsageTray/ClaudeUsageTray.csproj `
             -c Release `
@@ -37,7 +37,19 @@ jobs:
             -p:PublishDir=bin/sc `
             -p:Version=${{ steps.version.outputs.VERSION }}
 
-      - name: Generate SHA256
+      - name: Build Updater
+        run: |
+          dotnet publish ClaudeUsageTray.Updater/ClaudeUsageTray.Updater.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:EnableCompressionInSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:PublishDir=bin/updater `
+            -p:Version=${{ steps.version.outputs.VERSION }}
+
+      - name: Generate SHA256 for main app
         shell: powershell
         run: |
           $hash = (Get-FileHash "ClaudeUsageTray/bin/sc/ClaudeUsageTray.exe" -Algorithm SHA256).Hash.ToLower()
@@ -45,9 +57,11 @@ jobs:
           Write-Host "sc size: $([math]::Round((Get-Item 'ClaudeUsageTray/bin/sc/ClaudeUsageTray.exe').Length/1MB, 1)) MB"
           Write-Host "SHA256: $hash"
 
-      - name: Rename executable
+      - name: Copy executables to root
         shell: powershell
-        run: Copy-Item "ClaudeUsageTray/bin/sc/ClaudeUsageTray.exe" "ClaudeUsageTray.exe"
+        run: |
+          Copy-Item "ClaudeUsageTray/bin/sc/ClaudeUsageTray.exe" "ClaudeUsageTray.exe"
+          Copy-Item "ClaudeUsageTray.Updater/bin/updater/ClaudeUsageTray-Updater.exe" "ClaudeUsageTray-Updater.exe"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -55,6 +69,7 @@ jobs:
           name: sc-release
           path: |
             ClaudeUsageTray.exe
+            ClaudeUsageTray-Updater.exe
             SHA256.txt
 
   release:
@@ -87,4 +102,5 @@ jobs:
           body: ${{ steps.changelog.outputs.NOTES }}
           files: |
             artifacts/ClaudeUsageTray.exe
+            artifacts/ClaudeUsageTray-Updater.exe
             artifacts/SHA256.txt

@@ -72,17 +72,18 @@ public class UpdateService
     }
 
     /// <summary>
-    /// Downloads the new exe, writes a batch updater to %TEMP%, launches it and exits.
+    /// Downloads the new exe, launches the Updater and exits.
+    /// The Updater will handle: process termination, file copy, restart.
     /// </summary>
     public async Task ApplyUpdateAsync(string downloadUrl, string sha256Url = "",
         IProgress<int>? progress = null)
     {
         var tempDir    = Path.GetTempPath();
         var newExePath = Path.Combine(tempDir, "ClaudeUsageTray_update.exe");
-        var scriptPath = Path.Combine(tempDir, "claude_tray_update.bat");
         var currentExe = Process.GetCurrentProcess().MainModule?.FileName
             ?? Environment.ProcessPath
             ?? Path.Combine(AppContext.BaseDirectory, "ClaudeUsageTray.exe");
+        var currentDir = Path.GetDirectoryName(currentExe) ?? ".";
 
         // Download with progress reporting
         using var response = await Http.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
@@ -104,7 +105,7 @@ public class UpdateService
                 if (totalBytes > 0)
                     progress?.Report((int)(downloaded * 100 / totalBytes));
             }
-        } // destStream closed here — before SHA256 verification and before batch script
+        } // destStream closed here — before SHA256 verification and before launching updater
 
         // SHA256 verification — try to download sha256 file and verify
         if (!string.IsNullOrEmpty(sha256Url))
@@ -134,36 +135,23 @@ public class UpdateService
             }
         }
 
-        // Batch script: wait for this process to exit, replace exe, restart
-        // CRITICAL: Wait for old process to fully terminate BEFORE copying
-        // Use UTF-8 with BOM for cmd.exe to correctly handle paths with Korean characters
-        var script = $"""
-            @echo off
-            chcp 65001 >nul
-            :wait_loop
-            timeout /t 1 /nobreak >nul
-            tasklist /FI "IMAGENAME eq ClaudeUsageTray.exe" 2>nul | findstr /I "ClaudeUsageTray.exe" >nul
-            if %errorlevel%==0 goto wait_loop
-            robocopy "{newExePath}" "{Path.GetDirectoryName(currentExe) ?? "."}" /NFL /NDL /NJH /NJS /nc /ns /np
-            if errorlevel 8 (
-                echo [%date% %time%] copy failed: {newExePath} -^> {currentExe} >> "%TEMP%\claude_update_error.log"
-                exit /b 1
-            )
-            start "" "{currentExe}"
-            del "{newExePath}" 2>nul
-            del "%~f0"
-            """;
-        await File.WriteAllTextAsync(scriptPath, script, new System.Text.UTF8Encoding(true));
-
-        // Double-quote the script path inside /c "..." so cmd.exe correctly handles
-        // paths that contain spaces (e.g. username with a space in %TEMP%).
-        // Without double-quoting: cmd.exe strips the outer quotes then parses on spaces,
-        // causing silent failure when the TEMP path contains a space.
-        Process.Start(new ProcessStartInfo("cmd.exe", $"/c \"\"{scriptPath}\"\"")
+        // Find Updater.exe (bundled with this app in the same directory)
+        var updaterPath = Path.Combine(currentDir, "ClaudeUsageTray-Updater.exe");
+        if (!File.Exists(updaterPath))
         {
-            CreateNoWindow = true
+            // Fallback: look in app base directory
+            updaterPath = Path.Combine(AppContext.BaseDirectory, "ClaudeUsageTray-Updater.exe");
+        }
+
+        // Launch Updater with arguments: new exe path, current exe path, target directory
+        // The Updater will: wait for process exit → copy file → start new process
+        var args = $"\"{newExePath}\" \"{currentExe}\" \"{currentDir}\"";
+        Process.Start(new ProcessStartInfo(updaterPath, args)
+        {
+            UseShellExecute = true
         });
 
+        // Exit this process so Updater can proceed
         System.Windows.Application.Current.Dispatcher.Invoke(() =>
             System.Windows.Application.Current.Shutdown());
     }
