@@ -5,6 +5,32 @@
 
 ---
 
+## [1.15.25] - 2026-04-17
+
+<!-- ko -->
+### 수정
+- **릴리즈 파일 정리** — SHA256 검증 파일을 SHA256.txt 하나로统一 (구 ClaudeUsageTray.sha256 제거)
+- **자동 업데이트 안정성 개선** — 업데이트 시 기존 프로세스가 완전히 종료될 때까지 대기 후 exe 파일 복사 (이전 버전에서 계속有效)
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Release file cleanup** — Unified SHA256 verification file to SHA256.txt only (removed old ClaudeUsageTray.sha256)
+- **Auto-update stability** — Wait for old process to fully terminate before copying exe file (carried over from previous version)
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **发布文件整理** — 统一SHA256验证文件为SHA256.txt（移除旧的ClaudeUsageTray.sha256）
+- **自动更新稳定性** — 在复制exe文件之前等待旧进程完全终止（延续自前一版本）
+<!-- /ja -->
+### 修正
+- **リリースファイルの整理** — SHA256検証ファイルをSHA256.txtに統一（古いClaudeUsageTray.sha256を削除）
+- **自動更新の安定性** — exeファイルをコピーする前に古いプロセスが完全に終了するのを待つ（前バージョンから継続）
+<!-- /ja -->
+
+---
+
 ## [1.15.24] - 2026-04-17
 
 <!-- ko -->

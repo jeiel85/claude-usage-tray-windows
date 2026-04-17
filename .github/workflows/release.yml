@@ -41,7 +41,7 @@ jobs:
         shell: powershell
         run: |
           $hash = (Get-FileHash "ClaudeUsageTray/bin/sc/ClaudeUsageTray.exe" -Algorithm SHA256).Hash.ToLower()
-          "$hash  ClaudeUsageTray.exe" | Out-File -FilePath "ClaudeUsageTray.sha256" -Encoding ASCII
+          "$hash" | Out-File -FilePath "SHA256.txt" -Encoding ASCII
           Write-Host "sc size: $([math]::Round((Get-Item 'ClaudeUsageTray/bin/sc/ClaudeUsageTray.exe').Length/1MB, 1)) MB"
           Write-Host "SHA256: $hash"
 
@@ -55,7 +55,7 @@ jobs:
           name: sc-release
           path: |
             ClaudeUsageTray.exe
-            ClaudeUsageTray.sha256
+            SHA256.txt
 
   release:
     needs: [build-sc]
@@ -87,4 +87,4 @@ jobs:
           body: ${{ steps.changelog.outputs.NOTES }}
           files: |
             artifacts/ClaudeUsageTray.exe
-            artifacts/ClaudeUsageTray.sha256
+            artifacts/SHA256.txt
