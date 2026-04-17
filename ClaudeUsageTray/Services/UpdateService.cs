@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Reflection;
-using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace ClaudeUsageTray.Services;
@@ -72,68 +71,15 @@ public class UpdateService
     }
 
     /// <summary>
-    /// Downloads the new exe, launches the Updater and exits.
-    /// The Updater will handle: process termination, file copy, restart.
+    /// Launches the Updater with download URL and exits.
+    /// The Updater will: download exe → verify SHA256 → wait for process → copy → restart.
     /// </summary>
-    public async Task ApplyUpdateAsync(string downloadUrl, string sha256Url = "",
-        IProgress<int>? progress = null)
+    public void ApplyUpdateAsync(string downloadUrl, string sha256Url = "")
     {
-        var tempDir    = Path.GetTempPath();
-        var newExePath = Path.Combine(tempDir, "ClaudeUsageTray_update.exe");
         var currentExe = Process.GetCurrentProcess().MainModule?.FileName
             ?? Environment.ProcessPath
             ?? Path.Combine(AppContext.BaseDirectory, "ClaudeUsageTray.exe");
         var currentDir = Path.GetDirectoryName(currentExe) ?? ".";
-
-        // Download with progress reporting
-        using var response = await Http.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
-        response.EnsureSuccessStatusCode();
-
-        var totalBytes = response.Content.Headers.ContentLength ?? 0;
-        using var srcStream = await response.Content.ReadAsStreamAsync();
-
-        {
-            using var destStream = new FileStream(newExePath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
-
-            var buffer = new byte[81920];
-            long downloaded = 0;
-            int  read;
-            while ((read = await srcStream.ReadAsync(buffer)) > 0)
-            {
-                await destStream.WriteAsync(buffer.AsMemory(0, read));
-                downloaded += read;
-                if (totalBytes > 0)
-                    progress?.Report((int)(downloaded * 100 / totalBytes));
-            }
-        } // destStream closed here — before SHA256 verification and before launching updater
-
-        // SHA256 verification — try to download sha256 file and verify
-        if (!string.IsNullOrEmpty(sha256Url))
-        {
-            try
-            {
-                var sha256Raw = await Http.GetStringAsync(sha256Url);
-                var expectedHash = sha256Raw.Split(' ')[0].Trim().ToLowerInvariant();
-
-                using var exeStream = File.OpenRead(newExePath);
-                var actualHash = Convert.ToHexString(SHA256.HashData(exeStream)).ToLowerInvariant();
-
-                if (actualHash != expectedHash)
-                {
-                    File.Delete(newExePath);
-                    throw new InvalidOperationException("SHA256 mismatch");
-                }
-            }
-            catch (InvalidOperationException)
-            {
-                throw;
-            }
-            catch
-            {
-                // sha256 fetch/parse failed — log and continue without verification
-                // (old releases before sha256 support)
-            }
-        }
 
         // Find Updater.exe (bundled with this app in the same directory)
         var updaterPath = Path.Combine(currentDir, "ClaudeUsageTray-Updater.exe");
@@ -143,9 +89,9 @@ public class UpdateService
             updaterPath = Path.Combine(AppContext.BaseDirectory, "ClaudeUsageTray-Updater.exe");
         }
 
-        // Launch Updater with arguments: new exe path, current exe path, target directory
-        // The Updater will: wait for process exit → copy file → start new process
-        var args = $"\"{newExePath}\" \"{currentExe}\" \"{currentDir}\"";
+        // Launch Updater with arguments: downloadUrl, sha256Url, current exe path, target directory
+        // The Updater will: download → verify → wait for process exit → copy → start new process
+        var args = $"\"{downloadUrl}\" \"{sha256Url}\" \"{currentExe}\" \"{currentDir}\"";
         Process.Start(new ProcessStartInfo(updaterPath, args)
         {
             UseShellExecute = true

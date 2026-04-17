@@ -287,8 +287,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
             var dialog = new Views.UpdateDialog(
                 $"v{versionStr}",
                 info.releaseNotes,
-                onUpdate: async (prog) => await ApplyUpdateCoreAsync(prog),
                 onSkip: () => SkipVersion(versionStr));
+            dialog.OnUpdateRequested += () => ApplyUpdate();
             dialog.Show();
         });
     }
@@ -316,8 +316,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
             var dialog = new Views.UpdateDialog(
                 $"v{versionStr}",
                 info.releaseNotes,
-                onUpdate: async (prog) => await ApplyUpdateCoreAsync(prog),
                 onSkip: () => SkipVersion(versionStr));
+            dialog.OnUpdateRequested += () => ApplyUpdate();
             dialog.Show();
         });
     }
@@ -348,13 +348,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    public async Task ApplyUpdateAsync() => await ApplyUpdateCoreAsync(null);
-
-    private async Task ApplyUpdateCoreAsync(Action<int>? onProgress)
+    public void ApplyUpdate()
     {
         if (string.IsNullOrEmpty(_updateDownloadUrl)) return;
-        var progress = onProgress != null ? new Progress<int>(onProgress) : null;
-        await _updater.ApplyUpdateAsync(_updateDownloadUrl, _updateSha256Url, progress);
+        _updater.ApplyUpdateAsync(_updateDownloadUrl, _updateSha256Url);
     }
 
     public async Task RefreshAsync()

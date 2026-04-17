@@ -5,6 +5,30 @@
 
 ---
 
+## [1.15.27] - 2026-04-17
+
+<!-- ko -->
+### 수정
+- **업데이트 다운로드 구조 개선** — 메인 앱에서 다운로드 대신 Updater가 직접 GitHub에서 다운로드하여 설치 진행률 표시 (더 나은 UX)
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Update download flow improved** — Updater downloads directly from GitHub instead of main app, showing installation progress (better UX)
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **更新下载流程改进** — Updater直接从GitHub下载安装，而非主应用，提升用户体验
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **更新ダウンロード構造の改善** — メインアプリではなくUpdaterが直接GitHubからダウンロードしてインストール進捗を表示（UX向上）
+<!-- /ja -->
+
+---
+
 ## [1.15.26] - 2026-04-17
 
 ### 수정

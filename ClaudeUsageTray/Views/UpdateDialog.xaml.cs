@@ -6,13 +6,16 @@ namespace ClaudeUsageTray.Views;
 
 public partial class UpdateDialog : Window
 {
-    private readonly Func<Action<int>, Task> _onUpdate;
     private readonly Action _onSkip;
 
-    public UpdateDialog(string version, string releaseNotes, Func<Action<int>, Task> onUpdate, Action onSkip)
+    /// <summary>
+    /// "지금 업데이트" 버튼 클릭 시 발생
+    /// </summary>
+    public event Action? OnUpdateRequested;
+
+    public UpdateDialog(string version, string releaseNotes, Action onSkip)
     {
         InitializeComponent();
-        _onUpdate = onUpdate;
         _onSkip   = onSkip;
 
         // Localize UI strings
@@ -28,42 +31,11 @@ public partial class UpdateDialog : Window
         MouseLeftButtonDown += (_, e) => DragMove();
     }
 
-    private async void UpdateBtn_Click(object sender, RoutedEventArgs e)
+    private void UpdateBtn_Click(object sender, RoutedEventArgs e)
     {
-        UpdateBtn.IsEnabled = false;
-        ButtonPanel.Visibility = Visibility.Collapsed;
-        DownloadingLabel.Text  = Loc.DownloadingUpdate;
-        ProgressPanel.Visibility = Visibility.Visible;
-
-        try
-        {
-            await _onUpdate(pct => Dispatcher.Invoke(() =>
-            {
-                ProgressPctLabel.Text = $"{pct}%";
-                ProgressFill.Width    = (ProgressFill.Parent as System.Windows.Controls.Border)!
-                                        .ActualWidth * pct / 100;
-            }));
-        }
-        catch (InvalidOperationException)
-        {
-            ProgressPanel.Visibility = Visibility.Collapsed;
-            ButtonPanel.Visibility = Visibility.Visible;
-            UpdateBtn.IsEnabled = true;
-            DownloadingLabel.Text = Loc.UpdateHashMismatch;
-            DownloadingLabel.Foreground = new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromRgb(239, 68, 68));
-            return;
-        }
-        catch (Exception ex)
-        {
-            ProgressPanel.Visibility = Visibility.Collapsed;
-            ButtonPanel.Visibility = Visibility.Visible;
-            UpdateBtn.IsEnabled = true;
-            DownloadingLabel.Text = Loc.UpdateDownloadFailed(ex.Message);
-            DownloadingLabel.Foreground = new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromRgb(239, 68, 68));
-            return;
-        }
+        // "지금 업데이트" 클릭 시 event 발생 → ViewModel이 Updater 실행
+        OnUpdateRequested?.Invoke();
+        Close();
     }
 
     private void SkipBtn_Click(object sender, RoutedEventArgs e)
