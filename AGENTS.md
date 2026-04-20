@@ -30,7 +30,7 @@ git status
 | **Target Framework** | `net9.0-windows10.0.17763.0` |
 | **주요 NuGet** | `CommunityToolkit.Mvvm 8.4.2`, `Microsoft.Extensions.Http 10.0.5`, `Microsoft.Toolkit.Uwp.Notifications 7.1.3` |
 | **릴리즈 형식** | framework-dependent (총 ~350KB) |
-| **현재 버전** | `v1.15.33` (릴리즈 시 csproj의 `<Version>` 참조) |
+| **현재 버전** | `v1.15.35` (릴리즈 시 csproj의 `<Version>` 참조) |
 
 ### .NET 9 런타임 요구사항
 

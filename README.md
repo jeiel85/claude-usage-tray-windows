@@ -20,9 +20,9 @@ Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니�
 
 | 파일 | 크기 | 설명 |
 |------|------|------|
-| `ClaudeUsageTray.exe` | ~25 MB | Framework-dependent — [.NET 9.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0/runtime) 필요 |
-| `ClaudeUsageTray-Updater.exe` | ~24 MB | 자동 업데이트 도구 (메인 앱과 같은 폴더에 위치) |
-| **현재 버전** | `v1.15.24` | Latest |
+| `ClaudeUsageTray.exe` | ~170 KB | Framework-dependent — [.NET 9.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0/runtime) 필요 |
+| `ClaudeUsageTray-Updater.exe` | ~170 KB | 자동 업데이트 도구 (메인 앱과 같은 폴더에 위치) |
+| **현재 버전** | `v1.15.35` | Latest |
 
 **실행 방법:**
 1. 위 링크에서 `ClaudeUsageTray.exe` 다운로드
@@ -98,7 +98,7 @@ dotnet run
 ### 릴리즈 빌드
 
 ```bash
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+dotnet publish ClaudeUsageTray/ClaudeUsageTray.csproj -c Release -p:PublishDir=bin/release
 ```
 
 ## 알림 설정
