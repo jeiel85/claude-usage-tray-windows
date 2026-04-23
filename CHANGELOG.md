@@ -5,6 +5,30 @@
 
 ---
 
+## [1.15.39] - 2026-04-23
+
+<!-- ko -->
+### 테스트
+- **자동 업데이트 플로우 검증** — 업데이트 버튼, Updater 실행 및 새 exe 트레이 표시 동작 확인
+<!-- /ko -->
+
+<!-- en -->
+### Test
+- **Auto-update flow verification** — Validate update button, Updater launch, and new exe tray appearance
+<!-- /en -->
+
+<!-- zh -->
+### 测试
+- **自动更新流程验证** — 验证更新按钮、Updater启动及新exe托盘显示行为
+<!-- /zh -->
+
+<!-- ja -->
+### テスト
+- **自動更新フロー検証** — 更新ボタン、Updater起動、新しいexeのトレイ表示動作を確認
+<!-- /ja -->
+
+---
+
 ## [1.15.38] - 2026-04-23
 
 <!-- ko -->
