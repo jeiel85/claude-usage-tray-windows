@@ -8,17 +8,19 @@
 ## [1.15.38] - 2026-04-23
 
 <!-- ko -->
-### 수정
-- **자동 업데이트 개선** — Updater 실행 시 인자 처리 오류 수정 및 실행 방식 안정화
-- **빌드 스크립트 수정** — `build.bat` 및 `release.bat`에서 Updater 빌드 누락 수정
-- **업데이트 폴백** — 자동 업데이트 실행 불가 시 브라우저 릴리즈 페이지로 폴백
+### 개선
+- **내장 업데이트 프로세스 도입** — 별도 Updater.exe 없이 앱 내에서 직접 다운로드 및 진행률 표시(ProgressBar)
+- **보안 강화** — 업데이트 파일 다운로드 후 SHA256 해시 검증 자동 수행
+- **업데이트 안정성 극대화** — 강력한 PowerShell 스크립트 기반 파일 교체 로직 (한글 경로, 프로세스 강제 종료, 5회 재시도 대응)
+- **배포 최적화** — 로컬 빌드 대신 GitHub Actions(CI) 기반 자동 릴리즈 워크플로우로 전환
 <!-- /ko -->
 
 <!-- en -->
-### Fixed
-- **Auto-Update Improvement** — Fixed argument handling errors and stabilized Updater execution
-- **Build Scripts** — Fixed missing Updater build in `build.bat` and `release.bat`
-- **Update Fallback** — Added browser fallback when auto-update fails to launch
+### Improved
+- **In-App Update Process** — Direct download and progress bar display within the app, removing the separate Updater.exe
+- **Security Enhancement** — Automatic SHA256 verification after downloading update files
+- **Maximum Stability** — Robust PowerShell-based file replacement logic (Supports Korean paths, force-kill, and 5 retries)
+- **CI/CD Integration** — Transitioned to GitHub Actions (CI) for automated builds and releases
 <!-- /en -->
 
 ---
