@@ -5,6 +5,20 @@
 
 ---
 
+## [1.15.42] - 2026-04-23
+
+<!-- ko -->
+### 수정
+- **업데이트 UX 통합** — 별도의 다이얼로그 창 없이 메인 팝업 내에서 즉시 업데이트 진행 (진행 바 표시)
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Integrated Update UX** — Updates now run directly within the main popup with an in-place progress bar, removing the separate dialog window
+<!-- /en -->
+
+---
+
 ## [1.15.41] - 2026-04-23
 
 <!-- ko -->

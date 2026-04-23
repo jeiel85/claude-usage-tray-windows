@@ -108,6 +108,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _updateAvailable = false;
     [ObservableProperty] private string _updateLabel = "";
     [ObservableProperty] private string _updateCheckLabel = "";
+    [ObservableProperty] private bool _isUpdating = false;
+    [ObservableProperty] private int _updateProgress = 0;
+    [ObservableProperty] private string _updateStatusText = "";
+
     private string _updateDownloadUrl = "";
     private string _updateSha256Url = "";
     public string CurrentVersionLabel => $"v{UpdateService.CurrentVersion.ToString(3)}";
@@ -264,6 +268,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task ManualCheckForUpdateAsync()
     {
+        if (IsUpdating) return;
+
         UpdateCheckLabel = Loc.CheckingUpdate;
         var result = await _updater.CheckForUpdateAsync();
 
@@ -284,7 +290,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
             var settings = _settingsService.Load();
             if (settings.SkippedVersion == versionStr)
             {
-                // User previously skipped — show dialog again on manual check
                 settings.SkippedVersion = "";
                 _settingsService.Save(settings);
             }
@@ -293,42 +298,19 @@ public partial class MainViewModel : ObservableObject, IDisposable
             _updateSha256Url = info.sha256Url;
             UpdateLabel = Loc.UpdateAvailable($"v{versionStr}");
             UpdateAvailable = true;
-
-            var dialog = new Views.UpdateDialog(
-                $"v{versionStr}",
-                info.releaseNotes,
-                onSkip: () => SkipVersion(versionStr));
-            dialog.OnUpdateRequested += () =>
-            {
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        var tempPath = await _updater.DownloadAndPrepareUpdateAsync(
-                            _updateDownloadUrl, _updateSha256Url,
-                            (pc, status) => dialog.UpdateProgress(pc, status));
-                        _updater.ApplyPreparedUpdate(tempPath);
-                    }
-                    catch (Exception ex)
-                    {
-                        dialog.ShowError(ex.Message);
-                    }
-                });
-            };
-            dialog.Show();
-            dialog.Activate();
         });
     }
 
     private async Task CheckForUpdateAsync()
     {
+        if (IsUpdating) return;
+
         var result = await _updater.CheckForUpdateAsync();
         if (result is null) return;
 
         var info = result;
         var versionStr = info.version.ToString(3);
 
-        // Check if user skipped this version
         var settings = _settingsService.Load();
         if (settings.SkippedVersion == versionStr) return;
 
@@ -339,33 +321,46 @@ public partial class MainViewModel : ObservableObject, IDisposable
         {
             UpdateLabel = Loc.UpdateAvailable($"v{versionStr}");
             UpdateAvailable = true;
-
-            var dialog = new Views.UpdateDialog(
-                $"v{versionStr}",
-                info.releaseNotes,
-                onSkip: () => SkipVersion(versionStr));
-            
-            // Subscribe to update requested from dialog
-            dialog.OnUpdateRequested += () =>
-            {
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        var tempPath = await _updater.DownloadAndPrepareUpdateAsync(
-                            _updateDownloadUrl, _updateSha256Url,
-                            (pc, status) => dialog.UpdateProgress(pc, status));
-                        _updater.ApplyPreparedUpdate(tempPath);
-                    }
-                    catch (Exception ex)
-                    {
-                        dialog.ShowError(ex.Message);
-                    }
-                });
-            };
-            dialog.Show();
-            dialog.Activate();
         });
+    }
+
+    [RelayCommand]
+    public async Task StartUpdateAsync()
+    {
+        if (IsUpdating || string.IsNullOrEmpty(_updateDownloadUrl)) return;
+
+        IsUpdating = true;
+        UpdateStatusText = Loc.CheckingUpdate;
+        UpdateProgress = 0;
+
+        try
+        {
+            var tempPath = await _updater.DownloadAndPrepareUpdateAsync(
+                _updateDownloadUrl, _updateSha256Url,
+                (pc, status) =>
+                {
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        UpdateProgress = pc;
+                        UpdateStatusText = status;
+                    });
+                });
+
+            UpdateStatusText = "Restarting...";
+            await Task.Delay(500);
+            _updater.ApplyPreparedUpdate(tempPath);
+        }
+        catch (Exception ex)
+        {
+            IsUpdating = false;
+            UpdateStatusText = "Error: " + ex.Message;
+            // Show error for a few seconds then revert
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(5000);
+                if (!IsUpdating) UpdateStatusText = "";
+            });
+        }
     }
 
     public void SkipVersion(string version)
