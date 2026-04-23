@@ -5,6 +5,20 @@
 
 ---
 
+## [1.15.43] - 2026-04-23
+
+<!-- ko -->
+### 테스트
+- **통합 업데이트 UX 검증** — v1.15.42에서 v1.15.43으로의 인라인 업데이트 동작 확인용
+<!-- /ko -->
+
+<!-- en -->
+### Test
+- **Integrated Update UX Verification** — Release to verify in-place update flow from v1.15.42 to v1.15.43
+<!-- /en -->
+
+---
+
 ## [1.15.42] - 2026-04-23
 
 <!-- ko -->
