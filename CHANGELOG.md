@@ -5,6 +5,38 @@
 
 ---
 
+## [1.15.36] - 2026-04-23
+
+<!-- ko -->
+### 개선
+- **업데이터 용량 최적화** — TargetFramework 하향 조정(`net9.0-windows`) 및 트리밍(Trimming)을 적용하여 용량 약 75% 삭감 (20MB → ~5MB 목표)
+- **메인 앱 시작 속도 개선** — ReadyToRun(RTR) 옵션 활성화로 초기 실행 시 JIT 지연 감소
+- **개발 지침 업데이트** — 모든 개발 요청을 GitHub 이슈(또는 `docs/ISSUE_LOG.md`) 등록 후 처리하도록 의무화
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Updater Size Optimization** — Reduced binary size by ~75% (~5MB target) via TFM downgrade (`net9.0-windows`) and IL Trimming
+- **Main App Startup Performance** — Enabled ReadyToRun (RTR) to reduce initial JIT delay
+- **Updated Dev Guidelines** — Mandated GitHub Issue (or `docs/ISSUE_LOG.md`) registration for all development requests
+<!-- /en -->
+
+<!-- zh -->
+### 改进
+- **更新器体积优化** — 通过降低 TargetFramework (`net9.0-windows`) 和启用修剪 (Trimming)，体积减少约 75% (目标 ~5MB)
+- **主程序启动速度改善** — 启用 ReadyToRun (RTR) 以减少初始 JIT 延迟
+- **更新开发指南** — 强制要求所有开发请求先在 GitHub Issue (或 `docs/ISSUE_LOG.md`) 中注册后再处理
+<!-- /zh -->
+
+<!-- ja -->
+### 改善
+- **アップデーターのサイズ最適化** — TargetFramework の引き下げ (`net9.0-windows`) とトリミング (Trimming) を適用し、サイズを約 75% 削減 (目標 ~5MB)
+- **メインアプリの起動速度改善** — ReadyToRun (RTR) オプションの有効化により、初回起動時の JIT 遅延を短축
+- **開発ガイドラインの更新** — すべての開発リクエストを GitHub Issue (または `docs/ISSUE_LOG.md`) に登録してから処理するように義務付け
+<!-- /ja -->
+
+---
+
 ## [1.15.35] - 2026-04-17
 
 <!-- ko -->
