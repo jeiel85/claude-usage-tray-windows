@@ -5,6 +5,34 @@
 
 ---
 
+## [1.15.40] - 2026-04-23
+
+<!-- ko -->
+### 수정
+- **업데이트 다이얼로그 무한루프 수정** — "지금 업데이트" 버튼 클릭 시 실제 다운로드 대신 업데이트 확인을 반복하던 버그 수정
+- **업데이트 팝업 z-order 수정** — 업데이트 다이얼로그가 다른 창 뒤로 밀리던 문제 수정
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Update dialog infinite loop fixed** — Clicking "Update Now" was re-checking for updates instead of downloading; now correctly downloads and applies
+- **Update popup z-order fixed** — Dialog no longer gets pushed behind other windows
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **修复更新对话框无限循环** — 点击"立即更新"会重复检查更新而非下载；现在可正确下载并应用
+- **修复更新弹窗层级问题** — 对话框不再被其他窗口遮挡
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **更新ダイアログの無限ループを修正** — 「今すぐ更新」をクリックするとダウンロードせずに更新確認を繰り返すバグを修正
+- **更新ポップアップのzオーダー修正** — ダイアログが他のウィンドウの後ろに隠れる問題を修正
+<!-- /ja -->
+
+---
+
 ## [1.15.39] - 2026-04-23
 
 <!-- ko -->
