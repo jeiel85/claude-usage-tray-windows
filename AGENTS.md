@@ -66,6 +66,7 @@ git fetch origin && git pull origin master && git status
 ## 📜 최근 변경 이력 요약
 *상세 내용은 [CHANGELOG.md](./CHANGELOG.md) 참조*
 
+- **v1.15.39**: 자동 업데이트 프로세스 검증용 릴리즈.
 - **v1.15.38**: 자동 업데이트 Updater 실행 오류 및 빌드 누락 수정.
 - **v1.15.37**: 업데이트 기능 테스트 (마이너 업데이트).
 - **v1.15.36**: 업데이터 용량 최적화, 메인 앱 RTR 적용, 문서 통합.
