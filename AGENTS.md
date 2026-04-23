@@ -43,7 +43,8 @@ git fetch origin && git pull origin master && git status
 - **WPF 트리밍 제한**: WPF/WinForms 앱에서 `PublishTrimmed=true` 옵션은 리소스 로딩 오류 및 빌드 실패를 유발하므로 사용하지 않는다.
 - **ReadyToRun 주의**: `PublishReadyToRun=true`는 시작 속도를 개선하지만, 특정 환경(런타임 버전 미세 차이 등)에서 실행 즉시 크래시를 유발할 수 있다. 앱 실행 불가 보고 시 최우선 제거 대상이다.
 - **단일 파일 배포 확인**: `PublishSingleFile=true` 설정 시, `SelfContained=false`인 경우 반드시 사용자의 PC에 해당 버전의 .NET Runtime이 설치되어 있어야 한다. (미설치 시 아무 반응 없이 종료됨)
-- **릴리즈 자산 검증**: GitHub 릴리즈 생성 후 반드시 파일 크기(최소 수 MB 이상)와 릴리즈 노트가 정상적으로 포함되었는지 확인한다.
+- **태그 푸시 후 모니터링**: 릴리즈 태그(`v*`)를 푸시한 후에는 반드시 [GitHub Actions](https://github.com/jeiel85/claude-usage-tray-windows/actions)를 모니터링하여 빌드 및 릴리즈가 성공적으로 완료되는지 확인한다. 빌드 실패 시 즉시 원인을 파악하고 태그 재발행 등의 조치를 취해야 하며, 실제 릴리즈 자산이 생성될 때까지 작업을 종료하지 않는다.
+- **릴리즈 자산 검증**: GitHub 릴리즈 생성 후 반드시 파일 크기(최소 수 MB 이상)와 릴리즈 노트가 정상적으로 포함되었는지 확인한다. 특히 단일 실행 파일(`ClaudeUsageTray.exe`)이 정상적으로 업로드되었는지 검증한다.
 
 ### GitHub Actions (CI/CD)
 - **릴리즈 노트 추출**: `awk` 보다는 `sed`와 정규표현식을 조합하여 `CHANGELOG.md`의 특정 버전 섹션(예: `## [1.x.x]`)을 추출하는 것이 버전 형식 변화에 더 강인하다.
