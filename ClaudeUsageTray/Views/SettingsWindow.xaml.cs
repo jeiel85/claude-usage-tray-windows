@@ -90,7 +90,7 @@ public partial class SettingsWindow : Window, IDisposable
     {
         ChkEnabled.IsChecked          = _vm.NotificationsEnabled;
         ChkRateLimit.IsChecked        = _vm.NotifyRateLimit;
-        ChkQuotaReset.IsChecked       = _vm.NotifyQuotaReset;
+        ChkQuotaReset.IsChecked       = _vm.NotifyOnQuotaReset;
         Chk50.IsChecked               = _vm.Threshold50;
         Chk75.IsChecked               = _vm.Threshold75;
         Chk90.IsChecked               = _vm.Threshold90;
@@ -110,7 +110,7 @@ public partial class SettingsWindow : Window, IDisposable
     {
         _vm.NotificationsEnabled = ChkEnabled.IsChecked == true;
         _vm.NotifyRateLimit      = ChkRateLimit.IsChecked == true;
-        _vm.NotifyQuotaReset     = ChkQuotaReset.IsChecked == true;
+        _vm.NotifyOnQuotaReset     = ChkQuotaReset.IsChecked == true;
         _vm.Threshold50          = Chk50.IsChecked == true;
         _vm.Threshold75          = Chk75.IsChecked == true;
         _vm.Threshold90          = Chk90.IsChecked == true;

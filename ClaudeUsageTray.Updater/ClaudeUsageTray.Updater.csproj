@@ -10,8 +10,6 @@
     <ApplicationIcon>..\ClaudeUsageTray\icon.ico</ApplicationIcon>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>false</SelfContained>
-    <PublishTrimmed>true</PublishTrimmed>
-    <TrimMode>partial</TrimMode>
     <DebugType>none</DebugType>
     <Optimize>true</Optimize>
   </PropertyGroup>
