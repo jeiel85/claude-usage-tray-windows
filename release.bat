@@ -137,34 +137,10 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 :: ─────────────────────────────────────────────
-:: 5. Publish (single-file exe)
+:: 5. Git commit + tag + push
 :: ─────────────────────────────────────────────
 echo.
-echo [2/5] Publishing...
-
-:: Main App
-dotnet publish ClaudeUsageTray/ClaudeUsageTray.csproj ^
-    -c Release -r win-x64 --self-contained false ^
-    -p:PublishSingleFile=true -o publish/ --nologo
-if %ERRORLEVEL% NEQ 0 (
-    echo [ERROR] Main App Publish 실패
-    pause & exit /b 1
-)
-
-:: Updater
-dotnet publish ClaudeUsageTray.Updater/ClaudeUsageTray.Updater.csproj ^
-    -c Release -r win-x64 --self-contained false ^
-    -p:PublishSingleFile=true -o publish/ --nologo
-if %ERRORLEVEL% NEQ 0 (
-    echo [ERROR] Updater Publish 실패
-    pause & exit /b 1
-)
-
-:: ─────────────────────────────────────────────
-:: 6. Git commit + tag + push
-:: ─────────────────────────────────────────────
-echo.
-echo [3/5] Git commit ^& tag...
+echo [2/3] Git commit ^& tag...
 git add -A
 git diff --cached --quiet
 if %ERRORLEVEL% NEQ 0 (
@@ -182,48 +158,16 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
-echo [4/5] Git push...
+echo [3/3] Git push...
 git push origin master --tags
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Git push 실패
     pause & exit /b 1
 )
 
-:: ─────────────────────────────────────────────
-:: 7. GitHub Release 생성
-:: ─────────────────────────────────────────────
-echo.
-echo [5/5] GitHub Release 생성...
-
-set "NOTES_FILE=%TEMP%\release_notes_%NEW_VERSION%.md"
-python -c "
-import re, sys
-
-with open('CHANGELOG.md', encoding='utf-8') as f:
-    content = f.read()
-
-match = re.search(r'## \[' + re.escape(sys.argv[1]) + r'\].*?(?=\n## |\Z)', content, re.DOTALL)
-if match:
-    print(match.group().strip())
-else:
-    print('No release notes found.')
-" "%NEW_VERSION%" > "%NOTES_FILE%"
-
-gh release create %TAG% ^
-    publish\ClaudeUsageTray.exe ^
-    publish\ClaudeUsageTray-Updater.exe ^
-    --title "%TAG%" ^
-    --notes-file "%NOTES_FILE%"
-
-if %ERRORLEVEL% NEQ 0 (
-    echo [ERROR] GitHub Release 생성 실패
-    pause & exit /b 1
-)
-
-del "%NOTES_FILE%" >nul 2>&1
-
 echo.
 echo ══════════════════════════════════════
-echo  Done! https://github.com/jeiel85/claude-usage-tray-windows/releases/tag/%TAG%
+echo  Done! GitHub Actions 가 빌드 및 릴리즈를 시작합니다.
+echo  확인: https://github.com/jeiel85/claude-usage-tray-windows/actions
 echo ══════════════════════════════════════
 pause

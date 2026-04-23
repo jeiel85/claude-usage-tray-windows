@@ -32,13 +32,6 @@ jobs:
             -p:PublishDir=bin/fd `
             -p:Version=${{ steps.version.outputs.VERSION }}
 
-      - name: Build Updater (framework-dependent)
-        run: |
-          dotnet publish ClaudeUsageTray.Updater/ClaudeUsageTray.Updater.csproj `
-            -c Release `
-            -p:PublishDir=bin/updater `
-            -p:Version=${{ steps.version.outputs.VERSION }}
-
       - name: Generate SHA256 for main app
         shell: powershell
         run: |
@@ -47,11 +40,10 @@ jobs:
           Write-Host "fd size: $([math]::Round((Get-Item 'ClaudeUsageTray/bin/fd/ClaudeUsageTray.exe').Length/1MB, 1)) MB"
           Write-Host "SHA256: $hash"
 
-      - name: Copy executables to root
+      - name: Copy executable to root
         shell: powershell
         run: |
           Copy-Item "ClaudeUsageTray/bin/fd/ClaudeUsageTray.exe" "ClaudeUsageTray.exe"
-          Copy-Item "ClaudeUsageTray.Updater/bin/updater/ClaudeUsageTray-Updater.exe" "ClaudeUsageTray-Updater.exe"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -59,7 +51,6 @@ jobs:
           name: fd-release
           path: |
             ClaudeUsageTray.exe
-            ClaudeUsageTray-Updater.exe
             SHA256.txt
 
   release:
@@ -96,5 +87,4 @@ jobs:
           body: ${{ steps.changelog.outputs.NOTES }}
           files: |
             artifacts/ClaudeUsageTray.exe
-            artifacts/ClaudeUsageTray-Updater.exe
             artifacts/SHA256.txt

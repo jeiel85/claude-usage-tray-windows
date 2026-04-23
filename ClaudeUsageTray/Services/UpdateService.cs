@@ -72,9 +72,9 @@ public class UpdateService
     }
 
     /// <summary>
-    /// Launches the Updater with download URL and exits.
-    /// The Updater will: download exe → verify SHA256 → wait for process → copy → restart.
-    /// Uses PowerShell script to avoid SmartScreen warnings.
+    /// Launches a pure PowerShell script to handle the update process and exits.
+    /// The script will: download -> verify SHA256 -> wait for exit -> replace -> restart.
+    /// This removes the need for a separate Updater.exe.
     /// </summary>
     public void ApplyUpdateAsync(string downloadUrl, string sha256Url = "")
     {
@@ -83,33 +83,51 @@ public class UpdateService
             ?? Path.Combine(AppContext.BaseDirectory, "ClaudeUsageTray.exe");
         var currentDir = Path.GetDirectoryName(currentExe) ?? ".";
 
-        // Find Updater.exe (bundled with this app in the same directory)
-        var updaterPath = Path.Combine(currentDir, "ClaudeUsageTray-Updater.exe");
-        if (!File.Exists(updaterPath))
-        {
-            // Fallback: look in app base directory
-            updaterPath = Path.Combine(AppContext.BaseDirectory, "ClaudeUsageTray-Updater.exe");
-        }
-
-        if (!File.Exists(updaterPath))
-        {
-            // If updater is still missing, we can't auto-update. 
-            // Open release page as fallback.
-            Process.Start(new ProcessStartInfo(ReleasePage) { UseShellExecute = true });
-            return;
-        }
-
-        // Escape paths for PowerShell (escapes single quotes for PS string)
+        // Escape paths for PowerShell (escapes single quotes)
         string Esc(string? s) => (s ?? "").Replace("'", "''");
 
-        // Create PowerShell script to launch Updater
         var ps1Path = Path.Combine(Path.GetTempPath(), $"claude_update_{Guid.NewGuid():N}.ps1");
-        
-        // Use an array of arguments for reliability
+        var tempExe = Path.Combine(Path.GetTempPath(), $"ClaudeUsageTray_new_{Guid.NewGuid():N}.exe");
+
+        // The pure PowerShell update script
         var psCommand = $@"
-$args_arr = @('{Esc(downloadUrl)}', '{Esc(sha256Url)}', '{Esc(currentExe)}', '{Esc(currentDir)}')
-Start-Process -FilePath '{Esc(updaterPath)}' -ArgumentList $args_arr -WindowStyle Hidden
-Remove-Item -Path '{ps1Path}' -Force -ErrorAction SilentlyContinue
+$ErrorActionPreference = 'Stop'
+$tempExe = '{Esc(tempExe)}'
+$targetExe = '{Esc(currentExe)}'
+$downloadUrl = '{Esc(downloadUrl)}'
+$sha256Url = '{Esc(sha256Url)}'
+
+try {{
+    # 1. Download new executable
+    Invoke-WebRequest -Uri $downloadUrl -OutFile $tempExe -UseBasicParsing
+
+    # 2. Verify SHA256 if provided
+    if ($sha256Url) {{
+        $expectedHash = (Invoke-WebRequest -Uri $sha256Url -UseBasicParsing).Content.Split(' ')[0].Trim().ToLower()
+        $actualHash = (Get-FileHash $tempExe -Algorithm SHA256).Hash.ToLower()
+        if ($actualHash -ne $expectedHash) {{
+            throw 'SHA256 verification failed'
+        }}
+    }}
+
+    # 3. Wait for the main process to exit (max 30s)
+    $timeout = 30
+    while ((Get-Process -Name 'ClaudeUsageTray' -ErrorAction SilentlyContinue) -and ($timeout -gt 0)) {{
+        Start-Sleep -Seconds 1
+        $timeout--
+    }}
+
+    # 4. Replace and Restart
+    Move-Item -Path $tempExe -Destination $targetExe -Force
+    Start-Process -FilePath $targetExe
+}}
+catch {{
+    # Log error or notify user if needed (hidden for now)
+    $_.Exception.Message | Out-File -FilePath (Join-Path $env:TEMP 'claude_update_error.log')
+}}
+finally {{
+    Remove-Item -Path '{Esc(ps1Path)}' -Force -ErrorAction SilentlyContinue
+}}
 ";
 
         try
@@ -125,14 +143,11 @@ Remove-Item -Path '{ps1Path}' -Force -ErrorAction SilentlyContinue
         }
         catch
         {
-            // Fallback: direct launch if PowerShell fails
-            Process.Start(new ProcessStartInfo(updaterPath, $"\"{downloadUrl}\" \"{sha256Url}\" \"{currentExe}\" \"{currentDir}\"")
-            {
-                UseShellExecute = true
-            });
+            // Fallback: Just open the release page if PowerShell fails
+            Process.Start(new ProcessStartInfo(ReleasePage) { UseShellExecute = true });
         }
 
-        // Exit this process so Updater can proceed
+        // Exit this process so the script can replace the file
         System.Windows.Application.Current.Dispatcher.Invoke(() =>
             System.Windows.Application.Current.Shutdown());
     }
