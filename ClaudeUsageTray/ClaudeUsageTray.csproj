@@ -12,7 +12,6 @@
     <ApplicationIcon>icon.ico</ApplicationIcon>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>false</SelfContained>
-    <PublishReadyToRun>true</PublishReadyToRun>
     <Optimize>true</Optimize>
   </PropertyGroup>
 

@@ -80,7 +80,8 @@ jobs:
         shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          NOTES=$(awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
+          # 대괄호가 있거나 없는 버전을 모두 찾도록 패턴 수정
+          NOTES=$(awk "/^## \[?$VERSION\]?/{found=1; next} found && /^## \[?/{exit} found{print}" CHANGELOG.md)
           echo "NOTES<<EOF" >> $GITHUB_OUTPUT
           echo "$NOTES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
