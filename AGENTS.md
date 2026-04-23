@@ -40,9 +40,9 @@ git fetch origin && git pull origin master && git status
 ## 🔄 레슨 런 (Lessons Learned — 반복 실수 방지)
 
 ### 빌드 및 배포
+- **WPF 트리밍 제한**: WPF/WinForms 앱에서 `PublishTrimmed=true` 옵션은 리소스 로딩 오류 및 빌드 실패(`NETSDK1175`, `NETSDK1168`)를 유발하므로 사용하지 않는다. (시작 속도 개선을 위해 `ReadyToRun`만 사용 권장)
+- **릴리즈 태그 주의**: 태그 생성(`git tag v*`) 전 반드시 모든 수정 사항이 커밋 및 푸시되었는지 확인한다. 태그가 잘못된 커밋에 붙으면 GitHub Actions 빌드 실패의 원인이 된다.
 - **CI 환경 격리**: sc 빌드와 fd 빌드는 GitHub Actions에서 별도의 job으로 실행해야 간섭이 없다.
-- **TFM 고정**: `net9.0-windows` 하향 시 용량 이점이 있으나, WinRT 기능 필요 시 타겟 버전을 명시해야 한다.
-- **PublishSingleFile**: fd 빌드 시에도 `PublishSingleFile=true`가 있어야 단일 exe로 배포된다.
 
 ### 자동 업데이트
 - **PowerShell 전환**: 배치 스크립트보다 PowerShell이 프로세스 종료/교체 안정성이 높다.
