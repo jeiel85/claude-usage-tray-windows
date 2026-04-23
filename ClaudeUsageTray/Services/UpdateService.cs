@@ -149,73 +149,77 @@ public class UpdateService
         var ps1Path = Path.Combine(Path.GetTempPath(), $"claude_swap_{Guid.NewGuid():N}.ps1");
         var logPath = Path.Combine(Path.GetTempPath(), "claude_update_debug.log");
 
-        // Robust PowerShell script
-        var psCommand = $@"
+        // Robust PowerShell script (using regular verbatim string to avoid C# interpolation conflicts)
+        var psCommand = @"
 $ErrorActionPreference = 'Stop'
-$log = '{Esc(logPath)}'
+$log = '{LOG_PATH}'
 ""Update started at $(Get-Date)"" | Out-File -LiteralPath $log
 
-$oldExe = '{Esc(currentExe)}'
-$newExe = '{Esc(preparedExePath)}'
+$oldExe = '{OLD_EXE}'
+$newExe = '{NEW_EXE}'
 
-function Log($msg) {{
+function Log($msg) {
     ""$(Get-Date -Format 'HH:mm:ss') - $msg"" | Out-File -LiteralPath $log -Append
-}}
+}
 
-try {{
+try {
     # 1. Wait for process exit (Graceful)
     Log ""Waiting for process to exit...""
     $timeout = 20
-    while ($timeout -gt 0) {{
+    while ($timeout -gt 0) {
         $p = Get-Process -Name 'ClaudeUsageTray' -ErrorAction SilentlyContinue
-        if (-not $p) {{ break }}
+        if (-not $p) { break }
         Start-Sleep -Seconds 1
         $timeout--
-    }}
+    }
 
     # 2. Force kill if still running
     $p = Get-Process -Name 'ClaudeUsageTray' -ErrorAction SilentlyContinue
-    if ($p) {{
+    if ($p) {
         Log ""Process still running. Force killing...""
         Stop-Process -Name 'ClaudeUsageTray' -Force -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 2
-    }}
+    }
 
     # 3. Retry loop for Move-Item (Handling lingering locks)
     Log ""Replacing executable...""
     $retry = 5
     $success = $false
-    while ($retry -gt 0) {{
-        try {{
-            if (Test-Path -LiteralPath $oldExe) {{
+    while ($retry -gt 0) {
+        try {
+            if (Test-Path -LiteralPath $oldExe) {
                 Remove-Item -LiteralPath $oldExe -Force -ErrorAction Stop
-            }}
+            }
             Move-Item -LiteralPath $newExe -Destination $oldExe -Force -ErrorAction Stop
             $success = $true
             Log ""Move successful.""
             break
-        } catch {{
+        } catch {
             Log ""Move failed: $($_.Exception.Message). Retrying ($retry)...""
             $retry--
             Start-Sleep -Seconds 2
-        }}
-    }}
+        }
+    }
 
-    if (-not $success) {{ throw ""Failed to replace executable after retries."" }}
+    if (-not $success) { throw ""Failed to replace executable after retries."" }
 
     # 4. Restart
     Log ""Starting new version...""
     Start-Process -FilePath $oldExe
     Log ""Update complete.""
-}}
-catch {{
+}
+catch {
     Log ""CRITICAL ERROR: $($_.Exception.Message)""
-}}
-finally {{
+}
+finally {
     # Self cleanup
-    Remove-Item -LiteralPath '{Esc(ps1Path)}' -Force -ErrorAction SilentlyContinue
-}}
-";
+    Remove-Item -LiteralPath '{PS1_PATH}' -Force -ErrorAction SilentlyContinue
+}
+"
+        .Replace("{LOG_PATH}", Esc(logPath))
+        .Replace("{OLD_EXE}", Esc(currentExe))
+        .Replace("{NEW_EXE}", Esc(preparedExePath))
+        .Replace("{PS1_PATH}", Esc(ps1Path));
 
         try
         {
@@ -252,5 +256,4 @@ finally {{
             ApplyPreparedUpdate(path);
         });
     }
-}
 }
