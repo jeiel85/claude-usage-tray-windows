@@ -35,7 +35,35 @@ public partial class UpdateDialog : Window
     {
         // "지금 업데이트" 클릭 시 event 발생 → ViewModel이 Updater 실행
         OnUpdateRequested?.Invoke();
-        Close();
+        // UI 전환: 버튼 숨기고 진행바 표시
+        StartProgress();
+    }
+
+    public void StartProgress()
+    {
+        ButtonPanel.Visibility = Visibility.Collapsed;
+        ProgressPanel.Visibility = Visibility.Visible;
+        ProgressStatusText.Text = Loc.CheckingUpdate;
+        DownloadProgressBar.Value = 0;
+    }
+
+    public void UpdateProgress(int percent, string status)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            DownloadProgressBar.Value = percent;
+            ProgressStatusText.Text = status;
+        });
+    }
+
+    public void ShowError(string message)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            ProgressStatusText.Text = "Error: " + message;
+            ProgressStatusText.Foreground = System.Windows.Media.Brushes.Red;
+            // Allow closing or retrying if needed, but for now just show error
+        });
     }
 
     private void SkipBtn_Click(object sender, RoutedEventArgs e)

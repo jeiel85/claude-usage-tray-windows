@@ -327,7 +327,23 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 $"v{versionStr}",
                 info.releaseNotes,
                 onSkip: () => SkipVersion(versionStr));
-            dialog.OnUpdateRequested += () => ApplyUpdate();
+            
+            // Subscribe to update requested from dialog
+            dialog.OnUpdateRequested += () => 
+            {
+                _ = Task.Run(async () => {
+                    try {
+                        var tempPath = await _updater.DownloadAndPrepareUpdateAsync(
+                            _updateDownloadUrl, _updateSha256Url, 
+                            (pc, status) => dialog.UpdateProgress(pc, status));
+                        
+                        _updater.ApplyPreparedUpdate(tempPath);
+                    }
+                    catch (Exception ex) {
+                        dialog.ShowError(ex.Message);
+                    }
+                });
+            };
             dialog.Show();
         });
     }
@@ -361,7 +377,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public void ApplyUpdate()
     {
         if (string.IsNullOrEmpty(_updateDownloadUrl)) return;
-        _updater.ApplyUpdateAsync(_updateDownloadUrl, _updateSha256Url);
+        
+        // Manual trigger from Banner (main UI)
+        // If they click the banner, we show the dialog first so they see progress
+        _ = ManualCheckForUpdateAsync();
     }
 
     public async Task RefreshAsync()

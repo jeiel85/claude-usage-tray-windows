@@ -93,6 +93,39 @@
                     </Border>
                 </StackPanel>
 
+                <!-- Progress Panel (Hidden by default) -->
+                <StackPanel x:Name="ProgressPanel" Margin="16,14,16,16" Visibility="Collapsed">
+                    <TextBlock x:Name="ProgressStatusText" Foreground="#F1F5F9"
+                               FontSize="12" FontWeight="Medium" Margin="0,0,0,10"
+                               HorizontalAlignment="Center"/>
+                    <Grid Height="12">
+                        <Border Background="#1A1D2E" CornerRadius="6"/>
+                        <ProgressBar x:Name="DownloadProgressBar"
+                                     Minimum="0" Maximum="100" Value="0"
+                                     Foreground="#8B5CF6" Background="Transparent"
+                                     BorderThickness="0">
+                            <ProgressBar.Template>
+                                <ControlTemplate TargetType="ProgressBar">
+                                    <Grid x:Name="TemplateRoot">
+                                        <Border Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                CornerRadius="6"/>
+                                        <Rectangle x:Name="PART_Indicator" HorizontalAlignment="Left">
+                                            <Rectangle.Fill>
+                                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                    <GradientStop Color="#8B5CF6" Offset="0"/>
+                                                    <GradientStop Color="#6366F1" Offset="1"/>
+                                                </LinearGradientBrush>
+                                            </Rectangle.Fill>
+                                        </Rectangle>
+                                    </Grid>
+                                </ControlTemplate>
+                            </ProgressBar.Template>
+                        </ProgressBar>
+                    </Grid>
+                </StackPanel>
+
                 <!-- Buttons -->
                 <StackPanel x:Name="ButtonPanel" Margin="16,14,16,16">
                     <!-- Update button -->
