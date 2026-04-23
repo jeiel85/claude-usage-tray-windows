@@ -134,7 +134,8 @@ public class UpdateService
     }
 
     /// <summary>
-    /// Launches a minimal PowerShell script to swap the current EXE with the prepared one and restarts.
+    /// Launches a highly robust PowerShell script to swap the current EXE with the prepared one.
+    /// Handles process termination, force-kill, path encoding, and retries.
     /// </summary>
     public void ApplyPreparedUpdate(string preparedExePath)
     {
@@ -142,26 +143,85 @@ public class UpdateService
             ?? Environment.ProcessPath
             ?? Path.Combine(AppContext.BaseDirectory, "ClaudeUsageTray.exe");
 
+        // Escape single quotes for PowerShell string literal
         string Esc(string? s) => (s ?? "").Replace("'", "''");
 
         var ps1Path = Path.Combine(Path.GetTempPath(), $"claude_swap_{Guid.NewGuid():N}.ps1");
-        
-        // Minimal script: wait -> move -> start -> cleanup
+        var logPath = Path.Combine(Path.GetTempPath(), "claude_update_debug.log");
+
+        // Robust PowerShell script
         var psCommand = $@"
-$ErrorActionPreference = 'SilentlyContinue'
-$timeout = 30
-while ((Get-Process -Name 'ClaudeUsageTray' -ErrorAction SilentlyContinue) -and ($timeout -gt 0)) {{
-    Start-Sleep -Seconds 1
-    $timeout--
+$ErrorActionPreference = 'Stop'
+$log = '{Esc(logPath)}'
+""Update started at $(Get-Date)"" | Out-File -LiteralPath $log
+
+$oldExe = '{Esc(currentExe)}'
+$newExe = '{Esc(preparedExePath)}'
+
+function Log($msg) {{
+    ""$(Get-Date -Format 'HH:mm:ss') - $msg"" | Out-File -LiteralPath $log -Append
 }}
-Move-Item -Path '{Esc(preparedExePath)}' -Destination '{Esc(currentExe)}' -Force
-Start-Process -FilePath '{Esc(currentExe)}'
-Remove-Item -Path '{Esc(ps1Path)}' -Force
+
+try {{
+    # 1. Wait for process exit (Graceful)
+    Log ""Waiting for process to exit...""
+    $timeout = 20
+    while ($timeout -gt 0) {{
+        $p = Get-Process -Name 'ClaudeUsageTray' -ErrorAction SilentlyContinue
+        if (-not $p) {{ break }}
+        Start-Sleep -Seconds 1
+        $timeout--
+    }}
+
+    # 2. Force kill if still running
+    $p = Get-Process -Name 'ClaudeUsageTray' -ErrorAction SilentlyContinue
+    if ($p) {{
+        Log ""Process still running. Force killing...""
+        Stop-Process -Name 'ClaudeUsageTray' -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+    }}
+
+    # 3. Retry loop for Move-Item (Handling lingering locks)
+    Log ""Replacing executable...""
+    $retry = 5
+    $success = $false
+    while ($retry -gt 0) {{
+        try {{
+            if (Test-Path -LiteralPath $oldExe) {{
+                Remove-Item -LiteralPath $oldExe -Force -ErrorAction Stop
+            }}
+            Move-Item -LiteralPath $newExe -Destination $oldExe -Force -ErrorAction Stop
+            $success = $true
+            Log ""Move successful.""
+            break
+        } catch {{
+            Log ""Move failed: $($_.Exception.Message). Retrying ($retry)...""
+            $retry--
+            Start-Sleep -Seconds 2
+        }}
+    }}
+
+    if (-not $success) {{ throw ""Failed to replace executable after retries."" }}
+
+    # 4. Restart
+    Log ""Starting new version...""
+    Start-Process -FilePath $oldExe
+    Log ""Update complete.""
+}}
+catch {{
+    Log ""CRITICAL ERROR: $($_.Exception.Message)""
+}}
+finally {{
+    # Self cleanup
+    Remove-Item -LiteralPath '{Esc(ps1Path)}' -Force -ErrorAction SilentlyContinue
+}}
 ";
 
         try
         {
-            File.WriteAllText(ps1Path, psCommand, System.Text.Encoding.UTF8);
+            // IMPORTANT: Use UTF8 with BOM so PowerShell 5.1 correctly reads Korean paths
+            var encoding = new System.Text.UTF8Encoding(true);
+            File.WriteAllText(ps1Path, psCommand, encoding);
 
             Process.Start(new ProcessStartInfo("powershell.exe")
             {
@@ -170,11 +230,13 @@ Remove-Item -Path '{Esc(ps1Path)}' -Force
                 CreateNoWindow = true
             });
         }
-        catch
+        catch (Exception ex)
         {
-            // Fallback: direct move might fail if still locked, but try anyway
+            // If even PS fails to start, we're in trouble, but log it
+            File.AppendAllText(logPath, $"Failed to launch PowerShell: {ex.Message}");
         }
 
+        // Final shutdown
         System.Windows.Application.Current.Dispatcher.Invoke(() =>
             System.Windows.Application.Current.Shutdown());
     }
