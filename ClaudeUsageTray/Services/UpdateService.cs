@@ -14,6 +14,7 @@ public class UpdateService
 
     private static readonly HttpClient Http = new();
 
+    // Verification logic
     public record UpdateInfo(Version version, string downloadUrl, string sha256Url, string releaseNotes);
 
     static UpdateService()
