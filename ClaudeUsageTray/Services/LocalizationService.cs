@@ -205,7 +205,7 @@ public static class Loc
 
     public static string NotificationBody(int percent, string window, string resetLabel) => Lang switch
     {
-        "ko" => $"{window}가 {percent}%에 도달했습니다{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}",
+        "ko" => $"{window}{(window.EndsWith("량") ? "이" : "가")} {percent}%에 도달했습니다{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}",
         "zh" => $"{window} 已达到 {percent}%{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}",
         "ja" => $"{window} が {percent}% に達しました{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}",
         _ => $"{window} reached {percent}%{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}"
