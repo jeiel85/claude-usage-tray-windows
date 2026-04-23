@@ -22,23 +22,45 @@ Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니�
 |------|------|------|
 | `ClaudeUsageTray.exe` | ~170 KB | Framework-dependent — [.NET 9.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0/runtime) 필요 |
 | `ClaudeUsageTray-Updater.exe` | ~170 KB | 자동 업데이트 도구 (메인 앱과 같은 폴더에 위치) |
-| **현재 버전** | `v1.15.35` | Latest |
+| **현재 버전** | `v1.15.36` | Latest |
 
 **실행 방법:**
 1. 위 링크에서 `ClaudeUsageTray.exe` 다운로드
 2. 실행 (Windows Defender 경고 → **추가 정보 → 실행**)
 3. 시스템 트레이 아이콘 클릭으로 사용량 확인
 
-> **v1.15.16 이하에서 자동 업데이트가 안 되는 경우**  
-> v1.15.17부터 배포 파일명이 `ClaudeUsageTray-sc.exe` → `ClaudeUsageTray.exe`로 바뀌었습니다.  
-> 구버전의 자동 업데이트는 `-sc.exe` 파일을 찾으므로 최신 릴리즈를 감지하지 못할 수 있습니다.  
-> **이 경우 위 링크에서 직접 다운로드**하여 기존 파일을 덮어쓰세요.
-
 ## 요구 사항
 
 - Windows 10 이상
 - [Claude Code](https://claude.ai/code) 설치 및 로그인 상태
 - [**.NET 9.0 Desktop Runtime**](https://dotnet.microsoft.com/download/dotnet/9.0/runtime) — 미설치 시 앱이 실행되지 않음
+
+---
+
+## 📌 현재 이슈 및 진행 현황
+
+### v1.15.36 (진행 중)
+| # | 제목 | 분류 | 상태 |
+|---|------|------|------|
+| [#44] | 업데이터 용량 최적화 (20MB -> 5MB 이하 목표) | 개선 | 완료 (Trimming 적용) |
+| [#45] | 메인 앱 실행 속도 최적화 (Startup delay 개선) | 개선 | 완료 (RTR 적용) |
+| — | 문서 파편화 정리 및 통합 (README, AGENTS, CHANGELOG) | 개선 | 완료 |
+
+### 오픈 이슈 (Open)
+| # | 제목 | 분류 | 비고 |
+|---|------|------|------|
+| [#5] | 여러 계정 지원 — 재로그인 후 이전 계정 데이터 표시됨 | 버그 | 조사 필요 |
+| [#41] | 설정 창 단축키 (ESC, Alt+F4, Ctrl+W) 지원 | 개선 | |
+| [#38] | 기본 사용량 소진 후 추가 사용량을 트레이에 표시 | 개선 | |
+| [#37] | 추가 사용량에 대한 알림 | 개선 | |
+| [#10] | Discord / Slack 웹훅 알림 지원 | 기능 | 로드맵 |
+
+### 🗺 장기 로드맵 (Roadmap)
+- [#43] 빌드 배포 시 설치 파일(.msi/.exe installer)로 배포 방안 검토
+- [#42] Microsoft Store 출시 목표
+- [#13] 히스토리 보관 기간 확장 및 30일 차트
+
+---
 
 ## 주요 기능
 
@@ -49,7 +71,7 @@ Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니�
 - **오늘의 토큰 통계** — 입력 / 출력 / 캐시 읽기 / 캐시 쓰기 + USD 비용 참고값
 - **7일 사용 추이 그래프** — 일별 토큰 사용 히스토리 바 차트
 - **오늘 시간대별 차트** — 0~23시 시간대별 사용량 분포
-- **다음 갱신 카운트다운** — 다음 자동 갱신까지 남은 시간 실시간 표시
+- **다음 갱신 카운트다운** — 다음 자동 갱신까지 남은 시간을 1초 단위로 실시간 표시
 - **스마트 에러 처리** — 조회 실패 시 마지막 성공 데이터 유지, 트레이 아이콘 `?` 표시
 - **추가 사용량 모니터링** — 5시간 윈도우 100% 소진 시 추가 사용량으로 자동 전환
 
@@ -84,8 +106,6 @@ Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니�
 ### 바로 실행 (권장)
 
 [Releases 페이지](https://github.com/jeiel85/claude-usage-tray-windows/releases)에서 최신 `ClaudeUsageTray.exe` 다운로드 후 실행하세요.
-
-> Windows Defender 경고가 뜰 수 있어요 → **추가 정보 → 실행** 클릭
 
 ### 소스에서 빌드
 
@@ -122,8 +142,6 @@ dotnet publish ClaudeUsageTray/ClaudeUsageTray.csproj -c Release -p:PublishDir=b
 ## 자동 업데이트
 
 앱 시작 시 GitHub Releases를 확인하여 새 버전이 있으면 팝업 상단에 배너가 표시됩니다. 배너를 클릭하면 백그라운드에서 다운로드 후 자동으로 교체·재시작됩니다.
-
-> **v1.15.16 이하 사용자 주의** — 자동 업데이트 감지가 되지 않을 수 있습니다. [Releases 페이지](https://github.com/jeiel85/claude-usage-tray-windows/releases/latest)에서 직접 다운로드하세요.
 
 ## 작동 원리
 
@@ -165,29 +183,11 @@ Claude Code가 저장한 OAuth 토큰을 재사용합니다:
 ```
 ClaudeUsageTray/
 ├── Converters/
-│   ├── InverseBooleanToVisibilityConverter.cs  #Inverse bool → Visibility 컨버터
-│   └── StringToVisibilityConverter.cs      # 빈 문자열 → Collapsed 컨버터
 ├── Models/
-│   ├── Credentials.cs          # OAuth 인증 정보 모델
-│   ├── UsageData.cs            # API 응답 + 세션 통계 모델
-│   └── NotificationSettings.cs # 알림 설정 모델
 ├── Services/
-│   ├── AppConstants.cs         # 매직 넘버 중앙化管理 (폴링 간격, 타임아웃 등)
-│   ├── CredentialService.cs    # ~/.claude/.credentials.json 읽기 + 자동 갱신
-│   ├── UsageApiService.cs      # Anthropic 사용량 API 호출
-│   ├── SessionMonitor.cs       # 로컬 .jsonl 세션 파일 파싱 (FileSystemWatcher 최적화)
-│   ├── NotificationService.cs  # Windows 알림 + ntfy 푸시
-│   ├── SettingsService.cs      # 설정 저장/불러오기
-│   ├── UpdateService.cs        # GitHub 자동 업데이트 + SHA256 검증
-│   ├── HistoryService.cs       # 7일 사용 히스토리 저장 (90일 보관)
-│   └── LocalizationService.cs  # 다국어 문자열
 ├── ViewModels/
-│   └── MainViewModel.cs        # 데이터 바인딩 + 비즈니스 로직
 ├── Views/
-│   ├── UsagePopup.xaml         # 메인 사용량 팝업 (차트 포함)
-│   ├── SettingsWindow.xaml     # 알림 설정 모달
-│   └── UpdateDialog.xaml       # 업데이트 다이얼로그 (체인지로그 표시)
-└── App.xaml.cs                 # 트레이 아이콘 + 앱 수명 주기
+└── App.xaml.cs
 ```
 
 ## macOS 원본과의 차이점
@@ -212,7 +212,7 @@ ClaudeUsageTray/
 
 ## 기여하기
 
-PR은 언제든 환영합니다!
+PR은 언제든 환영합니다! 개발자 지침은 [AGENTS.md](./AGENTS.md)를 참조하세요.
 
 ## 라이선스
 

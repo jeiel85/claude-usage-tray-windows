@@ -11,7 +11,7 @@
 ### 개선
 - **업데이터 용량 최적화** — TargetFramework 하향 조정(`net9.0-windows`) 및 트리밍(Trimming)을 적용하여 용량 약 75% 삭감 (20MB → ~5MB 목표)
 - **메인 앱 시작 속도 개선** — ReadyToRun(RTR) 옵션 활성화로 초기 실행 시 JIT 지연 감소
-- **개발 지침 업데이트** — 모든 개발 요청을 GitHub 이슈(또는 `docs/ISSUE_LOG.md`) 등록 후 처리하도록 의무화
+- **개발 지침 업데이트** — 모든 개발 요청을 GitHub 이슈(또는 `AGENTS.md`) 등록 후 처리하도록 의무화
 <!-- /ko -->
 
 <!-- en -->
