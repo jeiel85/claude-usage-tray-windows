@@ -5,6 +5,19 @@
 
 ---
 
+## [1.15.39] - 2026-04-23
+
+<!-- ko -->
+### 개선
+- **자동 업데이트 프로세스 검증용 릴리즈** — 마이너 버전 업데이트를 통한 기능 정상 동작 확인
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Auto-Update Validation Release** — Minor version bump to verify the update notification and download process.
+
+---
+
 ## [1.15.38] - 2026-04-23
 
 <!-- ko -->
