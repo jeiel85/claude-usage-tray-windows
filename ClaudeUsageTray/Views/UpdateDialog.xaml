@@ -1,0 +1,145 @@
+<Window x:Class="ClaudeUsageTray.Views.UpdateDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="업데이트 사용 가능"
+        Width="450" Height="400"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        WindowStartupLocation="CenterScreen"
+        Topmost="True"
+        ShowInTaskbar="True">
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="BgBrush" Color="#0F1117"/>
+        <SolidColorBrush x:Key="CardBrush" Color="#1A1D2E"/>
+        <SolidColorBrush x:Key="BorderBrush" Color="#2D2F45"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="#8B5CF6"/>
+        <SolidColorBrush x:Key="TextPrimary" Color="#F1F5F9"/>
+        <SolidColorBrush x:Key="TextSecondary" Color="#8B92B3"/>
+        <SolidColorBrush x:Key="SuccessBrush" Color="#10B981"/>
+    </Window.Resources>
+
+    <Border Margin="15">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="15" ShadowDepth="0" Opacity="0.5" Color="Black"/>
+        </Border.Effect>
+        <Border Background="{StaticResource BgBrush}" 
+                CornerRadius="16" 
+                BorderBrush="{StaticResource BorderBrush}" 
+                BorderThickness="1">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <Border Grid.Row="0" Background="#1A1D2E" CornerRadius="16,16,0,0" Padding="20,15">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🚀" FontSize="18" Margin="0,0,10,0"/>
+                            <TextBlock x:Name="TitleText" Text="새로운 버전이 준비되었습니다" 
+                                       Foreground="{StaticResource TextPrimary}" 
+                                       FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <Button HorizontalAlignment="Right" Background="Transparent" BorderThickness="0" 
+                                Cursor="Hand" Click="Close_Click">
+                            <TextBlock Text="✕" Foreground="{StaticResource TextSecondary}" FontSize="14"/>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- Release Notes -->
+                <ScrollViewer Grid.Row="1" Margin="20,15" VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock x:Name="VersionLabel" Text="v1.0.0" Foreground="{StaticResource AccentBrush}" 
+                                   FontWeight="Bold" Margin="0,0,0,10"/>
+                        <TextBlock x:Name="NotesText" Foreground="{StaticResource TextPrimary}" 
+                                   FontSize="13" TextWrapping="Wrap" LineHeight="20"/>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Footer / Action Area -->
+                <Border Grid.Row="2" Background="#141622" CornerRadius="0,0,16,16" Padding="20,15">
+                    <Grid>
+                        <!-- Normal State -->
+                        <Grid x:Name="ActionPanel">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <Button Grid.Column="1" Content="이번 버전 건너뛰기" Margin="0,0,10,0"
+                                    Foreground="{StaticResource TextSecondary}" Cursor="Hand" Click="Skip_Click">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <TextBlock Text="{TemplateBinding Content}" TextDecorations="Underline" VerticalAlignment="Center"/>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+
+                            <Button Grid.Column="2" Content="지금 업데이트" Padding="20,8" 
+                                    Background="{StaticResource AccentBrush}" Foreground="White" 
+                                    FontWeight="Bold" Cursor="Hand" Click="Update_Click">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="#A78BFA"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </Grid>
+
+                        <!-- Progress State (Integrated) -->
+                        <Grid x:Name="ProgressPanel" Visibility="Collapsed">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,8">
+                                    <TextBlock x:Name="StatusText" Text="다운로드 중..." Foreground="{StaticResource TextSecondary}" FontSize="12"/>
+                                    <TextBlock x:Name="PercentText" Text="0%" Foreground="{StaticResource AccentBrush}" 
+                                               FontSize="12" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                </Grid>
+                                <ProgressBar x:Name="ProgressBar" Height="6" Maximum="100" Background="#2D2F45" BorderThickness="0">
+                                    <ProgressBar.Style>
+                                        <Style TargetType="ProgressBar">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ProgressBar">
+                                                        <Grid>
+                                                            <Border Background="{TemplateBinding Background}" CornerRadius="3"/>
+                                                            <Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="3" Background="{StaticResource AccentBrush}"/>
+                                                        </Grid>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ProgressBar.Style>
+                                </ProgressBar>
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+    </Border>
+</Window>

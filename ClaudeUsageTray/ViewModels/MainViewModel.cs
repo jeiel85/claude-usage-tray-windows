@@ -298,6 +298,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
             _updateSha256Url = info.sha256Url;
             UpdateLabel = Loc.UpdateAvailable($"v{versionStr}");
             UpdateAvailable = true;
+
+            ShowUpdateDialog(versionStr, info.releaseNotes);
         });
     }
 
@@ -321,46 +323,57 @@ public partial class MainViewModel : ObservableObject, IDisposable
         {
             UpdateLabel = Loc.UpdateAvailable($"v{versionStr}");
             UpdateAvailable = true;
+            ShowUpdateDialog(versionStr, info.releaseNotes);
         });
     }
 
-    [RelayCommand]
-    public async Task StartUpdateAsync()
+    private void ShowUpdateDialog(string version, string notes)
     {
-        if (IsUpdating || string.IsNullOrEmpty(_updateDownloadUrl)) return;
+        var dialog = new Views.UpdateDialog(
+            $"v{version}",
+            notes,
+            onSkip: () => SkipVersion(version));
 
-        IsUpdating = true;
-        UpdateStatusText = Loc.CheckingUpdate;
-        UpdateProgress = 0;
-
-        try
+        dialog.OnUpdateRequested += () =>
         {
-            var tempPath = await _updater.DownloadAndPrepareUpdateAsync(
-                _updateDownloadUrl, _updateSha256Url,
-                (pc, status) =>
-                {
-                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        UpdateProgress = pc;
-                        UpdateStatusText = status;
-                    });
-                });
-
-            UpdateStatusText = "Restarting...";
-            await Task.Delay(500);
-            _updater.ApplyPreparedUpdate(tempPath);
-        }
-        catch (Exception ex)
-        {
-            IsUpdating = false;
-            UpdateStatusText = "Error: " + ex.Message;
-            // Show error for a few seconds then revert
             _ = Task.Run(async () =>
             {
-                await Task.Delay(5000);
-                if (!IsUpdating) UpdateStatusText = "";
+                try
+                {
+                    IsUpdating = true;
+                    var tempPath = await _updater.DownloadAndPrepareUpdateAsync(
+                        _updateDownloadUrl, _updateSha256Url,
+                        (pc, status) =>
+                        {
+                            dialog.UpdateProgress(pc, status);
+                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                UpdateProgress = pc;
+                                UpdateStatusText = status;
+                            });
+                        });
+
+                    dialog.UpdateProgress(100, "Restarting...");
+                    await Task.Delay(500);
+                    _updater.ApplyPreparedUpdate(tempPath);
+                }
+                catch (Exception ex)
+                {
+                    IsUpdating = false;
+                    dialog.ShowError(ex.Message);
+                }
             });
-        }
+        };
+        dialog.Show();
+        dialog.Activate();
+    }
+
+    [RelayCommand]
+    public void StartUpdate()
+    {
+        // This is called from the banner. Since we want to show release notes, 
+        // we'll just re-trigger the check which will show the dialog.
+        _ = ManualCheckForUpdateAsync();
     }
 
     public void SkipVersion(string version)

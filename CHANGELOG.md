@@ -5,6 +5,20 @@
 
 ---
 
+## [1.15.44] - 2026-04-23
+
+<!-- ko -->
+### 개선
+- **업데이트 UX 최종 통합** — 릴리즈 노트 창(`UpdateDialog`) 내부에 진행바를 내장하여, 업데이트 시 불필요한 추가 창 생성을 제거
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Final Update UX Integration** — Integrated progress bar directly into the Release Notes window (`UpdateDialog`), removing unnecessary extra windows during the update process
+<!-- /en -->
+
+---
+
 ## [1.15.43] - 2026-04-23
 
 <!-- ko -->
