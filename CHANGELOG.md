@@ -5,6 +5,20 @@
 
 ---
 
+## [1.15.45] - 2026-04-23
+
+<!-- ko -->
+### 테스트
+- **업데이트 감지 로직 확인** — v1.15.43/44에서 새 버전을 정상적으로 감지하는지 최종 확인
+<!-- /ko -->
+
+<!-- en -->
+### Test
+- **Update Detection Verification** — Final check to ensure new versions are correctly detected from v1.15.43/44
+<!-- /en -->
+
+---
+
 ## [1.15.44] - 2026-04-23
 
 <!-- ko -->
