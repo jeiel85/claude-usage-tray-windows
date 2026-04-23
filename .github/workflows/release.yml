@@ -80,8 +80,11 @@ jobs:
         shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          # 대괄호가 있거나 없는 버전을 모두 찾도록 패턴 수정
-          NOTES=$(awk "/^## \[?$VERSION\]?/{found=1; next} found && /^## \[?/{exit} found{print}" CHANGELOG.md)
+          # [1.15.37] 형식의 헤더를 찾아 다음 헤더 전까지 추출
+          NOTES=$(sed -n "/^## \[$VERSION\]/,/^## \[/p" CHANGELOG.md | sed '1d;$d')
+          if [ -z "$NOTES" ]; then
+            NOTES="Release v$VERSION"
+          fi
           echo "NOTES<<EOF" >> $GITHUB_OUTPUT
           echo "$NOTES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT

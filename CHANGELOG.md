@@ -5,6 +5,20 @@
 
 ---
 
+## [1.15.37] - 2026-04-23
+
+<!-- ko -->
+### 개선
+- **업데이트 기능 테스트** — 자동 업데이트 프로세스 정상 작동 여부 확인을 위한 마이너 업데이트
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Update Functionality Test** — Minor update to verify the auto-update process
+<!-- /en -->
+
+---
+
 ## [1.15.36] - 2026-04-23
 
 <!-- ko -->
