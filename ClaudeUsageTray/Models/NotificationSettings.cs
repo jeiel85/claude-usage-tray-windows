@@ -9,6 +9,8 @@ public class NotificationSettings
 
     public bool NotifyOnRateLimit { get; set; } = true;
 
+    public bool NotifyOnQuotaReset { get; set; } = true;
+
     // ntfy.sh push notification
     public string NtfyTopic { get; set; } = "";
 

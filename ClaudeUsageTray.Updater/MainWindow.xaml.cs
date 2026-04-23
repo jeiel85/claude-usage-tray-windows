@@ -40,7 +40,7 @@ public partial class MainWindow : Window
         var args = Environment.GetCommandLineArgs();
         if (args.Length < 5)
         {
-            MessageBox.Show("Updater가 잘못된 인자로 실행되었습니다.", "오류",
+            MessageBox.Show("Updater가 잘못된 인자로 실행되었습니다. (인자 부족)", "오류",
                 MessageBoxButton.OK, MessageBoxImage.Error);
             Close();
             return;

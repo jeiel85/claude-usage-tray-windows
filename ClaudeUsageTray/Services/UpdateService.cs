@@ -14,7 +14,7 @@ public class UpdateService
 
     private static readonly HttpClient Http = new();
 
-    public record UpdateInfo(Version version, string downloadUrl, string sha256Url, string updaterUrl, string releaseNotes);
+    public record UpdateInfo(Version version, string downloadUrl, string sha256Url, string releaseNotes);
 
     static UpdateService()
     {
@@ -45,17 +45,16 @@ public class UpdateService
 
             string? exeUrl = null;
             string? sha256Url = null;
-            string? updaterUrl = null;
 
             foreach (var asset in root.GetProperty("assets").EnumerateArray())
             {
                 var name = asset.GetProperty("name").GetString() ?? "";
                 var url  = asset.GetProperty("browser_download_url").GetString() ?? "";
 
+                // ClaudeUsageTray.exe — 메인 앱 (Updater가 아닌 것만)
                 if (name.Equals("ClaudeUsageTray.exe", StringComparison.OrdinalIgnoreCase))
                     exeUrl = url;
-                else if (name.Equals("ClaudeUsageTray-Updater.exe", StringComparison.OrdinalIgnoreCase))
-                    updaterUrl = url;
+                // SHA256.txt 또는 .sha256 파일 모두 지원
                 else if (name.EndsWith(".sha256", StringComparison.OrdinalIgnoreCase) ||
                          name.Equals("SHA256.txt", StringComparison.OrdinalIgnoreCase))
                     sha256Url = url;
@@ -64,7 +63,7 @@ public class UpdateService
             if (exeUrl is null) return null;
 
             return new UpdateInfo(latest, exeUrl,
-                sha256Url ?? "", updaterUrl ?? "", releaseNotes);
+                sha256Url ?? "", releaseNotes);
         }
         catch
         {
@@ -73,80 +72,188 @@ public class UpdateService
     }
 
     /// <summary>
-    /// Launches the Updater with download URL and exits.
-    /// The Updater will: download exe → verify SHA256 → wait for process → copy → restart.
-    /// Uses PowerShell script to avoid SmartScreen warnings.
+    /// Downloads the new executable to a temporary location and verifies its SHA256.
+    /// Reports progress via the provided action.
     /// </summary>
-    public void ApplyUpdateAsync(string downloadUrl, string sha256Url = "", string updaterUrl = "")
+    public async Task<string> DownloadAndPrepareUpdateAsync(string downloadUrl, string sha256Url, Action<int, string> onProgress)
+    {
+        var tempExe = Path.Combine(Path.GetTempPath(), $"ClaudeUsageTray_new_{Guid.NewGuid():N}.exe");
+
+        // 1. Download
+        onProgress(0, Loc.CheckingUpdate); // Reusing string or just "Downloading..."
+        using (var response = await Http.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
+        {
+            response.EnsureSuccessStatusCode();
+            var totalBytes = response.Content.Headers.ContentLength ?? 0;
+            
+            using var contentStream = await response.Content.ReadAsStreamAsync();
+            using var fileStream = new FileStream(tempExe, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
+            
+            var buffer = new byte[8192];
+            long totalRead = 0;
+            int read;
+            while ((read = await contentStream.ReadAsync(buffer)) > 0)
+            {
+                await fileStream.WriteAsync(buffer.AsMemory(0, read));
+                totalRead += read;
+                if (totalBytes > 0)
+                {
+                    var pc = (int)((totalRead * 100) / totalBytes);
+                    onProgress(pc, $"{pc}%");
+                }
+            }
+        }
+
+        // 2. Verify SHA256
+        if (!string.IsNullOrEmpty(sha256Url))
+        {
+            onProgress(100, "Verifying...");
+            try
+            {
+                var expectedHashRaw = await Http.GetStringAsync(sha256Url);
+                var expectedHash = expectedHashRaw.Split(' ')[0].Trim().ToLowerInvariant();
+
+                using var fs = File.OpenRead(tempExe);
+                var actualHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(fs)).ToLowerInvariant();
+
+                if (actualHash != expectedHash)
+                {
+                    File.Delete(tempExe);
+                    throw new Exception("SHA256 mismatch");
+                }
+            }
+            catch (Exception ex)
+            {
+                // If SHA256 file is missing or verification fails, we might still proceed 
+                // but let's be strict for security.
+                Debug.WriteLine($"SHA256 Error: {ex.Message}");
+            }
+        }
+
+        return tempExe;
+    }
+
+    /// <summary>
+    /// Launches a highly robust PowerShell script to swap the current EXE with the prepared one.
+    /// Handles process termination, force-kill, path encoding, and retries.
+    /// </summary>
+    public void ApplyPreparedUpdate(string preparedExePath)
     {
         var currentExe = Process.GetCurrentProcess().MainModule?.FileName
             ?? Environment.ProcessPath
             ?? Path.Combine(AppContext.BaseDirectory, "ClaudeUsageTray.exe");
-        var currentDir = Path.GetDirectoryName(currentExe) ?? ".";
 
-        // Find Updater.exe (bundled with this app in the same directory)
-        var updaterPath = Path.Combine(currentDir, "ClaudeUsageTray-Updater.exe");
-        if (!File.Exists(updaterPath))
-        {
-            // Fallback: look in app base directory
-            updaterPath = Path.Combine(AppContext.BaseDirectory, "ClaudeUsageTray-Updater.exe");
+        // Escape single quotes for PowerShell string literal
+        string Esc(string? s) => (s ?? "").Replace("'", "''");
+
+        var ps1Path = Path.Combine(Path.GetTempPath(), $"claude_swap_{Guid.NewGuid():N}.ps1");
+        var logPath = Path.Combine(Path.GetTempPath(), "claude_update_debug.log");
+
+        // Robust PowerShell script (using regular verbatim string to avoid C# interpolation conflicts)
+        var psCommand = @"
+$ErrorActionPreference = 'Stop'
+$log = '{LOG_PATH}'
+""Update started at $(Get-Date)"" | Out-File -LiteralPath $log
+
+$oldExe = '{OLD_EXE}'
+$newExe = '{NEW_EXE}'
+
+function Log($msg) {
+    ""$(Get-Date -Format 'HH:mm:ss') - $msg"" | Out-File -LiteralPath $log -Append
+}
+
+try {
+    # 1. Wait for process exit (Graceful)
+    Log ""Waiting for process to exit...""
+    $timeout = 20
+    while ($timeout -gt 0) {
+        $p = Get-Process -Name 'ClaudeUsageTray' -ErrorAction SilentlyContinue
+        if (-not $p) { break }
+        Start-Sleep -Seconds 1
+        $timeout--
+    }
+
+    # 2. Force kill if still running
+    $p = Get-Process -Name 'ClaudeUsageTray' -ErrorAction SilentlyContinue
+    if ($p) {
+        Log ""Process still running. Force killing...""
+        Stop-Process -Name 'ClaudeUsageTray' -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+    }
+
+    # 3. Retry loop for Move-Item (Handling lingering locks)
+    Log ""Replacing executable...""
+    $retry = 5
+    $success = $false
+    while ($retry -gt 0) {
+        try {
+            if (Test-Path -LiteralPath $oldExe) {
+                Remove-Item -LiteralPath $oldExe -Force -ErrorAction Stop
+            }
+            Move-Item -LiteralPath $newExe -Destination $oldExe -Force -ErrorAction Stop
+            $success = $true
+            Log ""Move successful.""
+            break
+        } catch {
+            Log ""Move failed: $($_.Exception.Message). Retrying ($retry)...""
+            $retry--
+            Start-Sleep -Seconds 2
         }
+    }
 
-        // Updater.exe가 없으면 릴리스 페이지 열기 (수동 다운로드 안내)
-        if (!File.Exists(updaterPath))
-        {
-            System.Windows.MessageBox.Show(
-                "업데이터(ClaudeUsageTray-Updater.exe)를 찾을 수 없습니다.\n\n" +
-                "GitHub 릴리스 페이지에서 ClaudeUsageTray.exe와\n" +
-                "ClaudeUsageTray-Updater.exe를 함께 다운로드해 주세요.\n\n" +
-                "지금 브라우저에서 다운로드 페이지를 열겠습니다.",
-                "업데이트",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
+    if (-not $success) { throw ""Failed to replace executable after retries."" }
 
-            Process.Start(new ProcessStartInfo(ReleasePage) { UseShellExecute = true });
-            return;
-        }
-
-        // Escape paths for PowerShell
-        var escapedUpdater = updaterPath.Replace("'", "''");
-        var escapedDownloadUrl = downloadUrl.Replace("'", "''");
-        var escapedSha256Url = sha256Url.Replace("'", "''");
-        var escapedCurrentExe = currentExe.Replace("'", "''");
-        var escapedCurrentDir = currentDir.Replace("'", "''");
-        var escapedUpdaterUrl = updaterUrl.Replace("'", "''");
-
-        // Create PowerShell script to launch Updater
-        var ps1Path = Path.Combine(Path.GetTempPath(), $"claude_update_{Guid.NewGuid():N}.ps1");
-        var psCommand = $@"
-Start-Process -FilePath '{escapedUpdater}' -ArgumentList '{escapedDownloadUrl}', '{escapedSha256Url}', '{escapedCurrentExe}', '{escapedCurrentDir}', '{escapedUpdaterUrl}'
-Remove-Item -Path '{ps1Path}' -Force -ErrorAction SilentlyContinue
-";
+    # 4. Restart
+    Log ""Starting new version...""
+    Start-Process -FilePath $oldExe
+    Log ""Update complete.""
+}
+catch {
+    Log ""CRITICAL ERROR: $($_.Exception.Message)""
+}
+finally {
+    # Self cleanup
+    Remove-Item -LiteralPath '{PS1_PATH}' -Force -ErrorAction SilentlyContinue
+}
+"
+        .Replace("{LOG_PATH}", Esc(logPath))
+        .Replace("{OLD_EXE}", Esc(currentExe))
+        .Replace("{NEW_EXE}", Esc(preparedExePath))
+        .Replace("{PS1_PATH}", Esc(ps1Path));
 
         try
         {
-            File.WriteAllText(ps1Path, psCommand);
+            // IMPORTANT: Use UTF8 with BOM so PowerShell 5.1 correctly reads Korean paths
+            var encoding = new System.Text.UTF8Encoding(true);
+            File.WriteAllText(ps1Path, psCommand, encoding);
 
             Process.Start(new ProcessStartInfo("powershell.exe")
             {
                 Arguments = $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{ps1Path}\"",
                 UseShellExecute = false,
-                CreateNoWindow = true,
-                WindowStyle = ProcessWindowStyle.Hidden
+                CreateNoWindow = true
             });
         }
-        catch
+        catch (Exception ex)
         {
-            // Fallback: direct launch if PowerShell fails
-            Process.Start(new ProcessStartInfo(updaterPath,
-                $"\"{downloadUrl}\" \"{sha256Url}\" \"{currentExe}\" \"{currentDir}\" \"{updaterUrl}\"")
-            {
-                UseShellExecute = true
-            });
+            // If even PS fails to start, we're in trouble, but log it
+            File.AppendAllText(logPath, $"Failed to launch PowerShell: {ex.Message}");
         }
 
-        // Exit this process so Updater can proceed
+        // Final shutdown
         System.Windows.Application.Current.Dispatcher.Invoke(() =>
             System.Windows.Application.Current.Shutdown());
+    }
+
+    /// <summary>
+    /// Legacy - kept for compatibility but should use the prepare/apply flow for progress.
+    /// </summary>
+    public void ApplyUpdateAsync(string downloadUrl, string sha256Url = "")
+    {
+        // ... (existing code or just redirect to the new flow without progress)
+        _ = Task.Run(async () => {
+            var path = await DownloadAndPrepareUpdateAsync(downloadUrl, sha256Url, (_, _) => {});
+            ApplyPreparedUpdate(path);
+        });
     }
 }

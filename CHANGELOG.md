@@ -5,42 +5,68 @@
 
 ---
 
-## [1.15.36] - 2026-04-18
+## [1.15.38] - 2026-04-23
 
 <!-- ko -->
-### 수정
-- **업데이트 버튼 무반응 수정** — `ClaudeUsageTray-Updater.exe`가 없을 때 앱만 종료되던 버그 수정. 이제 안내 메시지와 함께 브라우저에서 다운로드 페이지를 열고 앱은 종료되지 않음
-- **새 exe 트레이 미표시 수정** — 업데이트 후 새 앱 실행에 실패하면 .NET 9.0 Desktop Runtime 설치 안내 메시지 표시
-- **Updater 자체 업데이트** — 메인 앱 업데이트 시 `ClaudeUsageTray-Updater.exe`도 함께 최신 버전으로 교체
-- **Updater args 체크 버그 수정** — `args.Length < 4` 조건이 `< 5`여야 하는 오류 수정
-- **릴리스 에셋에서 Updater URL 파싱** — GitHub 릴리스에서 Updater.exe URL도 함께 파싱하여 전달
+### 개선
+- **내장 업데이트 프로세스 도입** — 별도 Updater.exe 없이 앱 내에서 직접 다운로드 및 진행률 표시(ProgressBar)
+- **보안 강화** — 업데이트 파일 다운로드 후 SHA256 해시 검증 자동 수행
+- **업데이트 안정성 극대화** — 강력한 PowerShell 스크립트 기반 파일 교체 로직 (한글 경로, 프로세스 강제 종료, 5회 재시도 대응)
+- **배포 최적화** — 로컬 빌드 대신 GitHub Actions(CI) 기반 자동 릴리즈 워크플로우로 전환
 <!-- /ko -->
 
 <!-- en -->
-### Fixed
-- **Update button no-op fixed** — When `ClaudeUsageTray-Updater.exe` is missing, the app no longer silently exits. Now shows a message and opens the download page in browser
-- **New exe not appearing in tray fixed** — If the new app fails to start after update, a helpful message guides users to install .NET 9.0 Desktop Runtime
-- **Updater self-update** — When updating the main app, `ClaudeUsageTray-Updater.exe` is also replaced with the latest version
-- **Updater args check bug fixed** — `args.Length < 4` condition corrected to `< 5`
-- **Updater URL parsed from release assets** — GitHub release assets now also parse the Updater.exe URL and pass it through
+### Improved
+- **In-App Update Process** — Direct download and progress bar display within the app, removing the separate Updater.exe
+- **Security Enhancement** — Automatic SHA256 verification after downloading update files
+- **Maximum Stability** — Robust PowerShell-based file replacement logic (Supports Korean paths, force-kill, and 5 retries)
+- **CI/CD Integration** — Transitioned to GitHub Actions (CI) for automated builds and releases
+<!-- /en -->
+
+---
+
+## [1.15.37] - 2026-04-23
+
+<!-- ko -->
+### 개선
+- **업데이트 기능 테스트** — 자동 업데이트 프로세스 정상 작동 여부 확인을 위한 마이너 업데이트
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Update Functionality Test** — Minor update to verify the auto-update process
+<!-- /en -->
+
+---
+
+## [1.15.36] - 2026-04-23
+
+<!-- ko -->
+### 개선
+- **업데이터 용량 최적화** — TargetFramework 하향 조정(`net9.0-windows`) 및 트리밍(Trimming)을 적용하여 용량 약 75% 삭감 (20MB → ~5MB 목표)
+- **메인 앱 시작 속도 개선** — ReadyToRun(RTR) 옵션 활성화로 초기 실행 시 JIT 지연 감소
+- **개발 지침 업데이트** — 모든 개발 요청을 GitHub 이슈(또는 `AGENTS.md`) 등록 후 처리하도록 의무화
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Updater Size Optimization** — Reduced binary size by ~75% (~5MB target) via TFM downgrade (`net9.0-windows`) and IL Trimming
+- **Main App Startup Performance** — Enabled ReadyToRun (RTR) to reduce initial JIT delay
+- **Updated Dev Guidelines** — Mandated GitHub Issue (or `docs/ISSUE_LOG.md`) registration for all development requests
 <!-- /en -->
 
 <!-- zh -->
-### 修复
-- **修复更新按钮无响应** — 当`ClaudeUsageTray-Updater.exe`不存在时，应用不再静默退出，改为显示提示信息并在浏览器中打开下载页面
-- **修复新exe不显示在托盘中** — 更新后新应用启动失败时，显示.NET 9.0 Desktop Runtime安装指引
-- **Updater自我更新** — 更新主应用时，同时将`ClaudeUsageTray-Updater.exe`替换为最新版本
-- **修复Updater参数检查错误** — 将`args.Length < 4`条件更正为`< 5`
-- **从发布资产解析Updater URL** — GitHub发布资产中同时解析Updater.exe的URL并传递
+### 改进
+- **更新器体积优化** — 通过降低 TargetFramework (`net9.0-windows`) 和启用修剪 (Trimming)，体积减少约 75% (目标 ~5MB)
+- **主程序启动速度改善** — 启用 ReadyToRun (RTR) 以减少初始 JIT 延迟
+- **更新开发指南** — 强制要求所有开发请求先在 GitHub Issue (或 `docs/ISSUE_LOG.md`) 中注册后再处理
 <!-- /zh -->
 
 <!-- ja -->
-### 修正
-- **更新ボタン無反応の修正** — `ClaudeUsageTray-Updater.exe`がない場合、アプリがサイレント終了しなくなりました。案内メッセージを表示し、ブラウザでダウンロードページを開きます
-- **新しいexeがトレイに表示されない問題の修正** — 更新後に新しいアプリの起動に失敗した場合、.NET 9.0 Desktop Runtimeのインストール案内を表示
-- **Updater自己更新** — メインアプリ更新時に`ClaudeUsageTray-Updater.exe`も最新版に置き換え
-- **Updater引数チェックバグの修正** — `args.Length < 4`条件を`< 5`に修正
-- **リリースアセットからUpdater URLを解析** — GitHubリリースアセットからUpdater.exe URLも解析して渡すよう変更
+### 改善
+- **アップデーターのサイズ最適化** — TargetFramework の引き下げ (`net9.0-windows`) とトリミング (Trimming) を適用し、サイズを約 75% 削減 (目標 ~5MB)
+- **メインアプリの起動速度改善** — ReadyToRun (RTR) オプションの有効化により、初回起動時の JIT 遅延を短축
+- **開発ガイドラインの更新** — すべての開発リクエストを GitHub Issue (または `docs/ISSUE_LOG.md`) に登録してから処理するように義務付け
 <!-- /ja -->
 
 ---

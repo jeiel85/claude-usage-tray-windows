@@ -32,13 +32,6 @@ jobs:
             -p:PublishDir=bin/fd `
             -p:Version=${{ steps.version.outputs.VERSION }}
 
-      - name: Build Updater (framework-dependent)
-        run: |
-          dotnet publish ClaudeUsageTray.Updater/ClaudeUsageTray.Updater.csproj `
-            -c Release `
-            -p:PublishDir=bin/updater `
-            -p:Version=${{ steps.version.outputs.VERSION }}
-
       - name: Generate SHA256 for main app
         shell: powershell
         run: |
@@ -47,11 +40,10 @@ jobs:
           Write-Host "fd size: $([math]::Round((Get-Item 'ClaudeUsageTray/bin/fd/ClaudeUsageTray.exe').Length/1MB, 1)) MB"
           Write-Host "SHA256: $hash"
 
-      - name: Copy executables to root
+      - name: Copy executable to root
         shell: powershell
         run: |
           Copy-Item "ClaudeUsageTray/bin/fd/ClaudeUsageTray.exe" "ClaudeUsageTray.exe"
-          Copy-Item "ClaudeUsageTray.Updater/bin/updater/ClaudeUsageTray-Updater.exe" "ClaudeUsageTray-Updater.exe"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -59,7 +51,6 @@ jobs:
           name: fd-release
           path: |
             ClaudeUsageTray.exe
-            ClaudeUsageTray-Updater.exe
             SHA256.txt
 
   release:
@@ -80,7 +71,11 @@ jobs:
         shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          NOTES=$(awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
+          # [1.15.37] 형식의 헤더를 찾아 다음 헤더 전까지 추출
+          NOTES=$(sed -n "/^## \[$VERSION\]/,/^## \[/p" CHANGELOG.md | sed '1d;$d')
+          if [ -z "$NOTES" ]; then
+            NOTES="Release v$VERSION"
+          fi
           echo "NOTES<<EOF" >> $GITHUB_OUTPUT
           echo "$NOTES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -92,5 +87,4 @@ jobs:
           body: ${{ steps.changelog.outputs.NOTES }}
           files: |
             artifacts/ClaudeUsageTray.exe
-            artifacts/ClaudeUsageTray-Updater.exe
             artifacts/SHA256.txt
