@@ -91,30 +91,36 @@ public class UpdateService
             updaterPath = Path.Combine(AppContext.BaseDirectory, "ClaudeUsageTray-Updater.exe");
         }
 
-        // Escape paths for PowerShell
-        var escapedUpdater = updaterPath.Replace("'", "''");
-        var escapedDownloadUrl = downloadUrl.Replace("'", "''");
-        var escapedSha256Url = sha256Url.Replace("'", "''");
-        var escapedCurrentExe = currentExe.Replace("'", "''");
-        var escapedCurrentDir = currentDir.Replace("'", "''");
+        if (!File.Exists(updaterPath))
+        {
+            // If updater is still missing, we can't auto-update. 
+            // Open release page as fallback.
+            Process.Start(new ProcessStartInfo(ReleasePage) { UseShellExecute = true });
+            return;
+        }
+
+        // Escape paths for PowerShell (escapes single quotes for PS string)
+        string Esc(string? s) => (s ?? "").Replace("'", "''");
 
         // Create PowerShell script to launch Updater
         var ps1Path = Path.Combine(Path.GetTempPath(), $"claude_update_{Guid.NewGuid():N}.ps1");
+        
+        // Use an array of arguments for reliability
         var psCommand = $@"
-Start-Process -FilePath '{escapedUpdater}' -ArgumentList '{escapedDownloadUrl}', '{escapedSha256Url}', '{escapedCurrentExe}', '{escapedCurrentDir}' -WindowStyle Hidden
+$args_arr = @('{Esc(downloadUrl)}', '{Esc(sha256Url)}', '{Esc(currentExe)}', '{Esc(currentDir)}')
+Start-Process -FilePath '{Esc(updaterPath)}' -ArgumentList $args_arr -WindowStyle Hidden
 Remove-Item -Path '{ps1Path}' -Force -ErrorAction SilentlyContinue
 ";
 
         try
         {
-            File.WriteAllText(ps1Path, psCommand);
+            File.WriteAllText(ps1Path, psCommand, System.Text.Encoding.UTF8);
 
             Process.Start(new ProcessStartInfo("powershell.exe")
             {
                 Arguments = $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{ps1Path}\"",
                 UseShellExecute = false,
-                CreateNoWindow = true,
-                WindowStyle = ProcessWindowStyle.Hidden
+                CreateNoWindow = true
             });
         }
         catch

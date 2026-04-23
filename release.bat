@@ -141,11 +141,22 @@ if %ERRORLEVEL% NEQ 0 (
 :: ─────────────────────────────────────────────
 echo.
 echo [2/5] Publishing...
+
+:: Main App
 dotnet publish ClaudeUsageTray/ClaudeUsageTray.csproj ^
     -c Release -r win-x64 --self-contained false ^
     -p:PublishSingleFile=true -o publish/ --nologo
 if %ERRORLEVEL% NEQ 0 (
-    echo [ERROR] Publish 실패
+    echo [ERROR] Main App Publish 실패
+    pause & exit /b 1
+)
+
+:: Updater
+dotnet publish ClaudeUsageTray.Updater/ClaudeUsageTray.Updater.csproj ^
+    -c Release -r win-x64 --self-contained false ^
+    -p:PublishSingleFile=true -o publish/ --nologo
+if %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] Updater Publish 실패
     pause & exit /b 1
 )
 
@@ -200,6 +211,7 @@ else:
 
 gh release create %TAG% ^
     publish\ClaudeUsageTray.exe ^
+    publish\ClaudeUsageTray-Updater.exe ^
     --title "%TAG%" ^
     --notes-file "%NOTES_FILE%"
 

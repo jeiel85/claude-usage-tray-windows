@@ -5,6 +5,24 @@
 
 ---
 
+## [1.15.38] - 2026-04-23
+
+<!-- ko -->
+### 수정
+- **자동 업데이트 개선** — Updater 실행 시 인자 처리 오류 수정 및 실행 방식 안정화
+- **빌드 스크립트 수정** — `build.bat` 및 `release.bat`에서 Updater 빌드 누락 수정
+- **업데이트 폴백** — 자동 업데이트 실행 불가 시 브라우저 릴리즈 페이지로 폴백
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Auto-Update Improvement** — Fixed argument handling errors and stabilized Updater execution
+- **Build Scripts** — Fixed missing Updater build in `build.bat` and `release.bat`
+- **Update Fallback** — Added browser fallback when auto-update fails to launch
+<!-- /en -->
+
+---
+
 ## [1.15.37] - 2026-04-23
 
 <!-- ko -->
