@@ -69,6 +69,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     // Notification settings
     [ObservableProperty] private bool _notificationsEnabled;
     [ObservableProperty] private bool _notifyRateLimit;
+    [ObservableProperty] private bool _notifyOnQuotaReset;
     [ObservableProperty] private bool _threshold50;
     [ObservableProperty] private bool _threshold75;
     [ObservableProperty] private bool _threshold90;
@@ -136,6 +137,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public string LblNtfyPlaceholder => Loc.NtfyPlaceholder;
     public string LblCheckUpdate     => Loc.CheckUpdate;
 
+    // Tooltips
+    public string TipInput      => Loc.InputTooltip;
+    public string TipOutput     => Loc.OutputTooltip;
+    public string TipCacheRead  => Loc.CacheReadTooltip;
+    public string TipCacheWrite => Loc.CacheWriteTooltip;
+
     public MainViewModel(UsageApiService api, CredentialService credentials,
                          SessionMonitor session,
                          NotificationService notifier, SettingsService settingsService,
@@ -192,6 +199,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         var s = _settingsService.Load();
         NotificationsEnabled = s.Enabled;
         NotifyRateLimit = s.NotifyOnRateLimit;
+        NotifyOnQuotaReset = s.NotifyOnQuotaReset;
         Threshold50  = s.Thresholds.Contains(50);
         Threshold75  = s.Thresholds.Contains(75);
         Threshold90  = s.Thresholds.Contains(90);
@@ -235,6 +243,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         {
             Enabled = NotificationsEnabled,
             NotifyOnRateLimit = NotifyRateLimit,
+            NotifyOnQuotaReset = NotifyOnQuotaReset,
             Thresholds = thresholds,
             NtfyTopic = NtfyTopic.Trim(),
             StartWithWindows = StartWithWindows,
@@ -555,7 +564,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         var settings = _settingsService.Load();
 
-        // 기본 사용량 알림
+        // 1. 할당량 초기화 감지 (100% -> 100% 미만)
+        if (NotifyOnQuotaReset && _prevShortPercent >= 1.0 && newPercent < 1.0)
+        {
+            _notifier.ShowQuotaResetAlert(ntfyTopic);
+        }
+
+        // 2. 기본 사용량 임계값 알림
         foreach (var t in settings.Thresholds.OrderBy(x => x))
         {
             double tf = t / 100.0;
@@ -565,7 +580,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             }
         }
 
-        // 추가 사용량 알림 (기본 사용량 100% 소진 후 모드인 경우)
+        // 3. 추가 사용량 알림 (기본 사용량 100% 소진 후 모드인 경우)
         if (IsExtraOnlyMode && ExtraHasLimit)
         {
             foreach (var t in settings.Thresholds.OrderBy(x => x))

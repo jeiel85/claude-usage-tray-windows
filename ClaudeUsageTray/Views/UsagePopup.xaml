@@ -302,7 +302,8 @@
                         </Grid.ColumnDefinitions>
 
                         <!-- Input -->
-                        <Border Grid.Column="0" Background="#1A1D2E" CornerRadius="10" Padding="12,10" Margin="0,0,6,0">
+                        <Border Grid.Column="0" Background="#1A1D2E" CornerRadius="10" Padding="12,10" Margin="0,0,6,0"
+                                ToolTip="{Binding TipInput}">
                             <StackPanel>
                                 <TextBlock Text="{Binding LblInput}" Foreground="#8B92B3" FontSize="10"
                                            FontWeight="SemiBold" Margin="0,0,0,4"/>
@@ -313,7 +314,8 @@
                         </Border>
 
                         <!-- Output -->
-                        <Border Grid.Column="1" Background="#1A1D2E" CornerRadius="10" Padding="12,10" Margin="6,0,0,0">
+                        <Border Grid.Column="1" Background="#1A1D2E" CornerRadius="10" Padding="12,10" Margin="6,0,0,0"
+                                ToolTip="{Binding TipOutput}">
                             <StackPanel>
                                 <TextBlock Text="{Binding LblOutput}" Foreground="#8B92B3" FontSize="10"
                                            FontWeight="SemiBold" Margin="0,0,0,4"/>
@@ -331,7 +333,8 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
-                        <Border Grid.Column="0" Background="#1A1D2E" CornerRadius="10" Padding="12,8" Margin="0,0,6,0">
+                        <Border Grid.Column="0" Background="#1A1D2E" CornerRadius="10" Padding="12,8" Margin="0,0,6,0"
+                                ToolTip="{Binding TipCacheRead}">
                             <StackPanel>
                                 <TextBlock Text="{Binding LblCacheRead}" Foreground="#8B92B3" FontSize="10"
                                            FontWeight="SemiBold" Margin="0,0,0,2"/>
@@ -340,7 +343,8 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Grid.Column="1" Background="#1A1D2E" CornerRadius="10" Padding="12,8" Margin="6,0,0,0">
+                        <Border Grid.Column="1" Background="#1A1D2E" CornerRadius="10" Padding="12,8" Margin="6,0,0,0"
+                                ToolTip="{Binding TipCacheWrite}">
                             <StackPanel>
                                 <TextBlock Text="{Binding LblCacheWrite}" Foreground="#8B92B3" FontSize="10"
                                            FontWeight="SemiBold" Margin="0,0,0,2"/>

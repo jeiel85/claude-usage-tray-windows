@@ -41,6 +41,15 @@ public class NotificationService
         SendNtfy(ntfyTopic, title, body);
     }
 
+    public void ShowQuotaResetAlert(string ntfyTopic)
+    {
+        var title = Loc.QuotaResetTitle;
+        var body  = Loc.QuotaResetBody;
+
+        ShowBalloon(title, body);
+        SendNtfy(ntfyTopic, title, body);
+    }
+
     private void ShowBalloon(string title, string body)
     {
         try
