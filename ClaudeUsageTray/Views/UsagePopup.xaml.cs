@@ -317,9 +317,6 @@ public partial class UsagePopup : Window, IDisposable
         }
     }
 
-    private void UpdateBanner_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
-        => _vm.ApplyUpdateCommand.Execute(null);
-
     private void QuitBtn_Click(object sender, RoutedEventArgs e) =>
         System.Windows.Application.Current.Shutdown();
 

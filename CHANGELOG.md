@@ -5,16 +5,136 @@
 
 ---
 
-## [1.15.39] - 2026-04-23
+## [1.15.45] - 2026-04-23
+
+<!-- ko -->
+### 테스트
+- **업데이트 감지 로직 확인** — v1.15.43/44에서 새 버전을 정상적으로 감지하는지 최종 확인
+<!-- /ko -->
+
+<!-- en -->
+### Test
+- **Update Detection Verification** — Final check to ensure new versions are correctly detected from v1.15.43/44
+<!-- /en -->
+
+---
+
+## [1.15.44] - 2026-04-23
 
 <!-- ko -->
 ### 개선
-- **자동 업데이트 프로세스 검증용 릴리즈** — 마이너 버전 업데이트를 통한 기능 정상 동작 확인
+- **업데이트 UX 최종 통합** — 릴리즈 노트 창(`UpdateDialog`) 내부에 진행바를 내장하여, 업데이트 시 불필요한 추가 창 생성을 제거
 <!-- /ko -->
 
 <!-- en -->
 ### Improved
-- **Auto-Update Validation Release** — Minor version bump to verify the update notification and download process.
+- **Final Update UX Integration** — Integrated progress bar directly into the Release Notes window (`UpdateDialog`), removing unnecessary extra windows during the update process
+<!-- /en -->
+
+---
+
+## [1.15.43] - 2026-04-23
+
+<!-- ko -->
+### 테스트
+- **통합 업데이트 UX 검증** — v1.15.42에서 v1.15.43으로의 인라인 업데이트 동작 확인용
+<!-- /ko -->
+
+<!-- en -->
+### Test
+- **Integrated Update UX Verification** — Release to verify in-place update flow from v1.15.42 to v1.15.43
+<!-- /en -->
+
+---
+
+## [1.15.42] - 2026-04-23
+
+<!-- ko -->
+### 수정
+- **업데이트 UX 통합** — 별도의 다이얼로그 창 없이 메인 팝업 내에서 즉시 업데이트 진행 (진행 바 표시)
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Integrated Update UX** — Updates now run directly within the main popup with an in-place progress bar, removing the separate dialog window
+<!-- /en -->
+
+---
+
+## [1.15.41] - 2026-04-23
+
+<!-- ko -->
+### 테스트
+- **업데이트 플로우 검증** — 다운로드 → 교체 → 재실행 전 과정 확인용 릴리스
+<!-- /ko -->
+
+<!-- en -->
+### Test
+- **Update flow verification** — Release to verify full flow: download → replace → relaunch
+<!-- /en -->
+
+<!-- zh -->
+### 测试
+- **更新流程验证** — 验证完整流程：下载→替换→重启
+<!-- /zh -->
+
+<!-- ja -->
+### テスト
+- **更新フロー検証** — ダウンロード→置換→再起動の全フロー確認用リリース
+<!-- /ja -->
+
+---
+
+## [1.15.40] - 2026-04-23
+
+<!-- ko -->
+### 수정
+- **업데이트 다이얼로그 무한루프 수정** — "지금 업데이트" 버튼 클릭 시 실제 다운로드 대신 업데이트 확인을 반복하던 버그 수정
+- **업데이트 팝업 z-order 수정** — 업데이트 다이얼로그가 다른 창 뒤로 밀리던 문제 수정
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Update dialog infinite loop fixed** — Clicking "Update Now" was re-checking for updates instead of downloading; now correctly downloads and applies
+- **Update popup z-order fixed** — Dialog no longer gets pushed behind other windows
+<!-- /en -->
+
+<!-- zh -->
+### 修复
+- **修复更新对话框无限循环** — 点击"立即更新"会重复检查更新而非下载；现在可正确下载并应用
+- **修复更新弹窗层级问题** — 对话框不再被其他窗口遮挡
+<!-- /zh -->
+
+<!-- ja -->
+### 修正
+- **更新ダイアログの無限ループを修正** — 「今すぐ更新」をクリックするとダウンロードせずに更新確認を繰り返すバグを修正
+- **更新ポップアップのzオーダー修正** — ダイアログが他のウィンドウの後ろに隠れる問題を修正
+<!-- /ja -->
+
+---
+
+## [1.15.39] - 2026-04-23
+
+<!-- ko -->
+### 테스트
+- **자동 업데이트 플로우 검증** — 업데이트 버튼, Updater 실행 및 새 exe 트레이 표시 동작 확인
+<!-- /ko -->
+
+<!-- en -->
+### Test
+- **Auto-update flow verification** — Validate update button, Updater launch, and new exe tray appearance
+<!-- /en -->
+
+<!-- zh -->
+### 测试
+- **自动更新流程验证** — 验证更新按钮、Updater启动及新exe托盘显示行为
+<!-- /zh -->
+
+<!-- ja -->
+### テスト
+- **自動更新フロー検証** — 更新ボタン、Updater起動、新しいexeのトレイ表示動作を確認
+<!-- /ja -->
+>>>>>>> a9040a1ae7d834bed24bf6427464d6b8d93a3807
 
 ---
 

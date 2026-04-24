@@ -108,6 +108,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _updateAvailable = false;
     [ObservableProperty] private string _updateLabel = "";
     [ObservableProperty] private string _updateCheckLabel = "";
+    [ObservableProperty] private bool _isUpdating = false;
+    [ObservableProperty] private int _updateProgress = 0;
+    [ObservableProperty] private string _updateStatusText = "";
+
     private string _updateDownloadUrl = "";
     private string _updateSha256Url = "";
     public string CurrentVersionLabel => $"v{UpdateService.CurrentVersion.ToString(3)}";
@@ -264,6 +268,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task ManualCheckForUpdateAsync()
     {
+        if (IsUpdating) return;
+
         UpdateCheckLabel = Loc.CheckingUpdate;
         var result = await _updater.CheckForUpdateAsync();
 
@@ -284,7 +290,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
             var settings = _settingsService.Load();
             if (settings.SkippedVersion == versionStr)
             {
-                // User previously skipped — show dialog again on manual check
                 settings.SkippedVersion = "";
                 _settingsService.Save(settings);
             }
@@ -294,24 +299,20 @@ public partial class MainViewModel : ObservableObject, IDisposable
             UpdateLabel = Loc.UpdateAvailable($"v{versionStr}");
             UpdateAvailable = true;
 
-            var dialog = new Views.UpdateDialog(
-                $"v{versionStr}",
-                info.releaseNotes,
-                onSkip: () => SkipVersion(versionStr));
-            dialog.OnUpdateRequested += () => ApplyUpdate();
-            dialog.Show();
+            ShowUpdateDialog(versionStr, info.releaseNotes);
         });
     }
 
     private async Task CheckForUpdateAsync()
     {
+        if (IsUpdating) return;
+
         var result = await _updater.CheckForUpdateAsync();
         if (result is null) return;
 
         var info = result;
         var versionStr = info.version.ToString(3);
 
-        // Check if user skipped this version
         var settings = _settingsService.Load();
         if (settings.SkippedVersion == versionStr) return;
 
@@ -322,30 +323,57 @@ public partial class MainViewModel : ObservableObject, IDisposable
         {
             UpdateLabel = Loc.UpdateAvailable($"v{versionStr}");
             UpdateAvailable = true;
-
-            var dialog = new Views.UpdateDialog(
-                $"v{versionStr}",
-                info.releaseNotes,
-                onSkip: () => SkipVersion(versionStr));
-            
-            // Subscribe to update requested from dialog
-            dialog.OnUpdateRequested += () => 
-            {
-                _ = Task.Run(async () => {
-                    try {
-                        var tempPath = await _updater.DownloadAndPrepareUpdateAsync(
-                            _updateDownloadUrl, _updateSha256Url, 
-                            (pc, status) => dialog.UpdateProgress(pc, status));
-                        
-                        _updater.ApplyPreparedUpdate(tempPath);
-                    }
-                    catch (Exception ex) {
-                        dialog.ShowError(ex.Message);
-                    }
-                });
-            };
-            dialog.Show();
+            ShowUpdateDialog(versionStr, info.releaseNotes);
         });
+    }
+
+    private void ShowUpdateDialog(string version, string notes)
+    {
+        var dialog = new Views.UpdateDialog(
+            $"v{version}",
+            notes,
+            onSkip: () => SkipVersion(version));
+
+        dialog.OnUpdateRequested += () =>
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    IsUpdating = true;
+                    var tempPath = await _updater.DownloadAndPrepareUpdateAsync(
+                        _updateDownloadUrl, _updateSha256Url,
+                        (pc, status) =>
+                        {
+                            dialog.UpdateProgress(pc, status);
+                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                UpdateProgress = pc;
+                                UpdateStatusText = status;
+                            });
+                        });
+
+                    dialog.UpdateProgress(100, "Restarting...");
+                    await Task.Delay(500);
+                    _updater.ApplyPreparedUpdate(tempPath);
+                }
+                catch (Exception ex)
+                {
+                    IsUpdating = false;
+                    dialog.ShowError(ex.Message);
+                }
+            });
+        };
+        dialog.Show();
+        dialog.Activate();
+    }
+
+    [RelayCommand]
+    public void StartUpdate()
+    {
+        // This is called from the banner. Since we want to show release notes, 
+        // we'll just re-trigger the check which will show the dialog.
+        _ = ManualCheckForUpdateAsync();
     }
 
     public void SkipVersion(string version)
@@ -376,10 +404,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public void ApplyUpdate()
     {
-        if (string.IsNullOrEmpty(_updateDownloadUrl)) return;
-        
-        // Manual trigger from Banner (main UI)
-        // If they click the banner, we show the dialog first so they see progress
         _ = ManualCheckForUpdateAsync();
     }
 

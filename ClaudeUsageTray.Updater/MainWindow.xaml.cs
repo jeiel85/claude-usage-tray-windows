@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private string _currentExePath = "";
     private string _targetDir = "";
     private string _newExePath = "";
+    private string _updaterUrl = "";
 
     private static readonly HttpClient Http = new();
 
@@ -49,6 +50,7 @@ public partial class MainWindow : Window
         _sha256Url = args[2];
         _currentExePath = args[3];
         _targetDir = args[4];
+        _updaterUrl = args.Length > 5 ? args[5] : "";
 
         // Start update process in background
         Task.Run(UpdateProcess);
@@ -73,6 +75,13 @@ public partial class MainWindow : Window
             // Phase 4: Copy new exe
             UpdateStatus("파일 설치 중...", 80);
             await CopyNewExe();
+
+            // Phase 4b: Update Updater.exe itself (if URL provided)
+            if (!string.IsNullOrEmpty(_updaterUrl))
+            {
+                UpdateStatus("업데이터 갱신 중...", 88);
+                await UpdateSelf();
+            }
 
             // Phase 5: Start new process
             UpdateStatus("새 프로그램 실행 중...", 95);
@@ -207,6 +216,42 @@ public partial class MainWindow : Window
         throw new IOException("파일을 복사할 수 없습니다.");
     }
 
+    private async Task UpdateSelf()
+    {
+        try
+        {
+            var currentUpdaterPath = Path.Combine(_targetDir, "ClaudeUsageTray-Updater.exe");
+            var tempUpdaterPath = Path.Combine(Path.GetTempPath(), "ClaudeUsageTray-Updater_new.exe");
+
+            using var response = await Http.GetAsync(_updaterUrl, HttpCompletionOption.ResponseHeadersRead);
+            response.EnsureSuccessStatusCode();
+
+            using var srcStream = await response.Content.ReadAsStreamAsync();
+            using var destStream = new FileStream(tempUpdaterPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
+            await srcStream.CopyToAsync(destStream);
+
+            // Replace after download completes (self-replacing with temp copy)
+            var ps1Path = Path.Combine(Path.GetTempPath(), $"claude_selfupdate_{Guid.NewGuid():N}.ps1");
+            var psScript = $@"
+Start-Sleep -Milliseconds 1500
+Copy-Item -Path '{tempUpdaterPath.Replace("'", "''")}' -Destination '{currentUpdaterPath.Replace("'", "''")}' -Force -ErrorAction SilentlyContinue
+Remove-Item -Path '{tempUpdaterPath.Replace("'", "''")}' -Force -ErrorAction SilentlyContinue
+Remove-Item -Path '{ps1Path.Replace("'", "''")}' -Force -ErrorAction SilentlyContinue
+";
+            File.WriteAllText(ps1Path, psScript);
+            Process.Start(new ProcessStartInfo("powershell.exe")
+            {
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{ps1Path}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+        }
+        catch
+        {
+            // Updater self-update failure is non-fatal — continue
+        }
+    }
+
     private async Task StartNewProcess()
     {
         var startPath = Path.Combine(_targetDir, "ClaudeUsageTray.exe");
@@ -214,12 +259,35 @@ public partial class MainWindow : Window
         if (!File.Exists(startPath))
             throw new FileNotFoundException("대상 프로그램을 찾을 수 없습니다.");
 
-        Process.Start(new ProcessStartInfo(startPath)
+        var proc = Process.Start(new ProcessStartInfo(startPath)
         {
             UseShellExecute = true
         });
 
-        await Task.Delay(500);
+        // 새 앱이 실제로 실행됐는지 확인 (런타임 미설치 등으로 즉시 종료되는 경우 감지)
+        await Task.Delay(2000);
+
+        bool started = proc != null && !proc.HasExited;
+        if (!started)
+        {
+            // 프로세스 이름으로 재확인 (UseShellExecute=true면 자식 pid가 다를 수 있음)
+            started = Process.GetProcessesByName("ClaudeUsageTray").Length > 0;
+        }
+
+        if (!started)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                MessageBox.Show(
+                    "새 버전이 실행되지 않았습니다.\n\n" +
+                    ".NET 9.0 Desktop Runtime이 설치되어 있지 않을 수 있습니다.\n\n" +
+                    "설치 후 다시 실행해 주세요:\n" +
+                    "https://dotnet.microsoft.com/ko-kr/download/dotnet/9.0/runtime",
+                    "실행 실패",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            });
+        }
     }
 
     private void UpdateStatus(string message, int percent)

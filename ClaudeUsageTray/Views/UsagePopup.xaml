@@ -139,16 +139,56 @@
                     </Grid>
                 </Border>
 
-                <!-- Update banner -->
+                <!-- Update banner / Progress -->
                 <Border Padding="12,9" Margin="16,8,16,0"
                         Background="#1A2E1A" CornerRadius="8"
                         BorderBrush="#10B981" BorderThickness="1"
-                        Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVisibility}}"
-                        Cursor="Hand" MouseLeftButtonUp="UpdateBanner_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="↑ " Foreground="#10B981" FontSize="12" FontWeight="Bold"/>
-                        <TextBlock Text="{Binding UpdateLabel}" Foreground="#6EE7B7" FontSize="11"/>
-                    </StackPanel>
+                        Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVisibility}}">
+                    <Grid>
+                        <!-- Banner content (Visible when not updating) -->
+                        <StackPanel Orientation="Horizontal" Cursor="Hand"
+                                    Visibility="{Binding IsUpdating, Converter={StaticResource BoolToVisibilityInverse}}">
+                            <StackPanel.InputBindings>
+                                <MouseBinding MouseAction="LeftClick" Command="{Binding StartUpdateCommand}"/>
+                            </StackPanel.InputBindings>
+                            <TextBlock Text="↑ " Foreground="#10B981" FontSize="12" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding UpdateLabel}" Foreground="#6EE7B7" FontSize="11"/>
+                        </StackPanel>
+
+                        <!-- Progress bar (Visible when updating) -->
+                        <StackPanel Visibility="{Binding IsUpdating, Converter={StaticResource BoolToVisibility}}">
+                            <Grid>
+                                <TextBlock Text="{Binding UpdateStatusText}" Foreground="#6EE7B7" FontSize="10"
+                                           HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding UpdateProgress, StringFormat={}{0}%}" Foreground="#10B981" FontSize="10"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                            </Grid>
+                            <ProgressBar Value="{Binding UpdateProgress}" Maximum="100" Height="4" Margin="0,4,0,0">
+                                <ProgressBar.Style>
+                                    <Style TargetType="ProgressBar" BasedOn="{StaticResource UsageBarStyle}">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ProgressBar">
+                                                    <Grid>
+                                                        <Border Background="#0D2A1F" CornerRadius="2"/>
+                                                        <Border x:Name="PART_Track" CornerRadius="2"/>
+                                                        <Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="2">
+                                                            <Border.Background>
+                                                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                                    <GradientStop Color="#10B981" Offset="0"/>
+                                                                    <GradientStop Color="#059669" Offset="1"/>
+                                                                </LinearGradientBrush>
+                                                            </Border.Background>
+                                                        </Border>
+                                                    </Grid>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ProgressBar.Style>
+                            </ProgressBar>
+                        </StackPanel>
+                    </Grid>
                 </Border>
 
                 <!-- Loading indicator -->

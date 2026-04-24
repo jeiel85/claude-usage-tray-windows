@@ -1,58 +1,33 @@
 using System.Text.RegularExpressions;
 using System.Windows;
-using ClaudeUsageTray.Services;
 
 namespace ClaudeUsageTray.Views;
 
 public partial class UpdateDialog : Window
 {
     private readonly Action _onSkip;
-
-    /// <summary>
-    /// "지금 업데이트" 버튼 클릭 시 발생
-    /// </summary>
     public event Action? OnUpdateRequested;
 
     public UpdateDialog(string version, string releaseNotes, Action onSkip)
     {
         InitializeComponent();
-        _onSkip   = onSkip;
+        _onSkip = onSkip;
 
-        // Localize UI strings
-        DialogTitleLabel.Text = Loc.UpdateDialogTitle;
-        WhatsNewLabel.Text    = Loc.WhatsNew;
-        UpdateNowLabel.Text   = Loc.UpdateNow;
-        SkipLabel.Text        = Loc.SkipThisVersion;
-        LaterLabel.Text       = Loc.Later;
+        VersionLabel.Text = version;
+        NotesText.Text = FormatReleaseNotes(releaseNotes);
 
-        VersionLabel.Text      = version;
-        ReleaseNotesText.Text  = ExtractLocalizedNotes(releaseNotes);
-
-        MouseLeftButtonDown += (_, e) => DragMove();
-    }
-
-    private void UpdateBtn_Click(object sender, RoutedEventArgs e)
-    {
-        // "지금 업데이트" 클릭 시 event 발생 → ViewModel이 Updater 실행
-        OnUpdateRequested?.Invoke();
-        // UI 전환: 버튼 숨기고 진행바 표시
-        StartProgress();
-    }
-
-    public void StartProgress()
-    {
-        ButtonPanel.Visibility = Visibility.Collapsed;
-        ProgressPanel.Visibility = Visibility.Visible;
-        ProgressStatusText.Text = Loc.CheckingUpdate;
-        DownloadProgressBar.Value = 0;
+        MouseLeftButtonDown += (s, e) => DragMove();
     }
 
     public void UpdateProgress(int percent, string status)
     {
         Dispatcher.Invoke(() =>
         {
-            DownloadProgressBar.Value = percent;
-            ProgressStatusText.Text = status;
+            ActionPanel.Visibility = Visibility.Collapsed;
+            ProgressPanel.Visibility = Visibility.Visible;
+            ProgressBar.Value = percent;
+            PercentText.Text = $"{percent}%";
+            StatusText.Text = status;
         });
     }
 
@@ -60,57 +35,36 @@ public partial class UpdateDialog : Window
     {
         Dispatcher.Invoke(() =>
         {
-            ProgressStatusText.Text = "Error: " + message;
-            ProgressStatusText.Foreground = System.Windows.Media.Brushes.Red;
-            // Allow closing or retrying if needed, but for now just show error
+            ActionPanel.Visibility = Visibility.Visible;
+            ProgressPanel.Visibility = Visibility.Collapsed;
+            System.Windows.MessageBox.Show(message, "업데이트 오류", MessageBoxButton.OK, MessageBoxImage.Error);
         });
     }
 
-    private void SkipBtn_Click(object sender, RoutedEventArgs e)
+    private void Update_Click(object sender, RoutedEventArgs e)
     {
-        _onSkip();
+        ActionPanel.Visibility = Visibility.Collapsed;
+        ProgressPanel.Visibility = Visibility.Visible;
+        OnUpdateRequested?.Invoke();
+    }
+
+    private void Skip_Click(object sender, RoutedEventArgs e)
+    {
+        _onSkip?.Invoke();
         Close();
     }
 
-    private void LaterBtn_Click(object sender, RoutedEventArgs e) => Close();
+    private void Close_Click(object sender, RoutedEventArgs e) => Close();
 
-    /// <summary>
-    /// Release body에서 현재 언어 블록(<!-- ko -->...<!-- /ko -->)을 추출.
-    /// 현재 언어 블록이 없으면 영어 → 전체 텍스트 순으로 fallback.
-    /// </summary>
-    private static string ExtractLocalizedNotes(string raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw)) return "";
-
-        var lang = Loc.CurrentLang;
-
-        // Try current language, then English as fallback
-        foreach (var code in new[] { lang, "en" })
-        {
-            var block = ExtractBlock(raw, code);
-            if (!string.IsNullOrWhiteSpace(block))
-                return SimplifyMarkdown(block);
-        }
-
-        // No language blocks found — show full text as-is (legacy format)
-        return SimplifyMarkdown(raw);
-    }
-
-    private static string ExtractBlock(string text, string lang)
-    {
-        var pattern = $@"<!--\s*{lang}\s*-->(.*?)<!--\s*/{lang}\s*-->";
-        var match = Regex.Match(text, pattern,
-            RegexOptions.Singleline | RegexOptions.IgnoreCase);
-        return match.Success ? match.Groups[1].Value.Trim() : "";
-    }
-
-    // Minimal markdown → plain text for WPF TextBlock readability
-    private static string SimplifyMarkdown(string md)
+    private string FormatReleaseNotes(string md)
     {
         if (string.IsNullOrWhiteSpace(md)) return "";
 
-        md = Regex.Replace(md, @"^#{1,3}\s+", "", RegexOptions.Multiline);  // ## headers
-        md = Regex.Replace(md, @"\*\*(.+?)\*\*", "$1");                     // **bold**
+        // Simple markdown to plain text conversion
+        md = Regex.Replace(md, @"^### (.+)$", "$1", RegexOptions.Multiline); // H3
+        md = Regex.Replace(md, @"^## (.+)$", "$1", RegexOptions.Multiline);  // H2
+        md = Regex.Replace(md, @"^\* (.+)$", "• $1", RegexOptions.Multiline); // Bullet
+        md = Regex.Replace(md, @"^- (.+)$", "• $1", RegexOptions.Multiline);  // Bullet
         md = Regex.Replace(md, @"`(.+?)`", "$1");                           // `code`
         md = Regex.Replace(md, @"\r\n|\r", "\n");
         md = Regex.Replace(md, @"\n{3,}", "\n\n");
