@@ -5,6 +5,22 @@
 
 ---
 
+## [1.15.46] - 2026-04-24
+
+<!-- ko -->
+### 수정
+- **업데이트 진행바 표시 수정** — 커스텀 ProgressBar 템플릿에 `PART_Track` 누락으로 진행바가 시각적으로 올라가지 않던 문제 수정
+- **퍼센트 중복 표시 수정** — 진행 중 좌우에 퍼센트가 두 번 표시되던 문제 수정 (좌측은 "다운로드 중..." 텍스트, 우측은 숫자만 표시)
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Update progress bar not filling** — Fixed missing `PART_Track` in custom ProgressBar ControlTemplate causing the bar to never grow visually
+- **Duplicate percentage display** — Fixed percentage shown on both left and right sides; left now shows status text, right shows the number only
+<!-- /en -->
+
+---
+
 ## [1.15.45] - 2026-04-23
 
 <!-- ko -->
