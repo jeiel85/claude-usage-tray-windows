@@ -5,6 +5,20 @@
 
 ---
 
+## [1.15.48] - 2026-04-24
+
+<!-- ko -->
+### 개선
+- **업데이트 팝업 릴리즈 노트 다국어 필터링** — 앱 언어 설정에 맞는 언어 블록만 표시 (기본값: 영어)
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Localized release notes in update popup** — Only the block matching the app language is shown (default: English)
+<!-- /en -->
+
+---
+
 ## [1.15.47] - 2026-04-24
 
 <!-- ko -->

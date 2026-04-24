@@ -41,8 +41,9 @@ public class UpdateService
             if (!Version.TryParse(versionStr, out var latest)) return null;
             if (latest <= CurrentVersion) return null;
 
-            var releaseNotes = root.TryGetProperty("body", out var bodyEl)
-                ? bodyEl.GetString() ?? "" : "";
+            var releaseNotes = Loc.FilterReleaseNotes(
+                root.TryGetProperty("body", out var bodyEl)
+                    ? bodyEl.GetString() ?? "" : "");
 
             string? exeUrl = null;
             string? sha256Url = null;

@@ -527,6 +527,35 @@ public static class Loc
         _ => "✓ Already up to date"
     };
 
+    /// <summary>
+    /// 릴리즈 노트에서 현재 언어 블록만 추출한다.
+    /// <!-- ko -->...<!-- /ko --> 형식. 해당 언어 블록이 없으면 en 블록을 반환한다.
+    /// </summary>
+    public static string FilterReleaseNotes(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return raw;
+
+        var section = ExtractLangBlock(raw, Lang);
+        if (!string.IsNullOrWhiteSpace(section)) return section.Trim();
+
+        var en = ExtractLangBlock(raw, "en");
+        if (!string.IsNullOrWhiteSpace(en)) return en.Trim();
+
+        return raw.Trim();
+    }
+
+    private static string ExtractLangBlock(string text, string lang)
+    {
+        var open  = $"<!-- {lang} -->";
+        var close = $"<!-- /{lang} -->";
+        var start = text.IndexOf(open, StringComparison.OrdinalIgnoreCase);
+        if (start < 0) return "";
+        start += open.Length;
+        var end = text.IndexOf(close, start, StringComparison.OrdinalIgnoreCase);
+        if (end < 0) return "";
+        return text[start..end];
+    }
+
     public static string DepletionAt(string time) => Lang switch
     {
         "ko" => $"⚡ 추세대로면 {time}경 소진",
