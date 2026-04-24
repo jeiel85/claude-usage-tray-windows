@@ -5,6 +5,20 @@
 
 ---
 
+## [1.15.47] - 2026-04-24
+
+<!-- ko -->
+### 테스트
+- **업데이트 플로우 검증** — v1.15.46에서 v1.15.47로 업데이트 알림 및 진행바 정상 동작 확인용
+<!-- /ko -->
+
+<!-- en -->
+### Test
+- **Update flow verification** — Release to verify update notification and progress bar from v1.15.46 to v1.15.47
+<!-- /en -->
+
+---
+
 ## [1.15.46] - 2026-04-24
 
 <!-- ko -->
