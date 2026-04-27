@@ -82,6 +82,8 @@ public partial class SettingsWindow : Window, IDisposable
         LblNtfyTopic.Text                   = Loc.NtfyTopic;
         LblNtfyHint.Text                   = Loc.NtfyPlaceholder;
         LblNtfySecurityWarning.Text        = Loc.NtfySecurityWarning;
+        ChkNtfySendFromThisPc.Content      = Loc.NtfySendFromThisPc;
+        LblNtfySendFromThisPcHint.Text     = Loc.NtfySendFromThisPcHint;
         LblDisclaimer.Text                  = Loc.Disclaimer;
         LblPollingInterval.Text             = Loc.PollingInterval;
     }
@@ -95,8 +97,9 @@ public partial class SettingsWindow : Window, IDisposable
         Chk75.IsChecked               = _vm.Threshold75;
         Chk90.IsChecked               = _vm.Threshold90;
         Chk100.IsChecked              = _vm.Threshold100;
-        TxtNtfyTopic.Text             = _vm.NtfyTopic;
-        ChkStartWithWindows.IsChecked = IsStartupEnabled();
+        TxtNtfyTopic.Text               = _vm.NtfyTopic;
+        ChkNtfySendFromThisPc.IsChecked = _vm.NtfySendFromThisPc;
+        ChkStartWithWindows.IsChecked   = IsStartupEnabled();
         SliderPolling.Value = _vm.PollingIntervalMinutes > 0 ? _vm.PollingIntervalMinutes : 2;
         UpdatePollingLabel((int)SliderPolling.Value);
     }
@@ -108,13 +111,14 @@ public partial class SettingsWindow : Window, IDisposable
 
     private void Setting_Changed(object sender, RoutedEventArgs e)
     {
-        _vm.NotificationsEnabled = ChkEnabled.IsChecked == true;
-        _vm.NotifyRateLimit      = ChkRateLimit.IsChecked == true;
-        _vm.NotifyOnQuotaReset     = ChkQuotaReset.IsChecked == true;
-        _vm.Threshold50          = Chk50.IsChecked == true;
-        _vm.Threshold75          = Chk75.IsChecked == true;
-        _vm.Threshold90          = Chk90.IsChecked == true;
-        _vm.Threshold100         = Chk100.IsChecked == true;
+        _vm.NotificationsEnabled  = ChkEnabled.IsChecked == true;
+        _vm.NotifyRateLimit       = ChkRateLimit.IsChecked == true;
+        _vm.NotifyOnQuotaReset    = ChkQuotaReset.IsChecked == true;
+        _vm.Threshold50           = Chk50.IsChecked == true;
+        _vm.Threshold75           = Chk75.IsChecked == true;
+        _vm.Threshold90           = Chk90.IsChecked == true;
+        _vm.Threshold100          = Chk100.IsChecked == true;
+        _vm.NtfySendFromThisPc    = ChkNtfySendFromThisPc.IsChecked == true;
         _vm.SaveSettingsCommand.Execute(null);
     }
 

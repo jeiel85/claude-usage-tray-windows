@@ -74,6 +74,9 @@ public class NotificationService
         {
             try
             {
+                // 여러 PC에서 동일 토픽 사용 시 중복 발송 방지: 최근 3분 내 동일 알림 확인
+                if (await IsRecentDuplicateAsync(topic, title, body)) return;
+
                 // JSON API로 전송 — HTTP 헤더에 한국어 등 non-ASCII 문자를 넣으면
                 // .NET이 FormatException을 던지므로 JSON body 방식을 사용
                 var payload = JsonSerializer.Serialize(new
@@ -98,5 +101,33 @@ public class NotificationService
                 GC.KeepAlive(ex);
             }
         });
+    }
+
+    private static async Task<bool> IsRecentDuplicateAsync(string topic, string title, string body)
+    {
+        try
+        {
+            var resp = await Http.GetStringAsync(
+                $"https://ntfy.sh/{Uri.EscapeDataString(topic.Trim())}/json?poll=1&since=3m");
+
+            // ntfy 응답은 NDJSON — 줄마다 하나의 메시지 JSON
+            var titleJson = JsonSerializer.Serialize(title);   // 따옴표 포함 JSON 문자열
+            var bodyJson  = JsonSerializer.Serialize(body);
+
+            foreach (var line in resp.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (line.Contains($"\"title\":{titleJson}") &&
+                    line.Contains($"\"message\":{bodyJson}"))
+                    return true;
+            }
+        }
+        catch (Exception ex)
+        {
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine($"[NotificationService] Dedup check failed: {ex.Message}");
+#endif
+            GC.KeepAlive(ex);
+        }
+        return false;
     }
 }

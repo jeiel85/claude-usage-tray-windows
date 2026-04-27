@@ -237,7 +237,13 @@
                     <TextBlock x:Name="LblNtfySecurityWarning" Foreground="#FCD34D" FontSize="10"
                                TextWrapping="Wrap" Margin="2,4,0,2"
                                Visibility="Collapsed"/>
-                    <TextBlock x:Name="LblNtfyHint" Foreground="#5A5F7A" FontSize="10" Margin="2,2,0,16"/>
+                    <TextBlock x:Name="LblNtfyHint" Foreground="#5A5F7A" FontSize="10" Margin="2,2,0,10"/>
+
+                    <!-- ntfy 중복 발송 방지 -->
+                    <CheckBox x:Name="ChkNtfySendFromThisPc" Style="{StaticResource CheckStyle}"
+                              Margin="0,0,0,2" Click="Setting_Changed"/>
+                    <TextBlock x:Name="LblNtfySendFromThisPcHint" Foreground="#5A5F7A" FontSize="10"
+                               TextWrapping="Wrap" Margin="2,0,0,14"/>
 
                 </StackPanel>
 

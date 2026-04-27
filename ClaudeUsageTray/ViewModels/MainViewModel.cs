@@ -75,6 +75,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _threshold90;
     [ObservableProperty] private bool _threshold100;
     [ObservableProperty] private string _ntfyTopic = "";
+    [ObservableProperty] private bool _ntfySendFromThisPc = true;
     [ObservableProperty] private bool _startWithWindows;
     [ObservableProperty] private int _pollingIntervalMinutes;
 
@@ -139,6 +140,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public string LblThresholds      => Loc.ThresholdsLabel;
     public string LblNtfyTopic       => Loc.NtfyTopic;
     public string LblNtfyPlaceholder => Loc.NtfyPlaceholder;
+
+    // ntfy 발송 대상 토픽: 이 PC에서 발송 비활성화 시 빈 문자열 반환
+    private string NtfyTopicEffective => NtfySendFromThisPc ? NtfyTopic : "";
     public string LblCheckUpdate     => Loc.CheckUpdate;
 
     // Tooltips
@@ -208,8 +212,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
         Threshold75  = s.Thresholds.Contains(75);
         Threshold90  = s.Thresholds.Contains(90);
         Threshold100 = s.Thresholds.Contains(100);
-        NtfyTopic        = s.NtfyTopic;
-        StartWithWindows = s.StartWithWindows;
+        NtfyTopic           = s.NtfyTopic;
+        NtfySendFromThisPc  = s.NtfySendFromThisPc;
+        StartWithWindows    = s.StartWithWindows;
         PollingIntervalMinutes = s.PollingIntervalMinutes;
 
         // 현재 로그인된 계정의 orgUuid로 히스토리 경로 초기화
@@ -250,6 +255,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             NotifyOnQuotaReset = NotifyOnQuotaReset,
             Thresholds = thresholds,
             NtfyTopic = NtfyTopic.Trim(),
+            NtfySendFromThisPc = NtfySendFromThisPc,
             StartWithWindows = StartWithWindows,
             SkippedVersion = existing.SkippedVersion,
             PollingIntervalMinutes = PollingIntervalMinutes,
@@ -398,7 +404,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public void SendTestNotification()
     {
-        _notifier.ShowTestAlert(NtfyTopic);
+        _notifier.ShowTestAlert(NtfyTopicEffective);
     }
 
     [RelayCommand]
@@ -462,7 +468,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 if (NotificationsEnabled && NotifyRateLimit &&
                     sessionStats.HasRateLimitHit && !_prevHadRateLimit)
                 {
-                    _notifier.ShowRateLimitAlert(NtfyTopic);
+                    _notifier.ShowRateLimitAlert(NtfyTopicEffective);
                 }
                 _prevHadRateLimit = sessionStats.HasRateLimitHit;
 
@@ -486,7 +492,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                         // Check threshold crossings (skip on first load)
                         if (NotificationsEnabled && _prevShortPercent >= 0)
                         {
-                            CheckThresholds(newPercent, ShortResetLabel, NtfyTopic);
+                            CheckThresholds(newPercent, ShortResetLabel, NtfyTopicEffective);
                         }
 
                         ShortUsagePercent = newPercent;

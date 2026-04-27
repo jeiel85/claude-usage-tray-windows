@@ -24,4 +24,7 @@ public class NotificationSettings
 
     // ntfy 토픽 경고 표시 (중복 PC 경고)
     public bool NtfyTopicWarningShown { get; set; } = false;
+
+    // 이 PC에서 ntfy 발송 여부 (여러 PC 중복 방지용)
+    public bool NtfySendFromThisPc { get; set; } = true;
 }

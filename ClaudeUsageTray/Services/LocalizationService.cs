@@ -348,6 +348,22 @@ public static class Loc
         _ => "Topic name can only contain lowercase letters, numbers, dash(-), underscore(_), @, and dot(.)"
     };
 
+    public static string NtfySendFromThisPc => Lang switch
+    {
+        "ko" => "이 PC에서 ntfy 알림 발송",
+        "zh" => "从此电脑发送 ntfy 通知",
+        "ja" => "このPCからntfy通知を送信",
+        _ => "Send ntfy notifications from this PC"
+    };
+
+    public static string NtfySendFromThisPcHint => Lang switch
+    {
+        "ko" => "여러 PC에서 같은 토픽 사용 시, 한 PC에서만 활성화하세요",
+        "zh" => "多台电脑使用相同主题时，只在一台上启用",
+        "ja" => "複数のPCで同じトピックを使う場合、1台のみ有効にしてください",
+        _ => "If multiple PCs share the same topic, enable only on one"
+    };
+
     public static string ThresholdsLabel => Lang switch
     {
         "ko" => "5시간 윈도우 임계값",

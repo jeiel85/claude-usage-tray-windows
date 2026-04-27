@@ -5,6 +5,20 @@
 
 ---
 
+## [1.15.49] - 2026-04-27
+
+<!-- ko -->
+### 개선
+- **ntfy 중복 알림 방지** — 여러 PC에서 동일 토픽 사용 시 중복 발송 문제 해결. 설정에 "이 PC에서 ntfy 알림 발송" 토글 추가 (한 PC에서만 활성화하여 중복 차단). 추가로 3분 창 기반 dedup 안전망 적용 — 동시 감지 race condition 시에도 중복 발송 방지
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **ntfy duplicate notification prevention** — Fixes duplicate push notifications when the same topic is set on multiple PCs. Added "Send ntfy notifications from this PC" toggle in settings (enable on one PC only). Also added a 3-minute dedup safety net to prevent duplicates even in race-condition scenarios
+<!-- /en -->
+
+---
+
 ## [1.15.48] - 2026-04-24
 
 <!-- ko -->
