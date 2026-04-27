@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.17.5] - 2026-04-27
+
+<!-- ko -->
+### 개선
+- **Codex 초기화 시간 폴백 표시** — 로그에 `resets_at` 정보가 없을 때 금번 초기화 전 최초 활동 시간 + 5시간으로 예상 초기화 시간 표시
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Codex reset time fallback display** — When `resets_at` info is not available in logs, shows the estimated reset time based on the first activity before the current window + 5 hours
+<!-- /en -->
+
+---
+
 ## [1.17.4] - 2026-04-27
 
 <!-- ko -->

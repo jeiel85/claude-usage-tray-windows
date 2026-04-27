@@ -50,6 +50,7 @@ public class CodexUsageMonitor
         UsageTotals? prevTotals = null;
         bool fileHadTodayActivity = false;
         string? line;
+        DateTimeOffset? firstTodayActivityTs = null;
 
         while ((line = reader.ReadLine()) != null)
         {
@@ -71,6 +72,9 @@ public class CodexUsageMonitor
                          DateTimeOffset.TryParse(tsEl.GetString(), out var parsedTs)
                     ? parsedTs
                     : DateTimeOffset.MinValue;
+
+                if (ts != DateTimeOffset.MinValue)
+                    firstTodayActivityTs ??= ts;
 
                 if (payloadEl.TryGetProperty("rate_limits", out var rateLimitsEl) && ts > latestRateTs)
                 {
@@ -109,6 +113,12 @@ public class CodexUsageMonitor
 
         if (fileHadTodayActivity)
             snapshot.SessionCount++;
+
+        // 로그에 resets_at이 없으면 금번 초기화 전 첫 활동 시간 + 5시간으로 폴백
+        if (snapshot.ShortResetAt is null && firstTodayActivityTs.HasValue)
+        {
+            snapshot.ShortResetAt = firstTodayActivityTs.Value.AddHours(5);
+        }
     }
 
     private static bool TryReadTotals(JsonElement payloadEl, out UsageTotals totals)
