@@ -69,7 +69,6 @@ public partial class SettingsWindow : Window, IDisposable
     private void ApplyLocalization()
     {
         TitleText.Text                      = Loc.Notifications;
-        LblProvider.Text                    = Loc.ProviderSection;
         LblGeneral.Text                     = Loc.NotificationsEnabled;
         ChkEnabled.Content                  = Loc.NotificationsEnabled;
         ChkRateLimit.Content                = Loc.NotifyRateLimit;
@@ -90,14 +89,6 @@ public partial class SettingsWindow : Window, IDisposable
         LblNtfySendFromThisPcHint.Text     = Loc.NtfySendFromThisPcHint;
         LblDisclaimer.Text                  = _vm.DisclaimerText;
         LblPollingInterval.Text             = Loc.PollingInterval;
-
-        CmbProvider.Items.Clear();
-        var textBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xF1, 0xF5, 0xF9));
-        var bgBrush   = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1A, 0x1D, 0x2E));
-
-        CmbProvider.Items.Add(new ComboBoxItem { Content = Loc.ProviderClaude, Tag = UsageProviderKind.Claude, Foreground = textBrush, Background = bgBrush });
-        CmbProvider.Items.Add(new ComboBoxItem { Content = Loc.ProviderCodex, Tag = UsageProviderKind.Codex, Foreground = textBrush, Background = bgBrush });
-        CmbProvider.Items.Add(new ComboBoxItem { Content = Loc.ProviderGeminiCli, Tag = UsageProviderKind.GeminiCli, Foreground = textBrush, Background = bgBrush });
     }
 
     private void LoadValues()
@@ -115,20 +106,7 @@ public partial class SettingsWindow : Window, IDisposable
         ChkStartWithWindows.IsChecked   = IsStartupEnabled();
         SliderPolling.Value = _vm.PollingIntervalMinutes > 0 ? _vm.PollingIntervalMinutes : 2;
         UpdatePollingLabel((int)SliderPolling.Value);
-        SelectProviderItem(_vm.SelectedProvider);
         _isLoadingValues = false;
-    }
-
-    private void SelectProviderItem(string provider)
-    {
-        foreach (var item in CmbProvider.Items.OfType<ComboBoxItem>())
-        {
-            if ((item.Tag as string) == provider)
-            {
-                CmbProvider.SelectedItem = item;
-                break;
-            }
-        }
     }
 
     private void UpdatePollingLabel(int minutes)
@@ -245,19 +223,6 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.PollingIntervalMinutes = minutes;
         _vm.SaveSettingsCommand.Execute(null);
         _vm.ApplyPollingInterval();
-    }
-
-    private async void CmbProvider_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_isLoadingValues) return;
-
-        if (CmbProvider.SelectedItem is not ComboBoxItem item || item.Tag is not string provider)
-            return;
-
-        _vm.SelectedProvider = provider;
-        LblDisclaimer.Text = _vm.DisclaimerText;
-        _vm.SaveSettingsCommand.Execute(null);
-        await _vm.RefreshAsync();
     }
 
     public void ShowNearTray()

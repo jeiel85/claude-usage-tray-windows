@@ -20,6 +20,14 @@ public static class Loc
 
     public static string CurrentLang => Lang;
 
+    public static string AgentUsageTitle => Lang switch
+    {
+        "ko" => "AI 에이전트 사용량",
+        "zh" => "AI 代理使用量",
+        "ja" => "AI エージェント使用量",
+        _ => "AI Agent Usage"
+    };
+
     public static string ClaudeUsageTitle => Lang switch
     {
         "ko" => "Claude 사용량",

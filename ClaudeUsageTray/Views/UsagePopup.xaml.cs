@@ -30,13 +30,12 @@ public partial class UsagePopup : Window, IDisposable
         DataContext = vm;
 
         Deactivated += (_, _) => { if (!_settingsOpen) Hide(); };
-        MouseLeftButtonDown += (_, e) => DragMove();
+        MouseLeftButtonDown += (_, e) => { if (!e.Handled) DragMove(); };
         PreviewKeyDown += OnPreviewKeyDown;
 
         vm.PropertyChanged += OnVmPropertyChanged;
         Loaded += (_, _) => RefreshChart();
         UpdateToggleStyle();
-        ExportCsvBtn.ToolTip = Loc.ExportCsvTooltip;
     }
 
     private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -285,10 +284,12 @@ public partial class UsagePopup : Window, IDisposable
 
     protected override void OnSourceInitialized(EventArgs e) => base.OnSourceInitialized(e);
 
-    private async void RefreshBtn_Click(object sender, RoutedEventArgs e) => await _vm.RefreshAsync();
-
-    private void ExportCsvBtn_Click(object sender, RoutedEventArgs e) =>
-        _vm.ExportCsvCommand.Execute(null);
+    private async void RefreshBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.Button btn) btn.IsEnabled = false;
+        await _vm.RefreshAsync();
+        if (sender is System.Windows.Controls.Button b) b.IsEnabled = true;
+    }
 
     private void SettingsBtn_Click(object sender, RoutedEventArgs e)
     {

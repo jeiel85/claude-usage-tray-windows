@@ -26,6 +26,7 @@
         <SolidColorBrush x:Key="DangerBrush" Color="#EF4444"/>
         <SolidColorBrush x:Key="SuccessBrush" Color="#10B981"/>
 
+        <!-- Claude 바 (보라 그라디언트) -->
         <Style x:Key="UsageBarStyle" TargetType="ProgressBar">
             <Setter Property="Height" Value="4"/>
             <Setter Property="Background" Value="#2D2F45"/>
@@ -55,6 +56,75 @@
             </Setter>
         </Style>
 
+        <!-- Codex 바 (초록) -->
+        <Style x:Key="CodexBarStyle" TargetType="ProgressBar">
+            <Setter Property="Height" Value="4"/>
+            <Setter Property="Background" Value="#2D2F45"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid>
+                            <Border Background="{TemplateBinding Background}" CornerRadius="2"/>
+                            <Border x:Name="PART_Track" CornerRadius="2"/>
+                            <Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="2" Background="#10B981"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Value" Value="0">
+                                <Setter TargetName="PART_Indicator" Property="Visibility" Value="Collapsed"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Gemini 바 (파랑) -->
+        <Style x:Key="GeminiBarStyle" TargetType="ProgressBar">
+            <Setter Property="Height" Value="4"/>
+            <Setter Property="Background" Value="#2D2F45"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid>
+                            <Border Background="{TemplateBinding Background}" CornerRadius="2"/>
+                            <Border x:Name="PART_Track" CornerRadius="2"/>
+                            <Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="2" Background="#3B82F6"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Value" Value="0">
+                                <Setter TargetName="PART_Indicator" Property="Visibility" Value="Collapsed"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Extra Usage 바 (황금) -->
+        <Style x:Key="ExtraBarStyle" TargetType="ProgressBar">
+            <Setter Property="Height" Value="4"/>
+            <Setter Property="Background" Value="#2D2F45"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid>
+                            <Border Background="{TemplateBinding Background}" CornerRadius="2"/>
+                            <Border x:Name="PART_Track" CornerRadius="2"/>
+                            <Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="2" Background="#F59E0B"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Value" Value="0">
+                                <Setter TargetName="PART_Indicator" Property="Visibility" Value="Collapsed"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="SectionLabel" TargetType="TextBlock">
             <Setter Property="FontSize" Value="10"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
@@ -64,21 +134,33 @@
         <Style x:Key="StatBox" TargetType="Border">
             <Setter Property="Background" Value="#1A1D2E"/>
             <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="Padding" Value="10,8"/>
-            <Setter Property="Margin" Value="0,0,0,0"/>
+            <Setter Property="Padding" Value="10,10"/>
         </Style>
 
         <Style x:Key="StatLabel" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#8B92B3"/>
             <Setter Property="FontSize" Value="9"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Margin" Value="0,0,0,2"/>
+            <Setter Property="Margin" Value="0,0,0,3"/>
         </Style>
 
         <Style x:Key="StatValue" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#A78BFA"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+
+        <!-- 투명 클릭 버튼 (버전 등) -->
+        <Style x:Key="GhostBtn" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Window.Resources>
 
@@ -109,7 +191,7 @@
                                         <GradientStop Color="#6366F1" Offset="1"/>
                                     </LinearGradientBrush>
                                 </Border.Background>
-                                <TextBlock Text="C" Foreground="White" FontWeight="Bold"
+                                <TextBlock Text="A" Foreground="White" FontWeight="Bold"
                                            FontSize="12" HorizontalAlignment="Center"
                                            VerticalAlignment="Center"/>
                             </Border>
@@ -129,25 +211,27 @@
                         <!-- Refresh button -->
                         <Button Grid.Column="1" x:Name="RefreshBtn"
                                 Width="28" Height="28"
-                                Background="Transparent"
-                                BorderThickness="0"
                                 Cursor="Hand"
                                 ToolTip="{Binding LblRefresh}"
                                 Click="RefreshBtn_Click">
-                            <TextBlock Text="↻" Foreground="#5A5F7A" FontSize="14"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <Button.Style>
                                 <Style TargetType="Button">
                                     <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
                                     <Setter Property="Template">
                                         <Setter.Value>
                                             <ControlTemplate TargetType="Button">
-                                                <Border Background="{TemplateBinding Background}" CornerRadius="6">
-                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="6">
+                                                    <TextBlock x:Name="Icon" Text="↻" Foreground="#5A5F7A" FontSize="14"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter Property="Background" Value="#2D2F45"/>
+                                                        <Setter TargetName="Bd" Property="Background" Value="#2D2F45"/>
+                                                        <Setter TargetName="Icon" Property="Foreground" Value="#A78BFA"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsPressed" Value="True">
+                                                        <Setter TargetName="Icon" Property="Foreground" Value="#8B5CF6"/>
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -192,19 +276,19 @@
                 </Border>
 
                 <!-- Provider Sections -->
-                <StackPanel Margin="16,10,16,0">
-                    <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblApiQuota}" Margin="0,0,0,8"/>
+                <StackPanel Margin="16,12,16,0">
+                    <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblApiQuota}" Margin="0,0,0,10"/>
 
                     <!-- Claude Section -->
-                    <StackPanel Margin="0,0,0,8">
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
+                    <StackPanel Margin="0,0,0,10">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <Border Width="10" Height="10" CornerRadius="2" Background="#8B5CF6" Margin="0,0,6,0">
                                 <TextBlock Text="C" Foreground="White" FontSize="7" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                             <TextBlock Text="Claude" Foreground="#F1F5F9" FontSize="10" FontWeight="SemiBold"/>
                         </StackPanel>
 
-                        <Grid Margin="0,0,0,5">
+                        <Grid Margin="0,0,0,6">
                             <Grid.RowDefinitions><RowDefinition/><RowDefinition Height="Auto"/><RowDefinition Height="4"/></Grid.RowDefinitions>
                             <Grid Grid.Row="0">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -232,7 +316,7 @@
                         </Grid>
 
                         <!-- Extra Usage (Claude only) -->
-                        <Grid Margin="0,5,0,0" Visibility="{Binding ExtraUsageEnabled, Converter={StaticResource BoolToVisibility}}">
+                        <Grid Margin="0,6,0,0" Visibility="{Binding ExtraUsageEnabled, Converter={StaticResource BoolToVisibility}}">
                             <Grid.RowDefinitions><RowDefinition/><RowDefinition Height="4"/></Grid.RowDefinitions>
                             <Grid Grid.Row="0">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -242,20 +326,14 @@
                                     <TextBlock Text="{Binding ExtraCreditsLabel}" Foreground="#5A5F7A" FontSize="8" Margin="4,0,0,0"/>
                                 </StackPanel>
                             </Grid>
-                            <ProgressBar Grid.Row="1" Value="{Binding ExtraUsagePercent}" Maximum="1" Style="{StaticResource UsageBarStyle}" Margin="0,2,0,0">
-                                <ProgressBar.Template>
-                                    <ControlTemplate TargetType="ProgressBar">
-                                        <Grid><Border Background="#2D2F45" CornerRadius="2" Height="4"/><Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="2" Background="#F59E0B"/></Grid>
-                                    </ControlTemplate>
-                                </ProgressBar.Template>
-                            </ProgressBar>
+                            <ProgressBar Grid.Row="1" Value="{Binding ExtraUsagePercent}" Maximum="1" Style="{StaticResource ExtraBarStyle}" Margin="0,2,0,0"/>
                         </Grid>
                         <TextBlock Text="{Binding ClaudeErrorMessage}" Foreground="#EF4444" FontSize="8" TextWrapping="Wrap" Margin="0,2,0,0" Visibility="{Binding ClaudeHasError, Converter={StaticResource BoolToVisibility}}"/>
                     </StackPanel>
 
                     <!-- Codex Section -->
-                    <StackPanel Margin="0,0,0,8">
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
+                    <StackPanel Margin="0,0,0,10">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <Border Width="10" Height="10" CornerRadius="2" Background="#10B981" Margin="0,0,6,0">
                                 <TextBlock Text="X" Foreground="White" FontSize="7" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
@@ -269,19 +347,13 @@
                                 <TextBlock Text="{Binding CodexReset}" Foreground="#5A5F7A" FontSize="8"/>
                             </StackPanel>
                         </Grid>
-                        <ProgressBar Value="{Binding CodexPercent}" Maximum="1" Style="{StaticResource UsageBarStyle}" Margin="0,2,0,0">
-                            <ProgressBar.Template>
-                                <ControlTemplate TargetType="ProgressBar">
-                                    <Grid><Border Background="#2D2F45" CornerRadius="2" Height="4"/><Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="2" Background="#10B981"/></Grid>
-                                </ControlTemplate>
-                            </ProgressBar.Template>
-                        </ProgressBar>
-                        <TextBlock Text="{Binding CodexNote}" Foreground="#3D4266" FontSize="8" Margin="0,1,0,0"/>
+                        <ProgressBar Value="{Binding CodexPercent}" Maximum="1" Style="{StaticResource CodexBarStyle}" Margin="0,2,0,0"/>
+                        <TextBlock Text="{Binding CodexNote}" Foreground="#3D4266" FontSize="8" Margin="0,2,0,0"/>
                     </StackPanel>
 
                     <!-- Gemini Section -->
                     <StackPanel Margin="0,0,0,0">
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <Border Width="10" Height="10" CornerRadius="2" Background="#3B82F6" Margin="0,0,6,0">
                                 <TextBlock Text="G" Foreground="White" FontSize="7" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
@@ -295,46 +367,56 @@
                                 <TextBlock Text="{Binding GeminiReset}" Foreground="#5A5F7A" FontSize="8"/>
                             </StackPanel>
                         </Grid>
-                        <ProgressBar Value="{Binding GeminiPercent}" Maximum="1" Style="{StaticResource UsageBarStyle}" Margin="0,2,0,0">
-                            <ProgressBar.Template>
-                                <ControlTemplate TargetType="ProgressBar">
-                                    <Grid><Border Background="#2D2F45" CornerRadius="2" Height="4"/><Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="2" Background="#3B82F6"/></Grid>
-                                </ControlTemplate>
-                            </ProgressBar.Template>
-                        </ProgressBar>
-                        <TextBlock Text="{Binding GeminiNote}" Foreground="#3D4266" FontSize="8" Margin="0,1,0,0"/>
+                        <ProgressBar Value="{Binding GeminiPercent}" Maximum="1" Style="{StaticResource GeminiBarStyle}" Margin="0,2,0,0"/>
+                        <TextBlock Text="{Binding GeminiNote}" Foreground="#3D4266" FontSize="8" Margin="0,2,0,0"/>
                     </StackPanel>
                 </StackPanel>
 
-                <Separator Background="#2D2F45" Margin="16,10,16,0"/>
+                <Separator Background="#2D2F45" Margin="16,12,16,0"/>
 
                 <!-- Today's Stats -->
-                <StackPanel Margin="16,10,16,0">
-                    <Grid Margin="0,0,0,8">
+                <StackPanel Margin="16,12,16,0">
+                    <Grid Margin="0,0,0,10">
                         <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblTodayTokens}" VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding SessionsLabel}" Foreground="#5A5F7A" FontSize="9" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                     </Grid>
                     <UniformGrid Columns="2" Rows="2">
+                        <!-- Input: 보라 -->
                         <Border Style="{StaticResource StatBox}" Margin="0,0,4,4">
-                            <StackPanel><TextBlock Text="{Binding LblInput}" Style="{StaticResource StatLabel}"/><TextBlock Text="{Binding TodayInputTokens, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}"/></StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="{Binding LblInput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                <TextBlock Text="{Binding TodayInputTokens, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}" Foreground="#A78BFA"/>
+                            </StackPanel>
                         </Border>
+                        <!-- Output: 파랑 -->
                         <Border Style="{StaticResource StatBox}" Margin="4,0,0,4">
-                            <StackPanel><TextBlock Text="{Binding LblOutput}" Style="{StaticResource StatLabel}"/><TextBlock Text="{Binding TodayOutputTokens, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}"/></StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="{Binding LblOutput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                <TextBlock Text="{Binding TodayOutputTokens, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}" Foreground="#60A5FA"/>
+                            </StackPanel>
                         </Border>
+                        <!-- Cache Read: 초록 -->
                         <Border Style="{StaticResource StatBox}" Margin="0,4,4,0">
-                            <StackPanel><TextBlock Text="{Binding LblCacheRead}" Style="{StaticResource StatLabel}"/><TextBlock Text="{Binding TodayCacheRead, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}" FontSize="12"/></StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="{Binding LblCacheRead}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                <TextBlock Text="{Binding TodayCacheRead, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}" Foreground="#34D399" FontSize="12"/>
+                            </StackPanel>
                         </Border>
+                        <!-- Cache Write: 황금 -->
                         <Border Style="{StaticResource StatBox}" Margin="4,4,0,0">
-                            <StackPanel><TextBlock Text="{Binding LblCacheWrite}" Style="{StaticResource StatLabel}"/><TextBlock Text="{Binding TodayCacheWrite, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}" FontSize="12"/></StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="{Binding LblCacheWrite}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                <TextBlock Text="{Binding TodayCacheWrite, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}" Foreground="#FBBF24" FontSize="12"/>
+                            </StackPanel>
                         </Border>
                     </UniformGrid>
-                    <TextBlock Text="{Binding TodayCostLabel}" Foreground="#5A5F7A" FontSize="8" HorizontalAlignment="Right" Margin="0,4,0,0"/>
+                    <TextBlock Text="{Binding TodayCostLabel}" Foreground="#5A5F7A" FontSize="8" HorizontalAlignment="Right" Margin="0,5,0,0"/>
                 </StackPanel>
 
-                <Separator Background="#2D2F45" Margin="16,10,16,0"/>
+                <Separator Background="#2D2F45" Margin="16,12,16,0"/>
 
                 <!-- History Chart -->
-                <StackPanel Margin="16,10,16,10">
+                <StackPanel Margin="16,12,16,12">
                     <Grid Margin="0,0,0,8">
                         <TextBlock x:Name="ChartTitleLabel" Text="{Binding HistoryChartTitle}" Style="{StaticResource SectionLabel}"/>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
@@ -350,20 +432,41 @@
                 </StackPanel>
 
                 <!-- Footer -->
-                <Border Padding="16,8" Background="#1A1D2E" CornerRadius="0,0,16,16">
+                <Border Padding="16,10" Background="#1A1D2E" CornerRadius="0,0,16,16">
                     <Grid>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="{Binding CurrentVersionLabel}" Foreground="#3D4266" FontSize="9" VerticalAlignment="Center"/>
-                            <Button Margin="8,0,0,0" Command="{Binding ManualCheckForUpdateCommand}" Background="Transparent" BorderThickness="0" Cursor="Hand">
-                                <TextBlock Text="{Binding UpdateCheckLabel}" Foreground="#A78BFA" FontSize="9"/>
+                        <!-- 좌측: 버전 클릭 → 업데이트 확인 -->
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Command="{Binding ManualCheckForUpdateCommand}"
+                                    Style="{StaticResource GhostBtn}">
+                                <TextBlock Text="{Binding CurrentVersionLabel}" Foreground="#5A5F7A" FontSize="9"/>
                             </Button>
+                            <TextBlock Text="{Binding UpdateCheckLabel}" Foreground="#A78BFA" FontSize="9"
+                                       Margin="6,0,0,0" VerticalAlignment="Center"
+                                       Visibility="{Binding UpdateCheckLabel, Converter={StaticResource StringToVisibility}}"/>
                         </StackPanel>
+                        <!-- 우측: 설정 + 종료 -->
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Button x:Name="ExportCsvBtn" Click="ExportCsvBtn_Click" Background="Transparent" BorderThickness="0" Cursor="Hand" Margin="0,0,8,0">
-                                <TextBlock Text="⤓" Foreground="#5A5F7A" FontSize="14" VerticalAlignment="Center"/>
-                            </Button>
-                            <Button Click="SettingsBtn_Click" Background="Transparent" BorderThickness="0" Cursor="Hand" Margin="0,0,8,0">
-                                <TextBlock Text="⚙" Foreground="#5A5F7A" FontSize="12" VerticalAlignment="Center"/>
+                            <Button Click="SettingsBtn_Click" Cursor="Hand" Margin="0,0,10,0">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="BorderThickness" Value="0"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="2">
+                                                        <TextBlock x:Name="Icon" Text="⚙" Foreground="#5A5F7A" FontSize="13" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="Icon" Property="Foreground" Value="#A78BFA"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </Button.Style>
                             </Button>
                             <Button Click="QuitBtn_Click" Background="Transparent" BorderThickness="0" Cursor="Hand">
                                 <TextBlock Text="{Binding LblQuit}" Foreground="#B87171" FontSize="10" VerticalAlignment="Center"/>

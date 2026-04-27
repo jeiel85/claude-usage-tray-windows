@@ -69,7 +69,7 @@ public partial class App : Application
 
         _trayIcon = new NotifyIcon
         {
-            Text = _vm.LblAppTitle,
+            Text = Loc.AgentUsageTitle,
             Icon = DrawTrayIcon(0),
             Visible = true
         };
@@ -197,17 +197,11 @@ public partial class App : Application
 
                 // Multi-provider summary in tooltip
                 string claudeInfo = _vm.ClaudeHasError ? "Error" : $"{_vm.ClaudeShortPercent:P0}";
-                string codexInfo = _vm.CodexHasError ? "Error" : $"{_vm.CodexPercent:P0}";
+                string codexInfo  = _vm.CodexHasError  ? "Error" : $"{_vm.CodexPercent:P0}";
                 string geminiInfo = _vm.GeminiHasError ? "Error" : $"{_vm.GeminiPercent:P0}";
-                
-                string basisName = _vm.SelectedProvider switch
-                {
-                    ClaudeUsageTray.Models.UsageProviderKind.Codex => "Codex",
-                    ClaudeUsageTray.Models.UsageProviderKind.GeminiCli => "Gemini",
-                    _ => "Claude"
-                };
 
-                _trayIcon.Text = $"{_vm.LblAppTitle} (Gauge: {basisName})\nClaude: {claudeInfo} | Codex: {codexInfo} | Gemini: {geminiInfo}";
+                string tooltip = $"{Loc.AgentUsageTitle}\nClaude {claudeInfo} · Codex {codexInfo} · Gemini {geminiInfo}";
+                _trayIcon.Text = tooltip.Length > 63 ? tooltip[..63] : tooltip;
             });
         }
     }

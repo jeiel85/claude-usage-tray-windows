@@ -100,14 +100,6 @@
                 <!-- Content -->
                 <StackPanel Margin="16,14,16,0">
 
-                    <!-- Provider -->
-                    <TextBlock x:Name="LblProvider" Style="{StaticResource SectionLabel}" Margin="0,0,0,8"/>
-                    <ComboBox x:Name="CmbProvider"
-                              Background="#1A1D2E" Foreground="#F1F5F9"
-                              BorderBrush="#2D2F45" BorderThickness="1"
-                              Padding="8,4" Margin="0,0,0,12"
-                              SelectionChanged="CmbProvider_SelectionChanged"/>
-
                     <!-- General -->
                     <TextBlock x:Name="LblGeneral" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
                     <CheckBox x:Name="ChkEnabled"          Style="{StaticResource CheckStyle}" Click="Setting_Changed"/>

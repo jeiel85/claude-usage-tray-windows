@@ -113,12 +113,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     // 오늘 시간대별 토큰 (0~23시)
     [ObservableProperty] private long[] _hourlyTokens = new long[24];
 
-    public string HistoryChartTitle => Loc.HistoryTitleFor(SelectedProvider switch
-    {
-        UsageProviderKind.Codex => "Codex",
-        UsageProviderKind.GeminiCli => "Gemini",
-        _ => "Claude"
-    });
+    public string HistoryChartTitle => Loc.HistoryTitleFor("Claude");
 
     // 5시간 소진 예측
     [ObservableProperty] private string _shortDepletionLabel = "";
@@ -157,13 +152,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public string? RawApiResponse { get; private set; }
 
     // Localized static labels
-    public string LblAppTitle        => SelectedProvider switch
-    {
-        UsageProviderKind.Codex => Loc.CodexUsageTitle,
-        UsageProviderKind.GeminiCli => Loc.GeminiCliUsageTitle,
-        _ => Loc.ClaudeUsageTitle
-    };
-    public string LblApiQuota        => SelectedProvider == UsageProviderKind.Claude ? Loc.ApiQuota : Loc.UsageQuota;
+    public string LblAppTitle        => Loc.AgentUsageTitle;
+    public string LblApiQuota        => Loc.ApiQuota;
     public string LblTodayTokens     => Loc.TodayTokens;
     public string LblFiveHour        => Loc.FiveHourWindow;
     public string LblSevenDay        => Loc.SevenDayWindow;
@@ -274,9 +264,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
     partial void OnSelectedProviderChanged(string value)
     {
         ApplySelectedProviderScope();
-        OnPropertyChanged(nameof(LblAppTitle));
-        OnPropertyChanged(nameof(LblApiQuota));
-        OnPropertyChanged(nameof(DisclaimerText));
 
         ProviderNote = value switch
         {
@@ -599,12 +586,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     sessionStats.TotalCacheReadTokens, sessionStats.TotalCacheWriteTokens,
                     sessionStats.SessionCount);
                 
-                // 히스토리와 시간대별 차트는 현재 '선택된' 공급자 기준으로 표시 (기본값 유지)
-                if (SelectedProvider == UsageProviderKind.Claude)
-                {
-                    HistoryData = _history.GetLast(7);
-                    HourlyTokens = sessionStats.HourlyTokens;
-                }
+                // 히스토리와 시간대별 차트는 항상 Claude 기준
+                HistoryData = _history.GetLast(7);
+                HourlyTokens = sessionStats.HourlyTokens;
 
                 TodayCostLabel = CalcCostLabel(sessionStats.TotalInputTokens,
                     sessionStats.TotalOutputTokens,
@@ -751,12 +735,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 
                 CodexPercent = newPercent;
                 _prevCodexPercent = newPercent;
-
-                if (SelectedProvider == UsageProviderKind.Codex)
-                {
-                    HistoryData = _history.GetLast(7);
-                    HourlyTokens = snapshot.HourlyTokens;
-                }
             });
         }
         catch (Exception ex)
@@ -785,12 +763,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
                 GeminiPercent = newPercent;
                 _prevGeminiPercent = newPercent;
-
-                if (SelectedProvider == UsageProviderKind.GeminiCli)
-                {
-                    HistoryData = _history.GetLast(7);
-                    HourlyTokens = snapshot.HourlyTokens;
-                }
             });
         }
         catch (Exception ex)
