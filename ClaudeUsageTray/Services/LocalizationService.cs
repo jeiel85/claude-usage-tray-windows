@@ -718,6 +718,14 @@ public static class Loc
         _ => "Base quota exhausted - monitoring extra usage"
     };
 
+    public static string ExtraCreditsLabel => Lang switch
+    {
+        "ko" => "추가 크레딧",
+        "zh" => "额外积分",
+        "ja" => "追加クレジット",
+        _ => "Extra Credits"
+    };
+
     public static string ExtraCredits(double used, double limit) => Lang switch
     {
         "ko" => $"{used:N0} / {limit:N0} 크레딧",

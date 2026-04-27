@@ -175,6 +175,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     // ntfy 발송 대상 토픽: 이 PC에서 발송 비활성화 시 빈 문자열 반환
     private string NtfyTopicEffective => NtfySendFromThisPc ? NtfyTopic : "";
+    public string LblExtraCredits    => Loc.ExtraCreditsLabel;
     public string LblCheckUpdate     => Loc.CheckUpdate;
     public string DisclaimerText     => SelectedProvider == UsageProviderKind.Claude ? Loc.Disclaimer : Loc.GenericDisclaimer;
 
