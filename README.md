@@ -6,7 +6,7 @@
 ![License](https://img.shields.io/badge/license-MIT-10B981?style=flat-square)
 ![Built with Claude](https://img.shields.io/badge/built%20with-Claude%20AI-F59E0B?style=flat-square)
 
-Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니터링하는 앱입니다.
+Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini AI 사용량을 실시간으로 통합 모니터링하는 앱입니다.
 
 > **[claude-usage-mini](https://github.com/jeremy-prt/claude-usage-mini) by [@jeremy-prt](https://github.com/jeremy-prt) 에서 영감을 받았습니다**
 
@@ -44,6 +44,7 @@ Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니�
 |---|------|------|------|
 | [#57] | Codex(ChatGPT plan) 사용량 모니터링 지원 | 기능 | 완료 |
 | [#58] | Gemini CLI 사용량 모니터링 지원 | 기능 | 완료 |
+| — | README 기능 설명 및 작동 원리 최신화 | 문서 | 완료 |
 
 ### v1.17.3 (최신)
 | # | 제목 | 분류 | 상태 |
@@ -76,66 +77,51 @@ Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니�
 |---|------|------|------|
 | [#53] | 트레이 아이콘/툴팁 통합 및 알림 로직 확장 | 기능 | 완료 |
 | [#52] | 모든 공급자 통합 뷰 제공 (Claude, Codex, Gemini 동시 표시) | 기능 | 완료 |
-| [#48] | 할당량 초기화(Reset) 시 알림 기능 추가 | 기능 | 완료 |
-| [#47] | 오늘의 토큰 UI 툴팁 설명 추가 | 개선 | 완료 |
-| [#46] | 오늘의 토큰 용어 설명 추가 | 개선 | 완료 |
-| [#44] | 업데이터 용량 최적화 (20MB -> 5MB 이하 목표) | 개선 | 완료 (Trimming 적용) |
-| [#45] | 메인 앱 실행 속도 최적화 (Startup delay 개선) | 개선 | 완료 (RTR 적용) |
-| — | 문서 파편화 정리 및 통합 (README, AGENTS, CHANGELOG) | 개선 | 완료 |
-
-### 오픈 이슈 (Open)
-| # | 제목 | 분류 | 비고 |
-|---|------|------|------|
-| [#5] | 여러 계정 지원 — 재로그인 후 이전 계정 데이터 표시됨 | 버그 | 조사 완료 (Closed) |
-| [#10] | Discord / Slack 웹훅 알림 지원 | 기능 | 로드맵 (Closed) |
-
-### 🗺 장기 로드맵 (Roadmap)
-- [#43] 빌드 배포 시 설치 파일(.msi/.exe installer)로 배포 방안 검토
-- [#42] Microsoft Store 출시 목표
-- [#13] 히스토리 보관 기간 확장 및 30일 차트
-- [#10] Discord / Slack 웹훅 알림 지원
-- [#5] 여러 계정 지원 보완
 
 ---
 
 ## 주요 기능
 
-**사용량 모니터링**
-- **실시간 API 할당량** — 5시간 / 7일 윈도우 진행 바 및 초기화 시간
-- **5시간 소진 예측** — 현재 사용 추세 기준 할당량 소진 예상 시각 표시
-- **7일 소진 예측** — 현재 사용 추세 기준 7일 할당량 소진 예상 일자 표시
-- **오늘의 토큰 통계** — 입력 / 출력 / 캐시 읽기 / 캐시 쓰기 + USD 비용 참고값
-- **7일 사용 추이 그래프** — 일별 토큰 사용 히스토리 바 차트
-- **오늘 시간대별 차트** — 0~23시 시간대별 사용량 분포
-- **다음 갱신 카운트다운** — 다음 자동 갱신까지 남은 시간을 1초 단위로 실시간 표시
-- **스마트 에러 처리** — 조회 실패 시 마지막 성공 데이터 유지, 트레이 아이콘 `?` 표시
-- **추가 사용량 모니터링** — 5시간 윈도우 100% 소진 시 추가 사용량으로 자동 전환
+**통합 모니터링 (Multi-Provider Support)**
+- **Claude (API)**: 실시간 5시간 / 7일 윈도우 할당량 및 소진 예측
+- **Codex (ChatGPT Plan)**: ChatGPT 플랜 사용량 상태 확인
+- **Gemini CLI**: Gemini CLI 로그를 통한 실시간 토큰 사용량(%) 및 할당량 추적
+- **통합 트레이 툴팁**: 아이콘에 마우스를 올리면 3개 공급자의 상태 요약 즉시 확인
+- **동적 트레이 아이콘**: 현재 가장 많이 사용 중인 공급자 또는 설정된 주 공급자 기준 게이지 표시
 
-**알림**
-- **Windows 알림** — 사용량 임계값(50% / 75% / 90% / 100%) 도달 시 알림
-- **스마트폰 푸시 알림** — [ntfy.sh](https://ntfy.sh) 연동으로 iOS · Android 수신
-- **푸시 테스트 버튼** — 설정창에서 테스트 버튼으로 알림 전송 가능
+**상세 분석**
+- **오늘의 토큰 통계 (Claude)**: 입력 / 출력 / 캐시 읽기 / 캐시 쓰기 토큰을 색상별로 구분 표시
+- **비용 참고치**: 오늘 사용한 토큰량을 USD 달러 비용으로 환산 표시
+- **7일/24시간 차트**: 일별 사용 추이 및 시간대별 사용 분포 시각화
+- **자동 갱신**: 1~N분 주기로 배경에서 실시간 데이터 동기화 (기본 2분)
 
-**업데이트**
-- **자동 업데이트** — 앱 시작 및 24시간마다 GitHub 새 릴리즈 자동 감지
-- **SHA256 검증** — 다운로드한 파일의 무결성을 해시로 검증
-- **업데이트 다이얼로그** — 체인지로그 미리보기 + 버전 건너뛰기 옵션
-- **수동 업데이트 확인** — 푸터의 버전 레이블 클릭으로 즉시 확인
+**스마트 알림**
+- **공급자별 임계값 알림**: Claude, Codex, Gemini 각각 설정된 임계값 도달 시 Windows 알림
+- **모바일 푸시**: [ntfy.sh](https://ntfy.sh) 연동으로 스마트폰(iOS/Android) 실시간 푸시 수신
 
-**데이터 내보내기**
-- **CSV 내보내기** — 7일 사용량 히스토리를 CSV 파일로 저장
+**편의 기능**
+- **다국어 지원**: 한국어, 영어, 일본어, 중국어 완벽 지원 (시스템 언어 자동 감지)
+- **무설치 단일 파일**: 별도의 설치 과정 없이 `exe` 파일 하나로 실행
+- **자동 업데이트**: 새 버전 출시 시 팝업 알림 및 원클릭 업데이트
 
-**편의**
-- **다국어 지원** — 한국어 · 중국어 · 일본어 · 영어 (시스템 언어 자동 감지)
-- **한글 경로 지원** — 사용자명 또는 프로젝트 폴더에 한글이 포함된 환경 지원
-- **중복 실행 방지** — 이미 실행 중이면 안내 메시지 표시 후 종료
-- **설정 창 단축키** — ESC, Alt+F4, Ctrl+W로 설정 창 닫기
-- **갱신 주기 커스터마이징** — 설정창에서 1~N분으로 변경 가능
-- **2분마다 자동 갱신** (API Retry-After 준수, 과호출 방지)
-- **윈도우 시작 시 자동 실행** — 설정창에서 토글 한 번으로 설정
-- **다크 테마 팝업 UI**
-- **별도 로그인 불필요** — Claude Code 토큰 자동 재사용
-- **Tray 메뉴 상태 표시** — 우클릭 메뉴에 5시간/7일 사용량 + 다음 갱신 시간 표시
+---
+
+## 작동 원리
+
+### 1. Claude (API)
+- **인증**: Claude Code가 로컬에 저장한 OAuth 토큰(`%USERPROFILE%\.claude\.credentials.json`)을 재사용합니다. 별도의 로그인이 필요 없습니다.
+- **할당량**: Anthropic 공식 API(`api.anthropic.com/api/oauth/usage`)를 호출하여 5시간/7일 남은 잔여량을 가져옵니다.
+- **로컬 통계**: `%USERPROFILE%\.claude\projects\` 내의 `.jsonl` 로그 파일을 스캔하여 오늘 사용한 상세 토큰량과 비용을 집계합니다.
+
+### 2. Gemini CLI
+- **로그 분석**: Gemini CLI가 작업 중 생성하는 임시 로그 폴더(`%USERPROFILE%\.gemini\tmp`)를 실시간 감시합니다.
+- **실시간 파싱**: 로그 파일 내의 `total_tokens`, `input_tokens`, `output_tokens` 정보를 추출하여 합산합니다.
+- **할당량 계산**: 수집된 토큰 데이터를 기반으로 Gemini의 모델별 임계값 대비 현재 사용량(%)을 계산하여 시각화합니다.
+
+### 3. Codex (ChatGPT)
+- **상태 추적**: Claude Code의 인증 컨텍스트를 통해 연동된 Codex(ChatGPT) 공급자의 사용량 상태 및 제한 정보를 동기화합니다.
+
+---
 
 ## 시작하기
 
@@ -147,14 +133,8 @@ Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니�
 
 ```bash
 git clone https://github.com/jeiel85/claude-usage-tray-windows
-cd claude-usage-tray-windows/ClaudeUsageTray
-dotnet run
-```
-
-### 릴리즈 빌드
-
-```bash
-dotnet publish ClaudeUsageTray/ClaudeUsageTray.csproj -c Release -p:PublishDir=bin/release
+cd claude-usage-tray-windows
+dotnet run --project ClaudeUsageTray
 ```
 
 ## 알림 설정
@@ -162,103 +142,14 @@ dotnet publish ClaudeUsageTray/ClaudeUsageTray.csproj -c Release -p:PublishDir=b
 팝업 하단 **⚙** 버튼으로 설정 창을 열 수 있어요.
 
 ### Windows 알림
-
-5시간 윈도우 기준으로 임계값(기본: 50% / 75% / 90% / 100%) 도달 시 Windows 알림 센터에 알림이 표시됩니다.
+공급자별로 임계값(기본: 50% / 75% / 90% / 100%) 도달 시 Windows 알림 센터에 알림이 표시됩니다.
 
 ### 스마트폰 푸시 알림 (ntfy.sh)
-
-[ntfy.sh](https://ntfy.sh)는 무료 오픈소스 푸시 알림 서비스입니다.
-
-1. iOS / Android에서 **ntfy 앱** 설치 → [ntfy.sh](https://ntfy.sh)
-2. 앱에서 `+` 버튼 → 토픽 이름으로 구독 (예: `claude-usage-홍길동`)
-3. 앱 설정 창의 **ntfy 토픽** 입력란에 동일한 이름 입력
-
-이제 사용량 임계값 도달 시 Windows 알림과 동시에 스마트폰으로도 알림이 전송됩니다.
-
-## 자동 업데이트
-
-앱 시작 시 GitHub Releases를 확인하여 새 버전이 있으면 팝업 상단에 배너가 표시됩니다. 배너를 클릭하면 백그라운드에서 다운로드 후 자동으로 교체·재시작됩니다.
-
-## 작동 원리
-
-### 인증
-
-Claude Code가 저장한 OAuth 토큰을 재사용합니다:
-```
-%USERPROFILE%\.claude\.credentials.json
-```
-
-### API 사용량
-
-`https://api.anthropic.com/api/oauth/usage` 를 호출하여 5시간 / 7일 할당량을 가져옵니다.
-
-### 로컬 세션 데이터
-
-`%USERPROFILE%\.claude\projects\**\*.jsonl` 파일을 스캔하여 오늘의 토큰 사용량을 집계합니다. 한글이 포함된 경로(사용자명, 프로젝트 폴더명 등)도 정상 지원합니다.
-
-#### **📊 오늘의 토큰 용어 설명**
-- **입력 (Input)**: 사용자가 보낸 질문, 코드, 지시사항 등 모델에 전달된 텍스트량입니다.
-- **출력 (Output)**: 사용자의 질문에 대해 Claude 모델이 생성하여 답변한 텍스트량입니다.
-- **캐시 읽기 (Cache Read)**: 이전에 질문했던 내용 중 일부가 Anthropic 서버에 저장되어 있어, 다시 계산하지 않고 재사용된 분량입니다. (비용과 시간이 절약됩니다.)
-- **캐시 쓰기 (Cache Write)**: 다음에 질문할 때 재사용할 수 있도록 현재 질문 내용의 일부를 서버 캐시에 새롭게 저장한 분량입니다.
-
-## 기술 스택
-
-![C#](https://img.shields.io/badge/C%23-239120?style=for-the-badge&logo=csharp&logoColor=white)
-![.NET](https://img.shields.io/badge/.NET_9-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)
-![WPF](https://img.shields.io/badge/WPF-0078D4?style=for-the-badge&logo=windows&logoColor=white)
-![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)
-
-| 구성 요소 | 기술 |
-|-----------|------|
-| UI 프레임워크 | WPF (.NET 9) |
-| 시스템 트레이 | System.Windows.Forms.NotifyIcon |
-| 트레이 알림 | System.Windows.Forms.NotifyIcon (balloon tip) |
-| MVVM | CommunityToolkit.Mvvm |
-| HTTP | System.Net.Http |
-| 푸시 알림 | ntfy.sh |
-| CI/CD | GitHub Actions |
-
-## 프로젝트 구조
-
-```
-ClaudeUsageTray/
-├── Converters/
-├── Models/
-├── Services/
-├── ViewModels/
-├── Views/
-└── App.xaml.cs
-```
-
-## macOS 원본과의 차이점
-
-| 항목 | macOS (claude-usage-mini) | Windows (이 프로젝트) |
-|------|--------------------------|----------------------|
-| 언어 | Swift 6.2 + SwiftUI | C# + WPF (.NET 9) |
-| 플랫폼 | macOS 26+ | Windows 10+ |
-| UI 위치 | 메뉴바 | 시스템 트레이 |
-| 인증 | 자체 OAuth PKCE 플로우 | Claude Code 토큰 재사용 |
-| 알림 | macOS 알림 | Windows 알림 + ntfy 푸시 |
-| 자동 업데이트 | — | GitHub Releases 기반 |
-
-## 면책 조항
-
-이 앱은 **Claude Code가 로컬에 저장한 데이터를 읽어 시각화하는 참고용 도구**입니다.
-
-- 표시되는 사용량 수치는 Anthropic 공식 대시보드와 **다를 수 있습니다**
-- 이 앱의 수치를 근거로 한 요금 분쟁, 과금 문제 등에 대해 **개발자는 책임을 지지 않습니다**
-- 정확한 사용량 및 요금은 반드시 [Anthropic 공식 콘솔](https://console.anthropic.com)에서 확인하세요
-- 이 앱은 Anthropic의 공식 제품이 아니며, Anthropic과 무관한 개인 프로젝트입니다
-
-## 기여하기
-
-PR은 언제든 환영합니다! 개발자 지침은 [AGENTS.md](./AGENTS.md)를 참조하세요.
-
-## 라이선스
-
-MIT License
+1. iOS / Android에서 **ntfy 앱** 설치
+2. 앱에서 고유한 토픽 이름으로 구독 (예: `my-claude-usage-123`)
+3. 앱 설정 창의 **ntfy 토픽**란에 동일한 이름 입력
 
 ---
 
-*유용하게 사용하셨다면 원본 프로젝트 [claude-usage-mini](https://github.com/jeremy-prt/claude-usage-mini)에도 ⭐ 부탁드립니다.*
+## 면책 조항
+이 앱은 공식 Anthropic 제품이 아닌 개인 프로젝트입니다. 표시되는 모든 수치는 로컬 로그와 API 응답을 기반으로 한 **참고용**이며, 실제 과금 데이터와는 차이가 있을 수 있습니다. 정확한 사용량은 각 서비스의 공식 대시보드에서 확인하시기 바랍니다.
