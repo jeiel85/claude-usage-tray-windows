@@ -344,6 +344,40 @@
                             </StackPanel>
                         </Grid>
                         <Canvas x:Name="HistoryCanvas" Height="50" Background="Transparent"/>
+
+                        <!-- Today's Stats (Claude 세션 기준) -->
+                        <Border Height="1" Background="#2D2F45" Margin="0,10,0,10"/>
+                        <Grid Margin="0,0,0,8">
+                            <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblTodayTokens}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding SessionsLabel}" Foreground="#5A5F7A" FontSize="9" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                        </Grid>
+                        <UniformGrid Columns="2" Rows="2">
+                            <Border Style="{StaticResource StatBox}" Margin="0,0,4,4">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding LblInput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                    <TextBlock Text="{Binding TodayInputTokens, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}" Foreground="#A78BFA"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource StatBox}" Margin="4,0,0,4">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding LblOutput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                    <TextBlock Text="{Binding TodayOutputTokens, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}" Foreground="#60A5FA"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource StatBox}" Margin="0,4,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding LblCacheRead}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                    <TextBlock Text="{Binding TodayCacheRead, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}" Foreground="#34D399" FontSize="12"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource StatBox}" Margin="4,4,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding LblCacheWrite}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                    <TextBlock Text="{Binding TodayCacheWrite, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}" Foreground="#FBBF24" FontSize="12"/>
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
+                        <TextBlock Text="{Binding TodayCostLabel}" Foreground="#5A5F7A" FontSize="8" HorizontalAlignment="Right" Margin="0,5,0,0"/>
                     </StackPanel>
 
                     <!-- Codex Section -->
@@ -385,47 +419,6 @@
                         <ProgressBar Value="{Binding GeminiPercent}" Maximum="1" Style="{StaticResource GeminiBarStyle}" Margin="0,2,0,0"/>
                         <TextBlock Text="{Binding GeminiNote}" Foreground="#3D4266" FontSize="8" Margin="0,2,0,0"/>
                     </StackPanel>
-                </StackPanel>
-
-                <Separator Background="#2D2F45" Margin="16,12,16,0"/>
-
-                <!-- Today's Stats -->
-                <StackPanel Margin="16,12,16,0">
-                    <Grid Margin="0,0,0,10">
-                        <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblTodayTokens}" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding SessionsLabel}" Foreground="#5A5F7A" FontSize="9" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                    </Grid>
-                    <UniformGrid Columns="2" Rows="2">
-                        <!-- Input: 보라 -->
-                        <Border Style="{StaticResource StatBox}" Margin="0,0,4,4">
-                            <StackPanel>
-                                <TextBlock Text="{Binding LblInput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
-                                <TextBlock Text="{Binding TodayInputTokens, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}" Foreground="#A78BFA"/>
-                            </StackPanel>
-                        </Border>
-                        <!-- Output: 파랑 -->
-                        <Border Style="{StaticResource StatBox}" Margin="4,0,0,4">
-                            <StackPanel>
-                                <TextBlock Text="{Binding LblOutput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
-                                <TextBlock Text="{Binding TodayOutputTokens, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}" Foreground="#60A5FA"/>
-                            </StackPanel>
-                        </Border>
-                        <!-- Cache Read: 초록 -->
-                        <Border Style="{StaticResource StatBox}" Margin="0,4,4,0">
-                            <StackPanel>
-                                <TextBlock Text="{Binding LblCacheRead}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
-                                <TextBlock Text="{Binding TodayCacheRead, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}" Foreground="#34D399" FontSize="12"/>
-                            </StackPanel>
-                        </Border>
-                        <!-- Cache Write: 황금 -->
-                        <Border Style="{StaticResource StatBox}" Margin="4,4,0,0">
-                            <StackPanel>
-                                <TextBlock Text="{Binding LblCacheWrite}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
-                                <TextBlock Text="{Binding TodayCacheWrite, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}" Foreground="#FBBF24" FontSize="12"/>
-                            </StackPanel>
-                        </Border>
-                    </UniformGrid>
-                    <TextBlock Text="{Binding TodayCostLabel}" Foreground="#5A5F7A" FontSize="8" HorizontalAlignment="Right" Margin="0,5,0,0"/>
                 </StackPanel>
 
                 <!-- Footer -->
