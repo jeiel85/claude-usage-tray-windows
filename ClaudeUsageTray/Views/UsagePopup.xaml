@@ -329,6 +329,21 @@
                             <ProgressBar Grid.Row="1" Value="{Binding ExtraUsagePercent}" Maximum="1" Style="{StaticResource ExtraBarStyle}" Margin="0,2,0,0"/>
                         </Grid>
                         <TextBlock Text="{Binding ClaudeErrorMessage}" Foreground="#EF4444" FontSize="8" TextWrapping="Wrap" Margin="0,2,0,0" Visibility="{Binding ClaudeHasError, Converter={StaticResource BoolToVisibility}}"/>
+
+                        <!-- History Chart (Claude 기준) -->
+                        <Border Height="1" Background="#2D2F45" Margin="0,8,0,8"/>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock x:Name="ChartTitleLabel" Text="{Binding HistoryChartTitle}" Style="{StaticResource SectionLabel}"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Border CornerRadius="4" BorderBrush="#2D2F45" BorderThickness="1">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button x:Name="Toggle7DayBtn" Click="Toggle7DayBtn_Click" Background="#2D2F45" Padding="4,1" BorderThickness="0"><TextBlock x:Name="Toggle7DayText" FontSize="8" Foreground="#8B92B3"/></Button>
+                                        <Button x:Name="ToggleHourlyBtn" Click="ToggleHourlyBtn_Click" Background="Transparent" Padding="4,1" BorderThickness="0"><TextBlock x:Name="ToggleHourlyText" FontSize="8" Foreground="#5A5F7A"/></Button>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+                        <Canvas x:Name="HistoryCanvas" Height="50" Background="Transparent"/>
                     </StackPanel>
 
                     <!-- Codex Section -->
@@ -411,24 +426,6 @@
                         </Border>
                     </UniformGrid>
                     <TextBlock Text="{Binding TodayCostLabel}" Foreground="#5A5F7A" FontSize="8" HorizontalAlignment="Right" Margin="0,5,0,0"/>
-                </StackPanel>
-
-                <Separator Background="#2D2F45" Margin="16,12,16,0"/>
-
-                <!-- History Chart -->
-                <StackPanel Margin="16,12,16,12">
-                    <Grid Margin="0,0,0,8">
-                        <TextBlock x:Name="ChartTitleLabel" Text="{Binding HistoryChartTitle}" Style="{StaticResource SectionLabel}"/>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Border CornerRadius="4" BorderBrush="#2D2F45" BorderThickness="1">
-                                <StackPanel Orientation="Horizontal">
-                                    <Button x:Name="Toggle7DayBtn" Click="Toggle7DayBtn_Click" Background="#2D2F45" Padding="4,1" BorderThickness="0"><TextBlock x:Name="Toggle7DayText" FontSize="8" Foreground="#8B92B3"/></Button>
-                                    <Button x:Name="ToggleHourlyBtn" Click="ToggleHourlyBtn_Click" Background="Transparent" Padding="4,1" BorderThickness="0"><TextBlock x:Name="ToggleHourlyText" FontSize="8" Foreground="#5A5F7A"/></Button>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-                    </Grid>
-                    <Canvas x:Name="HistoryCanvas" Height="50" Background="Transparent"/>
                 </StackPanel>
 
                 <!-- Footer -->
