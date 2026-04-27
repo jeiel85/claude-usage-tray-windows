@@ -40,11 +40,16 @@ git fetch origin && git pull origin master && git status
 ## 🔄 레슨 런 (Lessons Learned — 반복 실수 방지)
 
 ### 빌드 및 배포
-- **릴리즈는 반드시 태그 push로**: 이 프로젝트의 CI(`release.yml`)는 브랜치 push에 반응하지 않고 **`v*` 형식의 태그 push에만 트리거**된다. 버전 bump 커밋 후 태그를 붙이지 않으면 GitHub Release가 생성되지 않는다. 배포 시 반드시 아래 순서를 지킨다:
+- **버전업 = GitHub Release 확인까지가 배포 완료**: 버전 번호를 올리고 태그 push까지만 하면 절반이다. GitHub Release가 실제로 생성되고 `ClaudeUsageTray.exe` 자산이 첨부돼야 배포가 끝난 것이다. 버전업 시 반드시 아래 순서를 모두 완료한다:
   ```bash
+  # 1. 버전 bump: csproj + CHANGELOG 수정 후 커밋
+  # 2. 태그 생성 및 push (CI가 GitHub Release 자동 생성)
   git tag v{버전}
-  git push origin v{버전}
+  git push origin master && git push origin v{버전}
+  # 3. GitHub Release 생성 확인 — exe 자산 첨부 여부 필수 검증
+  gh release view v{버전}
   ```
+- **릴리즈는 반드시 태그 push로**: 이 프로젝트의 CI(`release.yml`)는 브랜치 push에 반응하지 않고 **`v*` 형식의 태그 push에만 트리거**된다. 버전 bump 커밋 후 태그를 붙이지 않으면 GitHub Release가 생성되지 않는다.
 - **WPF 트리밍 제한**: WPF/WinForms 앱에서 `PublishTrimmed=true` 옵션은 리소스 로딩 오류 및 빌드 실패를 유발하므로 사용하지 않는다.
 - **ReadyToRun 주의**: `PublishReadyToRun=true`는 시작 속도를 개선하지만, 특정 환경(런타임 버전 미세 차이 등)에서 실행 즉시 크래시를 유발할 수 있다. 앱 실행 불가 보고 시 최우선 제거 대상이다.
 - **단일 파일 배포 확인**: `PublishSingleFile=true` 설정 시, `SelfContained=false`인 경우 반드시 사용자의 PC에 해당 버전의 .NET Runtime이 설치되어 있어야 한다. (미설치 시 아무 반응 없이 종료됨)
@@ -71,11 +76,11 @@ git fetch origin && git pull origin master && git status
 ## 📜 최근 변경 이력 요약
 *상세 내용은 [CHANGELOG.md](./CHANGELOG.md) 참조*
 
+- **v1.15.49**: ntfy 중복 알림 방지 — 다중 PC 동일 토픽 사용 시 중복 발송 해결 (PC별 발송 토글 + 3분 dedup 안전망).
+- **v1.15.48**: 업데이트 팝업 릴리즈 노트 다국어 필터링 (앱 언어에 맞는 블록만 표시).
 - **v1.15.46**: 업데이트 진행바 미표시(PART_Track 누락) 및 퍼센트 중복 표시 수정.
 - **v1.15.45**: 업데이트 감지 로직 최종 검증.
 - **v1.15.39**: 자동 업데이트 프로세스 검증용 릴리즈.
 - **v1.15.38**: 자동 업데이트 Updater 실행 오류 및 빌드 누락 수정.
 - **v1.15.37**: 업데이트 기능 테스트 (마이너 업데이트).
 - **v1.15.36**: 업데이터 용량 최적화, 메인 앱 RTR 적용, 문서 통합.
-- **v1.15.35**: fd 빌드 실행 불가 버그 수정.
-- **v1.15.34**: 업데이트 스크립트 PowerShell 전환.
