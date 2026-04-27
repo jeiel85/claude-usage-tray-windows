@@ -5,6 +5,32 @@
 
 ---
 
+## [1.16.0] - 2026-04-27
+
+<!-- ko -->
+### 추가
+- **모든 공급자 통합 뷰 제공** — 앱 메인 팝업에서 Claude, Codex, Gemini의 사용량을 동시에 확인할 수 있도록 개선
+- **공급자별 전용 섹션** — 각 공급자의 아이콘, 상태, 사용량 바를 독립적인 섹션으로 배치하여 한눈에 파악 가능
+
+### 개선
+- **Codex 설명 줄바꿈** — Codex 하단의 긴 설명 문구가 잘리지 않도록 자동 줄바꿈 적용
+- **설정 드롭다운 가독성 개선** — 설정 창의 공급자 선택 드롭다운 폰트 및 배경색을 명시적으로 설정하여 가독성 문제 해결
+- **드롭다운 역할 명확화** — 공급자 선택 기능을 "차트 표시 기준"으로 변경하여 메인 UI 통합 뷰와의 역할 혼선을 방지
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Integrated Provider View** — Improved the main popup to display Claude, Codex, and Gemini usage simultaneously
+- **Dedicated Provider Sections** — Each provider now has its own section with an icon, status, and usage bar for better visibility
+
+### Improved
+- **Codex Description Wrapping** — Long descriptions for Codex now wrap automatically instead of being truncated
+- **Settings Dropdown Readability** — Fixed font and background color issues in the provider selection dropdown for better accessibility
+- **Clarified Dropdown Purpose** — Renamed the provider selection to "Chart Display Base" to distinguish it from the integrated main view
+<!-- /en -->
+
+---
+
 ## [1.15.52] - 2026-04-27
 
 <!-- ko -->

@@ -46,10 +46,10 @@ public static class Loc
 
     public static string ProviderSection => Lang switch
     {
-        "ko" => "모니터링 대상",
-        "zh" => "监控目标",
-        "ja" => "監視対象",
-        _ => "Monitoring Target"
+        "ko" => "차트 표시 기준",
+        "zh" => "图表显示基准",
+        "ja" => "チャート表示基準",
+        _ => "Chart Display Base"
     };
 
     public static string ProviderClaude => Lang switch

@@ -92,9 +92,12 @@ public partial class SettingsWindow : Window, IDisposable
         LblPollingInterval.Text             = Loc.PollingInterval;
 
         CmbProvider.Items.Clear();
-        CmbProvider.Items.Add(new ComboBoxItem { Content = Loc.ProviderClaude, Tag = UsageProviderKind.Claude });
-        CmbProvider.Items.Add(new ComboBoxItem { Content = Loc.ProviderCodex, Tag = UsageProviderKind.Codex });
-        CmbProvider.Items.Add(new ComboBoxItem { Content = Loc.ProviderGeminiCli, Tag = UsageProviderKind.GeminiCli });
+        var textBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xF1, 0xF5, 0xF9));
+        var bgBrush   = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1A, 0x1D, 0x2E));
+
+        CmbProvider.Items.Add(new ComboBoxItem { Content = Loc.ProviderClaude, Tag = UsageProviderKind.Claude, Foreground = textBrush, Background = bgBrush });
+        CmbProvider.Items.Add(new ComboBoxItem { Content = Loc.ProviderCodex, Tag = UsageProviderKind.Codex, Foreground = textBrush, Background = bgBrush });
+        CmbProvider.Items.Add(new ComboBoxItem { Content = Loc.ProviderGeminiCli, Tag = UsageProviderKind.GeminiCli, Foreground = textBrush, Background = bgBrush });
     }
 
     private void LoadValues()

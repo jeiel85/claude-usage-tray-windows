@@ -45,11 +45,35 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _hasError = false;
     [ObservableProperty] private string _errorMessage = "";
 
-    // 5h window
+    // Claude Usage (5h/7d)
+    [ObservableProperty] private double _claudeShortPercent = 0;
+    [ObservableProperty] private string _claudeShortReset = "";
+    [ObservableProperty] private double _claudeLongPercent = 0;
+    [ObservableProperty] private string _claudeLongReset = "";
+    [ObservableProperty] private string _claudeShortDepletion = "";
+    [ObservableProperty] private string _claudeLongDepletion = "";
+    [ObservableProperty] private bool _claudeHasError = false;
+    [ObservableProperty] private string _claudeErrorMessage = "";
+
+    // Codex Usage
+    [ObservableProperty] private double _codexPercent = 0;
+    [ObservableProperty] private string _codexReset = "";
+    [ObservableProperty] private bool _codexHasError = false;
+    [ObservableProperty] private string _codexErrorMessage = "";
+    [ObservableProperty] private string _codexNote = Loc.ProviderCodexNote;
+
+    // Gemini Usage
+    [ObservableProperty] private double _geminiPercent = 0;
+    [ObservableProperty] private string _geminiReset = "";
+    [ObservableProperty] private bool _geminiHasError = false;
+    [ObservableProperty] private string _geminiErrorMessage = "";
+    [ObservableProperty] private string _geminiNote = Loc.ProviderGeminiCliNote;
+
+    // 5h window (Legacy/Compatibility - will keep for now to avoid breaking other parts)
     [ObservableProperty] private double _shortUsagePercent = 0;
     [ObservableProperty] private string _shortResetLabel = "";
 
-    // 7d window
+    // 7d window (Legacy/Compatibility)
     [ObservableProperty] private double _longUsagePercent = 0;
     [ObservableProperty] private string _longResetLabel = "";
 
@@ -460,20 +484,45 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public async Task RefreshAsync()
     {
-        _secondsUntilRefresh = 120;
+        _secondsUntilRefresh = PollingIntervalMinutes > 0 ? PollingIntervalMinutes * 60 : 120;
 
-        if (SelectedProvider == UsageProviderKind.Codex)
+        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => IsLoading = true);
+
+        try
         {
-            await RefreshCodexAsync();
-            return;
-        }
+            // 병렬로 모든 공급자 데이터 갱신
+            var tasks = new List<Task>
+            {
+                RefreshClaudeAsync(),
+                RefreshCodexInternalAsync(),
+                RefreshGeminiCliInternalAsync()
+            };
 
-        if (SelectedProvider == UsageProviderKind.GeminiCli)
+            await Task.WhenAll(tasks);
+
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                // 공통 정보 업데이트 (Claude 세션 기반)
+                LastUpdatedLabel = (ClaudeHasError || CodexHasError || GeminiHasError)
+                    ? $"⚠ {DateTime.Now:HH:mm:ss}"
+                    : Loc.UpdatedAt(DateTime.Now.ToString("HH:mm:ss"));
+                IsLoading = false;
+            });
+        }
+        catch (Exception ex)
         {
-            await RefreshGeminiCliAsync();
-            return;
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                HasError = true;
+                ErrorMessage = ex.Message;
+                StatusText = "Error";
+                IsLoading = false;
+            });
         }
+    }
 
+    private async Task RefreshClaudeAsync()
+    {
         // FileSystemWatcher 미감지 폴백: 정기 새로고침마다 orgUuid 변경 여부 확인
         var currentOrgUuid = _credentials.GetOrganizationUuid();
         if (currentOrgUuid != _lastKnownOrgUuid)
@@ -483,10 +532,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             _apiRetryAfter = DateTimeOffset.MinValue;
         }
 
-        // Honour Retry-After: skip API call but still refresh session stats
         bool skipApi = DateTimeOffset.UtcNow < _apiRetryAfter;
-
-        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => IsLoading = true);
 
         try
         {
@@ -508,12 +554,17 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 TodayCacheWrite   = sessionStats.TotalCacheWriteTokens;
                 SessionsLabel     = Loc.Sessions(sessionStats.SessionCount);
 
-                // Record today's stats for history
                 _history.RecordToday(sessionStats.TotalInputTokens, sessionStats.TotalOutputTokens,
                     sessionStats.TotalCacheReadTokens, sessionStats.TotalCacheWriteTokens,
                     sessionStats.SessionCount);
-                HistoryData = _history.GetLast(7);
-                HourlyTokens = sessionStats.HourlyTokens;
+                
+                // 히스토리와 시간대별 차트는 현재 '선택된' 공급자 기준으로 표시 (기본값 유지)
+                if (SelectedProvider == UsageProviderKind.Claude)
+                {
+                    HistoryData = _history.GetLast(7);
+                    HourlyTokens = sessionStats.HourlyTokens;
+                }
+
                 TodayCostLabel = CalcCostLabel(sessionStats.TotalInputTokens,
                     sessionStats.TotalOutputTokens,
                     sessionStats.TotalCacheReadTokens,
@@ -521,7 +572,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 HasRateLimitHit   = sessionStats.HasRateLimitHit;
                 RateLimitInfo     = sessionStats.RateLimitResetTime ?? "";
 
-                // Rate limit notification
                 if (NotificationsEnabled && NotifyRateLimit &&
                     sessionStats.HasRateLimitHit && !_prevHadRateLimit)
                 {
@@ -531,9 +581,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
                 if (usage?.FiveHour != null || usage?.SevenDay != null)
                 {
-                    HasError = false;
+                    ClaudeHasError = false;
+                    ClaudeErrorMessage = "";
 
-                    // API responded successfully — if 5h usage < 100%, rate limit has cleared
                     if (usage.FiveHour != null && usage.FiveHour.UsagePercent < 1.0)
                     {
                         HasRateLimitHit = false;
@@ -543,28 +593,34 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     if (usage!.FiveHour != null)
                     {
                         var newPercent = usage.FiveHour.UsagePercent;
-                        ShortResetLabel = FormatResetLabel(usage.FiveHour.ResetsAtParsed);
-                        ShortDepletionLabel = CalcDepletionLabel(usage.FiveHour);
+                        ClaudeShortReset = FormatResetLabel(usage.FiveHour.ResetsAtParsed);
+                        ClaudeShortDepletion = CalcDepletionLabel(usage.FiveHour);
 
-                        // Check threshold crossings (skip on first load)
                         if (NotificationsEnabled && _prevShortPercent >= 0)
                         {
-                            CheckThresholds(newPercent, ShortResetLabel, NtfyTopicEffective);
+                            CheckThresholds(newPercent, ClaudeShortReset, NtfyTopicEffective);
                         }
 
-                        ShortUsagePercent = newPercent;
+                        ClaudeShortPercent = newPercent;
                         _prevShortPercent = newPercent;
                         _lastKnownShortPercent = newPercent;
-                        _lastKnownShortReset = ShortResetLabel;
+                        _lastKnownShortReset = ClaudeShortReset;
+                        
+                        // Compatibility for legacy bindings if any
+                        ShortUsagePercent = newPercent;
+                        ShortResetLabel = ClaudeShortReset;
                     }
 
                     if (usage.SevenDay != null)
                     {
-                        LongUsagePercent    = usage.SevenDay.UsagePercent;
-                        LongResetLabel      = FormatResetLabel(usage.SevenDay.ResetsAtParsed);
-                        LongDepletionLabel  = CalcLongDepletionLabel(usage.SevenDay);
-                        _lastKnownLongPercent = LongUsagePercent;
-                        _lastKnownLongReset = LongResetLabel;
+                        ClaudeLongPercent    = usage.SevenDay.UsagePercent;
+                        ClaudeLongReset      = FormatResetLabel(usage.SevenDay.ResetsAtParsed);
+                        ClaudeLongDepletion  = CalcLongDepletionLabel(usage.SevenDay);
+                        _lastKnownLongPercent = ClaudeLongPercent;
+                        _lastKnownLongReset = ClaudeLongReset;
+                        
+                        LongUsagePercent = ClaudeLongPercent;
+                        LongResetLabel = ClaudeLongReset;
                     }
 
                     if (usage.SevenDayOpus != null)
@@ -592,124 +648,107 @@ public partial class MainViewModel : ObservableObject, IDisposable
                                 ? Loc.ExtraCreditsUsedOnly(eu.UsedCredits.Value)
                                 : "";
 
-                        // 추가 사용량 알림을 위한 이전 값 추적
                         if (_prevExtraPercent < 0) _prevExtraPercent = ExtraUsagePercent;
                     }
                     else
                     {
                         ExtraUsageEnabled = false;
-                        ExtraHasLimit     = false;
                     }
 
-                    // 기본 사용량 100% 소진 시 추가 사용량 모니터링 모드 전환
-                    if (ExtraUsageEnabled && ShortUsagePercent >= 1.0)
+                    if (ExtraUsageEnabled && ClaudeShortPercent >= 1.0)
                     {
                         IsExtraOnlyMode = true;
-                        StatusText = Loc.ExtraUsageExhausted; // "기본 사용량 소진 - 추가 사용량 모니터링 중"
+                        StatusText = Loc.ExtraUsageExhausted;
                     }
-                    else if (ShortUsagePercent < 0.5)
+                    else if (ClaudeShortPercent < 0.5)
                     {
-                        // 복구: 기본 사용량이 50% 미만으로 감소하면 عاد 모드로
                         IsExtraOnlyMode = false;
-                        StatusText = $"{ShortUsagePercent:P0} used";
+                        StatusText = $"{ClaudeShortPercent:P0} used";
                     }
                     else if (!IsExtraOnlyMode)
                     {
-                        StatusText = $"{ShortUsagePercent:P0} used";
+                        StatusText = $"{ClaudeShortPercent:P0} used";
                     }
-                    // IsExtraOnlyMode이 true이고 ShortUsagePercent < 100%인 경우 (예: 80%)는 상태 текст 그대로
                 }
                 else if (skipApi || _api.LastError != null)
                 {
-                    // Keep last known data visible — don't reset to 0 on transient errors
-                    ShortUsagePercent = _lastKnownShortPercent;
-                    ShortResetLabel   = _lastKnownShortReset;
-                    LongUsagePercent  = _lastKnownLongPercent;
-                    LongResetLabel    = _lastKnownLongReset;
+                    ClaudeShortPercent = _lastKnownShortPercent;
+                    ClaudeShortReset   = _lastKnownShortReset;
+                    ClaudeLongPercent  = _lastKnownLongPercent;
+                    ClaudeLongReset    = _lastKnownLongReset;
 
-                    HasError = true;
-                    if (skipApi && _apiRetryAfter > DateTimeOffset.MinValue)
-                    {
-                        var retryAt = _apiRetryAfter.ToLocalTime().ToString("HH:mm:ss");
-                        ErrorMessage = Loc.RateLimitedUntil(retryAt);
-                    }
-                    else
-                    {
-                        ErrorMessage = _api.LastError != null
-                            ? ParseFriendlyError(_api.LastError)
-                            : Loc.RateLimited;
-                    }
-                    StatusText = "API Error";
-                    // LastUpdatedLabel is NOT updated here — it keeps showing the last successful time
+                    ClaudeHasError = true;
+                    ClaudeErrorMessage = skipApi && _apiRetryAfter > DateTimeOffset.MinValue
+                        ? Loc.RateLimitedUntil(_apiRetryAfter.ToLocalTime().ToString("HH:mm:ss"))
+                        : _api.LastError != null ? ParseFriendlyError(_api.LastError) : Loc.RateLimited;
                 }
-                else
-                {
-                    StatusText = "No data";
-                }
-
-                // Always show last attempt time; prefix differs on error so users know data may be stale
-                LastUpdatedLabel = HasError
-                    ? $"⚠ {DateTime.Now:HH:mm:ss}"
-                    : Loc.UpdatedAt(DateTime.Now.ToString("HH:mm:ss"));
-                IsLoading = false;
             });
         }
         catch (Exception ex)
         {
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-            {
-                HasError = true;
-                ErrorMessage = ex.Message;
-                StatusText = "Error";
-                IsLoading = false;
-            });
+            ClaudeHasError = true;
+            ClaudeErrorMessage = ex.Message;
         }
     }
 
-    private async Task RefreshCodexAsync()
+    private async Task RefreshCodexInternalAsync()
     {
-        _secondsUntilRefresh = PollingIntervalMinutes > 0 ? PollingIntervalMinutes * 60 : 120;
-        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => IsLoading = true);
-
         try
         {
             var snapshot = _codex.GetTodaySnapshot();
-            ApplyProviderSnapshot(snapshot, isError: !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage));
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                CodexPercent = snapshot.ShortUsagePercent;
+                CodexReset = FormatResetLabel(snapshot.ShortResetAt);
+                CodexHasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage);
+                CodexErrorMessage = snapshot.ErrorMessage ?? "";
+                
+                if (SelectedProvider == UsageProviderKind.Codex)
+                {
+                    HistoryData = _history.GetLast(7);
+                    HourlyTokens = snapshot.HourlyTokens;
+                }
+            });
         }
         catch (Exception ex)
         {
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-            {
-                HasError = true;
-                ErrorMessage = ex.Message;
-                StatusText = "Error";
-                IsLoading = false;
-            });
+            CodexHasError = true;
+            CodexErrorMessage = ex.Message;
         }
     }
 
-    private async Task RefreshGeminiCliAsync()
+    private async Task RefreshGeminiCliInternalAsync()
     {
-        _secondsUntilRefresh = PollingIntervalMinutes > 0 ? PollingIntervalMinutes * 60 : 120;
-        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => IsLoading = true);
-
         try
         {
             var snapshot = _geminiCli.GetTodaySnapshot();
-            ApplyProviderSnapshot(snapshot,
-                isError: !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage));
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                GeminiPercent = snapshot.ShortUsagePercent;
+                GeminiReset = FormatResetLabel(snapshot.ShortResetAt);
+                GeminiHasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage);
+                GeminiErrorMessage = snapshot.ErrorMessage ?? "";
+
+                if (SelectedProvider == UsageProviderKind.GeminiCli)
+                {
+                    HistoryData = _history.GetLast(7);
+                    HourlyTokens = snapshot.HourlyTokens;
+                }
+            });
         }
         catch (Exception ex)
         {
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-            {
-                HasError = true;
-                ErrorMessage = ex.Message;
-                StatusText = "Error";
-                IsLoading = false;
-            });
+            GeminiHasError = true;
+            GeminiErrorMessage = ex.Message;
         }
     }
+
+    // Manual triggers (optional, usually RefreshAsync is enough)
+    [RelayCommand]
+    public async Task RefreshCodexAsync() => await RefreshAsync();
+
+    [RelayCommand]
+    public async Task RefreshGeminiCliAsync() => await RefreshAsync();
 
     private void ApplyProviderSnapshot(ProviderUsageSnapshot snapshot, bool isError)
     {

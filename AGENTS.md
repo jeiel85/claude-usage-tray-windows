@@ -76,6 +76,7 @@ git fetch origin && git pull origin master && git status
 ## 📜 최근 변경 이력 요약
 *상세 내용은 [CHANGELOG.md](./CHANGELOG.md) 참조*
 
+- **v1.16.0**: 모든 공급자(Claude, Codex, Gemini) 통합 뷰 제공 및 설정 드롭다운 가독성 개선.
 - **v1.15.49**: ntfy 중복 알림 방지 — 다중 PC 동일 토픽 사용 시 중복 발송 해결 (PC별 발송 토글 + 3분 dedup 안전망).
 - **v1.15.48**: 업데이트 팝업 릴리즈 노트 다국어 필터링 (앱 언어에 맞는 블록만 표시).
 - **v1.15.46**: 업데이트 진행바 미표시(PART_Track 누락) 및 퍼센트 중복 표시 수정.
