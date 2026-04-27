@@ -5,6 +5,20 @@
 
 ---
 
+## [1.15.51] - 2026-04-27
+
+<!-- ko -->
+### 수정
+- **버전 상태 문구 단축** — "✓ 최신 버전입니다" → "✓ 최신버전" 으로 줄여 좁은 공간에서도 잘리지 않도록 개선
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Version status text shortened** — Reduced "✓ Already up to date" to "✓ Latest" to prevent truncation in compact layout
+<!-- /en -->
+
+---
+
 ## [1.15.50] - 2026-04-27
 
 <!-- ko -->

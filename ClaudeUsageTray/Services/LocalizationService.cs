@@ -537,10 +537,10 @@ public static class Loc
 
     public static string AlreadyUpToDate => Lang switch
     {
-        "ko" => "✓ 최신 버전입니다",
-        "zh" => "✓ 已是最新版本",
-        "ja" => "✓ 最新バージョンです",
-        _ => "✓ Already up to date"
+        "ko" => "✓ 최신버전",
+        "zh" => "✓ 最新版",
+        "ja" => "✓ 最新版",
+        _ => "✓ Latest"
     };
 
     /// <summary>
