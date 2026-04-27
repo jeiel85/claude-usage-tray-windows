@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.17.4] - 2026-04-27
+
+<!-- ko -->
+### 수정
+- **소진 예측 문구 표시 조건 개선** — 할당량을 100% 소진한 상태에서는 "추세대로면~" 소진 예측 문구가 표시되지 않도록 수정
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Improved depletion prediction visibility** — The "at this rate, depletes..." message is now hidden when the quota is already 100% exhausted
+<!-- /en -->
+
+---
+
 ## [1.17.3] - 2026-04-27
 
 <!-- ko -->

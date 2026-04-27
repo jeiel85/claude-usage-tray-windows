@@ -936,7 +936,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private static string CalcDepletionLabel(Models.UsageWindow w)
     {
-        if (w.ResetsAtParsed is null || w.UsagePercent <= 0.02) return "";
+        if (w.ResetsAtParsed is null || w.UsagePercent <= 0.02 || w.UsagePercent >= 1.0) return "";
 
         var windowStart = w.ResetsAtParsed.Value - TimeSpan.FromHours(5);
         var elapsed = DateTimeOffset.Now - windowStart;
@@ -957,7 +957,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private static string CalcLongDepletionLabel(Models.UsageWindow w)
     {
-        if (w.ResetsAtParsed is null || w.UsagePercent <= 0.02) return "";
+        if (w.ResetsAtParsed is null || w.UsagePercent <= 0.02 || w.UsagePercent >= 1.0) return "";
 
         var windowStart = w.ResetsAtParsed.Value - TimeSpan.FromDays(7);
         var elapsed = DateTimeOffset.Now - windowStart;
