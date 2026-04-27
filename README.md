@@ -22,7 +22,7 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini AI 사용량을
 |------|------|------|
 | `ClaudeUsageTray.exe` | ~170 KB | Framework-dependent — [.NET 9.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0/runtime) 필요 |
 | `ClaudeUsageTray-Updater.exe` | ~170 KB | 자동 업데이트 도구 (메인 앱과 같은 폴더에 위치) |
-| **현재 버전** | `v1.17.3` | Latest |
+| **현재 버전** | `v1.17.4` | Latest |
 
 **실행 방법:**
 1. 위 링크에서 `ClaudeUsageTray.exe` 다운로드
@@ -39,12 +39,13 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini AI 사용량을
 
 ## 📌 현재 이슈 및 진행 현황
 
-### v1.17.4 (진행 중)
+### v1.17.4 (최신)
 | # | 제목 | 분류 | 상태 |
 |---|------|------|------|
 | [#57] | Codex(ChatGPT plan) 사용량 모니터링 지원 | 기능 | 완료 |
 | [#58] | Gemini CLI 사용량 모니터링 지원 | 기능 | 완료 |
 | — | README 기능 설명 및 작동 원리 최신화 | 문서 | 완료 |
+| — | 소진 예측 문구(추세대로면~) 표시 조건 개선 | 수정 | 완료 |
 
 ### v1.17.3 (최신)
 | # | 제목 | 분류 | 상태 |
