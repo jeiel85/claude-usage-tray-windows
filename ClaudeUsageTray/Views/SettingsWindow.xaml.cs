@@ -116,6 +116,8 @@ public partial class SettingsWindow : Window, IDisposable
 
     private void Setting_Changed(object sender, RoutedEventArgs e)
     {
+        if (_isLoadingValues) return;
+
         _vm.NotificationsEnabled  = ChkEnabled.IsChecked == true;
         _vm.NotifyRateLimit       = ChkRateLimit.IsChecked == true;
         _vm.NotifyOnQuotaReset    = ChkQuotaReset.IsChecked == true;
@@ -202,6 +204,8 @@ public partial class SettingsWindow : Window, IDisposable
 
     private void StartWithWindows_Changed(object sender, RoutedEventArgs e)
     {
+        if (_isLoadingValues) return;
+
         var enable = ChkStartWithWindows.IsChecked == true;
         SetStartup(enable);
         _vm.StartWithWindows = enable;
@@ -217,7 +221,8 @@ public partial class SettingsWindow : Window, IDisposable
 
     private void SliderPolling_ValueChanged(object sender, System.Windows.RoutedPropertyChangedEventArgs<double> e)
     {
-        if (_vm == null) return;
+        if (_vm == null || _isLoadingValues) return;
+
         int minutes = (int)SliderPolling.Value;
         UpdatePollingLabel(minutes);
         _vm.PollingIntervalMinutes = minutes;

@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.17.1] - 2026-04-27
+
+<!-- ko -->
+### 수정
+- **팝업 보조 텍스트 크기 원복** — 5시간/7일 리셋, Extra Credits, 에러 문구, 차트 토글, 오늘 비용, Codex/Gemini 보조 텍스트를 다시 읽기 쉬운 크기로 조정
+- **설정창 초기 로딩 가드 추가** — 설정창을 열 때 초기 바인딩이 저장/적용 이벤트를 잘못 트리거하지 않도록 차단
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Restored popup helper text size** — Increased the readability of reset labels, extra credits, error text, chart toggles, today cost, and Codex/Gemini helper text
+- **Added settings loading guard** — Prevented initial settings binding from triggering save/apply events when the settings window opens
+<!-- /en -->
+
 ---
 
 ## [1.17.0] - 2026-04-27

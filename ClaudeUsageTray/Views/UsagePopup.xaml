@@ -295,10 +295,10 @@
                                 <TextBlock Grid.Column="0" Text="{Binding LblFiveHour}" Foreground="#8B92B3" FontSize="9"/>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal">
                                     <TextBlock Text="{Binding ClaudeShortPercent, StringFormat={}{0:P0}}" Foreground="#A78BFA" FontSize="9" FontWeight="SemiBold"/>
-                                    <TextBlock Text="{Binding ClaudeShortReset}" Foreground="#5A5F7A" FontSize="8"/>
+                                    <TextBlock Text="{Binding ClaudeShortReset}" Foreground="#5A5F7A" FontSize="9"/>
                                 </StackPanel>
                             </Grid>
-                            <TextBlock Grid.Row="1" Text="{Binding ClaudeShortDepletion}" Foreground="#F59E0B" FontSize="8" Margin="0,1,0,0" Visibility="{Binding ClaudeShortDepletion, Converter={StaticResource StringToVisibility}}"/>
+                            <TextBlock Grid.Row="1" Text="{Binding ClaudeShortDepletion}" Foreground="#F59E0B" FontSize="9" Margin="0,1,0,0" Visibility="{Binding ClaudeShortDepletion, Converter={StaticResource StringToVisibility}}"/>
                             <ProgressBar Grid.Row="2" Value="{Binding ClaudeShortPercent}" Maximum="1" Style="{StaticResource UsageBarStyle}" Margin="0,2,0,0"/>
                         </Grid>
 
@@ -309,7 +309,7 @@
                                 <TextBlock Grid.Column="0" Text="{Binding LblSevenDay}" Foreground="#8B92B3" FontSize="9"/>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal">
                                     <TextBlock Text="{Binding ClaudeLongPercent, StringFormat={}{0:P0}}" Foreground="#A78BFA" FontSize="9" FontWeight="SemiBold"/>
-                                    <TextBlock Text="{Binding ClaudeLongReset}" Foreground="#5A5F7A" FontSize="8"/>
+                                    <TextBlock Text="{Binding ClaudeLongReset}" Foreground="#5A5F7A" FontSize="9"/>
                                 </StackPanel>
                             </Grid>
                             <ProgressBar Grid.Row="2" Value="{Binding ClaudeLongPercent}" Maximum="1" Style="{StaticResource UsageBarStyle}" Margin="0,2,0,0"/>
@@ -323,12 +323,12 @@
                                 <TextBlock Grid.Column="0" Text="Extra Credits" Foreground="#8B92B3" FontSize="9"/>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal">
                                     <TextBlock Text="{Binding ExtraUsagePercent, StringFormat={}{0:P0}}" Foreground="#F59E0B" FontSize="9" FontWeight="SemiBold"/>
-                                    <TextBlock Text="{Binding ExtraCreditsLabel}" Foreground="#5A5F7A" FontSize="8" Margin="4,0,0,0"/>
+                                    <TextBlock Text="{Binding ExtraCreditsLabel}" Foreground="#5A5F7A" FontSize="9" Margin="4,0,0,0"/>
                                 </StackPanel>
                             </Grid>
                             <ProgressBar Grid.Row="1" Value="{Binding ExtraUsagePercent}" Maximum="1" Style="{StaticResource ExtraBarStyle}" Margin="0,2,0,0"/>
                         </Grid>
-                        <TextBlock Text="{Binding ClaudeErrorMessage}" Foreground="#EF4444" FontSize="8" TextWrapping="Wrap" Margin="0,2,0,0" Visibility="{Binding ClaudeHasError, Converter={StaticResource BoolToVisibility}}"/>
+                        <TextBlock Text="{Binding ClaudeErrorMessage}" Foreground="#EF4444" FontSize="9" TextWrapping="Wrap" Margin="0,2,0,0" Visibility="{Binding ClaudeHasError, Converter={StaticResource BoolToVisibility}}"/>
 
                         <!-- History Chart (Claude 기준) -->
                         <Border Height="1" Background="#2D2F45" Margin="0,12,0,10"/>
@@ -337,8 +337,8 @@
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                 <Border CornerRadius="4" BorderBrush="#2D2F45" BorderThickness="1">
                                     <StackPanel Orientation="Horizontal">
-                                        <Button x:Name="Toggle7DayBtn" Click="Toggle7DayBtn_Click" Background="#2D2F45" Padding="4,1" BorderThickness="0"><TextBlock x:Name="Toggle7DayText" FontSize="8" Foreground="#8B92B3"/></Button>
-                                        <Button x:Name="ToggleHourlyBtn" Click="ToggleHourlyBtn_Click" Background="Transparent" Padding="4,1" BorderThickness="0"><TextBlock x:Name="ToggleHourlyText" FontSize="8" Foreground="#5A5F7A"/></Button>
+                                        <Button x:Name="Toggle7DayBtn" Click="Toggle7DayBtn_Click" Background="#2D2F45" Padding="4,1" BorderThickness="0"><TextBlock x:Name="Toggle7DayText" FontSize="9" Foreground="#8B92B3"/></Button>
+                                        <Button x:Name="ToggleHourlyBtn" Click="ToggleHourlyBtn_Click" Background="Transparent" Padding="4,1" BorderThickness="0"><TextBlock x:Name="ToggleHourlyText" FontSize="9" Foreground="#5A5F7A"/></Button>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -377,7 +377,7 @@
                                 </StackPanel>
                             </Border>
                         </UniformGrid>
-                        <TextBlock Text="{Binding TodayCostLabel}" Foreground="#5A5F7A" FontSize="8" HorizontalAlignment="Right" Margin="0,8,0,0"/>
+                        <TextBlock Text="{Binding TodayCostLabel}" Foreground="#5A5F7A" FontSize="9" HorizontalAlignment="Right" Margin="0,8,0,0"/>
                     </StackPanel>
 
                     <!-- Codex Section -->
@@ -393,11 +393,11 @@
                             <TextBlock Grid.Column="0" Text="ChatGPT plan" Foreground="#8B92B3" FontSize="9"/>
                             <StackPanel Grid.Column="1" Orientation="Horizontal">
                                 <TextBlock Text="{Binding CodexPercent, StringFormat={}{0:P0}}" Foreground="#6EE7B7" FontSize="9" FontWeight="SemiBold"/>
-                                <TextBlock Text="{Binding CodexReset}" Foreground="#5A5F7A" FontSize="8"/>
+                                <TextBlock Text="{Binding CodexReset}" Foreground="#5A5F7A" FontSize="9"/>
                             </StackPanel>
                         </Grid>
                         <ProgressBar Value="{Binding CodexPercent}" Maximum="1" Style="{StaticResource CodexBarStyle}" Margin="0,2,0,0"/>
-                        <TextBlock Text="{Binding CodexNote}" Foreground="#3D4266" FontSize="8" Margin="0,2,0,0"/>
+                        <TextBlock Text="{Binding CodexNote}" Foreground="#3D4266" FontSize="9" Margin="0,2,0,0"/>
                     </StackPanel>
 
                     <!-- Gemini Section -->
@@ -413,11 +413,11 @@
                             <TextBlock Grid.Column="0" Text="Gemini CLI" Foreground="#8B92B3" FontSize="9"/>
                             <StackPanel Grid.Column="1" Orientation="Horizontal">
                                 <TextBlock Text="{Binding GeminiPercent, StringFormat={}{0:P0}}" Foreground="#60A5FA" FontSize="9" FontWeight="SemiBold"/>
-                                <TextBlock Text="{Binding GeminiReset}" Foreground="#5A5F7A" FontSize="8"/>
+                                <TextBlock Text="{Binding GeminiReset}" Foreground="#5A5F7A" FontSize="9"/>
                             </StackPanel>
                         </Grid>
                         <ProgressBar Value="{Binding GeminiPercent}" Maximum="1" Style="{StaticResource GeminiBarStyle}" Margin="0,2,0,0"/>
-                        <TextBlock Text="{Binding GeminiNote}" Foreground="#3D4266" FontSize="8" Margin="0,2,0,0"/>
+                        <TextBlock Text="{Binding GeminiNote}" Foreground="#3D4266" FontSize="9" Margin="0,2,0,0"/>
                     </StackPanel>
                 </StackPanel>
 
