@@ -26,6 +26,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     // Tracks previous 5h usage to detect threshold crossings
     private double _prevShortPercent = -1;
+    private double _prevCodexPercent = -1;
+    private double _prevGeminiPercent = -1;
     private double _prevExtraPercent = -1;
     private bool _prevHadRateLimit = false;
 
@@ -502,7 +504,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                // 공통 정보 업데이트 (Claude 세션 기반)
+                // 공통 정보 업데이트
+                UpdateOverallStatus();
+                
                 LastUpdatedLabel = (ClaudeHasError || CodexHasError || GeminiHasError)
                     ? $"⚠ {DateTime.Now:HH:mm:ss}"
                     : Loc.UpdatedAt(DateTime.Now.ToString("HH:mm:ss"));
@@ -518,6 +522,28 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 StatusText = "Error";
                 IsLoading = false;
             });
+        }
+    }
+
+    private void UpdateOverallStatus()
+    {
+        if (ClaudeHasError && CodexHasError && GeminiHasError)
+        {
+            StatusText = "All Providers Error";
+            HasError = true;
+        }
+        else if (ClaudeHasError || CodexHasError || GeminiHasError)
+        {
+            StatusText = "Partial Error";
+            HasError = false; // Main error banner only if everything fails or primary fails
+        }
+        else if (IsExtraOnlyMode)
+        {
+            StatusText = Loc.ExtraUsageExhausted;
+        }
+        else
+        {
+            StatusText = $"{ClaudeShortPercent:P0} | {CodexPercent:P0} | {GeminiPercent:P0}";
         }
     }
 
@@ -698,11 +724,19 @@ public partial class MainViewModel : ObservableObject, IDisposable
             var snapshot = _codex.GetTodaySnapshot();
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                CodexPercent = snapshot.ShortUsagePercent;
+                var newPercent = snapshot.ShortUsagePercent;
                 CodexReset = FormatResetLabel(snapshot.ShortResetAt);
                 CodexHasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage);
                 CodexErrorMessage = snapshot.ErrorMessage ?? "";
                 
+                if (NotificationsEnabled && _prevCodexPercent >= 0)
+                {
+                    CheckProviderThresholds(UsageProviderKind.Codex, newPercent, CodexReset, NtfyTopicEffective);
+                }
+                
+                CodexPercent = newPercent;
+                _prevCodexPercent = newPercent;
+
                 if (SelectedProvider == UsageProviderKind.Codex)
                 {
                     HistoryData = _history.GetLast(7);
@@ -724,10 +758,18 @@ public partial class MainViewModel : ObservableObject, IDisposable
             var snapshot = _geminiCli.GetTodaySnapshot();
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                GeminiPercent = snapshot.ShortUsagePercent;
+                var newPercent = snapshot.ShortUsagePercent;
                 GeminiReset = FormatResetLabel(snapshot.ShortResetAt);
                 GeminiHasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage);
                 GeminiErrorMessage = snapshot.ErrorMessage ?? "";
+
+                if (NotificationsEnabled && _prevGeminiPercent >= 0)
+                {
+                    CheckProviderThresholds(UsageProviderKind.GeminiCli, newPercent, GeminiReset, NtfyTopicEffective);
+                }
+
+                GeminiPercent = newPercent;
+                _prevGeminiPercent = newPercent;
 
                 if (SelectedProvider == UsageProviderKind.GeminiCli)
                 {
@@ -740,6 +782,35 @@ public partial class MainViewModel : ObservableObject, IDisposable
         {
             GeminiHasError = true;
             GeminiErrorMessage = ex.Message;
+        }
+    }
+
+    private void CheckProviderThresholds(string provider, double newPercent, string resetLabel, string ntfyTopic)
+    {
+        var settings = _settingsService.Load();
+        double prevPercent = provider switch
+        {
+            UsageProviderKind.Codex => _prevCodexPercent,
+            UsageProviderKind.GeminiCli => _prevGeminiPercent,
+            _ => -1
+        };
+
+        if (prevPercent < 0) return;
+
+        // 1. 할당량 초기화 감지
+        if (NotifyOnQuotaReset && prevPercent >= 1.0 && newPercent < 1.0)
+        {
+            _notifier.ShowQuotaResetAlert(ntfyTopic);
+        }
+
+        // 2. 임계값 알림
+        foreach (var t in settings.Thresholds.OrderBy(x => x))
+        {
+            double tf = t / 100.0;
+            if (prevPercent < tf && newPercent >= tf)
+            {
+                _notifier.ShowUsageAlert(t, provider, resetLabel, ntfyTopic);
+            }
         }
     }
 
