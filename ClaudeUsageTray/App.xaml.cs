@@ -16,8 +16,9 @@ public partial class App : Application
     private UsagePopup? _popup;
 
     // Menu item references for status updates
-    private ToolStripMenuItem? _status5hItem;
-    private ToolStripMenuItem? _status7dItem;
+    private ToolStripMenuItem? _claudeStatusItem;
+    private ToolStripMenuItem? _codexStatusItem;
+    private ToolStripMenuItem? _geminiStatusItem;
     private ToolStripMenuItem? _nextRefreshItem;
 
     protected override async void OnStartup(StartupEventArgs e)
@@ -77,12 +78,16 @@ public partial class App : Application
 
         var contextMenu = new ContextMenuStrip();
 
-        // Status summary items (read-only, non-clickable)
-        _status5hItem = new ToolStripMenuItem("···") { Enabled = false };
-        _status7dItem = new ToolStripMenuItem("···") { Enabled = false };
+        // Provider status items (read-only)
+        _claudeStatusItem = new ToolStripMenuItem("Claude: ---") { Enabled = false };
+        _codexStatusItem = new ToolStripMenuItem("Codex: ---") { Enabled = false };
+        _geminiStatusItem = new ToolStripMenuItem("Gemini: ---") { Enabled = false };
         _nextRefreshItem = new ToolStripMenuItem("Next refresh: --") { Enabled = false };
-        contextMenu.Items.Add(_status5hItem);
-        contextMenu.Items.Add(_status7dItem);
+        
+        contextMenu.Items.Add(_claudeStatusItem);
+        contextMenu.Items.Add(_codexStatusItem);
+        contextMenu.Items.Add(_geminiStatusItem);
+        contextMenu.Items.Add(new ToolStripSeparator());
         contextMenu.Items.Add(_nextRefreshItem);
         contextMenu.Items.Add(new ToolStripSeparator());
 
@@ -107,45 +112,54 @@ public partial class App : Application
 
     private void OnVmStatusPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {
-        if (args.PropertyName is nameof(MainViewModel.ShortUsagePercent)
-                              or nameof(MainViewModel.LongUsagePercent)
-                              or nameof(MainViewModel.ShortResetLabel)
-                              or nameof(MainViewModel.LongResetLabel)
-                              or nameof(MainViewModel.HasError)
+        if (args.PropertyName is nameof(MainViewModel.ClaudeShortPercent)
+                              or nameof(MainViewModel.ClaudeLongPercent)
+                              or nameof(MainViewModel.CodexPercent)
+                              or nameof(MainViewModel.GeminiPercent)
+                              or nameof(MainViewModel.ClaudeHasError)
+                              or nameof(MainViewModel.CodexHasError)
+                              or nameof(MainViewModel.GeminiHasError)
                               or nameof(MainViewModel.IsLoading)
                               or nameof(MainViewModel.NextRefreshLabel))
         {
             Dispatcher.Invoke(() =>
             {
-                if (_vm is null || _status5hItem is null) return;
+                if (_vm is null || _claudeStatusItem is null) return;
 
-                if (_vm.IsLoading && _vm.ShortUsagePercent == 0)
+                if (_vm.IsLoading && _vm.ClaudeShortPercent == 0 && _vm.CodexPercent == 0)
                 {
-                    _status5hItem.Text = "5h: Loading...";
-                    _status7dItem!.Text = "7d: Loading...";
-                    _nextRefreshItem!.Text = $"Next: {_vm.NextRefreshLabel}";
-                }
-                else if (_vm.HasError)
-                {
-                    _status5hItem.Text = "5h: Unavailable";
-                    _status7dItem!.Text = "7d: Unavailable";
-                    _nextRefreshItem!.Text = "Next: --";
+                    _claudeStatusItem.Text = "Claude: Loading...";
+                    _codexStatusItem!.Text = "Codex: Loading...";
+                    _geminiStatusItem!.Text = "Gemini: Loading...";
                 }
                 else
                 {
-                    var reset5h = _vm.ShortResetLabel.Replace(" · ", "  ");
-                    var reset7d = _vm.LongResetLabel.Replace(" · ", "  ");
-                    _status5hItem.Text = $"5h: {_vm.ShortUsagePercent:P0}{reset5h}";
-                    _status7dItem!.Text = $"7d: {_vm.LongUsagePercent:P0}{reset7d}";
-                    _nextRefreshItem!.Text = $"Next: {_vm.NextRefreshLabel}";
+                    // Claude Status
+                    if (_vm.ClaudeHasError) _claudeStatusItem.Text = "Claude: Unavailable";
+                    else _claudeStatusItem.Text = $"Claude: {_vm.ClaudeShortPercent:P0} (5h) / {_vm.ClaudeLongPercent:P0} (7d)";
+
+                    // Codex Status
+                    if (_vm.CodexHasError) _codexStatusItem!.Text = "Codex: Unavailable";
+                    else _codexStatusItem!.Text = $"Codex: {_vm.CodexPercent:P0}";
+
+                    // Gemini Status
+                    if (_vm.GeminiHasError) _geminiStatusItem!.Text = "Gemini: Unavailable";
+                    else _geminiStatusItem!.Text = $"Gemini: {_vm.GeminiPercent:P0}";
                 }
+                
+                _nextRefreshItem!.Text = $"Next: {_vm.NextRefreshLabel}";
             });
         }
     }
 
     private void OnVmIconPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {
-        if (args.PropertyName is nameof(MainViewModel.ShortUsagePercent)
+        if (args.PropertyName is nameof(MainViewModel.ClaudeShortPercent)
+                              or nameof(MainViewModel.CodexPercent)
+                              or nameof(MainViewModel.GeminiPercent)
+                              or nameof(MainViewModel.ClaudeHasError)
+                              or nameof(MainViewModel.CodexHasError)
+                              or nameof(MainViewModel.GeminiHasError)
                               or nameof(MainViewModel.HasError)
                               or nameof(MainViewModel.SelectedProvider)
                               or nameof(MainViewModel.LblAppTitle))
@@ -154,18 +168,39 @@ public partial class App : Application
             {
                 if (_vm is null || _trayIcon is null) return;
 
+                // Determine active percentage for the tray gauge based on selection
+                double activePercent = _vm.SelectedProvider switch
+                {
+                    ClaudeUsageTray.Models.UsageProviderKind.Codex => _vm.CodexPercent,
+                    ClaudeUsageTray.Models.UsageProviderKind.GeminiCli => _vm.GeminiPercent,
+                    _ => _vm.ClaudeShortPercent
+                };
+
+                // Check if the selected provider has an error
+                bool activeError = _vm.SelectedProvider switch
+                {
+                    ClaudeUsageTray.Models.UsageProviderKind.Codex => _vm.CodexHasError,
+                    ClaudeUsageTray.Models.UsageProviderKind.GeminiCli => _vm.GeminiHasError,
+                    _ => _vm.ClaudeHasError
+                };
+
                 var oldIcon = _trayIcon.Icon;
-                if (_vm.HasError)
+                if (activeError)
                 {
                     _trayIcon.Icon = DrawTrayIcon(-1);
-                    _trayIcon.Text = $"{_vm.LblAppTitle} · ? (조회 실패)";
                 }
                 else
                 {
-                    _trayIcon.Icon = DrawTrayIcon(_vm.ShortUsagePercent);
-                    _trayIcon.Text = $"{_vm.LblAppTitle} · {_vm.ShortUsagePercent:P0} (5h)";
+                    _trayIcon.Icon = DrawTrayIcon(activePercent);
                 }
                 oldIcon?.Dispose();
+
+                // Multi-provider summary in tooltip
+                string claudeInfo = _vm.ClaudeHasError ? "Error" : $"{_vm.ClaudeShortPercent:P0}";
+                string codexInfo = _vm.CodexHasError ? "Error" : $"{_vm.CodexPercent:P0}";
+                string geminiInfo = _vm.GeminiHasError ? "Error" : $"{_vm.GeminiPercent:P0}";
+                
+                _trayIcon.Text = $"{_vm.LblAppTitle}\nClaude: {claudeInfo} | Codex: {codexInfo} | Gemini: {geminiInfo}";
             });
         }
     }
