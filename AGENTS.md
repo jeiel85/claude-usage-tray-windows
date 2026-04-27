@@ -76,6 +76,7 @@ git fetch origin && git pull origin master && git status
 ## 📜 최근 변경 이력 요약
 *상세 내용은 [CHANGELOG.md](./CHANGELOG.md) 참조*
 
+- **v1.16.1**: 메인 팝업 레이아웃 최적화( ProgressBar 4px), 트레이 툴팁 및 메뉴에 3개 공급자 상태 통합, 차트 제목 동적 바인딩.
 - **v1.16.0**: 모든 공급자(Claude, Codex, Gemini) 통합 뷰 제공 및 설정 드롭다운 가독성 개선.
 - **v1.15.49**: ntfy 중복 알림 방지 — 다중 PC 동일 토픽 사용 시 중복 발송 해결 (PC별 발송 토글 + 3분 dedup 안전망).
 - **v1.15.48**: 업데이트 팝업 릴리즈 노트 다국어 필터링 (앱 언어에 맞는 블록만 표시).

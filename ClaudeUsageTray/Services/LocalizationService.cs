@@ -480,6 +480,14 @@ public static class Loc
         _ => $"Rate limited — retry after {time}"
     };
 
+    public static string HistoryTitleFor(string provider) => Lang switch
+    {
+        "ko" => $"{provider} {HistoryTitle}",
+        "zh" => $"{provider} {HistoryTitle}",
+        "ja" => $"{provider} {HistoryTitle}",
+        _ => $"{provider} {HistoryTitle}"
+    };
+
     public static string HistoryTitle => Lang switch
     {
         "ko" => "7일 사용 추이",

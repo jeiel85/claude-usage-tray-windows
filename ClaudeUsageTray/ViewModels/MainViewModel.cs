@@ -113,6 +113,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
     // 오늘 시간대별 토큰 (0~23시)
     [ObservableProperty] private long[] _hourlyTokens = new long[24];
 
+    public string HistoryChartTitle => Loc.HistoryTitleFor(SelectedProvider switch
+    {
+        UsageProviderKind.Codex => "Codex",
+        UsageProviderKind.GeminiCli => "Gemini",
+        _ => "Claude"
+    });
+
     // 5시간 소진 예측
     [ObservableProperty] private string _shortDepletionLabel = "";
 

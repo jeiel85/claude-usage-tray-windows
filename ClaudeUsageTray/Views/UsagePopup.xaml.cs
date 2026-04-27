@@ -36,7 +36,7 @@ public partial class UsagePopup : Window, IDisposable
         vm.PropertyChanged += OnVmPropertyChanged;
         Loaded += (_, _) => RefreshChart();
         UpdateToggleStyle();
-        CsvExportBtn.ToolTip = Loc.ExportCsvTooltip;
+        ExportCsvBtn.ToolTip = Loc.ExportCsvTooltip;
     }
 
     private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
