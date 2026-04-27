@@ -496,15 +496,24 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding SessionsLabel}" Foreground="#8B92B3" FontSize="11"/>
-                            <Button Margin="8,0,0,0" Background="Transparent" BorderThickness="0"
+                        <Grid Grid.Column="0" VerticalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{Binding SessionsLabel}" Foreground="#8B92B3" FontSize="11" VerticalAlignment="Center"/>
+                            <Button Grid.Column="1" Margin="8,0,0,0" Background="Transparent" BorderThickness="0"
                                     Cursor="Hand" ToolTip="{Binding LblCheckUpdate}"
                                     Command="{Binding ManualCheckForUpdateCommand}">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{Binding CurrentVersionLabel}" Foreground="#3D4266" FontSize="10" VerticalAlignment="Center"/>
-                                    <TextBlock Text="{Binding UpdateCheckLabel}" Foreground="#A78BFA" FontSize="10" Margin="4,0,0,0" VerticalAlignment="Center"/>
-                                </StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding CurrentVersionLabel}" Foreground="#3D4266" FontSize="10" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding UpdateCheckLabel}" Foreground="#A78BFA" FontSize="10" Margin="4,0,0,0" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </Grid>
                                 <Button.Style>
                                     <Style TargetType="Button">
                                         <Setter Property="Template">
@@ -524,7 +533,7 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
-                        </StackPanel>
+                        </Grid>
 
                         <!-- Settings gear button -->
                         <Button Grid.Column="1" Width="28" Height="28" Margin="0,0,4,0"

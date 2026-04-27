@@ -5,6 +5,20 @@
 
 ---
 
+## [1.15.50] - 2026-04-27
+
+<!-- ko -->
+### 수정
+- **푸터 버전 상태 문구 잘림 수정** — "✓ 최신 버전입니다" 텍스트가 공간 부족으로 잘리던 문제 해결. 푸터 레이아웃을 StackPanel에서 Grid로 변경하여 버전 버튼이 남은 공간을 올바르게 차지하도록 개선
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Footer version status text clipping fix** — "✓ Already up to date" text was being cut off due to insufficient space. Changed footer layout from StackPanel to Grid so the version button properly occupies remaining space
+<!-- /en -->
+
+---
+
 ## [1.15.49] - 2026-04-27
 
 <!-- ko -->
