@@ -56,16 +56,19 @@ public partial class App : Application
         var credService = new CredentialService();
         var apiService = new UsageApiService(credService);
         var sessionMonitor = new SessionMonitor();
+        var codexMonitor = new CodexUsageMonitor();
+        var geminiCliMonitor = new GeminiCliUsageMonitor();
         var notifier = new NotificationService(() => _trayIcon);
         var updater = new UpdateService();
         var history = new HistoryService();
 
-        _vm = new MainViewModel(apiService, credService, sessionMonitor, notifier, settingsService, updater, history);
+        _vm = new MainViewModel(apiService, credService, sessionMonitor, codexMonitor, geminiCliMonitor,
+            notifier, settingsService, updater, history);
         _popup = new UsagePopup(_vm);
 
         _trayIcon = new NotifyIcon
         {
-            Text = "Claude Usage",
+            Text = _vm.LblAppTitle,
             Icon = DrawTrayIcon(0),
             Visible = true
         };
@@ -143,7 +146,9 @@ public partial class App : Application
     private void OnVmIconPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {
         if (args.PropertyName is nameof(MainViewModel.ShortUsagePercent)
-                              or nameof(MainViewModel.HasError))
+                              or nameof(MainViewModel.HasError)
+                              or nameof(MainViewModel.SelectedProvider)
+                              or nameof(MainViewModel.LblAppTitle))
         {
             Dispatcher.Invoke(() =>
             {
@@ -153,12 +158,12 @@ public partial class App : Application
                 if (_vm.HasError)
                 {
                     _trayIcon.Icon = DrawTrayIcon(-1);
-                    _trayIcon.Text = "Claude Usage · ? (조회 실패)";
+                    _trayIcon.Text = $"{_vm.LblAppTitle} · ? (조회 실패)";
                 }
                 else
                 {
                     _trayIcon.Icon = DrawTrayIcon(_vm.ShortUsagePercent);
-                    _trayIcon.Text = $"Claude Usage · {_vm.ShortUsagePercent:P0} (5h)";
+                    _trayIcon.Text = $"{_vm.LblAppTitle} · {_vm.ShortUsagePercent:P0} (5h)";
                 }
                 oldIcon?.Dispose();
             });

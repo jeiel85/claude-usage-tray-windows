@@ -2,6 +2,8 @@ namespace ClaudeUsageTray.Models;
 
 public class NotificationSettings
 {
+    public string SelectedProvider { get; set; } = UsageProviderKind.Claude;
+
     public bool Enabled { get; set; } = true;
 
     // 5시간 윈도우 임계값 (%)

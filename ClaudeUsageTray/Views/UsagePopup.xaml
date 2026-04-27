@@ -96,6 +96,9 @@
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Text="{Binding LblAppTitle}" Foreground="#F1F5F9"
                                            FontSize="14" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding ProviderNote}"
+                                           Foreground="#5A5F7A" FontSize="10"
+                                           Visibility="{Binding ProviderNote, Converter={StaticResource StringToVisibility}}"/>
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{Binding LastUpdatedLabel}"
                                                Foreground="#8B92B3" FontSize="11"/>

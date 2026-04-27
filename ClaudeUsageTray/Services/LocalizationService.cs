@@ -20,14 +20,80 @@ public static class Loc
 
     public static string CurrentLang => Lang;
 
-    // Header
-    public static string AppTitle => Lang switch
+    public static string ClaudeUsageTitle => Lang switch
     {
         "ko" => "Claude 사용량",
         "zh" => "Claude 用量",
         "ja" => "Claude 使用量",
         _ => "Claude Usage"
     };
+
+    public static string CodexUsageTitle => Lang switch
+    {
+        "ko" => "Codex 사용량",
+        "zh" => "Codex 用量",
+        "ja" => "Codex 使用量",
+        _ => "Codex Usage"
+    };
+
+    public static string GeminiCliUsageTitle => Lang switch
+    {
+        "ko" => "Gemini CLI 사용량",
+        "zh" => "Gemini CLI 用量",
+        "ja" => "Gemini CLI 使用量",
+        _ => "Gemini CLI Usage"
+    };
+
+    public static string ProviderSection => Lang switch
+    {
+        "ko" => "모니터링 대상",
+        "zh" => "监控目标",
+        "ja" => "監視対象",
+        _ => "Monitoring Target"
+    };
+
+    public static string ProviderClaude => Lang switch
+    {
+        "ko" => "Claude",
+        "zh" => "Claude",
+        "ja" => "Claude",
+        _ => "Claude"
+    };
+
+    public static string ProviderCodex => Lang switch
+    {
+        "ko" => "Codex (ChatGPT plan)",
+        "zh" => "Codex (ChatGPT plan)",
+        "ja" => "Codex (ChatGPT plan)",
+        _ => "Codex (ChatGPT plan)"
+    };
+
+    public static string ProviderGeminiCli => Lang switch
+    {
+        "ko" => "Gemini CLI",
+        "zh" => "Gemini CLI",
+        "ja" => "Gemini CLI",
+        _ => "Gemini CLI"
+    };
+
+    public static string ProviderCodexNote => Lang switch
+    {
+        "ko" => "ChatGPT plan 기준 · 로컬 Codex 세션 데이터",
+        "zh" => "基于 ChatGPT plan · 本地 Codex 会话数据",
+        "ja" => "ChatGPT plan 基準 · ローカル Codex セッションデータ",
+        _ => "Based on ChatGPT plan · local Codex session data"
+    };
+
+    public static string ProviderGeminiCliNote => Lang switch
+    {
+        "ko" => "Gemini Code Assist / CLI 기준 · Gemini Apps 전체 사용량 아님",
+        "zh" => "基于 Gemini Code Assist / CLI · 不代表整个 Gemini Apps 用量",
+        "ja" => "Gemini Code Assist / CLI 基準 · Gemini Apps 全体の使用量ではありません",
+        _ => "Based on Gemini Code Assist / CLI quotas, not full Gemini Apps usage"
+    };
+
+    // Header
+    public static string AppTitle => ClaudeUsageTitle;
 
     public static string Updated => Lang switch
     {
@@ -52,6 +118,14 @@ public static class Loc
         "zh" => "API 配额",
         "ja" => "API クォータ",
         _ => "API Quota"
+    };
+
+    public static string UsageQuota => Lang switch
+    {
+        "ko" => "사용량 할당량",
+        "zh" => "用量配额",
+        "ja" => "使用量クォータ",
+        _ => "Usage Quota"
     };
 
     public static string TodayTokens => Lang switch
@@ -462,6 +536,30 @@ public static class Loc
         _ => "✓ Windows toast sent (ntfy not configured)"
     };
 
+    public static string TestNotificationSentNtfyDisabled => Lang switch
+    {
+        "ko" => "✓ Windows 알림 전송됨 (이 PC의 ntfy 발송 꺼짐)",
+        "zh" => "✓ Windows 通知已发送（此电脑的 ntfy 发送已关闭）",
+        "ja" => "✓ Windows 通知送信済み（このPCの ntfy 送信はオフ）",
+        _ => "✓ Windows toast sent (ntfy sending is off on this PC)"
+    };
+
+    public static string TestNotificationFailedNtfy => Lang switch
+    {
+        "ko" => "⚠ Windows 알림 전송됨, ntfy 전송 실패",
+        "zh" => "⚠ Windows 通知已发送，ntfy 发送失败",
+        "ja" => "⚠ Windows 通知送信済み、ntfy 送信失敗",
+        _ => "⚠ Windows toast sent, ntfy failed"
+    };
+
+    public static string NtfyTestSendFailed => Lang switch
+    {
+        "ko" => "ntfy 테스트 알림 전송에 실패했습니다.",
+        "zh" => "ntfy 测试通知发送失败。",
+        "ja" => "ntfy テスト通知の送信に失敗しました。",
+        _ => "Failed to send ntfy test notification."
+    };
+
     public static string StartWithWindows => Lang switch
     {
         "ko" => "윈도우 시작 시 자동 실행",
@@ -651,6 +749,62 @@ public static class Loc
         "zh" => "本应用仅供参考。显示数值可能与官方数据不同，开发者不对任何计费问题承担责任。请通过 Anthropic 官方控制台确认准确用量。",
         "ja" => "このアプリは参考ツールです。表示される数値は公式データと異なる場合があります。料金関連の問題について開発者は責任を負いません。正確な使用量は Anthropic の公式コンソールで確認してください。",
         _ => "This app is a reference tool only. Displayed values may differ from official figures. The developer is not liable for any billing issues. Please verify accurate usage on the official Anthropic console."
+    };
+
+    public static string GenericDisclaimer => Lang switch
+    {
+        "ko" => "이 앱은 참고용 도구입니다. 표시되는 수치는 로컬 로그 또는 제공된 quota 개념을 바탕으로 계산될 수 있으며, 공식 수치와 다를 수 있습니다.",
+        "zh" => "本应用仅供参考。显示数值可能基于本地日志或提供的配额概念计算，可能与官方数据不同。",
+        "ja" => "このアプリは参考ツールです。表示値はローカルログや公開されたクォータ概念を元に計算される場合があり、公式データと異なることがあります。",
+        _ => "This app is a reference tool only. Displayed values may be derived from local logs or published quota concepts and may differ from official figures."
+    };
+
+    public static string CodexSourceNotFound => Lang switch
+    {
+        "ko" => "Codex 로컬 세션 폴더를 찾지 못했습니다.",
+        "zh" => "未找到 Codex 本地会话文件夹。",
+        "ja" => "Codex のローカルセッションフォルダが見つかりません。",
+        _ => "Codex local session folder was not found."
+    };
+
+    public static string CodexNoUsageToday => Lang switch
+    {
+        "ko" => "오늘 Codex 사용 기록이 아직 없습니다.",
+        "zh" => "今天还没有 Codex 使用记录。",
+        "ja" => "本日の Codex 使用記録はまだありません。",
+        _ => "No Codex usage has been recorded today yet."
+    };
+
+    public static string GeminiCliSourceNotFound => Lang switch
+    {
+        "ko" => "Gemini CLI 사용자 폴더를 찾지 못했습니다.",
+        "zh" => "未找到 Gemini CLI 用户目录。",
+        "ja" => "Gemini CLI のユーザーディレクトリが見つかりません。",
+        _ => "Gemini CLI user directory was not found."
+    };
+
+    public static string GeminiCliSessionPathMissing => Lang switch
+    {
+        "ko" => "Gemini CLI 세션 폴더를 아직 찾지 못했습니다.",
+        "zh" => "尚未找到 Gemini CLI 会话文件夹。",
+        "ja" => "Gemini CLI のセッションフォルダがまだ見つかりません。",
+        _ => "Gemini CLI session folder was not found yet."
+    };
+
+    public static string GeminiCliNoUsageToday => Lang switch
+    {
+        "ko" => "오늘 Gemini CLI 세션 기록이 아직 없습니다.",
+        "zh" => "今天还没有 Gemini CLI 会话记录。",
+        "ja" => "本日の Gemini CLI セッション記録はまだありません。",
+        _ => "No Gemini CLI session has been recorded today yet."
+    };
+
+    public static string GeminiCliEstimateOnly => Lang switch
+    {
+        "ko" => "Gemini CLI는 현재 로컬 세션 수만 확인됩니다. quota 잔량 표시는 추후 보강 예정입니다.",
+        "zh" => "Gemini CLI 当前只能确认本地会话数。配额剩余显示后续补强。",
+        "ja" => "Gemini CLI は現在ローカルセッション数のみ確認できます。クォータ残量表示は今後補強予定です。",
+        _ => "Gemini CLI currently exposes local session presence only. Quota remaining display still needs a stronger source."
     };
 
     public static string ApiError(string msg) => Lang switch

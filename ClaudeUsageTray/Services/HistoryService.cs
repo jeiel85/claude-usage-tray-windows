@@ -22,26 +22,29 @@ public class HistoryService
 
     public HistoryService()
     {
-        _historyPath = BuildHistoryPath(null);
+        _historyPath = BuildHistoryPath(Models.UsageProviderKind.Claude, null);
         Load();
     }
 
     /// <summary>
-    /// 계정 전환 시 호출. orgUuid가 있으면 계정 전용 파일, 없으면 공용 파일 사용.
+    /// provider/account scope 전환 시 호출.
     /// </summary>
-    public void SetOrgUuid(string? orgUuid)
+    public void SetScope(string providerKey, string? accountKey)
     {
-        _historyPath = BuildHistoryPath(orgUuid);
+        _historyPath = BuildHistoryPath(providerKey, accountKey);
         _data = new();
         Load();
     }
 
-    private static string BuildHistoryPath(string? orgUuid)
+    private static string BuildHistoryPath(string providerKey, string? accountKey)
     {
-        var suffix = string.IsNullOrEmpty(orgUuid)
+        var provider = string.IsNullOrWhiteSpace(providerKey)
+            ? Models.UsageProviderKind.Claude
+            : providerKey.Trim().ToLowerInvariant();
+        var suffix = string.IsNullOrEmpty(accountKey)
             ? ""
-            : $"-{orgUuid[..Math.Min(8, orgUuid.Length)]}"; // UUID 앞 8자로 짧게
-        return Path.Combine(ClaudeDir, $"claude-usage-tray-history{suffix}.json");
+            : $"-{accountKey[..Math.Min(8, accountKey.Length)]}";
+        return Path.Combine(ClaudeDir, $"claude-usage-tray-history-{provider}{suffix}.json");
     }
 
     private void Load()

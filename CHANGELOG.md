@@ -5,6 +5,30 @@
 
 ---
 
+## [1.15.52] - 2026-04-27
+
+<!-- ko -->
+### 추가
+- **Codex 사용량 모니터링 지원** — 설정에서 `Codex (ChatGPT plan)` provider를 선택할 수 있도록 추가. 로컬 `.codex/sessions`의 `token_count` 이벤트를 기반으로 5시간/7일 사용률, 리셋 시각, 오늘 토큰 사용량을 표시
+- **Gemini CLI provider 추가** — `Gemini CLI` provider 선택지를 추가하고, Gemini Apps 전체 사용량이 아닌 Gemini Code Assist / CLI 기준임을 명확히 표시
+
+### 개선
+- **알림 테스트 결과 정확화** — ntfy 테스트 알림 전송 성공/실패를 실제 응답 기준으로 표시하고, 이 PC의 ntfy 발송이 꺼진 경우 스마트폰 전송으로 오해되지 않도록 문구 개선
+- **provider 전환 UX 개선** — 설정창을 열 때 provider 선택 초기화만으로 저장/새로고침이 발생하지 않도록 수정
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Codex usage monitoring support** — Added a `Codex (ChatGPT plan)` provider. It reads local `.codex/sessions` `token_count` events to show 5-hour/7-day usage, reset times, and today's token usage
+- **Gemini CLI provider** — Added a `Gemini CLI` provider option and clearly labels it as Gemini Code Assist / CLI based, not full Gemini Apps usage
+
+### Improved
+- **Accurate notification test result** — Test notifications now report ntfy success/failure based on the actual response, and avoid implying phone delivery when ntfy sending is disabled on this PC
+- **Provider switching UX** — Opening settings no longer saves or refreshes just because the provider selector is initialized
+<!-- /en -->
+
+---
+
 ## [1.15.51] - 2026-04-27
 
 <!-- ko -->

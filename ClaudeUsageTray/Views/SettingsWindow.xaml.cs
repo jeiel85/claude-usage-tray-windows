@@ -1,9 +1,11 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Controls;
 using Microsoft.Win32;
 using ClaudeUsageTray.ViewModels;
 using ClaudeUsageTray.Services;
+using ClaudeUsageTray.Models;
 
 namespace ClaudeUsageTray.Views;
 
@@ -11,6 +13,7 @@ public partial class SettingsWindow : Window, IDisposable
 {
     private readonly MainViewModel _vm;
     private bool _disposed = false;
+    private bool _isLoadingValues = false;
 
     public SettingsWindow(MainViewModel vm)
     {
@@ -66,6 +69,7 @@ public partial class SettingsWindow : Window, IDisposable
     private void ApplyLocalization()
     {
         TitleText.Text                      = Loc.Notifications;
+        LblProvider.Text                    = Loc.ProviderSection;
         LblGeneral.Text                     = Loc.NotificationsEnabled;
         ChkEnabled.Content                  = Loc.NotificationsEnabled;
         ChkRateLimit.Content                = Loc.NotifyRateLimit;
@@ -84,12 +88,18 @@ public partial class SettingsWindow : Window, IDisposable
         LblNtfySecurityWarning.Text        = Loc.NtfySecurityWarning;
         ChkNtfySendFromThisPc.Content      = Loc.NtfySendFromThisPc;
         LblNtfySendFromThisPcHint.Text     = Loc.NtfySendFromThisPcHint;
-        LblDisclaimer.Text                  = Loc.Disclaimer;
+        LblDisclaimer.Text                  = _vm.DisclaimerText;
         LblPollingInterval.Text             = Loc.PollingInterval;
+
+        CmbProvider.Items.Clear();
+        CmbProvider.Items.Add(new ComboBoxItem { Content = Loc.ProviderClaude, Tag = UsageProviderKind.Claude });
+        CmbProvider.Items.Add(new ComboBoxItem { Content = Loc.ProviderCodex, Tag = UsageProviderKind.Codex });
+        CmbProvider.Items.Add(new ComboBoxItem { Content = Loc.ProviderGeminiCli, Tag = UsageProviderKind.GeminiCli });
     }
 
     private void LoadValues()
     {
+        _isLoadingValues = true;
         ChkEnabled.IsChecked          = _vm.NotificationsEnabled;
         ChkRateLimit.IsChecked        = _vm.NotifyRateLimit;
         ChkQuotaReset.IsChecked       = _vm.NotifyOnQuotaReset;
@@ -102,6 +112,20 @@ public partial class SettingsWindow : Window, IDisposable
         ChkStartWithWindows.IsChecked   = IsStartupEnabled();
         SliderPolling.Value = _vm.PollingIntervalMinutes > 0 ? _vm.PollingIntervalMinutes : 2;
         UpdatePollingLabel((int)SliderPolling.Value);
+        SelectProviderItem(_vm.SelectedProvider);
+        _isLoadingValues = false;
+    }
+
+    private void SelectProviderItem(string provider)
+    {
+        foreach (var item in CmbProvider.Items.OfType<ComboBoxItem>())
+        {
+            if ((item.Tag as string) == provider)
+            {
+                CmbProvider.SelectedItem = item;
+                break;
+            }
+        }
     }
 
     private void UpdatePollingLabel(int minutes)
@@ -178,11 +202,18 @@ public partial class SettingsWindow : Window, IDisposable
     private async void BtnTestNotification_Click(object sender, RoutedEventArgs e)
     {
         var hasNtfy = !string.IsNullOrWhiteSpace(_vm.NtfyTopic);
-        _vm.SendTestNotificationCommand.Execute(null);
+        var sendsNtfyFromThisPc = hasNtfy && _vm.NtfySendFromThisPc;
 
         var original = BtnTestNotification.Content;
-        BtnTestNotification.Content = hasNtfy ? Loc.TestNotificationSent : Loc.TestNotificationSentNoNtfy;
         BtnTestNotification.IsEnabled = false;
+
+        var result = await _vm.SendTestNotificationAsync();
+        BtnTestNotification.Content = result.NtfyAttempted
+            ? result.NtfySucceeded ? Loc.TestNotificationSent : Loc.TestNotificationFailedNtfy
+            : hasNtfy && !sendsNtfyFromThisPc
+                ? Loc.TestNotificationSentNtfyDisabled
+                : Loc.TestNotificationSentNoNtfy;
+
         await Task.Delay(AppConstants.UiFeedbackDelayMs);
         BtnTestNotification.Content = original;
         BtnTestNotification.IsEnabled = true;
@@ -211,6 +242,19 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.PollingIntervalMinutes = minutes;
         _vm.SaveSettingsCommand.Execute(null);
         _vm.ApplyPollingInterval();
+    }
+
+    private async void CmbProvider_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isLoadingValues) return;
+
+        if (CmbProvider.SelectedItem is not ComboBoxItem item || item.Tag is not string provider)
+            return;
+
+        _vm.SelectedProvider = provider;
+        LblDisclaimer.Text = _vm.DisclaimerText;
+        _vm.SaveSettingsCommand.Execute(null);
+        await _vm.RefreshAsync();
     }
 
     public void ShowNearTray()

@@ -13,6 +13,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly UsageApiService _api;
     private readonly CredentialService _credentials;
     private readonly SessionMonitor _session;
+    private readonly CodexUsageMonitor _codex;
+    private readonly GeminiCliUsageMonitor _geminiCli;
     private readonly NotificationService _notifier;
     private readonly SettingsService _settingsService;
     private readonly UpdateService _updater;
@@ -112,6 +114,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _isUpdating = false;
     [ObservableProperty] private int _updateProgress = 0;
     [ObservableProperty] private string _updateStatusText = "";
+    [ObservableProperty] private string _selectedProvider = UsageProviderKind.Claude;
+    [ObservableProperty] private string _providerNote = "";
 
     private string _updateDownloadUrl = "";
     private string _updateSha256Url = "";
@@ -120,8 +124,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public string? RawApiResponse { get; private set; }
 
     // Localized static labels
-    public string LblAppTitle        => Loc.AppTitle;
-    public string LblApiQuota        => Loc.ApiQuota;
+    public string LblAppTitle        => SelectedProvider switch
+    {
+        UsageProviderKind.Codex => Loc.CodexUsageTitle,
+        UsageProviderKind.GeminiCli => Loc.GeminiCliUsageTitle,
+        _ => Loc.ClaudeUsageTitle
+    };
+    public string LblApiQuota        => SelectedProvider == UsageProviderKind.Claude ? Loc.ApiQuota : Loc.UsageQuota;
     public string LblTodayTokens     => Loc.TodayTokens;
     public string LblFiveHour        => Loc.FiveHourWindow;
     public string LblSevenDay        => Loc.SevenDayWindow;
@@ -144,6 +153,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     // ntfy 발송 대상 토픽: 이 PC에서 발송 비활성화 시 빈 문자열 반환
     private string NtfyTopicEffective => NtfySendFromThisPc ? NtfyTopic : "";
     public string LblCheckUpdate     => Loc.CheckUpdate;
+    public string DisclaimerText     => SelectedProvider == UsageProviderKind.Claude ? Loc.Disclaimer : Loc.GenericDisclaimer;
 
     // Tooltips
     public string TipInput      => Loc.InputTooltip;
@@ -152,13 +162,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public string TipCacheWrite => Loc.CacheWriteTooltip;
 
     public MainViewModel(UsageApiService api, CredentialService credentials,
-                         SessionMonitor session,
+                         SessionMonitor session, CodexUsageMonitor codex, GeminiCliUsageMonitor geminiCli,
                          NotificationService notifier, SettingsService settingsService,
                          UpdateService updater, HistoryService history)
     {
         _api = api;
         _credentials = credentials;
         _session = session;
+        _codex = codex;
+        _geminiCli = geminiCli;
         _notifier = notifier;
         _settingsService = settingsService;
         _updater = updater;
@@ -192,9 +204,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private void OnCredentialsChanged()
     {
+        if (SelectedProvider != UsageProviderKind.Claude) return;
         // 계정 전환 감지 — 히스토리를 새 계정으로 전환하고 즉시 새로고침
         var orgUuid = _credentials.GetOrganizationUuid();
-        _history.SetOrgUuid(orgUuid);
+        _history.SetScope(UsageProviderKind.Claude, orgUuid);
         // 계정 전환 시 rate-limit 대기를 초기화 — 새 계정은 독립적으로 조회
         _apiRetryAfter = DateTimeOffset.MinValue;
         // 타이머 카운트다운 리셋 + 즉시 새로고침
@@ -205,6 +218,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private void LoadSettings()
     {
         var s = _settingsService.Load();
+        SelectedProvider = UsageProviderKind.IsValid(s.SelectedProvider) ? s.SelectedProvider : UsageProviderKind.Claude;
         NotificationsEnabled = s.Enabled;
         NotifyRateLimit = s.NotifyOnRateLimit;
         NotifyOnQuotaReset = s.NotifyOnQuotaReset;
@@ -218,11 +232,41 @@ public partial class MainViewModel : ObservableObject, IDisposable
         PollingIntervalMinutes = s.PollingIntervalMinutes;
 
         // 현재 로그인된 계정의 orgUuid로 히스토리 경로 초기화
-        var orgUuid = _credentials.GetOrganizationUuid();
-        _history.SetOrgUuid(orgUuid);
+        ApplySelectedProviderScope();
 
         // Apply polling interval
         ApplyPollingInterval();
+    }
+
+    partial void OnSelectedProviderChanged(string value)
+    {
+        ApplySelectedProviderScope();
+        OnPropertyChanged(nameof(LblAppTitle));
+        OnPropertyChanged(nameof(LblApiQuota));
+        OnPropertyChanged(nameof(DisclaimerText));
+
+        ProviderNote = value switch
+        {
+            UsageProviderKind.Codex => Loc.ProviderCodexNote,
+            UsageProviderKind.GeminiCli => Loc.ProviderGeminiCliNote,
+            _ => ""
+        };
+    }
+
+    private void ApplySelectedProviderScope()
+    {
+        switch (SelectedProvider)
+        {
+            case UsageProviderKind.Codex:
+                _history.SetScope(UsageProviderKind.Codex, null);
+                break;
+            case UsageProviderKind.GeminiCli:
+                _history.SetScope(UsageProviderKind.GeminiCli, null);
+                break;
+            default:
+                _history.SetScope(UsageProviderKind.Claude, _credentials.GetOrganizationUuid());
+                break;
+        }
     }
 
     /// <summary>
@@ -250,6 +294,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         _settingsService.Save(new NotificationSettings
         {
+            SelectedProvider = SelectedProvider,
             Enabled = NotificationsEnabled,
             NotifyOnRateLimit = NotifyRateLimit,
             NotifyOnQuotaReset = NotifyOnQuotaReset,
@@ -402,9 +447,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    public void SendTestNotification()
+    public async Task<NotificationTestResult> SendTestNotificationAsync()
     {
-        _notifier.ShowTestAlert(NtfyTopicEffective);
+        return await _notifier.ShowTestAlertAsync(NtfyTopicEffective);
     }
 
     [RelayCommand]
@@ -417,12 +462,24 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         _secondsUntilRefresh = 120;
 
+        if (SelectedProvider == UsageProviderKind.Codex)
+        {
+            await RefreshCodexAsync();
+            return;
+        }
+
+        if (SelectedProvider == UsageProviderKind.GeminiCli)
+        {
+            await RefreshGeminiCliAsync();
+            return;
+        }
+
         // FileSystemWatcher 미감지 폴백: 정기 새로고침마다 orgUuid 변경 여부 확인
         var currentOrgUuid = _credentials.GetOrganizationUuid();
         if (currentOrgUuid != _lastKnownOrgUuid)
         {
             _lastKnownOrgUuid = currentOrgUuid;
-            _history.SetOrgUuid(currentOrgUuid);
+            _history.SetScope(UsageProviderKind.Claude, currentOrgUuid);
             _apiRetryAfter = DateTimeOffset.MinValue;
         }
 
@@ -607,6 +664,103 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 IsLoading = false;
             });
         }
+    }
+
+    private async Task RefreshCodexAsync()
+    {
+        _secondsUntilRefresh = PollingIntervalMinutes > 0 ? PollingIntervalMinutes * 60 : 120;
+        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => IsLoading = true);
+
+        try
+        {
+            var snapshot = _codex.GetTodaySnapshot();
+            ApplyProviderSnapshot(snapshot, isError: !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage));
+        }
+        catch (Exception ex)
+        {
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                HasError = true;
+                ErrorMessage = ex.Message;
+                StatusText = "Error";
+                IsLoading = false;
+            });
+        }
+    }
+
+    private async Task RefreshGeminiCliAsync()
+    {
+        _secondsUntilRefresh = PollingIntervalMinutes > 0 ? PollingIntervalMinutes * 60 : 120;
+        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => IsLoading = true);
+
+        try
+        {
+            var snapshot = _geminiCli.GetTodaySnapshot();
+            ApplyProviderSnapshot(snapshot,
+                isError: !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage));
+        }
+        catch (Exception ex)
+        {
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                HasError = true;
+                ErrorMessage = ex.Message;
+                StatusText = "Error";
+                IsLoading = false;
+            });
+        }
+    }
+
+    private void ApplyProviderSnapshot(ProviderUsageSnapshot snapshot, bool isError)
+    {
+        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+        {
+            TodayInputTokens = snapshot.TotalInputTokens;
+            TodayOutputTokens = snapshot.TotalOutputTokens;
+            TodayCacheRead = snapshot.TotalCacheReadTokens;
+            TodayCacheWrite = snapshot.TotalCacheWriteTokens;
+            SessionsLabel = Loc.Sessions(snapshot.SessionCount);
+            HistoryData = _history.GetLast(7);
+            HourlyTokens = snapshot.HourlyTokens;
+            TodayCostLabel = CalcCostLabel(snapshot.TotalInputTokens,
+                snapshot.TotalOutputTokens,
+                snapshot.TotalCacheReadTokens,
+                snapshot.TotalCacheWriteTokens);
+
+            _history.RecordToday(snapshot.TotalInputTokens, snapshot.TotalOutputTokens,
+                snapshot.TotalCacheReadTokens, snapshot.TotalCacheWriteTokens, snapshot.SessionCount);
+            HistoryData = _history.GetLast(7);
+
+            ShortUsagePercent = snapshot.ShortUsagePercent;
+            LongUsagePercent = snapshot.LongUsagePercent;
+            ShortResetLabel = FormatResetLabel(snapshot.ShortResetAt);
+            LongResetLabel = FormatResetLabel(snapshot.LongResetAt);
+            ShortDepletionLabel = snapshot.ShortResetAt is null ? "" : "";
+            LongDepletionLabel = snapshot.LongResetAt is null ? "" : "";
+
+            ExtraUsageEnabled = false;
+            ExtraHasLimit = false;
+            ExtraCreditsLabel = "";
+            IsExtraOnlyMode = false;
+            HasRateLimitHit = false;
+            RateLimitInfo = "";
+
+            HasError = isError;
+            ErrorMessage = snapshot.IsLimited ? "" : snapshot.ErrorMessage ?? "";
+            RateLimitInfo = snapshot.IsLimited ? snapshot.ErrorMessage ?? "" : "";
+            HasRateLimitHit = snapshot.IsLimited;
+            StatusText = isError
+                ? "Source Unavailable"
+                : snapshot.IsLimited
+                    ? "Limited Data"
+                : snapshot.ShortUsagePercent > 0
+                    ? $"{snapshot.ShortUsagePercent:P0} used"
+                    : Loc.Updated;
+            LastUpdatedLabel = HasError
+                ? $"⚠ {DateTime.Now:HH:mm:ss}"
+                : Loc.UpdatedAt(DateTime.Now.ToString("HH:mm:ss"));
+            IsLoading = false;
+        });
     }
 
     private void CheckThresholds(double newPercent, string resetLabel, string ntfyTopic)
