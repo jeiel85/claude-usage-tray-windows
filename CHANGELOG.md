@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.17.2] - 2026-04-27
+
+<!-- ko -->
+### 개선
+- **사용량 팝업 가독성 전면 개선** — 전반적인 폰트 크기를 약 15~20% 키우고(9~10pt -> 11~12pt), 데이터 값의 굵기와 색상 대비를 강화하여 시인성 확보
+- **레이아웃 여백 조정** — 섹션 간 간격과 프로그레스 바 두께를 미세 조정하여 더 쾌적한 뷰 제공
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Enhanced popup readability** — Increased overall font sizes by 15-20% (9-10pt -> 11-12pt) and strengthened color contrast/font weights for better visibility
+- **Layout spacing optimization** — Refined section margins and progress bar thickness for a cleaner, more accessible view
+<!-- /en -->
+
+---
+
 ## [1.17.1] - 2026-04-27
 
 <!-- ko -->
