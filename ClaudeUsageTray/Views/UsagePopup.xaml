@@ -176,7 +176,7 @@
             <StackPanel>
 
                 <!-- Header -->
-                <Border Background="#1A1D2E" CornerRadius="16,16,0,0" Padding="16,12,16,12">
+                <Border Background="#1A1D2E" CornerRadius="16,16,0,0" Padding="16,14,16,14">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -276,11 +276,11 @@
                 </Border>
 
                 <!-- Provider Sections -->
-                <StackPanel Margin="16,12,16,12">
-                    <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblApiQuota}" Margin="0,0,0,10"/>
+                <StackPanel Margin="16,14,16,14">
+                    <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblApiQuota}" Margin="0,0,0,12"/>
 
                     <!-- Claude Section -->
-                    <StackPanel Margin="0,0,0,10">
+                    <StackPanel Margin="0,0,0,14">
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <Border Width="10" Height="10" CornerRadius="2" Background="#8B5CF6" Margin="0,0,6,0">
                                 <TextBlock Text="C" Foreground="White" FontSize="7" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -288,7 +288,7 @@
                             <TextBlock Text="Claude" Foreground="#F1F5F9" FontSize="10" FontWeight="SemiBold"/>
                         </StackPanel>
 
-                        <Grid Margin="0,0,0,6">
+                        <Grid Margin="0,0,0,8">
                             <Grid.RowDefinitions><RowDefinition/><RowDefinition Height="Auto"/><RowDefinition Height="4"/></Grid.RowDefinitions>
                             <Grid Grid.Row="0">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -331,8 +331,8 @@
                         <TextBlock Text="{Binding ClaudeErrorMessage}" Foreground="#EF4444" FontSize="8" TextWrapping="Wrap" Margin="0,2,0,0" Visibility="{Binding ClaudeHasError, Converter={StaticResource BoolToVisibility}}"/>
 
                         <!-- History Chart (Claude 기준) -->
-                        <Border Height="1" Background="#2D2F45" Margin="0,8,0,8"/>
-                        <Grid Margin="0,0,0,6">
+                        <Border Height="1" Background="#2D2F45" Margin="0,12,0,10"/>
+                        <Grid Margin="0,0,0,8">
                             <TextBlock x:Name="ChartTitleLabel" Text="{Binding HistoryChartTitle}" Style="{StaticResource SectionLabel}"/>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                 <Border CornerRadius="4" BorderBrush="#2D2F45" BorderThickness="1">
@@ -346,8 +346,8 @@
                         <Canvas x:Name="HistoryCanvas" Height="50" Background="Transparent"/>
 
                         <!-- Today's Stats (Claude 세션 기준) -->
-                        <Border Height="1" Background="#2D2F45" Margin="0,10,0,10"/>
-                        <Grid Margin="0,0,0,8">
+                        <Border Height="1" Background="#2D2F45" Margin="0,12,0,12"/>
+                        <Grid Margin="0,0,0,10">
                             <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblTodayTokens}" VerticalAlignment="Center"/>
                             <TextBlock Text="{Binding SessionsLabel}" Foreground="#5A5F7A" FontSize="9" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                         </Grid>
@@ -377,11 +377,11 @@
                                 </StackPanel>
                             </Border>
                         </UniformGrid>
-                        <TextBlock Text="{Binding TodayCostLabel}" Foreground="#5A5F7A" FontSize="8" HorizontalAlignment="Right" Margin="0,5,0,0"/>
+                        <TextBlock Text="{Binding TodayCostLabel}" Foreground="#5A5F7A" FontSize="8" HorizontalAlignment="Right" Margin="0,8,0,0"/>
                     </StackPanel>
 
                     <!-- Codex Section -->
-                    <StackPanel Margin="0,0,0,10">
+                    <StackPanel Margin="0,0,0,14">
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <Border Width="10" Height="10" CornerRadius="2" Background="#10B981" Margin="0,0,6,0">
                                 <TextBlock Text="X" Foreground="White" FontSize="7" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -422,7 +422,7 @@
                 </StackPanel>
 
                 <!-- Footer -->
-                <Border Padding="16,10" Background="#1A1D2E" CornerRadius="0,0,16,16">
+                <Border Padding="16,12" Background="#1A1D2E" CornerRadius="0,0,16,16">
                     <Grid>
                         <!-- 좌측: 버전 클릭 → 업데이트 확인 -->
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
