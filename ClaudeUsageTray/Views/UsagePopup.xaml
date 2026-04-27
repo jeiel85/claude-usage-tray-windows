@@ -215,7 +215,7 @@
                     <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblApiQuota}" Margin="0,0,0,10"/>
 
                     <!-- Claude Section -->
-                    <StackPanel Margin="0,0,0,14">
+                    <StackPanel Margin="0,0,0,10">
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                             <Border Width="14" Height="14" CornerRadius="3" Background="#8B5CF6" Margin="0,0,6,0">
                                 <TextBlock Text="C" Foreground="White" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
