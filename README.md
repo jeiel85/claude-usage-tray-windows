@@ -22,7 +22,7 @@ Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니�
 |------|------|------|
 | `ClaudeUsageTray.exe` | ~170 KB | Framework-dependent — [.NET 9.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0/runtime) 필요 |
 | `ClaudeUsageTray-Updater.exe` | ~170 KB | 자동 업데이트 도구 (메인 앱과 같은 폴더에 위치) |
-| **현재 버전** | `v1.17.2` | Latest |
+| **현재 버전** | `v1.17.3` | Latest |
 
 **실행 방법:**
 1. 위 링크에서 `ClaudeUsageTray.exe` 다운로드
@@ -39,7 +39,13 @@ Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니�
 
 ## 📌 현재 이슈 및 진행 현황
 
-### v1.17.2 (최신)
+### v1.17.3 (최신)
+| # | 제목 | 분류 | 상태 |
+|---|------|------|------|
+| [#60] | "Extra Credits" 문구 다국어 지원 추가 | UI | 완료 |
+| [#61] | 프로젝트 및 문서 버전 동기화 (v1.17.3) | 관리 | 완료 |
+
+### v1.17.2
 | # | 제목 | 분류 | 상태 |
 |---|------|------|------|
 | [#58] | 사용량 팝업 가독성 개선 (폰트 크기 및 시인성 강화) | UI | 완료 |

@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.17.3] - 2026-04-27
+
+<!-- ko -->
+### 수정
+- **다국어 지원 보완** — 팝업 내 "Extra Credits" 문구가 하드코딩되어 있던 문제를 해결하고 다국어(한국어, 중국어, 일본어, 영어) 지원 추가
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Improved localization** — Resolved an issue where "Extra Credits" was hardcoded in the popup; added support for multiple languages (ko, zh, ja, en)
+<!-- /en -->
+
+---
+
 ## [1.17.2] - 2026-04-27
 
 <!-- ko -->
