@@ -161,28 +161,15 @@ public partial class App : Application
                               or nameof(MainViewModel.CodexHasError)
                               or nameof(MainViewModel.GeminiHasError)
                               or nameof(MainViewModel.HasError)
-                              or nameof(MainViewModel.SelectedProvider)
                               or nameof(MainViewModel.LblAppTitle))
         {
             Dispatcher.Invoke(() =>
             {
                 if (_vm is null || _trayIcon is null) return;
 
-                // Determine active percentage for the tray gauge based on selection
-                double activePercent = _vm.SelectedProvider switch
-                {
-                    ClaudeUsageTray.Models.UsageProviderKind.Codex => _vm.CodexPercent,
-                    ClaudeUsageTray.Models.UsageProviderKind.GeminiCli => _vm.GeminiPercent,
-                    _ => _vm.ClaudeShortPercent
-                };
-
-                // Check if the selected provider has an error
-                bool activeError = _vm.SelectedProvider switch
-                {
-                    ClaudeUsageTray.Models.UsageProviderKind.Codex => _vm.CodexHasError,
-                    ClaudeUsageTray.Models.UsageProviderKind.GeminiCli => _vm.GeminiHasError,
-                    _ => _vm.ClaudeHasError
-                };
+                // Tray gauge always reflects Claude 5h usage (primary provider)
+                double activePercent = _vm.ClaudeShortPercent;
+                bool activeError = _vm.ClaudeHasError;
 
                 var oldIcon = _trayIcon.Icon;
                 if (activeError)
