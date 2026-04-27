@@ -200,7 +200,14 @@ public partial class App : Application
                 string codexInfo = _vm.CodexHasError ? "Error" : $"{_vm.CodexPercent:P0}";
                 string geminiInfo = _vm.GeminiHasError ? "Error" : $"{_vm.GeminiPercent:P0}";
                 
-                _trayIcon.Text = $"{_vm.LblAppTitle}\nClaude: {claudeInfo} | Codex: {codexInfo} | Gemini: {geminiInfo}";
+                string basisName = _vm.SelectedProvider switch
+                {
+                    ClaudeUsageTray.Models.UsageProviderKind.Codex => "Codex",
+                    ClaudeUsageTray.Models.UsageProviderKind.GeminiCli => "Gemini",
+                    _ => "Claude"
+                };
+
+                _trayIcon.Text = $"{_vm.LblAppTitle} (Gauge: {basisName})\nClaude: {claudeInfo} | Codex: {codexInfo} | Gemini: {geminiInfo}";
             });
         }
     }

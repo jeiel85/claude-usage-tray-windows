@@ -542,7 +542,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         else if (ClaudeHasError || CodexHasError || GeminiHasError)
         {
             StatusText = "Partial Error";
-            HasError = false; // Main error banner only if everything fails or primary fails
+            HasError = false; 
         }
         else if (IsExtraOnlyMode)
         {
@@ -550,7 +550,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
         else
         {
-            StatusText = $"{ClaudeShortPercent:P0} | {CodexPercent:P0} | {GeminiPercent:P0}";
+            // 현재 트레이 기준을 대괄호로 강조
+            string baseInfo = SelectedProvider switch
+            {
+                UsageProviderKind.Codex => $"[Codex {CodexPercent:P0}]",
+                UsageProviderKind.GeminiCli => $"[Gemini {GeminiPercent:P0}]",
+                _ => $"[Claude {ClaudeShortPercent:P0}]"
+            };
+            
+            StatusText = baseInfo;
         }
     }
 

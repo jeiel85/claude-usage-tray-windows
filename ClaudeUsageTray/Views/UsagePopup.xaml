@@ -230,6 +230,26 @@
                             </Grid>
                             <ProgressBar Grid.Row="2" Value="{Binding ClaudeLongPercent}" Maximum="1" Style="{StaticResource UsageBarStyle}" Margin="0,2,0,0"/>
                         </Grid>
+
+                        <!-- Extra Usage (Claude only) -->
+                        <Grid Margin="0,5,0,0" Visibility="{Binding ExtraUsageEnabled, Converter={StaticResource BoolToVisibility}}">
+                            <Grid.RowDefinitions><RowDefinition/><RowDefinition Height="4"/></Grid.RowDefinitions>
+                            <Grid Grid.Row="0">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Extra Credits" Foreground="#8B92B3" FontSize="9"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                    <TextBlock Text="{Binding ExtraUsagePercent, StringFormat={}{0:P0}}" Foreground="#F59E0B" FontSize="9" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding ExtraCreditsLabel}" Foreground="#5A5F7A" FontSize="8" Margin="4,0,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                            <ProgressBar Grid.Row="1" Value="{Binding ExtraUsagePercent}" Maximum="1" Style="{StaticResource UsageBarStyle}" Margin="0,2,0,0">
+                                <ProgressBar.Template>
+                                    <ControlTemplate TargetType="ProgressBar">
+                                        <Grid><Border Background="#2D2F45" CornerRadius="2" Height="4"/><Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="2" Background="#F59E0B"/></Grid>
+                                    </ControlTemplate>
+                                </ProgressBar.Template>
+                            </ProgressBar>
+                        </Grid>
                         <TextBlock Text="{Binding ClaudeErrorMessage}" Foreground="#EF4444" FontSize="8" TextWrapping="Wrap" Margin="0,2,0,0" Visibility="{Binding ClaudeHasError, Converter={StaticResource BoolToVisibility}}"/>
                     </StackPanel>
 
