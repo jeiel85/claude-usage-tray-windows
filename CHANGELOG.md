@@ -3,6 +3,32 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.17.6] - 2026-04-28
+
+<!-- ko -->
+### 개선
+- **게이지 의미 명확화 (Claude/Codex/Gemini 공통)** — 사용량 바 아래에 `사용량% · 잔량%` 요약을 추가하여 게이지 해석을 통일
+- **Codex 초기화 시점 신뢰도 표시** — 로그의 `resets_at`이 없어 폴백(첫 활동 + 5시간)으로 계산한 경우 `초기화(예상)`으로 구분 표시
+- **이슈 이력 관리 강화** — 이번 변경을 GitHub Issue [#59](https://github.com/jeiel85/claude-usage-tray-windows/issues/59)로 등록하여 README 이슈와 함께 추적
+
+### 수정
+- **Gemini 게이지 미변경 문제 보완** — `token_count`/`tokens`뿐 아니라 `total_tokens` 누적 로그도 파싱하고, `tmp` 하위 폴더까지 세션 파일을 스캔하도록 개선
+- **Gemini 안내 문구 정정** — 실제 동작에 맞게 로컬 로그 기반 추정치 안내로 변경
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Unified gauge semantics across Claude/Codex/Gemini** — Added `used% · remaining%` summaries under each gauge for clearer interpretation
+- **Codex reset confidence indicator** — When `resets_at` is missing and fallback is used (first activity + 5 hours), the reset label is shown as estimated
+- **Issue tracking reinforcement** — Registered this work as GitHub Issue [#59](https://github.com/jeiel85/claude-usage-tray-windows/issues/59) and tracked it alongside README issues
+
+### Fixed
+- **Gemini gauge not changing** — Improved parsing to include cumulative `total_tokens` in addition to `token_count`/`tokens`, and scan nested files under `tmp`
+- **Gemini helper text corrected** — Updated wording to reflect local-log-based estimation behavior
+<!-- /en -->
+
+---
+
 ## [1.17.5] - 2026-04-27
 
 <!-- ko -->

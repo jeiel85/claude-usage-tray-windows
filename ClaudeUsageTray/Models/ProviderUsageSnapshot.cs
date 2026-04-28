@@ -8,6 +8,7 @@ public class ProviderUsageSnapshot
 
     public double ShortUsagePercent { get; set; }
     public DateTimeOffset? ShortResetAt { get; set; }
+    public bool IsShortResetEstimated { get; set; }
 
     public double LongUsagePercent { get; set; }
     public DateTimeOffset? LongResetAt { get; set; }

@@ -52,6 +52,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _claudeShortReset = "";
     [ObservableProperty] private double _claudeLongPercent = 0;
     [ObservableProperty] private string _claudeLongReset = "";
+    [ObservableProperty] private string _claudeShortSummary = "";
+    [ObservableProperty] private string _claudeLongSummary = "";
     [ObservableProperty] private string _claudeShortDepletion = "";
     [ObservableProperty] private string _claudeLongDepletion = "";
     [ObservableProperty] private bool _claudeHasError = false;
@@ -63,6 +65,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _codexHasError = false;
     [ObservableProperty] private string _codexErrorMessage = "";
     [ObservableProperty] private string _codexNote = Loc.ProviderCodexNote;
+    [ObservableProperty] private string _codexSummary = "";
 
     // Gemini Usage
     [ObservableProperty] private double _geminiPercent = 0;
@@ -70,6 +73,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _geminiHasError = false;
     [ObservableProperty] private string _geminiErrorMessage = "";
     [ObservableProperty] private string _geminiNote = Loc.ProviderGeminiCliNote;
+    [ObservableProperty] private string _geminiSummary = "";
 
     // 5h window (Legacy/Compatibility - will keep for now to avoid breaking other parts)
     [ObservableProperty] private double _shortUsagePercent = 0;
@@ -620,6 +624,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     {
                         var newPercent = usage.FiveHour.UsagePercent;
                         ClaudeShortReset = FormatResetLabel(usage.FiveHour.ResetsAtParsed);
+                        ClaudeShortSummary = Loc.UsageSummary(newPercent);
                         ClaudeShortDepletion = CalcDepletionLabel(usage.FiveHour);
 
                         if (NotificationsEnabled && _prevShortPercent >= 0)
@@ -641,6 +646,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     {
                         ClaudeLongPercent    = usage.SevenDay.UsagePercent;
                         ClaudeLongReset      = FormatResetLabel(usage.SevenDay.ResetsAtParsed);
+                        ClaudeLongSummary    = Loc.UsageSummary(ClaudeLongPercent);
                         ClaudeLongDepletion  = CalcLongDepletionLabel(usage.SevenDay);
                         _lastKnownLongPercent = ClaudeLongPercent;
                         _lastKnownLongReset = ClaudeLongReset;
@@ -700,8 +706,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 {
                     ClaudeShortPercent = _lastKnownShortPercent;
                     ClaudeShortReset   = _lastKnownShortReset;
+                    ClaudeShortSummary = Loc.UsageSummary(_lastKnownShortPercent);
                     ClaudeLongPercent  = _lastKnownLongPercent;
                     ClaudeLongReset    = _lastKnownLongReset;
+                    ClaudeLongSummary  = Loc.UsageSummary(_lastKnownLongPercent);
 
                     ClaudeHasError = true;
                     ClaudeErrorMessage = skipApi && _apiRetryAfter > DateTimeOffset.MinValue
@@ -725,9 +733,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 var newPercent = snapshot.ShortUsagePercent;
-                CodexReset = FormatResetLabel(snapshot.ShortResetAt);
+                CodexReset = FormatResetLabel(snapshot.ShortResetAt, snapshot.IsShortResetEstimated);
                 CodexHasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage);
                 CodexErrorMessage = snapshot.ErrorMessage ?? "";
+                CodexSummary = Loc.UsageSummary(newPercent);
                 
                 if (NotificationsEnabled && _prevCodexPercent >= 0)
                 {
@@ -756,6 +765,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 GeminiReset = FormatResetLabel(snapshot.ShortResetAt);
                 GeminiHasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage);
                 GeminiErrorMessage = snapshot.ErrorMessage ?? "";
+                GeminiSummary = Loc.UsageSummary(newPercent);
 
                 if (NotificationsEnabled && _prevGeminiPercent >= 0)
                 {
@@ -833,6 +843,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
             LongUsagePercent = snapshot.LongUsagePercent;
             ShortResetLabel = FormatResetLabel(snapshot.ShortResetAt);
             LongResetLabel = FormatResetLabel(snapshot.LongResetAt);
+            ClaudeShortSummary = Loc.UsageSummary(snapshot.ShortUsagePercent);
+            ClaudeLongSummary = Loc.UsageSummary(snapshot.LongUsagePercent);
             ShortDepletionLabel = snapshot.ShortResetAt is null ? "" : "";
             LongDepletionLabel = snapshot.LongResetAt is null ? "" : "";
 
@@ -897,7 +909,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    private static string FormatResetLabel(DateTimeOffset? resetAt)
+    private static string FormatResetLabel(DateTimeOffset? resetAt, bool isEstimated = false)
     {
         if (resetAt is null) return "";
         var diff = resetAt.Value - DateTimeOffset.Now;
@@ -906,7 +918,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         if (diff.TotalHours < 1) time = $"{(int)diff.TotalMinutes}m";
         else if (diff.TotalDays < 1) time = $"{(int)diff.TotalHours}h {diff.Minutes}m";
         else time = $"{(int)diff.TotalDays}d {diff.Hours}h";
-        return Loc.ResetsIn(time);
+        return isEstimated ? Loc.ResetsInEstimated(time) : Loc.ResetsIn(time);
     }
 
     private static string ParseFriendlyError(string raw)

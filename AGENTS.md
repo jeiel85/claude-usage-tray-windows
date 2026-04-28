@@ -17,6 +17,7 @@ git fetch origin && git pull origin master && git status
 
 ### 0. 이슈 기반 개발
 - **모든 개발/수정은 반드시 `README.md`의 이슈 섹션에 먼저 등록 후 시작한다.**
+- **사용자가 제기한 작업 이슈는 `README.md` 등록과 함께 GitHub Issue도 반드시 생성하여 이력을 관리한다.**
 - 이슈 등록 시 분류(버그, 기능, 개선)와 목표를 명시한다.
 
 ### 1. 하드코딩 금지

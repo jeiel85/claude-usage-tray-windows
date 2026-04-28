@@ -268,6 +268,22 @@ public static class Loc
         _ => $" · resets {time}"
     };
 
+    public static string ResetsInEstimated(string time) => Lang switch
+    {
+        "ko" => $" · 약 {time} 후 초기화(예상)",
+        "zh" => $" · 约 {time} 后重置（估算）",
+        "ja" => $" · 約 {time} 後リセット（推定）",
+        _ => $" · resets ~{time} (estimated)"
+    };
+
+    public static string UsageSummary(double usedPercent) => Lang switch
+    {
+        "ko" => $"{Math.Clamp(usedPercent, 0, 1):P0} 사용 · 잔량 {(1.0 - Math.Clamp(usedPercent, 0, 1)):P0}",
+        "zh" => $"已用 {Math.Clamp(usedPercent, 0, 1):P0} · 剩余 {(1.0 - Math.Clamp(usedPercent, 0, 1)):P0}",
+        "ja" => $"{Math.Clamp(usedPercent, 0, 1):P0} 使用 · 残り {(1.0 - Math.Clamp(usedPercent, 0, 1)):P0}",
+        _ => $"{Math.Clamp(usedPercent, 0, 1):P0} used · {(1.0 - Math.Clamp(usedPercent, 0, 1)):P0} remaining"
+    };
+
     public static string UpdatedAt(string time) => Lang switch
     {
         "ko" => $"업데이트 {time}",
@@ -825,10 +841,10 @@ public static class Loc
 
     public static string GeminiCliEstimateOnly => Lang switch
     {
-        "ko" => "Gemini CLI는 현재 로컬 세션 수만 확인됩니다. quota 잔량 표시는 추후 보강 예정입니다.",
-        "zh" => "Gemini CLI 当前只能确认本地会话数。配额剩余显示后续补强。",
-        "ja" => "Gemini CLI は現在ローカルセッション数のみ確認できます。クォータ残量表示は今後補強予定です。",
-        _ => "Gemini CLI currently exposes local session presence only. Quota remaining display still needs a stronger source."
+        "ko" => "Gemini CLI 로컬 로그 기반 추정치입니다. 공식 대시보드와 차이가 있을 수 있습니다.",
+        "zh" => "基于 Gemini CLI 本地日志的估算值，可能与官方数据存在差异。",
+        "ja" => "Gemini CLI のローカルログに基づく推定値です。公式値と差が出る場合があります。",
+        _ => "Estimated from Gemini CLI local logs and may differ from official dashboard values."
     };
 
     public static string ApiError(string msg) => Lang switch

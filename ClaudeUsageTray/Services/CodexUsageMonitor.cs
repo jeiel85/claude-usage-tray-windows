@@ -82,6 +82,7 @@ public class CodexUsageMonitor
                     snapshot.ShortUsagePercent = ReadPercent(rateLimitsEl, "primary");
                     snapshot.LongUsagePercent = ReadPercent(rateLimitsEl, "secondary");
                     snapshot.ShortResetAt = ReadReset(rateLimitsEl, "primary");
+                    snapshot.IsShortResetEstimated = false;
                     snapshot.LongResetAt = ReadReset(rateLimitsEl, "secondary");
                     snapshot.PlanType = rateLimitsEl.TryGetProperty("plan_type", out var planEl)
                         ? planEl.GetString()
@@ -118,6 +119,7 @@ public class CodexUsageMonitor
         if (snapshot.ShortResetAt is null && firstTodayActivityTs.HasValue)
         {
             snapshot.ShortResetAt = firstTodayActivityTs.Value.AddHours(5);
+            snapshot.IsShortResetEstimated = true;
         }
     }
 
