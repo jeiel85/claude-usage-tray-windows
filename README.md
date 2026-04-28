@@ -110,3 +110,11 @@ dotnet run --project ClaudeUsageTray
 
 ## 면책 조항
 이 앱은 공식 Anthropic 제품이 아닌 개인 프로젝트입니다. 표시되는 모든 수치는 로컬 로그와 API 응답을 기반으로 한 **참고용**이며, 실제 과금 데이터와는 차이가 있을 수 있습니다. 정확한 사용량은 각 서비스의 공식 대시보드에서 확인하시기 바랍니다.
+
+---
+
+## 이슈
+
+- [개선] Codex 사용량 소스 신뢰도 개선(Direct API 가능성 및 리스크 검토) — 상태: 조사중 (2026-04-28)
+  - 목표: Codex `/status`와 앱 표시 불일치 상황에서, Direct API 조회 가능성/리스크를 평가하고 현실적인 동기화 전략(로그 기반+stale 표시 vs opt-in API 모드)을 결정한다.
+  - 검토 문서: `docs/codex-usage-direct-api-review-2026-04-28.md`

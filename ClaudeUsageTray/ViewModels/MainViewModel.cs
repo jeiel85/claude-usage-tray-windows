@@ -62,6 +62,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     // Codex Usage
     [ObservableProperty] private double _codexPercent = 0;
     [ObservableProperty] private string _codexReset = "";
+    [ObservableProperty] private string _codexDataSource = "";
     [ObservableProperty] private bool _codexHasError = false;
     [ObservableProperty] private string _codexErrorMessage = "";
     [ObservableProperty] private string _codexNote = Loc.ProviderCodexNote;
@@ -753,11 +754,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         try
         {
-            var snapshot = _codex.GetTodaySnapshot();
+            var snapshot = await _codex.GetTodaySnapshotAsync();
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 var newPercent = snapshot.ShortUsagePercent;
                 CodexReset = FormatResetLabel(snapshot.ShortResetAt, snapshot.IsShortResetEstimated);
+                CodexDataSource = snapshot.DataSource ?? "";
                 CodexHasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage);
                 CodexErrorMessage = snapshot.ErrorMessage ?? "";
                 CodexSummary = Loc.UsageSummary(newPercent);

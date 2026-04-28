@@ -1,4 +1,6 @@
 using System.IO;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using ClaudeUsageTray.Models;
 
@@ -9,6 +11,91 @@ public class CodexUsageMonitor
     private static readonly string SessionsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         ".codex", "sessions");
+
+    private static readonly string AuthPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        ".codex", "auth.json");
+
+    private const string UsageApiEndpoint = "https://api.openai-v2.com/backend-api/codex/usage";
+    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(AppConstants.ApiTimeoutSeconds) };
+
+    public async Task<ProviderUsageSnapshot> GetTodaySnapshotAsync(bool useDirectApi = true)
+    {
+        if (useDirectApi)
+        {
+            var apiSnapshot = await FetchUsageFromApiAsync();
+            if (apiSnapshot is { HasData: true })
+            {
+                // API 데이터가 있으면 로그 기반 데이터와 병합하거나 API 우선 사용
+                // 여기서는 API 데이터를 우선하고, 상세 히스토리(시간대별)만 로그에서 보완
+                var logSnapshot = GetTodaySnapshot();
+                apiSnapshot.HourlyTokens = logSnapshot.HourlyTokens;
+                apiSnapshot.TotalInputTokens = logSnapshot.TotalInputTokens;
+                apiSnapshot.TotalOutputTokens = logSnapshot.TotalOutputTokens;
+                apiSnapshot.TotalCacheReadTokens = logSnapshot.TotalCacheReadTokens;
+                apiSnapshot.SessionCount = logSnapshot.SessionCount;
+                return apiSnapshot;
+            }
+        }
+
+        var snapshot = GetTodaySnapshot();
+        snapshot.DataSource = "Local Log";
+        return snapshot;
+    }
+
+    private async Task<ProviderUsageSnapshot?> FetchUsageFromApiAsync()
+    {
+        try
+        {
+            var token = TryGetAccessToken();
+            if (string.IsNullOrEmpty(token)) return null;
+
+            var request = new HttpRequestMessage(HttpMethod.Get, UsageApiEndpoint);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await _http.SendAsync(request);
+            if (!response.IsSuccessStatusCode) return null;
+
+            var json = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            // API 응답 구조 파싱 (리뷰 문서의 rate_limits 구조 기반)
+            if (!root.TryGetProperty("rate_limits", out var rateLimitsEl)) return null;
+
+            var snapshot = new ProviderUsageSnapshot
+            {
+                HasData = true,
+                DataSource = "Direct API",
+                ShortUsagePercent = ReadPercent(rateLimitsEl, "primary"),
+                LongUsagePercent = ReadPercent(rateLimitsEl, "secondary"),
+                ShortResetAt = ReadReset(rateLimitsEl, "primary"),
+                LongResetAt = ReadReset(rateLimitsEl, "secondary"),
+                PlanType = rateLimitsEl.TryGetProperty("plan_type", out var planEl) ? planEl.GetString() : null
+            };
+
+            return snapshot;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private string? TryGetAccessToken()
+    {
+        try
+        {
+            if (!File.Exists(AuthPath)) return null;
+            var json = File.ReadAllText(AuthPath);
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.TryGetProperty("access_token", out var tokenEl) ? tokenEl.GetString() : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
     public ProviderUsageSnapshot GetTodaySnapshot()
     {

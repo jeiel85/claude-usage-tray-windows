@@ -14,6 +14,7 @@ public class ProviderUsageSnapshot
     public DateTimeOffset? LongResetAt { get; set; }
 
     public string? PlanType { get; set; }
+    public string? DataSource { get; set; }
 
     public long TotalInputTokens { get; set; }
     public long TotalOutputTokens { get; set; }

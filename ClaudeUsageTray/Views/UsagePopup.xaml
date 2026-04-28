@@ -400,7 +400,10 @@
                         </Grid>
                         <ProgressBar Value="{Binding CodexPercent}" Maximum="1" Style="{StaticResource CodexBarStyle}" Margin="0,4,0,0"/>
                         <TextBlock Text="{Binding CodexSummary}" Foreground="#8B92B3" FontSize="10" Margin="0,4,0,0"/>
-                        <TextBlock Text="{Binding CodexNote}" Foreground="#5A5F7A" FontSize="10" Margin="0,4,0,0"/>
+                        <Grid Margin="0,4,0,0">
+                            <TextBlock Text="{Binding CodexNote}" Foreground="#5A5F7A" FontSize="10" HorizontalAlignment="Left"/>
+                            <TextBlock Text="{Binding CodexDataSource}" Foreground="#3D4266" FontSize="9" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+                        </Grid>
                     </StackPanel>
 
                     <!-- Gemini Section -->
