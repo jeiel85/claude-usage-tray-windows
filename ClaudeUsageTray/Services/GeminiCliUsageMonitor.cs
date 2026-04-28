@@ -41,7 +41,7 @@ public class GeminiCliUsageMonitor
 
         var sessionFiles = Directory.EnumerateFiles(_sessionTmpPath, "session-*", SearchOption.AllDirectories)
             .Select(path => new FileInfo(path))
-            .Where(info => info.LastWriteTime.Date == DateTime.Now.Date)
+            .Where(info => info.LastWriteTime.Date == DateTime.Now.Date || info.CreationTime.Date == DateTime.Now.Date)
             .ToList();
 
         snapshot.SessionCount = sessionFiles.Count;
@@ -63,12 +63,13 @@ public class GeminiCliUsageMonitor
                 if (fileTokens <= 0) continue;
 
                 totalTokens += fileTokens;
+                // LastWriteTime 또는 파일명에 포함된 시간 중 더 정확한 것 사용 (여기서는 LastWriteTime 유지)
                 hourlyTokens[file.LastWriteTime.Hour] += fileTokens;
             }
             catch { /* Ignore locked or corrupt files */ }
         }
 
-        // Gemini CLI 무료 티어 기준 (임시 500,000 토큰, 필요시 조정 가능)
+        // Gemini CLI 무료 티어 기준 (임시 500,000 토큰)
         const long QuotaLimit = 500000; 
         snapshot.ShortUsagePercent = Math.Min(1.0, (double)totalTokens / QuotaLimit);
         snapshot.TotalInputTokens = totalTokens;
@@ -82,6 +83,7 @@ public class GeminiCliUsageMonitor
 
     private static long ReadFileTokens(string filePath)
     {
+        // 파일 잠금 방지를 위해 FileShare.ReadWrite 사용
         using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         using var reader = new StreamReader(stream);
 
@@ -99,10 +101,12 @@ public class GeminiCliUsageMonitor
                 if (totalTokens.HasValue)
                 {
                     var current = totalTokens.Value;
+                    // total_tokens는 누적값이므로 차이만큼만 더함
                     if (prevTotalTokens.HasValue && current >= prevTotalTokens.Value)
                         cumulativeTokenSum += current - prevTotalTokens.Value;
-                    else
+                    else if (!prevTotalTokens.HasValue)
                         cumulativeTokenSum += current;
+                    
                     prevTotalTokens = current;
                 }
 
@@ -113,7 +117,7 @@ public class GeminiCliUsageMonitor
             }
         }
 
-        return cumulativeTokenSum > 0 ? cumulativeTokenSum : eventTokenSum;
+        return Math.Max(cumulativeTokenSum, eventTokenSum);
     }
 
     private static bool TryReadTokenMetrics(string line, out long? totalTokens, out long? eventTokens)
@@ -125,16 +129,26 @@ public class GeminiCliUsageMonitor
         {
             using var doc = JsonDocument.Parse(line);
             var root = doc.RootElement;
+
+            // 1. 직접적인 total_tokens 찾기
             if (TryFindLong(root, "total_tokens", out var total) ||
-                TryFindLong(root, "totalTokens", out total))
+                TryFindLong(root, "total", out total))
             {
                 totalTokens = total;
+            }
+
+            // 2. tokens 객체 내부의 total 찾기 (예: {"tokens": {"total": 123}})
+            if (root.TryGetProperty("tokens", out var tokensEl))
+            {
+                if (TryFindLong(tokensEl, "total", out var t)) totalTokens = t;
+                if (TryFindLong(tokensEl, "input", out var i)) eventTokens = (eventTokens ?? 0) + i;
+                if (TryFindLong(tokensEl, "output", out var o)) eventTokens = (eventTokens ?? 0) + o;
             }
 
             if (TryFindLong(root, "token_count", out var tokenCount) ||
                 TryFindLong(root, "tokens", out tokenCount))
             {
-                eventTokens = tokenCount;
+                eventTokens = (eventTokens ?? 0) + tokenCount;
             }
         }
         catch

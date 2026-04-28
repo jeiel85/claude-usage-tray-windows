@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.17.8] - 2026-04-28
+
+<!-- ko -->
+### 개선
+- **Gemini 사용량 추적 보완** — 세션 로그 파일이 하위 폴더에 생성되는 경우에도 모두 스캔하도록 개선하고, 중첩된 토큰 데이터 구조(tokens.total 등) 파싱 로직 강화
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Gemini usage tracking reinforcement** — Improved scanning to include session log files in subdirectories and enhanced parsing logic for nested token data structures (e.g., tokens.total)
+<!-- /en -->
+
+---
+
 ## [1.17.7] - 2026-04-28
 
 <!-- ko -->
