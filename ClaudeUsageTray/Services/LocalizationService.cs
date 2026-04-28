@@ -855,6 +855,19 @@ public static class Loc
         _ => "Estimated from Gemini CLI local logs and may differ from official dashboard values."
     };
 
+    public static string GeminiCliRequestSummary(int requests, long outputTokens) => Lang switch
+    {
+        "ko" => $"오늘 {requests}회 요청 · 출력 {FormatTokenShort(outputTokens)} 토큰",
+        "zh" => $"今日 {requests} 次请求 · 输出 {FormatTokenShort(outputTokens)} 词元",
+        "ja" => $"本日 {requests} リクエスト · 出力 {FormatTokenShort(outputTokens)} トークン",
+        _ => $"Today {requests} requests · {FormatTokenShort(outputTokens)} output tokens"
+    };
+
+    private static string FormatTokenShort(long tokens) =>
+        tokens >= 1_000_000 ? $"{tokens / 1_000_000.0:F1}M" :
+        tokens >= 1_000 ? $"{tokens / 1_000.0:F1}K" :
+        tokens.ToString();
+
     public static string ApiError(string msg) => Lang switch
     {
         "ko" => $"API 오류: {msg}",

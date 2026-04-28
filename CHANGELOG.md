@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.18.0] - 2026-04-28
+
+<!-- ko -->
+### 개선
+- **Gemini 사용량 표시 방식 개선** — 기존에 입력 토큰을 모든 요청마다 누적 합산하여 항상 100%로 표시되던 문제 수정. 이제 중복 없는 출력 토큰 합산과 요청 횟수를 기준으로 표시 (예: "162회 요청 · 출력 28.3K 토큰")
+- Gemini 섹션에서 의미 없는 퍼센트 게이지 제거, 실제 사용량 수치로 대체
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Gemini usage display reworked** — Fixed always-100% issue caused by summing input tokens across all turns (each request repeats full context). Now shows deduplicated output token sum and request count (e.g., "162 req · 28.3K output tokens")
+- Removed meaningless percentage gauge from Gemini section, replaced with real usage numbers
+<!-- /en -->
+
+---
+
 ## [1.17.9] - 2026-04-28
 
 <!-- ko -->

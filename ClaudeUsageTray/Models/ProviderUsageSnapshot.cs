@@ -21,6 +21,7 @@ public class ProviderUsageSnapshot
     public long TotalCacheWriteTokens { get; set; }
 
     public int SessionCount { get; set; }
+    public int RequestCount { get; set; }
 
     public long[] HourlyTokens { get; set; } = new long[24];
 }

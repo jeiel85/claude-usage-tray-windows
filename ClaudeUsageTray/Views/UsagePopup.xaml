@@ -414,12 +414,8 @@
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="Gemini CLI" Foreground="#F1F5F9" FontSize="10.5"/>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                <TextBlock Text="{Binding GeminiPercent, StringFormat={}{0:P0}}" Foreground="#60A5FA" FontSize="11" FontWeight="Bold"/>
-                                <TextBlock Text="{Binding GeminiReset}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0"/>
-                            </StackPanel>
+                            <TextBlock Grid.Column="1" Text="{Binding GeminiRequestsLabel}" Foreground="#60A5FA" FontSize="11" FontWeight="Bold"/>
                         </Grid>
-                        <ProgressBar Value="{Binding GeminiPercent}" Maximum="1" Style="{StaticResource GeminiBarStyle}" Margin="0,4,0,0"/>
                         <TextBlock Text="{Binding GeminiSummary}" Foreground="#8B92B3" FontSize="10" Margin="0,4,0,0"/>
                         <TextBlock Text="{Binding GeminiNote}" Foreground="#5A5F7A" FontSize="10" Margin="0,4,0,0"/>
                     </StackPanel>

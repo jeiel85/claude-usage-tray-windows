@@ -74,6 +74,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _geminiErrorMessage = "";
     [ObservableProperty] private string _geminiNote = Loc.ProviderGeminiCliNote;
     [ObservableProperty] private string _geminiSummary = "";
+    [ObservableProperty] private string _geminiRequestsLabel = "";
 
     // 5h window (Legacy/Compatibility - will keep for now to avoid breaking other parts)
     [ObservableProperty] private double _shortUsagePercent = 0;
@@ -569,7 +570,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             string baseInfo = SelectedProvider switch
             {
                 UsageProviderKind.Codex => $"[Codex {CodexPercent:P0}]",
-                UsageProviderKind.GeminiCli => $"[Gemini {GeminiPercent:P0}]",
+                UsageProviderKind.GeminiCli => GeminiRequestsLabel.Length > 0 ? $"[Gemini {GeminiRequestsLabel}]" : "[Gemini]",
                 _ => $"[Claude {ClaudeShortPercent:P0}]"
             };
             
@@ -784,19 +785,16 @@ public partial class MainViewModel : ObservableObject, IDisposable
             var snapshot = _geminiCli.GetTodaySnapshot();
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                var newPercent = snapshot.ShortUsagePercent;
-                GeminiReset = FormatResetLabel(snapshot.ShortResetAt);
                 GeminiHasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage);
                 GeminiErrorMessage = snapshot.ErrorMessage ?? "";
-                GeminiSummary = Loc.UsageSummary(newPercent);
-
-                if (NotificationsEnabled && _prevGeminiPercent >= 0)
-                {
-                    CheckProviderThresholds(UsageProviderKind.GeminiCli, newPercent, GeminiReset, NtfyTopicEffective);
-                }
-
-                GeminiPercent = newPercent;
-                _prevGeminiPercent = newPercent;
+                GeminiRequestsLabel = snapshot.RequestCount > 0
+                    ? Loc.CurrentLang == "ko" ? $"{snapshot.RequestCount}회 요청" : $"{snapshot.RequestCount} req"
+                    : "";
+                GeminiSummary = snapshot.HasData
+                    ? Loc.GeminiCliRequestSummary(snapshot.RequestCount, snapshot.TotalOutputTokens)
+                    : snapshot.ErrorMessage ?? "";
+                GeminiPercent = 0;
+                _prevGeminiPercent = 0;
             });
         }
         catch (Exception ex)
