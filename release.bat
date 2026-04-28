@@ -3,6 +3,8 @@ setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
 set "CSPROJ=ClaudeUsageTray\ClaudeUsageTray.csproj"
+set "AUTO_BUMP=%~1"
+set "SKIP_CONFIRM=%~2"
 
 :: ─────────────────────────────────────────────
 :: 1. 현재 버전 읽기
@@ -13,13 +15,9 @@ for /f "tokens=*" %%L in ('findstr /i "<Version>" "%CSPROJ%"') do (
     set "LINE=!LINE:*<Version>=!"
     for /f "delims=<" %%V in ("!LINE!") do set "CUR_VERSION=%%V"
 )
-if "%CUR_VERSION%"=="" (
-    echo [ERROR] csproj 에서 버전을 읽지 못했습니다.
-    pause & exit /b 1
-)
 
 :: ─────────────────────────────────────────────
-:: 2. 버전 파싱 (MAJOR.MINOR.PATCH)
+:: 2. 버전 파싱
 :: ─────────────────────────────────────────────
 for /f "tokens=1,2,3 delims=." %%A in ("%CUR_VERSION%") do (
     set "V_MAJOR=%%A"
@@ -27,22 +25,17 @@ for /f "tokens=1,2,3 delims=." %%A in ("%CUR_VERSION%") do (
     set "V_PATCH=%%C"
 )
 
-echo.
-echo ══════════════════════════════════════
-echo  현재 버전: v%CUR_VERSION%
-echo ══════════════════════════════════════
-echo.
-echo  버전 유형을 선택하세요:
-echo    [1] patch   v%V_MAJOR%.%V_MINOR%.%V_PATCH% → v%V_MAJOR%.%V_MINOR%.
-set /a NEXT_PATCH=%V_PATCH%+1
-echo                                    v%V_MAJOR%.%V_MINOR%.!NEXT_PATCH!
-set /a NEXT_MINOR=%V_MINOR%+1
-echo    [2] minor   v%V_MAJOR%.%V_MINOR%.%V_PATCH% → v%V_MAJOR%.!NEXT_MINOR!.0
-set /a NEXT_MAJOR=%V_MAJOR%+1
-echo    [3] major   v%V_MAJOR%.%V_MINOR%.%V_PATCH% → v!NEXT_MAJOR!.0.0
-echo    [4] 직접 입력
-echo.
-set /p "BUMP_TYPE=선택 (1/2/3/4): "
+if "!AUTO_BUMP!"=="" (
+    echo.
+    echo  현재 버전: v%CUR_VERSION%
+    echo.
+    echo  버전 유형 선택: [1] patch, [2] minor, [3] major, [4] 직접 입력
+    set /p "BUMP_TYPE=선택 (1/2/3/4): "
+) else (
+    if /i "!AUTO_BUMP!"=="patch" set "BUMP_TYPE=1"
+    if /i "!AUTO_BUMP!"=="minor" set "BUMP_TYPE=2"
+    if /i "!AUTO_BUMP!"=="major" set "BUMP_TYPE=3"
+)
 
 if "%BUMP_TYPE%"=="1" (
     set /a V_PATCH=%V_PATCH%+1
@@ -53,37 +46,25 @@ if "%BUMP_TYPE%"=="1" (
 ) else if "%BUMP_TYPE%"=="3" (
     set /a V_MAJOR=%V_MAJOR%+1
     set "NEW_VERSION=!V_MAJOR!.0.0"
-) else if "%BUMP_TYPE%"=="4" (
-    set /p "NEW_VERSION=새 버전 입력 (예: 1.16.0): "
 ) else (
-    echo [ERROR] 잘못된 선택입니다.
-    pause & exit /b 1
+    if "!AUTO_BUMP!"=="" (
+        set /p "NEW_VERSION=새 버전 입력: "
+    ) else (
+        set "NEW_VERSION=!AUTO_BUMP!"
+    )
 )
 
 set "TAG=v%NEW_VERSION%"
-echo.
-echo  %CUR_VERSION% → %NEW_VERSION% 으로 릴리즈합니다.
-echo.
-set /p "CONFIRM=계속하시겠습니까? (Y/N): "
-if /i not "%CONFIRM%"=="Y" (
-    echo 취소되었습니다.
-    pause & exit /b 0
+echo  %CUR_VERSION% -^> %NEW_VERSION% 릴리즈 준비 중...
+
+if /i not "%SKIP_CONFIRM%"=="--yes" (
+    set /p "CONFIRM=계속하시겠습니까? (Y/N): "
+    if /i not "!CONFIRM!"=="Y" exit /b 0
 )
 
 :: ─────────────────────────────────────────────
-:: 3. 이미 릴리즈된 태그인지 확인
+:: 3. 버전 업데이트 (Python 활용)
 :: ─────────────────────────────────────────────
-gh release view %TAG% >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    echo [ERROR] %TAG% 릴리즈가 이미 존재합니다.
-    pause & exit /b 1
-)
-
-:: ─────────────────────────────────────────────
-:: 4. csproj 버전 업데이트
-:: ─────────────────────────────────────────────
-echo.
-echo [1/5] 버전 업데이트: %CUR_VERSION% → %NEW_VERSION%
 python -c "
 import re, sys
 cur, new = sys.argv[1], sys.argv[2]
@@ -91,83 +72,18 @@ with open('ClaudeUsageTray/ClaudeUsageTray.csproj', encoding='utf-8') as f:
     content = f.read()
 content = re.sub(r'<Version>.*?</Version>', f'<Version>{new}</Version>', content)
 content = re.sub(r'<AssemblyVersion>.*?</AssemblyVersion>', f'<AssemblyVersion>{new}</AssemblyVersion>', content)
-with open('ClaudeUsageTray/ClaudeUsageTray.csproj', 'w', encoding='utf-8') as f:
+with open('ClaudeUsageTray/ClaudeUsageTray.csproj', \'w\', encoding=\'utf-8\') as f:
     f.write(content)
-print('  csproj 업데이트 완료')
 " "%CUR_VERSION%" "%NEW_VERSION%"
-if %ERRORLEVEL% NEQ 0 (
-    echo [ERROR] csproj 버전 업데이트 실패
-    pause & exit /b 1
-)
-
-:: CHANGELOG.md 에 새 버전 섹션 헤더 추가 (없을 경우)
-python -c "
-import sys
-from datetime import date
-
-ver = sys.argv[1]
-today = date.today().strftime('%Y-%m-%d')
-header = f'## [{ver}] - {today}'
-
-with open('CHANGELOG.md', encoding='utf-8') as f:
-    content = f.read()
-
-if header in content:
-    print(f'  CHANGELOG: {header} 이미 존재함, 건너뜀')
-else:
-    # --- 다음 줄에 삽입
-    content = content.replace('---\n\n## [', f'---\n\n{header}\n\n<!-- ko -->\n### 수정\n- \n<!-- /ko -->\n\n<!-- en -->\n### Fixed\n- \n<!-- /en -->\n\n---\n\n## [', 1)
-    with open('CHANGELOG.md', 'w', encoding='utf-8') as f:
-        f.write(content)
-    print(f'  CHANGELOG: {header} 섹션 추가됨')
-    print('  ⚠  릴리즈 노트를 작성한 후 다시 release.bat 을 실행하세요.')
-    print('  ⚠  (CHANGELOG.md 의 새 섹션을 채워주세요)')
-    sys.exit(2)
-" "%NEW_VERSION%"
-
-if %ERRORLEVEL% EQU 2 (
-    echo.
-    echo CHANGELOG.md 를 열겠습니다. 내용 작성 후 저장하고 release.bat 을 다시 실행하세요.
-    start notepad CHANGELOG.md
-    pause & exit /b 0
-)
-if %ERRORLEVEL% NEQ 0 (
-    echo [ERROR] CHANGELOG 업데이트 실패
-    pause & exit /b 1
-)
 
 :: ─────────────────────────────────────────────
-:: 5. Git commit + tag + push
+:: 4. Git 작업
 :: ─────────────────────────────────────────────
-echo.
-echo [2/3] Git commit ^& tag...
 git add -A
-git diff --cached --quiet
-if %ERRORLEVEL% NEQ 0 (
-    git commit -m "chore: bump version to %NEW_VERSION%"
-    if %ERRORLEVEL% NEQ 0 (
-        echo [ERROR] Git commit 실패
-        pause & exit /b 1
-    )
-)
-
+git commit -m "chore: bump version to %NEW_VERSION%"
 git tag %TAG%
-if %ERRORLEVEL% NEQ 0 (
-    echo [ERROR] Git tag 실패
-    pause & exit /b 1
-)
-
-echo.
-echo [3/3] Git push...
 git push origin master --tags
-if %ERRORLEVEL% NEQ 0 (
-    echo [ERROR] Git push 실패
-    pause & exit /b 1
-)
 
 echo.
-echo ══════════════════════════════════════
-echo  Done! GitHub Actions 가 빌드 및 릴리즈를 시작합니다.
-echo  확인: https://github.com/jeiel85/claude-usage-tray-windows/actions
-echo ══════════════════════════════════════
-pause
+echo 릴리즈 완료! GitHub Actions 확인: https://github.com/jeiel85/claude-usage-tray-windows/actions
+timeout /t 5

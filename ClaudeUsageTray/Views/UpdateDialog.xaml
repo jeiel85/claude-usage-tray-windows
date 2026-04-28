@@ -56,8 +56,15 @@
                     <StackPanel>
                         <TextBlock x:Name="VersionLabel" Text="v1.0.0" Foreground="{StaticResource AccentBrush}" 
                                    FontWeight="Bold" Margin="0,0,0,10"/>
-                        <TextBlock x:Name="NotesText" Foreground="{StaticResource TextPrimary}" 
-                                   FontSize="13" TextWrapping="Wrap" LineHeight="20"/>
+                        <RichTextBox x:Name="NotesRichText" Background="Transparent" BorderThickness="0" 
+                                     IsReadOnly="True" IsDocumentEnabled="True" Focusable="False"
+                                     Foreground="{StaticResource TextPrimary}" FontSize="13">
+                            <RichTextBox.Resources>
+                                <Style TargetType="Paragraph">
+                                    <Setter Property="Margin" Value="0,0,0,8"/>
+                                </Style>
+                            </RichTextBox.Resources>
+                        </RichTextBox>
                     </StackPanel>
                 </ScrollViewer>
 
