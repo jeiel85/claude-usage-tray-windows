@@ -15,7 +15,6 @@ public partial class UpdateDialog : Window
         InitializeComponent();
         _onSkip = onSkip;
 
-        VersionLabel.Text = version;
         RenderMarkdown(releaseNotes);
 
         MouseLeftButtonDown += (s, e) => DragMove();

@@ -39,7 +39,7 @@
                 <Border Grid.Row="0" Background="#1A1D2E" CornerRadius="16,16,0,0" Padding="20,15">
                     <Grid>
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🚀" FontSize="18" Margin="0,0,10,0"/>
+                            <TextBlock Text="🚀" FontSize="20" Foreground="{StaticResource AccentBrush}" Margin="0,0,12,0" VerticalAlignment="Center"/>
                             <TextBlock x:Name="TitleText" Text="새로운 버전이 준비되었습니다" 
                                        Foreground="{StaticResource TextPrimary}" 
                                        FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
@@ -54,8 +54,6 @@
                 <!-- Release Notes -->
                 <ScrollViewer Grid.Row="1" Margin="20,15" VerticalScrollBarVisibility="Auto">
                     <StackPanel>
-                        <TextBlock x:Name="VersionLabel" Text="v1.0.0" Foreground="{StaticResource AccentBrush}" 
-                                   FontWeight="Bold" Margin="0,0,0,10"/>
                         <RichTextBox x:Name="NotesRichText" Background="Transparent" BorderThickness="0" 
                                      IsReadOnly="True" IsDocumentEnabled="True" Focusable="False"
                                      Foreground="{StaticResource TextPrimary}" FontSize="13">
