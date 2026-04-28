@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.18.2] - 2026-04-28
+
+<!-- ko -->
+### 개선
+- **업데이트 팝업 마크다운(Markdown) 렌더링 지원** — 릴리즈 노트를 단순 텍스트가 아닌 제목, 굵게, 불렛 포인트, 인라인 코드 등이 포함된 서식 있는 텍스트로 표시하여 가독성 대폭 향상
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Markdown Rendering in Update Popup** — Enhanced release notes display by supporting Markdown syntax (Headers, Bold, Bullet points, Inline code) for much better readability
+<!-- /en -->
+
+---
+
 ## [1.18.1] - 2026-04-28
 
 <!-- ko -->
