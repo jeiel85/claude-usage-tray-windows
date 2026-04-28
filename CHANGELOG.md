@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.18.3] - 2026-04-28
+
+<!-- ko -->
+### 개선
+- **에이전트별 특화된 트레이 문구 표시** — 트레이 툴팁 및 상태바에 표시되는 문구를 각 에이전트의 특성에 맞게 최적화 (Claude: %, Codex: %/Log, Gemini: 요청 횟수 및 토큰량)
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Agent-Specific Tray Status Display** — Optimized status text in the tray tooltip and status bar for each agent's characteristics (Claude: %, Codex: %/Log, Gemini: Request counts & Output tokens)
+<!-- /en -->
+
+---
+
 ## [1.18.2] - 2026-04-28
 
 <!-- ko -->
