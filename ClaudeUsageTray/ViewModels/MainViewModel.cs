@@ -549,6 +549,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    private int _lastGeminiRequestCount = 0;
+    private long _lastGeminiOutputTokens = 0;
+
     private void UpdateOverallStatus()
     {
         if (ClaudeHasError && CodexHasError && GeminiHasError)
@@ -567,15 +570,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
         else
         {
-            // 현재 트레이 기준을 대괄호로 강조
-            string baseInfo = SelectedProvider switch
+            // 현재 트레이 기준을 에이전트별 특성에 맞게 표시
+            StatusText = SelectedProvider switch
             {
-                UsageProviderKind.Codex => $"[Codex {CodexPercent:P0}]",
-                UsageProviderKind.GeminiCli => GeminiRequestsLabel.Length > 0 ? $"[Gemini {GeminiRequestsLabel}]" : "[Gemini]",
-                _ => $"[Claude {ClaudeShortPercent:P0}]"
+                UsageProviderKind.Codex => Loc.TrayStatusCodex(CodexPercent, CodexDataSource),
+                UsageProviderKind.GeminiCli => Loc.TrayStatusGemini(_lastGeminiRequestCount, _lastGeminiOutputTokens),
+                _ => Loc.TrayStatusClaude(ClaudeShortPercent)
             };
-            
-            StatusText = baseInfo;
         }
     }
 
@@ -771,6 +772,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 
                 CodexPercent = newPercent;
                 _prevCodexPercent = newPercent;
+
+                // 전체 상태 갱신
+                UpdateOverallStatus();
             });
         }
         catch (Exception ex)
@@ -789,6 +793,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
             {
                 GeminiHasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage);
                 GeminiErrorMessage = snapshot.ErrorMessage ?? "";
+                
+                _lastGeminiRequestCount = snapshot.RequestCount;
+                _lastGeminiOutputTokens = snapshot.TotalOutputTokens;
+
                 GeminiRequestsLabel = snapshot.RequestCount > 0
                     ? Loc.CurrentLang == "ko" ? $"{snapshot.RequestCount}회 요청" : $"{snapshot.RequestCount} req"
                     : "";
@@ -797,6 +805,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     : snapshot.ErrorMessage ?? "";
                 GeminiPercent = 0;
                 _prevGeminiPercent = 0;
+
+                // 전체 상태 갱신
+                UpdateOverallStatus();
             });
         }
         catch (Exception ex)

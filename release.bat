@@ -82,7 +82,8 @@ with open('ClaudeUsageTray/ClaudeUsageTray.csproj', \'w\', encoding=\'utf-8\') a
 git add -A
 git commit -m "chore: bump version to %NEW_VERSION%"
 git tag %TAG%
-git push origin master --tags
+:: 모든 태그(--tags) 대신 현재 태그만 명시적으로 푸시
+git push origin master %TAG%
 
 echo.
 echo 릴리즈 완료! GitHub Actions 확인: https://github.com/jeiel85/claude-usage-tray-windows/actions

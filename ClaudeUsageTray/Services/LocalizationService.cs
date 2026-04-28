@@ -863,7 +863,26 @@ public static class Loc
         _ => $"Today {requests} requests · {FormatTokenShort(outputTokens)} output tokens"
     };
 
+    public static string TrayStatusClaude(double percent) => Lang switch
+    {
+        "ko" => $"Claude {percent:P0}",
+        _ => $"Claude {percent:P0}"
+    };
+
+    public static string TrayStatusCodex(double percent, string? dataSource) => Lang switch
+    {
+        "ko" => dataSource == "Direct API" ? $"Codex {percent:P0}" : $"Codex {percent:P0} (Log)",
+        _ => dataSource == "Direct API" ? $"Codex {percent:P0}" : $"Codex {percent:P0} (Log)"
+    };
+
+    public static string TrayStatusGemini(int requests, long outputTokens) => Lang switch
+    {
+        "ko" => requests > 0 ? $"Gemini {requests}회 · {FormatTokenShort(outputTokens)}" : "Gemini",
+        _ => requests > 0 ? $"Gemini {requests} req · {FormatTokenShort(outputTokens)}" : "Gemini"
+    };
+
     private static string FormatTokenShort(long tokens) =>
+
         tokens >= 1_000_000 ? $"{tokens / 1_000_000.0:F1}M" :
         tokens >= 1_000 ? $"{tokens / 1_000.0:F1}K" :
         tokens.ToString();
