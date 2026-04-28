@@ -3,6 +3,30 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.18.1] - 2026-04-28
+
+<!-- ko -->
+### 추가
+- **Codex Direct API 지원 (Beta)** — 로컬 로그 기반의 지연 문제를 해결하기 위해 Codex 백엔드 API 직접 조회 기능 추가 (Opt-in)
+- **인증 충돌 방지 가드레일** — Codex CLI와의 인증 충돌을 방지하기 위해 앱에서는 토큰 갱신(Refresh)을 시도하지 않고 읽기 전용으로만 동작하며, 실패 시 즉시 로컬 로그 방식으로 폴백
+- **데이터 소스 투명성** — 사용량 정보 하단에 데이터 소스(`Local Log` 또는 `Direct API`)를 명시하여 수치의 신뢰도 확인 가능
+
+### 개선
+- **사용자 경험 개선** — API 조회 성공 시 CLI `/status`와 일치하는 실시간 사용량 확인 가능
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Codex Direct API Support (Beta)** — Added direct backend API lookup to resolve local log latency issues (Opt-in)
+- **Auth Collision Guardrails** — Operates in read-only mode without attempting token refreshes to avoid session conflicts with the Codex CLI, with automatic fallback to local logs
+- **Data Source Transparency** — Explicitly labels the data source (`Local Log` or `Direct API`) for better reliability awareness
+
+### Improved
+- **Enhanced User Experience** — Synchronizes usage data with CLI `/status` in real-time when API access is successful
+<!-- /en -->
+
+---
+
 ## [1.18.0] - 2026-04-28
 
 <!-- ko -->
