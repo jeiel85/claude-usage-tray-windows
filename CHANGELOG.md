@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.17.7] - 2026-04-28
+
+<!-- ko -->
+### 개선
+- **레이트 리밋(Rate Limit) 문구 직관화** — 기술적인 용어인 '레이트 리밋'을 '실시간 사용 제한' 또는 '일시 초과'와 같은 더 이해하기 쉬운 한국어 표현으로 변경하여 알림 및 상태 메시지의 가독성 개선
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Intuitive wording for Rate Limit** — Replaced technical term "Rate Limit" with more user-friendly Korean expressions such as "Real-time Usage Limit" or "Temporary Over-limit" to improve the clarity of notifications and status messages
+<!-- /en -->
+
+---
+
 ## [1.17.6] - 2026-04-28
 
 <!-- ko -->

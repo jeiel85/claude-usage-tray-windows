@@ -311,7 +311,7 @@ public static class Loc
 
     public static string RateLimitTitle => Lang switch
     {
-        "ko" => "Claude 레이트 리밋 도달",
+        "ko" => "Claude 실시간 사용 제한 발생",
         "zh" => "Claude 已达到速率限制",
         "ja" => "Claude レート制限に達しました",
         _ => "Claude Rate Limit Reached"
@@ -336,7 +336,7 @@ public static class Loc
 
     public static string NotifyRateLimit => Lang switch
     {
-        "ko" => "레이트 리밋 알림",
+        "ko" => "실시간 사용 제한 알림",
         "zh" => "速率限制通知",
         "ja" => "レート制限通知",
         _ => "Rate limit alert"
@@ -490,7 +490,7 @@ public static class Loc
 
     public static string RateLimited => Lang switch
     {
-        "ko" => "레이트 리밋 도달 — 잠시 후 자동 갱신됩니다",
+        "ko" => "일시적으로 사용량이 많아 제한되었습니다 — 잠시 후 갱신됩니다",
         "zh" => "已达到速率限制 — 稍后自动刷新",
         "ja" => "レート制限に達しました — まもなく自動更新",
         _ => "Rate limited — will auto-refresh shortly"
@@ -498,7 +498,7 @@ public static class Loc
 
     public static string RateLimitedUntil(string time) => Lang switch
     {
-        "ko" => $"API 제한 중 — {time} 이후 재시도",
+        "ko" => $"사용 제한 중 — {time} 이후 다시 가능",
         "zh" => $"API 受限中 — {time} 后重试",
         "ja" => $"API 制限中 — {time} 以降に再試行",
         _ => $"Rate limited — retry after {time}"
