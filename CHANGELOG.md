@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.18.4] - 2026-04-28
+
+<!-- ko -->
+### 개선
+- **업데이트 팝업 UI 최적화** — 헤더 아이콘의 색상과 크기를 조정하여 시인성을 높이고, 릴리즈 노트와 중복되던 상단 버전 표시를 제거하여 레이아웃을 더 깔끔하게 개선
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Update Popup UI Optimization** — Enhanced icon visibility with adjusted colors/size and removed the redundant top version label for a cleaner layout
+<!-- /en -->
+
+---
+
 ## [1.18.3] - 2026-04-28
 
 <!-- ko -->
