@@ -673,6 +673,14 @@ public static class Loc
         _ => "✓ Latest"
     };
 
+    public static string UpdateCheckFailed => Lang switch
+    {
+        "ko" => "업데이트 확인 실패",
+        "zh" => "检查失败",
+        "ja" => "確認失敗",
+        _ => "Check failed"
+    };
+
     /// <summary>
     /// 릴리즈 노트에서 현재 언어 블록만 추출한다.
     /// <!-- ko -->...<!-- /ko --> 형식. 해당 언어 블록이 없으면 en 블록을 반환한다.

@@ -347,7 +347,22 @@ public partial class MainViewModel : ObservableObject, IDisposable
         if (IsUpdating) return;
 
         UpdateCheckLabel = Loc.CheckingUpdate;
-        var result = await _updater.CheckForUpdateAsync();
+
+        UpdateService.UpdateInfo? result;
+        try
+        {
+            result = await _updater.CheckForUpdateAsync();
+        }
+        catch
+        {
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
+            {
+                UpdateCheckLabel = Loc.UpdateCheckFailed;
+                await Task.Delay(3000);
+                UpdateCheckLabel = "";
+            });
+            return;
+        }
 
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
         {
@@ -383,7 +398,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         if (IsUpdating) return;
 
-        var result = await _updater.CheckForUpdateAsync();
+        UpdateService.UpdateInfo? result;
+        try
+        {
+            result = await _updater.CheckForUpdateAsync();
+        }
+        catch
+        {
+            return;
+        }
         if (result is null) return;
 
         var info = result;

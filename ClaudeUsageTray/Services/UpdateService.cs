@@ -8,8 +8,8 @@ namespace ClaudeUsageTray.Services;
 
 public class UpdateService
 {
-    private const string Repo       = "jeiel85/claude-usage-tray-windows";
-    private const string ApiUrl     = $"https://api.github.com/repos/{Repo}/releases/latest";
+    private const string Repo        = "jeiel85/claude-usage-tray-windows";
+    private const string ApiListUrl  = $"https://api.github.com/repos/{Repo}/releases?per_page=30";
     private const string ReleasePage = $"https://github.com/{Repo}/releases/latest";
 
     private static readonly HttpClient Http = new();
@@ -26,51 +26,71 @@ public class UpdateService
         Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0);
 
     /// <summary>
-    /// Returns UpdateInfo if a newer release exists, otherwise null.
+    /// Returns UpdateInfo if a newer release exists, null if already up to date.
+    /// Throws on network or API errors so callers can distinguish from "no update".
+    /// Release notes include all versions between current and latest.
     /// </summary>
     public async Task<UpdateInfo?> CheckForUpdateAsync()
     {
-        try
+        var json = await Http.GetStringAsync(ApiListUrl);
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        // GitHub returns {"message":"..."} on rate limit or server error
+        if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("message", out var msgEl))
+            throw new InvalidOperationException($"GitHub API: {msgEl.GetString()}");
+
+        // Collect all releases newer than current version, sorted newest first
+        var newer = new List<(Version ver, string tag, string body, JsonElement element)>();
+        foreach (var rel in root.EnumerateArray())
         {
-            var json = await Http.GetStringAsync(ApiUrl);
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
+            if (rel.TryGetProperty("draft", out var draft) && draft.GetBoolean()) continue;
+            if (rel.TryGetProperty("prerelease", out var pre) && pre.GetBoolean()) continue;
 
-            var tagName = root.GetProperty("tag_name").GetString() ?? "";
-            var versionStr = tagName.TrimStart('v');
-            if (!Version.TryParse(versionStr, out var latest)) return null;
-            if (latest <= CurrentVersion) return null;
+            var tag = rel.TryGetProperty("tag_name", out var tagEl) ? tagEl.GetString() ?? "" : "";
+            var verStr = tag.TrimStart('v');
+            if (!Version.TryParse(verStr, out var ver)) continue;
+            if (ver <= CurrentVersion) continue;
 
-            var releaseNotes = Loc.FilterReleaseNotes(
-                root.TryGetProperty("body", out var bodyEl)
-                    ? bodyEl.GetString() ?? "" : "");
-
-            string? exeUrl = null;
-            string? sha256Url = null;
-
-            foreach (var asset in root.GetProperty("assets").EnumerateArray())
-            {
-                var name = asset.GetProperty("name").GetString() ?? "";
-                var url  = asset.GetProperty("browser_download_url").GetString() ?? "";
-
-                // ClaudeUsageTray.exe — 메인 앱 (Updater가 아닌 것만)
-                if (name.Equals("ClaudeUsageTray.exe", StringComparison.OrdinalIgnoreCase))
-                    exeUrl = url;
-                // SHA256.txt 또는 .sha256 파일 모두 지원
-                else if (name.EndsWith(".sha256", StringComparison.OrdinalIgnoreCase) ||
-                         name.Equals("SHA256.txt", StringComparison.OrdinalIgnoreCase))
-                    sha256Url = url;
-            }
-
-            if (exeUrl is null) return null;
-
-            return new UpdateInfo(latest, exeUrl,
-                sha256Url ?? "", releaseNotes);
+            var body = rel.TryGetProperty("body", out var bodyEl) ? bodyEl.GetString() ?? "" : "";
+            newer.Add((ver, tag, body, rel));
         }
-        catch
+
+        if (newer.Count == 0) return null;
+
+        newer.Sort((a, b) => b.ver.CompareTo(a.ver)); // newest first
+        var latest = newer[0];
+
+        // Build combined release notes: each version gets a header
+        var notesBuilder = new System.Text.StringBuilder();
+        foreach (var (ver, tag, body, _) in newer)
         {
-            return null;
+            var filtered = Loc.FilterReleaseNotes(body);
+            if (string.IsNullOrWhiteSpace(filtered)) continue;
+            if (notesBuilder.Length > 0) notesBuilder.AppendLine();
+            notesBuilder.AppendLine($"## {tag}");
+            notesBuilder.Append(filtered);
         }
+
+        string? exeUrl = null;
+        string? sha256Url = null;
+
+        foreach (var asset in latest.element.GetProperty("assets").EnumerateArray())
+        {
+            var name = asset.GetProperty("name").GetString() ?? "";
+            var url  = asset.GetProperty("browser_download_url").GetString() ?? "";
+
+            if (name.Equals("ClaudeUsageTray.exe", StringComparison.OrdinalIgnoreCase))
+                exeUrl = url;
+            else if (name.EndsWith(".sha256", StringComparison.OrdinalIgnoreCase) ||
+                     name.Equals("SHA256.txt", StringComparison.OrdinalIgnoreCase))
+                sha256Url = url;
+        }
+
+        if (exeUrl is null) return null;
+
+        return new UpdateInfo(latest.ver, exeUrl,
+            sha256Url ?? "", notesBuilder.ToString().TrimEnd());
     }
 
     /// <summary>

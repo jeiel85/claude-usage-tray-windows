@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.17.9] - 2026-04-28
+
+<!-- ko -->
+### 개선
+- **누적 업데이트 노트** — 업데이트 알림 시 현재 버전과 최신 버전 사이의 모든 릴리즈 노트를 함께 표시 (예: v1.17.6 사용자가 v1.17.8로 업데이트 시 v1.17.7, v1.17.8 내용 모두 확인 가능)
+- **업데이트 확인 오류 구분** — 네트워크 오류나 API 실패 시 "최신버전"으로 잘못 표시되던 문제 수정, 이제 "업데이트 확인 실패"로 명확히 표시
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Cumulative update notes** — Update dialog now shows release notes for all versions between current and latest (e.g., updating from v1.17.6 to v1.17.8 shows notes for both v1.17.7 and v1.17.8)
+- **Update check error distinction** — Fixed issue where network errors or API failures were silently shown as "Latest version"; now correctly displays "Check failed"
+<!-- /en -->
+
+---
+
 ## [1.17.8] - 2026-04-28
 
 <!-- ko -->
