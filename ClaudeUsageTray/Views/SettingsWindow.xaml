@@ -176,8 +176,9 @@
         <Style x:Key="DarkTabItem" TargetType="TabItem">
             <Setter Property="Foreground" Value="#8B92B3"/>
             <Setter Property="Background" Value="#1A1D2E"/>
-            <Setter Property="Padding" Value="10,5"/>
-            <Setter Property="Margin" Value="0,0,6,0"/>
+            <Setter Property="Padding" Value="16,7"/>
+            <Setter Property="MinWidth" Value="80"/>
+            <Setter Property="Margin" Value="0,0,8,2"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TabItem">
@@ -250,7 +251,7 @@
                 </Border>
 
                 <!-- Content -->
-                <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="560">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Height="560">
                 <StackPanel Margin="16,14,16,0">
 
                     <!-- General -->

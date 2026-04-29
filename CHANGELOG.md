@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.21.3] - 2026-04-29
+
+<!-- ko -->
+### 개선
+- **설정 창 스크롤 안정화** — 알림/ntfy 탭 전환 시 창 높이가 줄어 스크롤바 길이가 달라지던 문제 해결(고정 높이 적용)
+- **탭 헤더 가독성 개선** — 알림/ntfy 탭 헤더의 패딩과 최소 너비를 키워 글자가 잘리는 느낌 보완
+- **트레이 툴팁에 "데이터 없는 공급자 숨기기" 적용** — 설정이 켜져 있으면 오류·데이터 없음 상태의 공급자(예: `OC —`)를 트레이 툴팁에서 제외
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Stable settings scroll** — Fixed window resizing when switching between Alerts/ntfy tabs (content area now uses a fixed height)
+- **Tab header padding** — Increased padding and min-width on Alerts/ntfy tab headers so labels no longer feel clipped
+- **Hide-inactive-providers now applies to tray tooltip** — When enabled, providers with errors or no data (e.g. `OC —`) are omitted from the tooltip
+<!-- /en -->
+
+---
+
 ## [1.21.2] - 2026-04-29
 
 <!-- ko -->

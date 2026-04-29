@@ -180,6 +180,11 @@ public partial class App : Application
                               or nameof(MainViewModel.GeminiHasError)
                               or nameof(MainViewModel.OpenCodeHasError)
                               or nameof(MainViewModel.HasError)
+                              or nameof(MainViewModel.HideInactiveProviders)
+                              or nameof(MainViewModel.GeminiOutputTokensLabel)
+                              or nameof(MainViewModel.OpenCodeOutputLabel)
+                              or nameof(MainViewModel.ClaudeShortPercent)
+                              or nameof(MainViewModel.CodexPercent)
                               or nameof(MainViewModel.LblAppTitle))
         {
             Dispatcher.Invoke(() =>
@@ -202,13 +207,23 @@ public partial class App : Application
                 _trayIcon.Icon = currentHasError ? DrawTrayIcon(-1) : DrawTrayIcon(_vm.TrayUsagePercent);
                 oldIcon?.Dispose();
 
-                // Multi-provider summary in tooltip
-                string claudeInfo    = _vm.ClaudeHasError    ? "—" : $"{_vm.ClaudeShortPercent:P0}";
-                string codexInfo     = _vm.CodexHasError     ? "—" : $"{_vm.CodexPercent:P0}";
-                string geminiInfo    = _vm.GeminiHasError    ? "—" : (_vm.GeminiOutputTokensLabel is "—" or "" ? "-" : _vm.GeminiOutputTokensLabel);
-                string openCodeInfo  = _vm.OpenCodeHasError  ? "—" : (_vm.OpenCodeOutputLabel    is "—" or "" ? "-" : _vm.OpenCodeOutputLabel);
+                // Multi-provider summary in tooltip — respects HideInactiveProviders
+                bool hide = _vm.HideInactiveProviders;
+                bool geminiEmpty   = _vm.GeminiOutputTokensLabel is "—" or "" or null;
+                bool openCodeEmpty = _vm.OpenCodeOutputLabel    is "—" or "" or null;
 
-                string tooltip = $"{Loc.AgentUsageTitle}\nClaude {claudeInfo} · Codex {codexInfo} · Gemini {geminiInfo} · OC {openCodeInfo}";
+                var parts = new System.Collections.Generic.List<string>();
+                if (!(hide && _vm.ClaudeHasError))
+                    parts.Add($"Claude {(_vm.ClaudeHasError ? "—" : $"{_vm.ClaudeShortPercent:P0}")}");
+                if (!(hide && _vm.CodexHasError))
+                    parts.Add($"Codex {(_vm.CodexHasError ? "—" : $"{_vm.CodexPercent:P0}")}");
+                if (!(hide && (_vm.GeminiHasError || geminiEmpty)))
+                    parts.Add($"Gemini {(_vm.GeminiHasError ? "—" : (geminiEmpty ? "-" : _vm.GeminiOutputTokensLabel))}");
+                if (!(hide && (_vm.OpenCodeHasError || openCodeEmpty)))
+                    parts.Add($"OC {(_vm.OpenCodeHasError ? "—" : (openCodeEmpty ? "-" : _vm.OpenCodeOutputLabel))}");
+
+                string body = parts.Count == 0 ? "—" : string.Join(" · ", parts);
+                string tooltip = $"{Loc.AgentUsageTitle}\n{body}";
                 _trayIcon.Text = tooltip.Length > 63 ? tooltip[..63] : tooltip;
             });
         }
