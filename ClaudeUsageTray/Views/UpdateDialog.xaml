@@ -44,9 +44,28 @@
                                        Foreground="{StaticResource TextPrimary}" 
                                        FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         </StackPanel>
-                        <Button HorizontalAlignment="Right" Background="Transparent" BorderThickness="0" 
-                                Cursor="Hand" Click="Close_Click">
-                            <TextBlock Text="✕" Foreground="{StaticResource TextSecondary}" FontSize="14"/>
+                        <Button HorizontalAlignment="Right" Cursor="Hand" Click="Close_Click">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="6" Width="28" Height="28">
+                                                    <TextBlock Text="✕" Foreground="#8B92B3" FontSize="12"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background" Value="#2D2F45"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
                         </Button>
                     </Grid>
                 </Border>
@@ -77,14 +96,22 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             
-                            <Button Grid.Column="1" Content="이번 버전 건너뛰기" Margin="0,0,10,0"
-                                    Foreground="{StaticResource TextSecondary}" Cursor="Hand" Click="Skip_Click">
+                            <Button Grid.Column="1" x:Name="SkipBtn" Margin="0,0,10,0" Cursor="Hand" Click="Skip_Click">
                                 <Button.Style>
                                     <Style TargetType="Button">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="BorderThickness" Value="0"/>
                                         <Setter Property="Template">
                                             <Setter.Value>
                                                 <ControlTemplate TargetType="Button">
-                                                    <TextBlock Text="{TemplateBinding Content}" TextDecorations="Underline" VerticalAlignment="Center"/>
+                                                    <TextBlock x:Name="Lbl" Text="{TemplateBinding Content}"
+                                                               TextDecorations="Underline" Foreground="#8B92B3"
+                                                               VerticalAlignment="Center"/>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="Lbl" Property="Foreground" Value="#C4C9E0"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
                                                 </ControlTemplate>
                                             </Setter.Value>
                                         </Setter>
@@ -92,8 +119,8 @@
                                 </Button.Style>
                             </Button>
 
-                            <Button Grid.Column="2" Content="지금 업데이트" Padding="20,8" 
-                                    Background="{StaticResource AccentBrush}" Foreground="White" 
+                            <Button Grid.Column="2" x:Name="UpdateBtn" Padding="20,8"
+                                    Background="{StaticResource AccentBrush}" Foreground="White"
                                     FontWeight="Bold" Cursor="Hand" Click="Update_Click">
                                 <Button.Style>
                                     <Style TargetType="Button">

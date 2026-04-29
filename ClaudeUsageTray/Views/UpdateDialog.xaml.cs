@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Media;
+using ClaudeUsageTray.Services;
 
 namespace ClaudeUsageTray.Views;
 
@@ -14,6 +15,10 @@ public partial class UpdateDialog : Window
     {
         InitializeComponent();
         _onSkip = onSkip;
+
+        TitleText.Text    = Loc.UpdateDialogTitle;
+        SkipBtn.Content   = Loc.SkipThisVersion;
+        UpdateBtn.Content = Loc.UpdateNow;
 
         RenderMarkdown(releaseNotes);
 

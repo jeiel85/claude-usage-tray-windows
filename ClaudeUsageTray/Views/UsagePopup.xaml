@@ -362,8 +362,50 @@
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                 <Border CornerRadius="4" BorderBrush="#2D2F45" BorderThickness="1">
                                     <StackPanel Orientation="Horizontal">
-                                        <Button x:Name="Toggle7DayBtn" Click="Toggle7DayBtn_Click" Background="#2D2F45" Padding="6,2" BorderThickness="0"><TextBlock x:Name="Toggle7DayText" FontSize="10" Foreground="#F1F5F9"/></Button>
-                                        <Button x:Name="ToggleHourlyBtn" Click="ToggleHourlyBtn_Click" Background="Transparent" Padding="6,2" BorderThickness="0"><TextBlock x:Name="ToggleHourlyText" FontSize="10" Foreground="#8B92B3"/></Button>
+                                        <Button x:Name="Toggle7DayBtn" Click="Toggle7DayBtn_Click" Padding="6,2" BorderThickness="0">
+                                            <Button.Style>
+                                                <Style TargetType="Button">
+                                                    <Setter Property="Background" Value="#2D2F45"/>
+                                                    <Setter Property="Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="Button">
+                                                                <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="3" Padding="{TemplateBinding Padding}">
+                                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                </Border>
+                                                                <ControlTemplate.Triggers>
+                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                        <Setter TargetName="Bd" Property="Background" Value="#3D4060"/>
+                                                                    </Trigger>
+                                                                </ControlTemplate.Triggers>
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </Style>
+                                            </Button.Style>
+                                            <TextBlock x:Name="Toggle7DayText" FontSize="10" Foreground="#F1F5F9"/>
+                                        </Button>
+                                        <Button x:Name="ToggleHourlyBtn" Click="ToggleHourlyBtn_Click" Padding="6,2" BorderThickness="0">
+                                            <Button.Style>
+                                                <Style TargetType="Button">
+                                                    <Setter Property="Background" Value="Transparent"/>
+                                                    <Setter Property="Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="Button">
+                                                                <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="3" Padding="{TemplateBinding Padding}">
+                                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                </Border>
+                                                                <ControlTemplate.Triggers>
+                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                        <Setter TargetName="Bd" Property="Background" Value="#1E2035"/>
+                                                                    </Trigger>
+                                                                </ControlTemplate.Triggers>
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </Style>
+                                            </Button.Style>
+                                            <TextBlock x:Name="ToggleHourlyText" FontSize="10" Foreground="#8B92B3"/>
+                                        </Button>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -521,8 +563,27 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
-                            <Button Click="QuitBtn_Click" Background="Transparent" BorderThickness="0" Cursor="Hand">
-                                <TextBlock Text="{Binding LblQuit}" Foreground="#B87171" FontSize="10" VerticalAlignment="Center"/>
+                            <Button Click="QuitBtn_Click" Cursor="Hand">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="BorderThickness" Value="0"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="4,2">
+                                                        <TextBlock x:Name="Lbl" Text="{Binding LblQuit}" Foreground="#B87171" FontSize="10" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="Lbl" Property="Foreground" Value="#EF4444"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </Button.Style>
                             </Button>
                         </StackPanel>
                     </Grid>

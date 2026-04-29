@@ -966,6 +966,14 @@ public static class Loc
         _ => $"Update download failed: {msg}"
     };
 
+    public static string Unavailable => Lang switch
+    {
+        "ko" => "데이터 없음",
+        "zh" => "无数据",
+        "ja" => "データなし",
+        _ => "No data"
+    };
+
     // Language
     public static string LanguageSection => Lang switch
     {

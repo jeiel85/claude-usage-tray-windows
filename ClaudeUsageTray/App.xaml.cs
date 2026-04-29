@@ -145,23 +145,23 @@ public partial class App : Application
                 else
                 {
                     // Claude Status
-                    if (_vm.ClaudeHasError) _claudeStatusItem.Text = "Claude: Unavailable";
+                    if (_vm.ClaudeHasError) _claudeStatusItem.Text = $"Claude: {Loc.Unavailable}";
                     else _claudeStatusItem.Text = $"Claude: {_vm.ClaudeShortPercent:P0} (5h) / {_vm.ClaudeLongPercent:P0} (7d)";
 
                     // Codex Status
-                    if (_vm.CodexHasError) _codexStatusItem!.Text = "Codex: Unavailable";
+                    if (_vm.CodexHasError) _codexStatusItem!.Text = $"Codex: {Loc.Unavailable}";
                     else _codexStatusItem!.Text = $"Codex: {_vm.CodexPercent:P0}";
 
                     // Gemini Status (token-based, no %)
-                    if (_vm.GeminiHasError) _geminiStatusItem!.Text = "Gemini: Unavailable";
+                    if (_vm.GeminiHasError) _geminiStatusItem!.Text = $"Gemini: {Loc.Unavailable}";
                     else if (_vm.GeminiRequestsLabel == "—" || string.IsNullOrEmpty(_vm.GeminiRequestsLabel))
-                        _geminiStatusItem!.Text = "Gemini: No usage today";
+                        _geminiStatusItem!.Text = "Gemini: —";
                     else _geminiStatusItem!.Text = $"Gemini: {_vm.GeminiRequestsLabel} · {_vm.GeminiOutputTokensLabel}";
 
                     // OpenCode Status (token-based)
-                    if (_vm.OpenCodeHasError) _openCodeStatusItem!.Text = "OpenCode: Unavailable";
+                    if (_vm.OpenCodeHasError) _openCodeStatusItem!.Text = $"OpenCode: {Loc.Unavailable}";
                     else if (_vm.OpenCodeRequestCountLabel == "—" || string.IsNullOrEmpty(_vm.OpenCodeRequestCountLabel))
-                        _openCodeStatusItem!.Text = "OpenCode: No usage today";
+                        _openCodeStatusItem!.Text = "OpenCode: —";
                     else _openCodeStatusItem!.Text = $"OpenCode: {_vm.OpenCodeRequestCountLabel} · in {_vm.OpenCodeInputLabel} · out {_vm.OpenCodeOutputLabel}";
                 }
 
@@ -195,10 +195,10 @@ public partial class App : Application
                 oldIcon?.Dispose();
 
                 // Multi-provider summary in tooltip (token-based for Gemini/OpenCode)
-                string claudeInfo    = _vm.ClaudeHasError    ? "Err" : $"{_vm.ClaudeShortPercent:P0}";
-                string codexInfo     = _vm.CodexHasError     ? "Err" : $"{_vm.CodexPercent:P0}";
-                string geminiInfo    = _vm.GeminiHasError    ? "Err" : (_vm.GeminiOutputTokensLabel is "—" or "" ? "-" : _vm.GeminiOutputTokensLabel);
-                string openCodeInfo  = _vm.OpenCodeHasError  ? "Err" : (_vm.OpenCodeOutputLabel    is "—" or "" ? "-" : _vm.OpenCodeOutputLabel);
+                string claudeInfo    = _vm.ClaudeHasError    ? "—" : $"{_vm.ClaudeShortPercent:P0}";
+                string codexInfo     = _vm.CodexHasError     ? "—" : $"{_vm.CodexPercent:P0}";
+                string geminiInfo    = _vm.GeminiHasError    ? "—" : (_vm.GeminiOutputTokensLabel is "—" or "" ? "-" : _vm.GeminiOutputTokensLabel);
+                string openCodeInfo  = _vm.OpenCodeHasError  ? "—" : (_vm.OpenCodeOutputLabel    is "—" or "" ? "-" : _vm.OpenCodeOutputLabel);
 
                 string tooltip = $"{Loc.AgentUsageTitle}\nClaude {claudeInfo} · Codex {codexInfo} · Gemini {geminiInfo} · OC {openCodeInfo}";
                 _trayIcon.Text = tooltip.Length > 63 ? tooltip[..63] : tooltip;
