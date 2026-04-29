@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.21.4] - 2026-04-29
+
+<!-- ko -->
+### 개선
+- **설정 창 컨트롤 다크 테마 통일** — ScrollBar, CheckBox, Slider, TextBox를 보라 액센트의 다크 톤으로 재스타일링해 카드/배경과 일관된 느낌으로 정리
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Unified dark-themed settings controls** — Restyled ScrollBar, CheckBox, Slider, and TextBox with a purple accent on dark surfaces so they blend with the cards and background
+<!-- /en -->
+
+---
+
 ## [1.21.3] - 2026-04-29
 
 <!-- ko -->

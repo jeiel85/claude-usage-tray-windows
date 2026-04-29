@@ -26,6 +26,200 @@
             <Setter Property="Foreground" Value="#C4C9E0"/>
             <Setter Property="FontSize"   Value="12"/>
             <Setter Property="Margin"     Value="0,0,0,6"/>
+            <Setter Property="Cursor"     Value="Hand"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <StackPanel Orientation="Horizontal">
+                            <Border x:Name="Box" Width="16" Height="16" CornerRadius="4"
+                                    Background="#1A1D2E" BorderBrush="#2D2F45" BorderThickness="1"
+                                    VerticalAlignment="Center" Margin="0,0,8,0">
+                                <Path x:Name="Check" Data="M3,8 L7,12 L13,4"
+                                      Stroke="#F1F5F9" StrokeThickness="2"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round" Visibility="Collapsed"/>
+                            </Border>
+                            <ContentPresenter VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"/>
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Box" Property="BorderBrush" Value="#5A5F7A"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Box" Property="Background" Value="#8B5CF6"/>
+                                <Setter TargetName="Box" Property="BorderBrush" Value="#8B5CF6"/>
+                                <Setter TargetName="Check" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#5A5F7A"/>
+                                <Setter TargetName="Box" Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Dark TextBox -->
+        <Style x:Key="DarkTextBox" TargetType="TextBox">
+            <Setter Property="Background"      Value="#1A1D2E"/>
+            <Setter Property="Foreground"      Value="#F1F5F9"/>
+            <Setter Property="BorderBrush"     Value="#2D2F45"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding"         Value="8,5"/>
+            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="CaretBrush"      Value="#A78BFA"/>
+            <Setter Property="SelectionBrush"  Value="#8B5CF6"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#5A5F7A"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#8B5CF6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Dark ScrollBar (vertical) -->
+        <Style x:Key="DarkScrollBarThumb" TargetType="Thumb">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border x:Name="Bd" Background="#2D2F45" CornerRadius="3" Margin="2,0"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#5A5F7A"/>
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#8B5CF6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ScrollBar">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="MinWidth" Value="10"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Grid Background="Transparent">
+                            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Background="Transparent"/>
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Background="Transparent"/>
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource DarkScrollBarThumb}"/>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Width" Value="Auto"/>
+                    <Setter Property="Height" Value="10"/>
+                    <Setter Property="MinHeight" Value="10"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Dark Slider -->
+        <Style x:Key="DarkSliderThumb" TargetType="Thumb">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Grid>
+                            <Ellipse x:Name="Outer" Width="14" Height="14" Fill="#A78BFA"/>
+                            <Ellipse x:Name="Inner" Width="6" Height="6" Fill="#0F1117"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Outer" Property="Fill" Value="#C4B5FD"/>
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="Outer" Property="Fill" Value="#8B5CF6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="Slider">
+            <Setter Property="Background"      Value="#2D2F45"/>
+            <Setter Property="Foreground"      Value="#8B5CF6"/>
+            <Setter Property="IsMoveToPointEnabled" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Slider">
+                        <Grid VerticalAlignment="Center" Height="20">
+                            <Border Height="4" Background="{TemplateBinding Background}"
+                                    CornerRadius="2" VerticalAlignment="Center"/>
+                            <Track x:Name="PART_Track">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="Slider.DecreaseLarge">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Height="4" Background="#8B5CF6"
+                                                        CornerRadius="2" VerticalAlignment="Center"/>
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="Slider.IncreaseLarge">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Background="Transparent"/>
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource DarkSliderThumb}"/>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style x:Key="DarkCombo" TargetType="ComboBox">
@@ -306,7 +500,7 @@
                                     <TextBlock Text="Gemini " Foreground="#C4C9E0" FontSize="11"/>
                                     <TextBlock x:Name="LblDailyGoalGemini" Foreground="#8B92B3" FontSize="11"/>
                                 </StackPanel>
-                                <TextBox x:Name="TxtGeminiGoal" Grid.Column="1" Background="#1A1D2E" Foreground="#F1F5F9" BorderBrush="#2D2F45" BorderThickness="1" Padding="8,5" FontSize="12" LostFocus="TxtGoal_LostFocus" PreviewTextInput="NumberValidationTextBox"/>
+                                <TextBox x:Name="TxtGeminiGoal" Grid.Column="1" Style="{StaticResource DarkTextBox}" LostFocus="TxtGoal_LostFocus" PreviewTextInput="NumberValidationTextBox"/>
                             </Grid>
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -317,7 +511,7 @@
                                     <TextBlock Text="OpenCode " Foreground="#C4C9E0" FontSize="11"/>
                                     <TextBlock x:Name="LblDailyGoalOpenCode" Foreground="#8B92B3" FontSize="11"/>
                                 </StackPanel>
-                                <TextBox x:Name="TxtOpenCodeGoal" Grid.Column="1" Background="#1A1D2E" Foreground="#F1F5F9" BorderBrush="#2D2F45" BorderThickness="1" Padding="8,5" FontSize="12" LostFocus="TxtGoal_LostFocus" PreviewTextInput="NumberValidationTextBox"/>
+                                <TextBox x:Name="TxtOpenCodeGoal" Grid.Column="1" Style="{StaticResource DarkTextBox}" LostFocus="TxtGoal_LostFocus" PreviewTextInput="NumberValidationTextBox"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -355,7 +549,7 @@
                                     <TextBlock x:Name="LblStep2" Foreground="#8B92B3" FontSize="11" TextWrapping="Wrap" Margin="0,1,0,1"/>
                                     <TextBlock x:Name="LblStep3" Foreground="#8B92B3" FontSize="11" TextWrapping="Wrap" Margin="0,1,0,8"/>
                                     <TextBlock x:Name="LblNtfyTopic" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
-                                    <TextBox x:Name="TxtNtfyTopic" Background="#1A1D2E" Foreground="#F1F5F9" BorderBrush="#2D2F45" BorderThickness="1" Padding="10,7" FontSize="12" LostFocus="TxtNtfyTopic_LostFocus" KeyDown="TxtNtfyTopic_KeyDown"/>
+                                    <TextBox x:Name="TxtNtfyTopic" Style="{StaticResource DarkTextBox}" Padding="10,7" LostFocus="TxtNtfyTopic_LostFocus" KeyDown="TxtNtfyTopic_KeyDown"/>
                                     <TextBlock x:Name="LblNtfySecurityWarning" Foreground="#FCD34D" FontSize="10" TextWrapping="Wrap" Margin="2,4,0,2" Visibility="Collapsed"/>
                                     <TextBlock x:Name="LblNtfyHint" Foreground="#5A5F7A" FontSize="10" Margin="2,2,0,8"/>
                                     <CheckBox x:Name="ChkNtfySendFromThisPc" Style="{StaticResource CheckStyle}" Margin="0,0,0,2" Click="Setting_Changed"/>
