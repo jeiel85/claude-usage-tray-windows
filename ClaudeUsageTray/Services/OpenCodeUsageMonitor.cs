@@ -105,7 +105,7 @@ public class OpenCodeUsageMonitor
             
             // 일일 목표량 기준 퍼센트 계산
             snapshot.ShortUsagePercent = dailyTokenGoal > 0 
-                ? Math.Min(1.0, (double)totalOutputTokens / dailyTokenGoal) 
+                ? Math.Min(1.0, (double)totalOutput / dailyTokenGoal) 
                 : 0;
             snapshot.PlanType = "Local";
         }

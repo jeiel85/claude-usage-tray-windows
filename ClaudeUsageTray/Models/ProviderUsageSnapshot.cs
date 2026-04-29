@@ -1,3 +1,5 @@
+using System;
+
 namespace ClaudeUsageTray.Models;
 
 public class ProviderUsageSnapshot

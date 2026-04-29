@@ -33,6 +33,9 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode A
 - [Claude Code](https://claude.ai/code) 설치 및 로그인 상태
 - [**.NET 9.0 Desktop Runtime**](https://dotnet.microsoft.com/download/dotnet/9.0/runtime) — 미설치 시 앱이 실행되지 않음
 
+## 이슈
+- `개선` CI 실패 대응 (2026-04-29): `v1.21.0` 태그 기준 GitHub Actions 빌드 실패 원인(C# 소스 말미 중복 코드로 인한 컴파일 오류) 분석 및 수정.
+
 ---
 
 ## 주요 기능
@@ -87,9 +90,7 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode A
 
 [Releases 페이지](https://github.com/jeiel85/claude-usage-tray-windows/releases)에서 최신 `ClaudeUsageTray.exe` 다운로드 후 실행하세요.
 
-### 소스에서 빌드 (개발자용)
-
-> **주의:** 이 프로젝트는 GitHub Actions를 통해 자동 빌드됩니다. 에이전트나 자동화 도구는 로컬에서 빌드를 시도하지 마세요.
+### 소스에서 빌드
 
 ```bash
 git clone https://github.com/jeiel85/claude-usage-tray-windows

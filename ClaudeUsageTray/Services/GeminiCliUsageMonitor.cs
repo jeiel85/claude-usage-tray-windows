@@ -80,7 +80,7 @@ public class GeminiCliUsageMonitor
             : 0;
             
         snapshot.ErrorMessage = totalRequests > 0 ? Loc.GeminiCliEstimateOnly : Loc.GeminiCliNoUsageToday;
-        snapshot.PlanType = "CLI"; // 임시 플랜명
+        snapshot.PlanType = "CLI";
 
         return snapshot;
     }

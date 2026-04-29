@@ -164,6 +164,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _updateStatusText = "";
     [ObservableProperty] private string _selectedProvider = UsageProviderKind.Claude;
     [ObservableProperty] private string _providerNote = "";
+    [ObservableProperty] private string _trayDisplayMode = UsageProviderKind.Auto;
+    [ObservableProperty] private bool _hideInactiveProviders = true;
+    [ObservableProperty] private long _geminiDailyTokenGoal = 50000;
+    [ObservableProperty] private long _openCodeDailyTokenGoal = 100000;
+    [ObservableProperty] private double _openCodePercent = 0;
+    [ObservableProperty] private double _trayUsagePercent = 0;
 
     private string _updateDownloadUrl = "";
     private string _updateSha256Url = "";
@@ -283,6 +289,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
         NtfySendFromThisPc  = s.NtfySendFromThisPc;
         StartWithWindows    = s.StartWithWindows;
         PollingIntervalMinutes = s.PollingIntervalMinutes;
+        TrayDisplayMode = UsageProviderKind.IsValid(s.TrayDisplayMode) ? s.TrayDisplayMode : UsageProviderKind.Auto;
+        HideInactiveProviders = s.HideInactiveProviders;
+        GeminiDailyTokenGoal = s.GeminiDailyTokenGoal > 0 ? s.GeminiDailyTokenGoal : 50000;
+        OpenCodeDailyTokenGoal = s.OpenCodeDailyTokenGoal > 0 ? s.OpenCodeDailyTokenGoal : 100000;
 
         // 현재 로그인된 계정의 orgUuid로 히스토리 경로 초기화
         ApplySelectedProviderScope();
@@ -359,6 +369,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
             StartWithWindows = StartWithWindows,
             SkippedVersion = existing.SkippedVersion,
             PollingIntervalMinutes = PollingIntervalMinutes,
+            TrayDisplayMode = TrayDisplayMode,
+            HideInactiveProviders = HideInactiveProviders,
+            GeminiDailyTokenGoal = GeminiDailyTokenGoal,
+            OpenCodeDailyTokenGoal = OpenCodeDailyTokenGoal,
         });
     }
 
@@ -559,7 +573,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
             {
                 // 공통 정보 업데이트
                 UpdateOverallStatus();
-                OnPropertyChanged(nameof(TrayUsagePercent));
                 
                 LastUpdatedLabel = (ClaudeHasError || CodexHasError || GeminiHasError || OpenCodeHasError)
                     ? $"⚠ {DateTime.Now:HH:mm:ss}"
@@ -588,6 +601,21 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private void UpdateOverallStatus()
     {
+        TrayUsagePercent = TrayDisplayMode switch
+        {
+            UsageProviderKind.Claude => ClaudeShortPercent,
+            UsageProviderKind.Codex => CodexPercent,
+            UsageProviderKind.GeminiCli => GeminiPercent,
+            UsageProviderKind.OpenCode => OpenCodePercent,
+            _ => SelectedProvider switch
+            {
+                UsageProviderKind.Codex => CodexPercent,
+                UsageProviderKind.GeminiCli => GeminiPercent,
+                UsageProviderKind.OpenCode => OpenCodePercent,
+                _ => ClaudeShortPercent
+            }
+        };
+
         if (ClaudeHasError && CodexHasError && GeminiHasError && OpenCodeHasError)
         {
             StatusText = "All Providers Error";
@@ -841,8 +869,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 GeminiSummary = snapshot.HasData
                     ? Loc.GeminiCliRequestSummary(snapshot.RequestCount, snapshot.TotalOutputTokens)
                     : snapshot.ErrorMessage ?? "";
-                GeminiPercent = 0;
-                _prevGeminiPercent = 0;
+                var goal = GeminiDailyTokenGoal > 0 ? GeminiDailyTokenGoal : 50000;
+                var percent = Math.Clamp(snapshot.TotalOutputTokens / (double)goal, 0, 1);
+                GeminiPercent = percent;
+                _prevGeminiPercent = percent;
 
                 // 전체 상태 갱신
                 UpdateOverallStatus();
@@ -888,7 +918,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         try
         {
-            var snapshot = _openCode.GetTodaySnapshot();
+            var snapshot = _openCode.GetTodaySnapshot(OpenCodeDailyTokenGoal);
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 OpenCodeHasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage);
@@ -908,6 +938,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                         ? $"오늘 {snapshot.RequestCount}회 · 입력 {FormatTokenShort(snapshot.TotalInputTokens)} · 출력 {FormatTokenShort(snapshot.TotalOutputTokens)}"
                         : $"Today {snapshot.RequestCount} req · in {FormatTokenShort(snapshot.TotalInputTokens)} · out {FormatTokenShort(snapshot.TotalOutputTokens)}"
                     : snapshot.ErrorMessage ?? "";
+                OpenCodePercent = snapshot.ShortUsagePercent;
 
                 UpdateOverallStatus();
             });
@@ -1093,50 +1124,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         var depletionAt = DateTimeOffset.Now.AddDays(daysToFull).ToLocalTime();
         var timeStr = daysToFull < 1
-            ? depletionAt.ToString("HH:mm")
-            : depletionAt.ToString("M/d HH:mm");
-        return Loc.DepletionAt(timeStr);
-    }
-
-    private static string FormatTokenShort(long tokens) =>
-        tokens >= 1_000_000 ? $"{tokens / 1_000_000.0:F1}M" :
-        tokens >= 1_000     ? $"{tokens / 1_000.0:F1}K" :
-        tokens.ToString();
-
-    private static string CalcCostLabel(long input, long output, long cacheRead, long cacheWrite)
-    {
-        // Sonnet 3.5/3.7 API 가격 기준 참고값 (Claude Code는 구독제이므로 실제 과금 아님)
-        var cost = input * 3e-6
-                 + output * 15e-6
-                 + cacheRead * 0.3e-6
-                 + cacheWrite * 3.75e-6;
-        if (cost < 0.001) return "";
-        return Loc.CostEstimate(cost);
-    }
-
-    public void Dispose()
-    {
-        _credentials.CredentialsChanged -= OnCredentialsChanged;
-        _credentials.Dispose();
-        _timer.Dispose();
-        _countdownTimer.Dispose();
-        _updateTimer.Dispose();
-        GC.SuppressFinalize(this);
-    }
-}
-credentials.Dispose();
-        _timer.Dispose();
-        _countdownTimer.Dispose();
-        _updateTimer.Dispose();
-        GC.SuppressFinalize(this);
-    }
-}
-wnTimer.Dispose();
-        _updateTimer.Dispose();
-        GC.SuppressFinalize(this);
-    }
-}
-meStr = daysToFull < 1
             ? depletionAt.ToString("HH:mm")
             : depletionAt.ToString("M/d HH:mm");
         return Loc.DepletionAt(timeStr);

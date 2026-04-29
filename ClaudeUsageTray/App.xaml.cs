@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Windows;
 using System.Windows.Forms;
+using ClaudeUsageTray.Models;
 using ClaudeUsageTray.Services;
 using ClaudeUsageTray.ViewModels;
 using ClaudeUsageTray.Views;
@@ -173,6 +174,7 @@ public partial class App : Application
     private void OnVmIconPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {
         if (args.PropertyName is nameof(MainViewModel.TrayUsagePercent)
+                              or nameof(MainViewModel.TrayDisplayMode)
                               or nameof(MainViewModel.ClaudeHasError)
                               or nameof(MainViewModel.CodexHasError)
                               or nameof(MainViewModel.GeminiHasError)
@@ -200,7 +202,7 @@ public partial class App : Application
                 _trayIcon.Icon = currentHasError ? DrawTrayIcon(-1) : DrawTrayIcon(_vm.TrayUsagePercent);
                 oldIcon?.Dispose();
 
-                // Multi-provider summary in tooltip (token-based for Gemini/OpenCode)
+                // Multi-provider summary in tooltip
                 string claudeInfo    = _vm.ClaudeHasError    ? "—" : $"{_vm.ClaudeShortPercent:P0}";
                 string codexInfo     = _vm.CodexHasError     ? "—" : $"{_vm.CodexPercent:P0}";
                 string geminiInfo    = _vm.GeminiHasError    ? "—" : (_vm.GeminiOutputTokensLabel is "—" or "" ? "-" : _vm.GeminiOutputTokensLabel);

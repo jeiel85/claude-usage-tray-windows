@@ -968,7 +968,6 @@ public static class Loc
         _ => "Sub Expired"
     };
 
-
     private static string FormatTokenShort(long tokens) =>
 
         tokens >= 1_000_000 ? $"{tokens / 1_000_000.0:F1}M" :

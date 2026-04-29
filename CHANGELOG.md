@@ -3,32 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
-## [1.21.0] - 2026-04-29
+## [1.21.1] - 2026-04-29
 
 <!-- ko -->
-### 신규
-- **트레이 아이콘 표시 기준 설정 추가** — 설정 창에서 트레이 아이콘에 표시할 공급자를 선택 가능 (Auto, Claude, Codex, Gemini, OpenCode)
-- **Auto 모드 우선순위 로직** — Claude -> Codex -> Gemini -> OpenCode 순으로 구독 중이거나 데이터가 있는 공급자를 자동 선택하여 트레이에 표시
-- **Gemini & OpenCode 사용량 계산 구현** — 사용자가 설정한 '일일 목표 출력 토큰량'을 기준으로 현재 사용량을 퍼센트(%)로 환산하여 트레이 게이지에 반영
-- **구독 상태 모니터링 강화** — 유료 구독(Pro, Plus 등) 여부를 식별하고, 데이터가 없거나 구독이 만료된 공급자를 팝업에서 숨기는 옵션 추가
-- **설정 UI 업데이트** — 일일 목표 토큰 입력 및 트레이 모드 선택 UI 추가
-
 ### 개선
-- **트레이 툴팁 정보 통합** — 트레이 아이콘에 마우스를 올렸을 때 모든 활성 공급자의 사용량 요약을 한눈에 확인 가능
-- **다국어 지원 확장** — 새로운 설정 항목들에 대해 한국어, 영어, 중국어, 일본어 문구 추가
+- **CI 빌드 오류 복구** — `CodexUsageMonitor`, `MainViewModel`, `LocalizationService` 말미의 손상/중복 코드 조각을 제거해 컴파일 오류를 해결
+- **트레이 게이지 표시 기준 보강** — 설정한 표시용 에이전트 기준으로 트레이 게이지 퍼센트를 계산하도록 정리
+- **Gemini 게이지 계산 추가** — Gemini 일일 목표 토큰 대비 출력 토큰 비율로 트레이 퍼센트 계산
+- **GitHub Issue 작성 가이드 보강** — `\n` 문자열이 그대로 들어가지 않도록 here-string/`--body-file` 사용 규칙 추가
 <!-- /ko -->
 
 <!-- en -->
-### Added
-- **Tray Display Mode Setting** — Choose which provider's usage is displayed in the system tray (Auto, Claude, Codex, Gemini, OpenCode)
-- **Auto-Prioritization Logic** — Automatically selects the active provider for the tray icon following the priority: Claude -> Codex -> Gemini -> OpenCode
-- **Gemini & OpenCode Usage Calculation** — Calculates usage percentage based on a user-defined "Daily Output Token Goal"
-- **Subscription Monitoring** — Identifies paid subscription status and added an option to hide inactive or expired providers from the popup
-- **Settings UI Update** — Added inputs for daily token goals and tray mode selection
-
 ### Improved
-- **Integrated Tray Tooltip** — View a summary of usage for all active providers by hovering over the tray icon
-- **Localization Expansion** — Added Korean, English, Chinese, and Japanese strings for all new settings
+- **CI build recovery** — Removed corrupted/duplicated trailing code in `CodexUsageMonitor`, `MainViewModel`, and `LocalizationService` to fix compilation failures
+- **Tray gauge base logic refined** — Tray gauge percentage now follows the configured display provider
+- **Gemini gauge computation added** — Tray percentage is now computed from Gemini output tokens against a daily token goal
+- **GitHub Issue authoring guidance updated** — Added rule to use here-string/`--body-file` to avoid literal `\n` in issue bodies
 <!-- /en -->
 
 ---
@@ -37,7 +27,6 @@
 
 <!-- ko -->
 ### 개선
-- **에이전트 지침 강화** — 로컬 빌드 금지 및 GitHub Actions 활용 지침 명시 (GEMINI.md, AGENTS.md)
 - **버튼 hover 스타일 통일** — Toggle, Quit, Close(✕), Skip, LinkBtn 등 기본 WPF 반전이 발생하던 버튼들을 다크 테마에 맞는 hover 효과로 교체
 - **에러 표시 개선** — 데이터 없음/로드 실패 시 트레이 툴팁에 `Err` 대신 `—` 표시, 컨텍스트 메뉴도 다국어 "데이터 없음" 표현으로 변경
 <!-- /ko -->

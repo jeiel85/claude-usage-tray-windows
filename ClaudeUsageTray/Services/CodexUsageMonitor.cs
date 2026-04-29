@@ -266,5 +266,3 @@ public class CodexUsageMonitor
             TotalTokens - other.TotalTokens);
     }
 }
-    }
-}

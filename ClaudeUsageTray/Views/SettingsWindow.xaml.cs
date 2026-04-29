@@ -102,11 +102,6 @@ public partial class SettingsWindow : Window, IDisposable
         LblPollingInterval.Text             = Loc.PollingInterval;
         LblLanguageSection.Text             = Loc.LanguageSection;
         LangItemSystem.Content              = Loc.LanguageSystem;
-        LblTrayDisplayMode.Text             = Loc.TrayDisplayMode;
-        TrayItemAuto.Content                = "Auto";
-        ChkHideInactive.Content             = Loc.HideInactiveProviders;
-        LblDailyGoalGemini.Text             = Loc.DailyTokenGoal;
-        LblDailyGoalOpenCode.Text           = Loc.DailyTokenGoal;
     }
 
     private void LoadValues()
@@ -124,23 +119,6 @@ public partial class SettingsWindow : Window, IDisposable
         ChkStartWithWindows.IsChecked   = IsStartupEnabled();
         SliderPolling.Value = _vm.PollingIntervalMinutes > 0 ? _vm.PollingIntervalMinutes : 2;
         UpdatePollingLabel((int)SliderPolling.Value);
-
-        // Tray Mode
-        var savedMode = _vm.TrayDisplayMode ?? UsageProviderKind.Auto;
-        foreach (ComboBoxItem item in CmbTrayDisplayMode.Items)
-        {
-            if (item.Tag?.ToString() == savedMode)
-            {
-                CmbTrayDisplayMode.SelectedItem = item;
-                break;
-            }
-        }
-        if (CmbTrayDisplayMode.SelectedItem == null)
-            CmbTrayDisplayMode.SelectedItem = TrayItemAuto;
-
-        ChkHideInactive.IsChecked = _vm.HideInactiveProviders;
-        TxtGeminiGoal.Text = _vm.GeminiDailyTokenGoal.ToString();
-        TxtOpenCodeGoal.Text = _vm.OpenCodeDailyTokenGoal.ToString();
 
         // Select the saved language
         var savedLang = _vm.SelectedLanguage ?? "system";
@@ -175,7 +153,29 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.Threshold90           = Chk90.IsChecked == true;
         _vm.Threshold100          = Chk100.IsChecked == true;
         _vm.NtfySendFromThisPc    = ChkNtfySendFromThisPc.IsChecked == true;
+
+        if (CmbTrayDisplayMode.SelectedItem is ComboBoxItem modeItem)
+            _vm.TrayDisplayMode = modeItem.Tag?.ToString() ?? UsageProviderKind.Auto;
+
+        _vm.HideInactiveProviders = ChkHideInactive.IsChecked == true;
+
         _vm.SaveSettingsCommand.Execute(null);
+        _vm.RefreshAsync(); 
+    }
+
+    private void TxtGoal_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingValues) return;
+        if (long.TryParse(TxtGeminiGoal.Text, out var gGoal)) _vm.GeminiDailyTokenGoal = gGoal;
+        if (long.TryParse(TxtOpenCodeGoal.Text, out var oGoal)) _vm.OpenCodeDailyTokenGoal = oGoal;
+        _vm.SaveSettingsCommand.Execute(null);
+        _vm.RefreshAsync();
+    }
+
+    private void NumberValidationTextBox(object sender, System.Windows.Input.TextCompositionEventArgs e)
+    {
+        Regex regex = new("[^0-9]+");
+        e.Handled = regex.IsMatch(e.Text);
     }
 
     private void TxtNtfyTopic_LostFocus(object sender, RoutedEventArgs e)

@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace ClaudeUsageTray.Models;
 
 public class NotificationSettings
@@ -7,25 +9,25 @@ public class NotificationSettings
     public bool Enabled { get; set; } = true;
 
     // 5시간 윈도우 임계값 (%)
-    public List<int> Thresholds { get; set; } = [50, 75, 90, 100];
+    public bool Threshold50 { get; set; } = true;
+    public bool Threshold75 { get; set; } = true;
+    public bool Threshold90 { get; set; } = true;
+    public bool Threshold100 { get; set; } = true;
 
-    public bool NotifyOnRateLimit { get; set; } = true;
+    // 레이트 리밋 알림
+    public bool NotifyRateLimit { get; set; } = true;
 
+    // 할당량 리셋 알림 (100% 소진 후 리셋 시)
     public bool NotifyOnQuotaReset { get; set; } = true;
 
-    // ntfy.sh push notification
+    // ntfy.sh 토픽 (비어있으면 비활성)
     public string NtfyTopic { get; set; } = "";
 
+    // 윈도우 시작 시 자동 실행
     public bool StartWithWindows { get; set; } = false;
 
-    // 건너뛴 업데이트 버전 (예: "1.5.0")
-    public string SkippedVersion { get; set; } = "";
-
-    // 갱신 주기 (분 단위), 0이면 기본값 사용
-    public int PollingIntervalMinutes { get; set; } = 0;
-
-    // ntfy 토픽 경고 표시 (중복 PC 경고)
-    public bool NtfyTopicWarningShown { get; set; } = false;
+    // 폴링 간격 (분)
+    public int PollingIntervalMinutes { get; set; } = 2;
 
     // 이 PC에서 ntfy 발송 여부 (여러 PC 중복 방지용)
     public bool NtfySendFromThisPc { get; set; } = true;
@@ -44,4 +46,36 @@ public class NotificationSettings
 
     // 데이터가 없는 공급자 자동 숨김
     public bool HideInactiveProviders { get; set; } = true;
+
+    // Backward compatibility with old schema used by ViewModel.
+    [JsonIgnore]
+    public bool NotifyOnRateLimit
+    {
+        get => NotifyRateLimit;
+        set => NotifyRateLimit = value;
+    }
+
+    [JsonIgnore]
+    public List<int> Thresholds
+    {
+        get
+        {
+            var list = new List<int>();
+            if (Threshold50) list.Add(50);
+            if (Threshold75) list.Add(75);
+            if (Threshold90) list.Add(90);
+            if (Threshold100) list.Add(100);
+            return list;
+        }
+        set
+        {
+            var set = value ?? [];
+            Threshold50 = set.Contains(50);
+            Threshold75 = set.Contains(75);
+            Threshold90 = set.Contains(90);
+            Threshold100 = set.Contains(100);
+        }
+    }
+
+    public string SkippedVersion { get; set; } = "";
 }

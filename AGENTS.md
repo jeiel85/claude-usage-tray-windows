@@ -15,13 +15,8 @@ git fetch origin && git pull origin master && git status
 
 ## 📋 핵심 개발 규칙
 
-### 0. 로컬 빌드 금지 (필독)
-- **로컬에서 `dotnet build` 또는 `dotnet run`을 실행하지 않는다.**
-- 빌드와 배포는 오직 **GitHub Actions**를 통해서만 수행한다.
-- 코드의 무결성은 테스트 코드 실행(`dotnet test`)과 GitHub Actions의 빌드 결과로 검증한다.
-
-### 1. 이슈 기반 개발
-- **모든 개발/수정은 반드시 GitHub Issue 에 먼저 등록 후 시작한다.**
+### 0. 이슈 기반 개발
+- **모든 개발/수정은 반드시 `README.md`의 이슈 섹션에 먼저 등록 후 시작한다.**
 - **사용자가 제기한 작업 이슈는 `README.md` 등록과 함께 GitHub Issue도 반드시 생성하여 이력을 관리한다.**
 - 이슈 등록 시 분류(버그, 기능, 개선)와 목표를 명시한다.
 
@@ -65,6 +60,7 @@ git fetch origin && git pull origin master && git status
 ### GitHub Actions (CI/CD)
 - **릴리즈 노트 추출**: `awk` 보다는 `sed`와 정규표현식을 조합하여 `CHANGELOG.md`의 특정 버전 섹션(예: `## [1.x.x]`)을 추출하는 것이 버전 형식 변화에 더 강인하다.
 - **태그 재발행**: 빌드 오류로 태그를 다시 달아야 할 경우, 로컬과 원격의 태그를 모두 삭제(`git tag -d`)한 후 다시 푸시해야 한다.
+- **GitHub Issue 본문 개행 보존**: `gh issue create/edit --body`에 `\n` 이스케이프 문자열을 직접 넣지 말고, PowerShell here-string(`@' ... '@`) 또는 `--body-file`을 사용해 실제 줄바꿈으로 작성한다.
 
 ### 안정성 가이드
 - **최적화 옵션 최소화**: `ReadyToRun`이나 `Trimming`은 빌드 서버와 사용자 환경의 미세한 차이(런타임 패치 버전 등)로 인해 실행 불가 문제를 일으킬 확률이 높으므로, 데스크톱 WPF 앱에서는 가급적 사용을 피한다.
@@ -82,7 +78,6 @@ git fetch origin && git pull origin master && git status
 ## 📜 최근 변경 이력 요약
 *상세 내용은 [CHANGELOG.md](./CHANGELOG.md) 참조*
 
-- **2026-04-29**: 에이전트용 로컬 빌드 금지 지침 추가 (GEMINI.md 생성 및 AGENTS.md, README.md 보완).
 - **v1.17.7**: 레이트 리밋(Rate Limit) 문구 직관화. '실시간 사용 제한' 등 이해하기 쉬운 한국어 표현으로 개선.
 - **v1.17.6**: 게이지 의미 명확화 (사용량/잔량 요약 추가), Codex 초기화 시점 신뢰도 표시, Gemini 파싱 보완 및 안내 문구 정정.
 - **v1.17.5**: Codex 초기화 시간 폴백 표시 (로그에 없을 시 최초 활동 기준).
