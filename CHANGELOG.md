@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.20.1] - 2026-04-29
+
+<!-- ko -->
+### 개선
+- **버튼 hover 스타일 통일** — Toggle, Quit, Close(✕), Skip, LinkBtn 등 기본 WPF 반전이 발생하던 버튼들을 다크 테마에 맞는 hover 효과로 교체
+- **에러 표시 개선** — 데이터 없음/로드 실패 시 트레이 툴팁에 `Err` 대신 `—` 표시, 컨텍스트 메뉴도 다국어 "데이터 없음" 표현으로 변경
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Button hover style unification** — Replaced default WPF highlight on Toggle, Quit, Close (✕), Skip, and LinkBtn with dark-theme-consistent hover effects
+- **Error display improvement** — Changed tray tooltip from `Err` to `—` when data is unavailable; context menu now uses localized "No data" text
+<!-- /en -->
+
+---
+
 ## [1.20.0] - 2026-04-29
 
 <!-- ko -->
