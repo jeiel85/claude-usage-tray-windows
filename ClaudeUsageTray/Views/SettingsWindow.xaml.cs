@@ -102,6 +102,25 @@ public partial class SettingsWindow : Window, IDisposable
         LblPollingInterval.Text             = Loc.PollingInterval;
         LblLanguageSection.Text             = Loc.LanguageSection;
         LangItemSystem.Content              = Loc.LanguageSystem;
+        LblTrayDisplayMode.Text             = Loc.TrayDisplayMode;
+        LblDailyGoalGemini.Text             = Loc.DailyTokenGoal;
+        LblDailyGoalOpenCode.Text           = Loc.DailyTokenGoal;
+        ChkHideInactive.Content             = Loc.HideInactiveProviders;
+        TrayItemAuto.Content                = Loc.CurrentLang switch
+        {
+            "ko" => "자동",
+            "zh" => "自动",
+            "ja" => "自動",
+            _ => "Auto"
+        };
+        TabAlerts.Header = Loc.CurrentLang switch
+        {
+            "ko" => "알림",
+            "zh" => "提醒",
+            "ja" => "通知",
+            _ => "Alerts"
+        };
+        TabNtfy.Header = "ntfy";
     }
 
     private void LoadValues()
@@ -119,6 +138,20 @@ public partial class SettingsWindow : Window, IDisposable
         ChkStartWithWindows.IsChecked   = IsStartupEnabled();
         SliderPolling.Value = _vm.PollingIntervalMinutes > 0 ? _vm.PollingIntervalMinutes : 2;
         UpdatePollingLabel((int)SliderPolling.Value);
+        TxtGeminiGoal.Text = _vm.GeminiDailyTokenGoal.ToString();
+        TxtOpenCodeGoal.Text = _vm.OpenCodeDailyTokenGoal.ToString();
+        ChkHideInactive.IsChecked = _vm.HideInactiveProviders;
+
+        foreach (ComboBoxItem item in CmbTrayDisplayMode.Items)
+        {
+            if (item.Tag?.ToString() == _vm.TrayDisplayMode)
+            {
+                CmbTrayDisplayMode.SelectedItem = item;
+                break;
+            }
+        }
+        if (CmbTrayDisplayMode.SelectedItem == null)
+            CmbTrayDisplayMode.SelectedItem = TrayItemAuto;
 
         // Select the saved language
         var savedLang = _vm.SelectedLanguage ?? "system";
@@ -160,7 +193,7 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.HideInactiveProviders = ChkHideInactive.IsChecked == true;
 
         _vm.SaveSettingsCommand.Execute(null);
-        _vm.RefreshAsync(); 
+        _ = _vm.RefreshAsync();
     }
 
     private void TxtGoal_LostFocus(object sender, RoutedEventArgs e)
@@ -169,7 +202,7 @@ public partial class SettingsWindow : Window, IDisposable
         if (long.TryParse(TxtGeminiGoal.Text, out var gGoal)) _vm.GeminiDailyTokenGoal = gGoal;
         if (long.TryParse(TxtOpenCodeGoal.Text, out var oGoal)) _vm.OpenCodeDailyTokenGoal = oGoal;
         _vm.SaveSettingsCommand.Execute(null);
-        _vm.RefreshAsync();
+        _ = _vm.RefreshAsync();
     }
 
     private void NumberValidationTextBox(object sender, System.Windows.Input.TextCompositionEventArgs e)

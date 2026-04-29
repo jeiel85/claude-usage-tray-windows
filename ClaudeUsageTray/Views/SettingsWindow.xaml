@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Settings"
-        Width="320"
+        Width="360"
         SizeToContent="Height"
         WindowStyle="None"
         AllowsTransparency="True"
@@ -151,6 +151,52 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="DarkTabControl" TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TabPanel Grid.Row="0" Background="Transparent" Margin="0,0,0,8" IsItemsHost="True"/>
+                            <Border Grid.Row="1" Background="Transparent" BorderThickness="0">
+                                <ContentPresenter ContentSource="SelectedContent"/>
+                            </Border>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DarkTabItem" TargetType="TabItem">
+            <Setter Property="Foreground" Value="#8B92B3"/>
+            <Setter Property="Background" Value="#1A1D2E"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Margin" Value="0,0,6,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" ContentSource="Header"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#2D2F45"/>
+                                <Setter Property="Foreground" Value="#F1F5F9"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#2A2D40"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Border Margin="8">
@@ -204,249 +250,122 @@
                 </Border>
 
                 <!-- Content -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="560">
                 <StackPanel Margin="16,14,16,0">
 
                     <!-- General -->
-                    <TextBlock x:Name="LblGeneral" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
-                    <CheckBox x:Name="ChkEnabled"          Style="{StaticResource CheckStyle}" Click="Setting_Changed"/>
-                    <CheckBox x:Name="ChkRateLimit"        Style="{StaticResource CheckStyle}" Click="Setting_Changed"/>
-                    <CheckBox x:Name="ChkQuotaReset"       Style="{StaticResource CheckStyle}" Click="Setting_Changed"/>
-                    <CheckBox x:Name="ChkStartWithWindows" Style="{StaticResource CheckStyle}" Click="StartWithWindows_Changed"/>
-
-                    <!-- Polling Interval -->
-                    <StackPanel Orientation="Horizontal" Margin="0,6,0,4">
-                        <TextBlock x:Name="LblPollingInterval" Foreground="#C4C9E0" FontSize="12" VerticalAlignment="Center"/>
-                        <TextBlock x:Name="TxtPollingValue" Foreground="#A78BFA" FontSize="12" FontWeight="SemiBold"
-                                   VerticalAlignment="Center" Margin="8,0,0,0"/>
-                    </StackPanel>
-                    <Grid Margin="0,0,0,4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="1" Foreground="#5A5F7A" FontSize="10" VerticalAlignment="Center"/>
-                        <Slider x:Name="SliderPolling" Grid.Column="1"
-                                Minimum="1" Maximum="10" Value="2"
-                                TickFrequency="1" IsSnapToTickEnabled="True"
-                                Margin="8,0"
-                                ValueChanged="SliderPolling_ValueChanged">
-                            <Slider.Style>
-                                <Style TargetType="Slider">
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="Slider">
-                                                <Grid>
-                                                    <Border Background="#2D2F45" CornerRadius="3" Height="6"/>
-                                                    <Track x:Name="PART_Track">
-                                                        <Track.Thumb>
-                                                            <Thumb>
-                                                                <Thumb.Style>
-                                                                    <Style TargetType="Thumb">
-                                                                        <Setter Property="Width" Value="16"/>
-                                                                        <Setter Property="Height" Value="16"/>
-                                                                        <Setter Property="Template">
-                                                                            <Setter.Value>
-                                                                                <ControlTemplate TargetType="Thumb">
-                                                                                    <Ellipse Fill="#8B5CF6" Width="16" Height="16"/>
-                                                                                </ControlTemplate>
-                                                                            </Setter.Value>
-                                                                        </Setter>
-                                                                    </Style>
-                                                                </Thumb.Style>
-                                                            </Thumb>
-                                                        </Track.Thumb>
-                                                    </Track>
-                                                </Grid>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </Slider.Style>
-                        </Slider>
-                        <TextBlock Grid.Column="2" Text="10" Foreground="#5A5F7A" FontSize="10" VerticalAlignment="Center"/>
-                    </Grid>
-
-                    <!-- Tray & Providers -->
-                    <Border Height="1" Background="#2D2F45" Margin="0,8,0,14"/>
-                    <TextBlock x:Name="LblTrayDisplayMode" Style="{StaticResource SectionLabel}" Margin="0,0,0,8"/>
-                    <ComboBox x:Name="CmbTrayDisplayMode" Style="{StaticResource DarkCombo}"
-                              Margin="0,0,0,10" SelectionChanged="Setting_Changed">
-                        <ComboBoxItem x:Name="TrayItemAuto"      Tag="auto"/>
-                        <ComboBoxItem Content="Claude"         Tag="claude"/>
-                        <ComboBoxItem Content="Codex"          Tag="codex"/>
-                        <ComboBoxItem Content="Gemini CLI"     Tag="gemini-cli"/>
-                        <ComboBoxItem Content="OpenCode"       Tag="opencode"/>
-                    </ComboBox>
-
-                    <CheckBox x:Name="ChkHideInactive" Style="{StaticResource CheckStyle}" 
-                              Margin="0,0,0,10" Click="Setting_Changed"/>
-
-                    <!-- Gemini Goal -->
-                    <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
-                        <TextBlock Text="Gemini " Foreground="#C4C9E0" FontSize="11"/>
-                        <TextBlock x:Name="LblDailyGoalGemini" Foreground="#8B92B3" FontSize="11"/>
-                    </StackPanel>
-                    <TextBox x:Name="TxtGeminiGoal" Margin="0,0,0,10"
-                             Background="#1A1D2E" Foreground="#F1F5F9"
-                             BorderBrush="#2D2F45" BorderThickness="1"
-                             Padding="10,6" FontSize="12"
-                             LostFocus="TxtGoal_LostFocus"
-                             PreviewTextInput="NumberValidationTextBox">
-                        <TextBox.Style>
-                            <Style TargetType="TextBox">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="TextBox">
-                                            <Border Background="{TemplateBinding Background}"
-                                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                                    BorderThickness="{TemplateBinding BorderThickness}"
-                                                    CornerRadius="8" Padding="{TemplateBinding Padding}">
-                                                <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"/>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsFocused" Value="True">
-                                                    <Setter Property="BorderBrush" Value="#8B5CF6"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </TextBox.Style>
-                    </TextBox>
-
-                    <!-- OpenCode Goal -->
-                    <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
-                        <TextBlock Text="OpenCode " Foreground="#C4C9E0" FontSize="11"/>
-                        <TextBlock x:Name="LblDailyGoalOpenCode" Foreground="#8B92B3" FontSize="11"/>
-                    </StackPanel>
-                    <TextBox x:Name="TxtOpenCodeGoal" Margin="0,0,0,14"
-                             Background="#1A1D2E" Foreground="#F1F5F9"
-                             BorderBrush="#2D2F45" BorderThickness="1"
-                             Padding="10,6" FontSize="12"
-                             LostFocus="TxtGoal_LostFocus"
-                             PreviewTextInput="NumberValidationTextBox">
-                        <TextBox.Style>
-                            <Style TargetType="TextBox">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="TextBox">
-                                            <Border Background="{TemplateBinding Background}"
-                                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                                    BorderThickness="{TemplateBinding BorderThickness}"
-                                                    CornerRadius="8" Padding="{TemplateBinding Padding}">
-                                                <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"/>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsFocused" Value="True">
-                                                    <Setter Property="BorderBrush" Value="#8B5CF6"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </TextBox.Style>
-                    </TextBox>
-
-                    <!-- Language -->
-                    <Border Height="1" Background="#2D2F45" Margin="0,0,0,14"/>
-                    <TextBlock x:Name="LblLanguageSection" Style="{StaticResource SectionLabel}" Margin="0,0,0,8"/>
-                    <ComboBox x:Name="CmbLanguage" Style="{StaticResource DarkCombo}"
-                              Margin="0,0,0,14" SelectionChanged="CmbLanguage_SelectionChanged">
-                        <ComboBoxItem x:Name="LangItemSystem"  Tag="system"/>
-                        <ComboBoxItem Content="한국어"           Tag="ko"/>
-                        <ComboBoxItem Content="English"        Tag="en"/>
-                        <ComboBoxItem Content="中文"            Tag="zh"/>
-                        <ComboBoxItem Content="日本語"          Tag="ja"/>
-                    </ComboBox>
-
-                    <Button x:Name="BtnTestNotification" Style="{StaticResource LinkBtn}"
-                            Margin="0,2,0,2" Click="BtnTestNotification_Click"/>
-                    <TextBlock x:Name="LblTestNotificationHint" Foreground="#5A5F7A" FontSize="10" Margin="0,0,0,6"/>
-
-                    <!-- Thresholds -->
-                    <Border Height="1" Background="#2D2F45" Margin="0,8,0,14"/>
-                    <TextBlock x:Name="LblThresholds" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
-                    <WrapPanel>
-                        <CheckBox x:Name="Chk50"  Content="50%"  Style="{StaticResource CheckStyle}" Margin="0,0,14,6" Click="Setting_Changed"/>
-                        <CheckBox x:Name="Chk75"  Content="75%"  Style="{StaticResource CheckStyle}" Margin="0,0,14,6" Click="Setting_Changed"/>
-                        <CheckBox x:Name="Chk90"  Content="90%"  Style="{StaticResource CheckStyle}" Margin="0,0,14,6" Click="Setting_Changed"/>
-                        <CheckBox x:Name="Chk100" Content="100%" Style="{StaticResource CheckStyle}" Margin="0,0,0,6"  Click="Setting_Changed"/>
-                    </WrapPanel>
-
-                    <!-- ntfy divider -->
-                    <Border Height="1" Background="#2D2F45" Margin="0,8,0,14"/>
-
-                    <!-- ntfy header -->
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                        <TextBlock Text="📱  " FontSize="13"/>
-                        <TextBlock x:Name="LblNtfyTitle" Foreground="#F1F5F9"
-                                   FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    </StackPanel>
-
-                    <!-- ntfy description -->
-                    <Border Background="#1A1D2E" CornerRadius="10" Padding="12,10" Margin="0,0,0,10">
+                    <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,10">
                         <StackPanel>
-                            <TextBlock x:Name="LblNtfyDesc" Foreground="#8B92B3" FontSize="11"
-                                       TextWrapping="Wrap" LineHeight="18" Margin="0,0,0,8"/>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
-                                <TextBlock Text="① " Foreground="#8B92B3" FontSize="11"/>
-                                <Button x:Name="BtnNtfyDownload" Style="{StaticResource LinkBtn}"
-                                        Click="BtnNtfyDownload_Click"/>
+                            <TextBlock x:Name="LblGeneral" Style="{StaticResource SectionLabel}" Margin="0,0,0,8"/>
+                            <CheckBox x:Name="ChkEnabled" Style="{StaticResource CheckStyle}" Click="Setting_Changed"/>
+                            <CheckBox x:Name="ChkStartWithWindows" Style="{StaticResource CheckStyle}" Click="StartWithWindows_Changed"/>
+                            <TextBlock x:Name="LblLanguageSection" Style="{StaticResource SectionLabel}" Margin="0,6,0,6"/>
+                            <ComboBox x:Name="CmbLanguage" Style="{StaticResource DarkCombo}" Margin="0,0,0,8" SelectionChanged="CmbLanguage_SelectionChanged">
+                                <ComboBoxItem x:Name="LangItemSystem" Tag="system"/>
+                                <ComboBoxItem Content="한국어" Tag="ko"/>
+                                <ComboBoxItem Content="English" Tag="en"/>
+                                <ComboBoxItem Content="中文" Tag="zh"/>
+                                <ComboBoxItem Content="日本語" Tag="ja"/>
+                            </ComboBox>
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+                                <TextBlock x:Name="LblPollingInterval" Foreground="#C4C9E0" FontSize="12" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="TxtPollingValue" Foreground="#A78BFA" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0,0,0"/>
                             </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
-                                <TextBlock x:Name="LblStep2" Foreground="#8B92B3" FontSize="11" TextWrapping="Wrap"/>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                <TextBlock x:Name="LblStep3" Foreground="#8B92B3" FontSize="11" TextWrapping="Wrap"/>
-                            </StackPanel>
+                            <Grid Margin="0,0,0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="1" Foreground="#5A5F7A" FontSize="10" VerticalAlignment="Center"/>
+                                <Slider x:Name="SliderPolling" Grid.Column="1" Minimum="1" Maximum="10" Value="2" TickFrequency="1" IsSnapToTickEnabled="True" Margin="8,0" ValueChanged="SliderPolling_ValueChanged"/>
+                                <TextBlock Grid.Column="2" Text="10" Foreground="#5A5F7A" FontSize="10" VerticalAlignment="Center"/>
+                            </Grid>
                         </StackPanel>
                     </Border>
 
-                    <!-- ntfy topic input -->
-                    <TextBlock x:Name="LblNtfyTopic" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
-                    <TextBox x:Name="TxtNtfyTopic"
-                             Background="#1A1D2E" Foreground="#F1F5F9"
-                             BorderBrush="#2D2F45" BorderThickness="1"
-                             Padding="10,7" FontSize="12"
-                             LostFocus="TxtNtfyTopic_LostFocus"
-                             KeyDown="TxtNtfyTopic_KeyDown">
-                        <TextBox.Style>
-                            <Style TargetType="TextBox">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="TextBox">
-                                            <Border Background="{TemplateBinding Background}"
-                                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                                    BorderThickness="{TemplateBinding BorderThickness}"
-                                                    CornerRadius="8" Padding="{TemplateBinding Padding}">
-                                                <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"/>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsFocused" Value="True">
-                                                    <Setter Property="BorderBrush" Value="#8B5CF6"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </TextBox.Style>
-                    </TextBox>
-                    <TextBlock x:Name="LblNtfySecurityWarning" Foreground="#FCD34D" FontSize="10"
-                               TextWrapping="Wrap" Margin="2,4,0,2"
-                               Visibility="Collapsed"/>
-                    <TextBlock x:Name="LblNtfyHint" Foreground="#5A5F7A" FontSize="10" Margin="2,2,0,10"/>
+                    <!-- Tray -->
+                    <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock x:Name="LblTrayDisplayMode" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
+                            <ComboBox x:Name="CmbTrayDisplayMode" Style="{StaticResource DarkCombo}" Margin="0,0,0,8" SelectionChanged="Setting_Changed">
+                                <ComboBoxItem x:Name="TrayItemAuto" Tag="auto"/>
+                                <ComboBoxItem Content="Claude" Tag="claude"/>
+                                <ComboBoxItem Content="Codex" Tag="codex"/>
+                                <ComboBoxItem Content="Gemini CLI" Tag="gemini-cli"/>
+                                <ComboBoxItem Content="OpenCode" Tag="opencode"/>
+                            </ComboBox>
+                            <CheckBox x:Name="ChkHideInactive" Style="{StaticResource CheckStyle}" Margin="0,0,0,8" Click="Setting_Changed"/>
+                            <Grid Margin="0,2,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="100"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="Gemini " Foreground="#C4C9E0" FontSize="11"/>
+                                    <TextBlock x:Name="LblDailyGoalGemini" Foreground="#8B92B3" FontSize="11"/>
+                                </StackPanel>
+                                <TextBox x:Name="TxtGeminiGoal" Grid.Column="1" Background="#1A1D2E" Foreground="#F1F5F9" BorderBrush="#2D2F45" BorderThickness="1" Padding="8,5" FontSize="12" LostFocus="TxtGoal_LostFocus" PreviewTextInput="NumberValidationTextBox"/>
+                            </Grid>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="100"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="OpenCode " Foreground="#C4C9E0" FontSize="11"/>
+                                    <TextBlock x:Name="LblDailyGoalOpenCode" Foreground="#8B92B3" FontSize="11"/>
+                                </StackPanel>
+                                <TextBox x:Name="TxtOpenCodeGoal" Grid.Column="1" Background="#1A1D2E" Foreground="#F1F5F9" BorderBrush="#2D2F45" BorderThickness="1" Padding="8,5" FontSize="12" LostFocus="TxtGoal_LostFocus" PreviewTextInput="NumberValidationTextBox"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
 
-                    <!-- ntfy 중복 발송 방지 -->
-                    <CheckBox x:Name="ChkNtfySendFromThisPc" Style="{StaticResource CheckStyle}"
-                              Margin="0,0,0,2" Click="Setting_Changed"/>
-                    <TextBlock x:Name="LblNtfySendFromThisPcHint" Foreground="#5A5F7A" FontSize="10"
-                               TextWrapping="Wrap" Margin="2,0,0,14"/>
+                    <TabControl Style="{StaticResource DarkTabControl}" Margin="0,0,0,8">
+                        <TabItem x:Name="TabAlerts" Header="Alerts" Style="{StaticResource DarkTabItem}">
+                            <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="12">
+                                <StackPanel>
+                                    <TextBlock x:Name="LblThresholds" Style="{StaticResource SectionLabel}" Margin="0,0,0,8"/>
+                                    <CheckBox x:Name="ChkRateLimit" Style="{StaticResource CheckStyle}" Click="Setting_Changed"/>
+                                    <CheckBox x:Name="ChkQuotaReset" Style="{StaticResource CheckStyle}" Click="Setting_Changed"/>
+                                    <WrapPanel Margin="0,2,0,4">
+                                        <CheckBox x:Name="Chk50" Content="50%" Style="{StaticResource CheckStyle}" Margin="0,0,14,4" Click="Setting_Changed"/>
+                                        <CheckBox x:Name="Chk75" Content="75%" Style="{StaticResource CheckStyle}" Margin="0,0,14,4" Click="Setting_Changed"/>
+                                        <CheckBox x:Name="Chk90" Content="90%" Style="{StaticResource CheckStyle}" Margin="0,0,14,4" Click="Setting_Changed"/>
+                                        <CheckBox x:Name="Chk100" Content="100%" Style="{StaticResource CheckStyle}" Margin="0,0,0,4" Click="Setting_Changed"/>
+                                    </WrapPanel>
+                                    <Button x:Name="BtnTestNotification" Style="{StaticResource LinkBtn}" Margin="0,2,0,2" Click="BtnTestNotification_Click"/>
+                                    <TextBlock x:Name="LblTestNotificationHint" Foreground="#5A5F7A" FontSize="10" Margin="0,0,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </TabItem>
+                        <TabItem x:Name="TabNtfy" Header="ntfy" Style="{StaticResource DarkTabItem}">
+                            <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="12">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                        <TextBlock Text="📱  " FontSize="13"/>
+                                        <TextBlock x:Name="LblNtfyTitle" Foreground="#F1F5F9" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="LblNtfyDesc" Foreground="#8B92B3" FontSize="11" TextWrapping="Wrap" LineHeight="18" Margin="0,0,0,6"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                                        <TextBlock Text="① " Foreground="#8B92B3" FontSize="11"/>
+                                        <Button x:Name="BtnNtfyDownload" Style="{StaticResource LinkBtn}" Click="BtnNtfyDownload_Click"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="LblStep2" Foreground="#8B92B3" FontSize="11" TextWrapping="Wrap" Margin="0,1,0,1"/>
+                                    <TextBlock x:Name="LblStep3" Foreground="#8B92B3" FontSize="11" TextWrapping="Wrap" Margin="0,1,0,8"/>
+                                    <TextBlock x:Name="LblNtfyTopic" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
+                                    <TextBox x:Name="TxtNtfyTopic" Background="#1A1D2E" Foreground="#F1F5F9" BorderBrush="#2D2F45" BorderThickness="1" Padding="10,7" FontSize="12" LostFocus="TxtNtfyTopic_LostFocus" KeyDown="TxtNtfyTopic_KeyDown"/>
+                                    <TextBlock x:Name="LblNtfySecurityWarning" Foreground="#FCD34D" FontSize="10" TextWrapping="Wrap" Margin="2,4,0,2" Visibility="Collapsed"/>
+                                    <TextBlock x:Name="LblNtfyHint" Foreground="#5A5F7A" FontSize="10" Margin="2,2,0,8"/>
+                                    <CheckBox x:Name="ChkNtfySendFromThisPc" Style="{StaticResource CheckStyle}" Margin="0,0,0,2" Click="Setting_Changed"/>
+                                    <TextBlock x:Name="LblNtfySendFromThisPcHint" Foreground="#5A5F7A" FontSize="10" TextWrapping="Wrap" Margin="2,0,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </TabItem>
+                    </TabControl>
 
                 </StackPanel>
+                </ScrollViewer>
 
                 <!-- Disclaimer -->
                 <TextBlock x:Name="LblDisclaimer" Margin="16,4,16,14" TextWrapping="Wrap" FontSize="10" Foreground="#3D4266"/>
