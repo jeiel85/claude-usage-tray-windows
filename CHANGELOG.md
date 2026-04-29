@@ -3,6 +3,26 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.21.2] - 2026-04-29
+
+<!-- ko -->
+### 개선
+- **설정 UI 재정렬** — 설정 창을 기능별 카드로 재배치하고 스크롤 구조를 정리해 긴 화면에서 가독성을 개선
+- **알림/ntfy 탭 분리** — 알림과 ntfy 설정을 탭으로 분리해 한 화면 내 정보 밀도를 낮추고 탐색성을 향상
+- **탭 다국어 적용** — 설정 탭 헤더(알림)를 언어 설정에 따라 동적으로 표시
+- **경고 제거** — `SettingsWindow.xaml.cs`의 미대기 비동기 호출 경고(CS4014) 제거
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Settings UI reorganization** — Reworked the settings window into feature-based cards with cleaner scrolling behavior
+- **Alerts/ntfy tab split** — Separated alert and ntfy options into tabs for better readability and navigation
+- **Localized tab header** — Made the settings tab header (Alerts) language-aware
+- **Warning cleanup** — Removed unawaited async call warnings (CS4014) in `SettingsWindow.xaml.cs`
+<!-- /en -->
+
+---
+
 ## [1.21.1] - 2026-04-29
 
 <!-- ko -->
