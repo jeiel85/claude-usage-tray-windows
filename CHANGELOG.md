@@ -8,11 +8,19 @@
 <!-- ko -->
 ### 신규
 - **언어 선택 설정 추가** — 설정 창에 다크 테마 드롭다운으로 언어 선택 UI 추가 (시스템 언어 / 한국어 / English / 中文 / 日本語), 선택 즉시 전체 UI에 반영
+
+### 개선
+- **버튼 hover 스타일 통일** — Toggle, Quit, Close(✕), Skip, LinkBtn 등 기본 WPF 반전이 발생하던 버튼들을 다크 테마에 맞는 hover 효과로 교체
+- **에러 표시 개선** — 데이터가 없거나 로드 실패 시 트레이 툴팁에 `Err` 대신 `—`로 표시, 컨텍스트 메뉴도 다국어 "데이터 없음" 표현으로 변경
 <!-- /ko -->
 
 <!-- en -->
 ### Added
 - **Language Selection in Settings** — Added a dark-themed dropdown in the Settings window for language selection (System / 한국어 / English / 中文 / 日本語); changes apply instantly to the entire UI
+
+### Improved
+- **Button hover style unification** — Replaced default WPF highlight on Toggle, Quit, Close (✕), Skip, and LinkBtn with dark-theme-consistent hover effects
+- **Error display improvement** — Changed tray tooltip from `Err` to `—` when data is unavailable; context menu now uses localized "No data" text
 <!-- /en -->
 
 ---
