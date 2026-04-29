@@ -94,10 +94,10 @@ public static class Loc
 
     public static string ProviderGeminiCliNote => Lang switch
     {
-        "ko" => "Gemini Code Assist / CLI 기준 · Gemini Apps 전체 사용량 아님",
-        "zh" => "基于 Gemini Code Assist / CLI · 不代表整个 Gemini Apps 用量",
-        "ja" => "Gemini Code Assist / CLI 基準 · Gemini Apps 全体の使用量ではありません",
-        _ => "Based on Gemini Code Assist / CLI quotas, not full Gemini Apps usage"
+        "ko" => "Gemini CLI 로컬 기준 · 공식 수치 아님",
+        "zh" => "Gemini CLI 本地基准 · 非官方数据",
+        "ja" => "Gemini CLI ローカル基準 · 公式数値ではありません",
+        _ => "Gemini CLI local logs · not official quota"
     };
 
     // Header
