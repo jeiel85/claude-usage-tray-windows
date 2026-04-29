@@ -21,7 +21,7 @@ public class OpenCodeUsageMonitor
         _dbPath = dbPath;
     }
 
-    public ProviderUsageSnapshot GetTodaySnapshot()
+    public ProviderUsageSnapshot GetTodaySnapshot(long dailyTokenGoal = 100000)
     {
         var snapshot = new ProviderUsageSnapshot();
 
@@ -102,6 +102,12 @@ public class OpenCodeUsageMonitor
             snapshot.HourlyTokens = hourlyTokens;
             snapshot.HasData      = requestCount > 0;
             snapshot.ErrorMessage = requestCount == 0 ? Loc.OpenCodeNoUsageToday : null;
+            
+            // 일일 목표량 기준 퍼센트 계산
+            snapshot.ShortUsagePercent = dailyTokenGoal > 0 
+                ? Math.Min(1.0, (double)totalOutputTokens / dailyTokenGoal) 
+                : 0;
+            snapshot.PlanType = "Local";
         }
         catch (Exception ex)
         {

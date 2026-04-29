@@ -267,8 +267,91 @@
                         <TextBlock Grid.Column="2" Text="10" Foreground="#5A5F7A" FontSize="10" VerticalAlignment="Center"/>
                     </Grid>
 
-                    <!-- Language -->
+                    <!-- Tray & Providers -->
                     <Border Height="1" Background="#2D2F45" Margin="0,8,0,14"/>
+                    <TextBlock x:Name="LblTrayDisplayMode" Style="{StaticResource SectionLabel}" Margin="0,0,0,8"/>
+                    <ComboBox x:Name="CmbTrayDisplayMode" Style="{StaticResource DarkCombo}"
+                              Margin="0,0,0,10" SelectionChanged="Setting_Changed">
+                        <ComboBoxItem x:Name="TrayItemAuto"      Tag="auto"/>
+                        <ComboBoxItem Content="Claude"         Tag="claude"/>
+                        <ComboBoxItem Content="Codex"          Tag="codex"/>
+                        <ComboBoxItem Content="Gemini CLI"     Tag="gemini-cli"/>
+                        <ComboBoxItem Content="OpenCode"       Tag="opencode"/>
+                    </ComboBox>
+
+                    <CheckBox x:Name="ChkHideInactive" Style="{StaticResource CheckStyle}" 
+                              Margin="0,0,0,10" Click="Setting_Changed"/>
+
+                    <!-- Gemini Goal -->
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+                        <TextBlock Text="Gemini " Foreground="#C4C9E0" FontSize="11"/>
+                        <TextBlock x:Name="LblDailyGoalGemini" Foreground="#8B92B3" FontSize="11"/>
+                    </StackPanel>
+                    <TextBox x:Name="TxtGeminiGoal" Margin="0,0,0,10"
+                             Background="#1A1D2E" Foreground="#F1F5F9"
+                             BorderBrush="#2D2F45" BorderThickness="1"
+                             Padding="10,6" FontSize="12"
+                             LostFocus="TxtGoal_LostFocus"
+                             PreviewTextInput="NumberValidationTextBox">
+                        <TextBox.Style>
+                            <Style TargetType="TextBox">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="TextBox">
+                                            <Border Background="{TemplateBinding Background}"
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                                    CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                                <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsFocused" Value="True">
+                                                    <Setter Property="BorderBrush" Value="#8B5CF6"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </TextBox.Style>
+                    </TextBox>
+
+                    <!-- OpenCode Goal -->
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+                        <TextBlock Text="OpenCode " Foreground="#C4C9E0" FontSize="11"/>
+                        <TextBlock x:Name="LblDailyGoalOpenCode" Foreground="#8B92B3" FontSize="11"/>
+                    </StackPanel>
+                    <TextBox x:Name="TxtOpenCodeGoal" Margin="0,0,0,14"
+                             Background="#1A1D2E" Foreground="#F1F5F9"
+                             BorderBrush="#2D2F45" BorderThickness="1"
+                             Padding="10,6" FontSize="12"
+                             LostFocus="TxtGoal_LostFocus"
+                             PreviewTextInput="NumberValidationTextBox">
+                        <TextBox.Style>
+                            <Style TargetType="TextBox">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="TextBox">
+                                            <Border Background="{TemplateBinding Background}"
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                                    CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                                <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsFocused" Value="True">
+                                                    <Setter Property="BorderBrush" Value="#8B5CF6"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </TextBox.Style>
+                    </TextBox>
+
+                    <!-- Language -->
+                    <Border Height="1" Background="#2D2F45" Margin="0,0,0,14"/>
                     <TextBlock x:Name="LblLanguageSection" Style="{StaticResource SectionLabel}" Margin="0,0,0,8"/>
                     <ComboBox x:Name="CmbLanguage" Style="{StaticResource DarkCombo}"
                               Margin="0,0,0,14" SelectionChanged="CmbLanguage_SelectionChanged">

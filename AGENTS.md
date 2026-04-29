@@ -82,6 +82,7 @@ git fetch origin && git pull origin master && git status
 ## 📜 최근 변경 이력 요약
 *상세 내용은 [CHANGELOG.md](./CHANGELOG.md) 참조*
 
+- **2026-04-29**: 에이전트용 로컬 빌드 금지 지침 추가 (GEMINI.md 생성 및 AGENTS.md, README.md 보완).
 - **v1.17.7**: 레이트 리밋(Rate Limit) 문구 직관화. '실시간 사용 제한' 등 이해하기 쉬운 한국어 표현으로 개선.
 - **v1.17.6**: 게이지 의미 명확화 (사용량/잔량 요약 추가), Codex 초기화 시점 신뢰도 표시, Gemini 파싱 보완 및 안내 문구 정정.
 - **v1.17.5**: Codex 초기화 시간 폴백 표시 (로그에 없을 시 최초 활동 기준).

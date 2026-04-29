@@ -172,12 +172,7 @@ public partial class App : Application
 
     private void OnVmIconPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {
-        if (args.PropertyName is nameof(MainViewModel.ClaudeShortPercent)
-                              or nameof(MainViewModel.CodexPercent)
-                              or nameof(MainViewModel.GeminiRequestsLabel)
-                              or nameof(MainViewModel.GeminiOutputTokensLabel)
-                              or nameof(MainViewModel.OpenCodeRequestCountLabel)
-                              or nameof(MainViewModel.OpenCodeOutputLabel)
+        if (args.PropertyName is nameof(MainViewModel.TrayUsagePercent)
                               or nameof(MainViewModel.ClaudeHasError)
                               or nameof(MainViewModel.CodexHasError)
                               or nameof(MainViewModel.GeminiHasError)
@@ -189,9 +184,20 @@ public partial class App : Application
             {
                 if (_vm is null || _trayIcon is null) return;
 
-                // Tray gauge always reflects Claude 5h usage (primary provider)
+                // Tray gauge reflects the selected or auto-prioritized provider
                 var oldIcon = _trayIcon.Icon;
-                _trayIcon.Icon = _vm.ClaudeHasError ? DrawTrayIcon(-1) : DrawTrayIcon(_vm.ClaudeShortPercent);
+                
+                // Determine if the current active provider has an error
+                bool currentHasError = _vm.TrayDisplayMode switch
+                {
+                    UsageProviderKind.Claude => _vm.ClaudeHasError,
+                    UsageProviderKind.Codex => _vm.CodexHasError,
+                    UsageProviderKind.GeminiCli => _vm.GeminiHasError,
+                    UsageProviderKind.OpenCode => _vm.OpenCodeHasError,
+                    _ => _vm.ClaudeHasError && _vm.CodexHasError && _vm.GeminiHasError && _vm.OpenCodeHasError // Auto mode: only error if all fail
+                };
+
+                _trayIcon.Icon = currentHasError ? DrawTrayIcon(-1) : DrawTrayIcon(_vm.TrayUsagePercent);
                 oldIcon?.Dispose();
 
                 // Multi-provider summary in tooltip (token-based for Gemini/OpenCode)

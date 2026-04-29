@@ -13,7 +13,8 @@ public class ProviderUsageSnapshot
     public double LongUsagePercent { get; set; }
     public DateTimeOffset? LongResetAt { get; set; }
 
-    public string? PlanType { get; set; }
+    public string? PlanType { get; set; } // e.g. "Pro", "Plus", "Free"
+    public bool IsSubscriptionActive { get; set; } = true;
     public string? DataSource { get; set; }
 
     public long TotalInputTokens { get; set; }

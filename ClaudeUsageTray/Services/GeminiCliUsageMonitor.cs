@@ -22,7 +22,7 @@ public class GeminiCliUsageMonitor
         _sessionTmpPath = Path.Combine(_geminiDir, "tmp");
     }
 
-    public ProviderUsageSnapshot GetTodaySnapshot()
+    public ProviderUsageSnapshot GetTodaySnapshot(long dailyTokenGoal = 50000)
     {
         var snapshot = new ProviderUsageSnapshot();
 
@@ -48,6 +48,7 @@ public class GeminiCliUsageMonitor
         if (sessionFiles.Count == 0)
         {
             snapshot.ErrorMessage = Loc.GeminiCliNoUsageToday;
+            snapshot.IsSubscriptionActive = false;
             return snapshot;
         }
 
@@ -72,8 +73,14 @@ public class GeminiCliUsageMonitor
         snapshot.HourlyTokens = hourlyTokens;
         snapshot.HasData = totalRequests > 0;
         snapshot.IsLimited = false;
-        snapshot.ShortUsagePercent = 0;
+        
+        // 일일 목표량 기준 퍼센트 계산
+        snapshot.ShortUsagePercent = dailyTokenGoal > 0 
+            ? Math.Min(1.0, (double)totalOutputTokens / dailyTokenGoal) 
+            : 0;
+            
         snapshot.ErrorMessage = totalRequests > 0 ? Loc.GeminiCliEstimateOnly : Loc.GeminiCliNoUsageToday;
+        snapshot.PlanType = "CLI"; // 임시 플랜명
 
         return snapshot;
     }

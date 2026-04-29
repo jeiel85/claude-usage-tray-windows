@@ -73,6 +73,7 @@ public class CodexUsageMonitor
                 LongResetAt = ReadReset(rateLimitsEl, "secondary"),
                 PlanType = rateLimitsEl.TryGetProperty("plan_type", out var planEl) ? planEl.GetString() : null
             };
+            snapshot.IsSubscriptionActive = snapshot.PlanType is "Plus" or "Team" or "Enterprise";
 
             return snapshot;
         }
@@ -263,5 +264,7 @@ public class CodexUsageMonitor
             OutputTokens - other.OutputTokens,
             ReasoningOutputTokens - other.ReasoningOutputTokens,
             TotalTokens - other.TotalTokens);
+    }
+}
     }
 }

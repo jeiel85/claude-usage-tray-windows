@@ -559,6 +559,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             {
                 // 공통 정보 업데이트
                 UpdateOverallStatus();
+                OnPropertyChanged(nameof(TrayUsagePercent));
                 
                 LastUpdatedLabel = (ClaudeHasError || CodexHasError || GeminiHasError || OpenCodeHasError)
                     ? $"⚠ {DateTime.Now:HH:mm:ss}"
@@ -1092,6 +1093,50 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         var depletionAt = DateTimeOffset.Now.AddDays(daysToFull).ToLocalTime();
         var timeStr = daysToFull < 1
+            ? depletionAt.ToString("HH:mm")
+            : depletionAt.ToString("M/d HH:mm");
+        return Loc.DepletionAt(timeStr);
+    }
+
+    private static string FormatTokenShort(long tokens) =>
+        tokens >= 1_000_000 ? $"{tokens / 1_000_000.0:F1}M" :
+        tokens >= 1_000     ? $"{tokens / 1_000.0:F1}K" :
+        tokens.ToString();
+
+    private static string CalcCostLabel(long input, long output, long cacheRead, long cacheWrite)
+    {
+        // Sonnet 3.5/3.7 API 가격 기준 참고값 (Claude Code는 구독제이므로 실제 과금 아님)
+        var cost = input * 3e-6
+                 + output * 15e-6
+                 + cacheRead * 0.3e-6
+                 + cacheWrite * 3.75e-6;
+        if (cost < 0.001) return "";
+        return Loc.CostEstimate(cost);
+    }
+
+    public void Dispose()
+    {
+        _credentials.CredentialsChanged -= OnCredentialsChanged;
+        _credentials.Dispose();
+        _timer.Dispose();
+        _countdownTimer.Dispose();
+        _updateTimer.Dispose();
+        GC.SuppressFinalize(this);
+    }
+}
+credentials.Dispose();
+        _timer.Dispose();
+        _countdownTimer.Dispose();
+        _updateTimer.Dispose();
+        GC.SuppressFinalize(this);
+    }
+}
+wnTimer.Dispose();
+        _updateTimer.Dispose();
+        GC.SuppressFinalize(this);
+    }
+}
+meStr = daysToFull < 1
             ? depletionAt.ToString("HH:mm")
             : depletionAt.ToString("M/d HH:mm");
         return Loc.DepletionAt(timeStr);

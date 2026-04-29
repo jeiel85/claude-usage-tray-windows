@@ -928,13 +928,46 @@ public static class Loc
         _ => "No OpenCode usage has been recorded today yet."
     };
 
-    public static string GeminiRequests => Lang switch
+    public static string GeminiRequests => CurrentLang switch
     {
-        "ko" => "요청",
-        "zh" => "请求",
-        "ja" => "リクエスト",
+        "ko" => "요청 횟수",
+        "zh" => "请求次数",
+        "ja" => "リクエスト数",
         _ => "Requests"
     };
+
+    public static string TrayDisplayMode => CurrentLang switch
+    {
+        "ko" => "트레이 표시 기준",
+        "zh" => "托盘显示标准",
+        "ja" => "トレイ表示基準",
+        _ => "Tray Display Base"
+    };
+
+    public static string DailyTokenGoal => CurrentLang switch
+    {
+        "ko" => "일일 목표 토큰 (출력)",
+        "zh" => "每日目标令牌 (输出)",
+        "ja" => "1日の目標トークン (出力)",
+        _ => "Daily Token Goal (Output)"
+    };
+
+    public static string HideInactiveProviders => CurrentLang switch
+    {
+        "ko" => "데이터 없는 공급자 숨기기",
+        "zh" => "隐藏无数据的供应商",
+        "ja" => "データのないプロバイダー를 숨기기",
+        _ => "Hide inactive providers"
+    };
+
+    public static string SubscriptionExpired => CurrentLang switch
+    {
+        "ko" => "구독 만료",
+        "zh" => "订阅已过期",
+        "ja" => "サブスクリプション期限切れ",
+        _ => "Sub Expired"
+    };
+
 
     private static string FormatTokenShort(long tokens) =>
 

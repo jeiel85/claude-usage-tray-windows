@@ -102,6 +102,11 @@ public partial class SettingsWindow : Window, IDisposable
         LblPollingInterval.Text             = Loc.PollingInterval;
         LblLanguageSection.Text             = Loc.LanguageSection;
         LangItemSystem.Content              = Loc.LanguageSystem;
+        LblTrayDisplayMode.Text             = Loc.TrayDisplayMode;
+        TrayItemAuto.Content                = "Auto";
+        ChkHideInactive.Content             = Loc.HideInactiveProviders;
+        LblDailyGoalGemini.Text             = Loc.DailyTokenGoal;
+        LblDailyGoalOpenCode.Text           = Loc.DailyTokenGoal;
     }
 
     private void LoadValues()
@@ -119,6 +124,23 @@ public partial class SettingsWindow : Window, IDisposable
         ChkStartWithWindows.IsChecked   = IsStartupEnabled();
         SliderPolling.Value = _vm.PollingIntervalMinutes > 0 ? _vm.PollingIntervalMinutes : 2;
         UpdatePollingLabel((int)SliderPolling.Value);
+
+        // Tray Mode
+        var savedMode = _vm.TrayDisplayMode ?? UsageProviderKind.Auto;
+        foreach (ComboBoxItem item in CmbTrayDisplayMode.Items)
+        {
+            if (item.Tag?.ToString() == savedMode)
+            {
+                CmbTrayDisplayMode.SelectedItem = item;
+                break;
+            }
+        }
+        if (CmbTrayDisplayMode.SelectedItem == null)
+            CmbTrayDisplayMode.SelectedItem = TrayItemAuto;
+
+        ChkHideInactive.IsChecked = _vm.HideInactiveProviders;
+        TxtGeminiGoal.Text = _vm.GeminiDailyTokenGoal.ToString();
+        TxtOpenCodeGoal.Text = _vm.OpenCodeDailyTokenGoal.ToString();
 
         // Select the saved language
         var savedLang = _vm.SelectedLanguage ?? "system";
