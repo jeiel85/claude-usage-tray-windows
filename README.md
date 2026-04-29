@@ -87,7 +87,9 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode A
 
 [Releases 페이지](https://github.com/jeiel85/claude-usage-tray-windows/releases)에서 최신 `ClaudeUsageTray.exe` 다운로드 후 실행하세요.
 
-### 소스에서 빌드
+### 소스에서 빌드 (개발자용)
+
+> **주의:** 이 프로젝트는 GitHub Actions를 통해 자동 빌드됩니다. 에이전트나 자동화 도구는 로컬에서 빌드를 시도하지 마세요.
 
 ```bash
 git clone https://github.com/jeiel85/claude-usage-tray-windows

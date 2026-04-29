@@ -15,8 +15,13 @@ git fetch origin && git pull origin master && git status
 
 ## 📋 핵심 개발 규칙
 
-### 0. 이슈 기반 개발
-- **모든 개발/수정은 반드시 `README.md`의 이슈 섹션에 먼저 등록 후 시작한다.**
+### 0. 로컬 빌드 금지 (필독)
+- **로컬에서 `dotnet build` 또는 `dotnet run`을 실행하지 않는다.**
+- 빌드와 배포는 오직 **GitHub Actions**를 통해서만 수행한다.
+- 코드의 무결성은 테스트 코드 실행(`dotnet test`)과 GitHub Actions의 빌드 결과로 검증한다.
+
+### 1. 이슈 기반 개발
+- **모든 개발/수정은 반드시 GitHub Issue 에 먼저 등록 후 시작한다.**
 - **사용자가 제기한 작업 이슈는 `README.md` 등록과 함께 GitHub Issue도 반드시 생성하여 이력을 관리한다.**
 - 이슈 등록 시 분류(버그, 기능, 개선)와 목표를 명시한다.
 
