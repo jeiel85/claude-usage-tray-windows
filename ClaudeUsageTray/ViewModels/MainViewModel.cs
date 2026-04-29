@@ -111,6 +111,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _hasRateLimitHit = false;
     [ObservableProperty] private string _rateLimitInfo = "";
 
+    // Language
+    [ObservableProperty] private string _selectedLanguage = "system";
+
     // Notification settings
     [ObservableProperty] private bool _notificationsEnabled;
     [ObservableProperty] private bool _notifyRateLimit;
@@ -223,6 +226,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // 계정 전환 자동 감지: credentials 파일 변경 → 새로고침
         _credentials.CredentialsChanged += OnCredentialsChanged;
 
+        // 언어 변경 시 모든 바인딩 갱신
+        Loc.LanguageChanged += () =>
+            System.Windows.Application.Current.Dispatcher.Invoke(() => OnPropertyChanged(string.Empty));
+
         // _timer 초기화는 LoadSettings 이전에 필요 (ApplyPollingInterval에서 사용)
         _timer = new Timer(AppConstants.PollingIntervalMs); // 2 minutes — API has rate limits
         _timer.Elapsed += async (_, _) => await RefreshAsync();
@@ -263,6 +270,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         var s = _settingsService.Load();
         SelectedProvider = UsageProviderKind.IsValid(s.SelectedProvider) ? s.SelectedProvider : UsageProviderKind.Claude;
+        SelectedLanguage = s.Language ?? "system";
+        Loc.SetLanguage(SelectedLanguage);
         NotificationsEnabled = s.Enabled;
         NotifyRateLimit = s.NotifyOnRateLimit;
         NotifyOnQuotaReset = s.NotifyOnQuotaReset;
@@ -340,6 +349,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _settingsService.Save(new NotificationSettings
         {
             SelectedProvider = SelectedProvider,
+            Language = SelectedLanguage,
             Enabled = NotificationsEnabled,
             NotifyOnRateLimit = NotifyRateLimit,
             NotifyOnQuotaReset = NotifyOnQuotaReset,

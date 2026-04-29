@@ -4,18 +4,25 @@ namespace ClaudeUsageTray.Services;
 
 public static class Loc
 {
-    private static readonly string Lang;
+    private static string Lang;
+
+    public static event Action? LanguageChanged;
 
     static Loc()
     {
+        Lang = DetectSystemLang();
+    }
+
+    private static string DetectSystemLang()
+    {
         var culture = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.ToLowerInvariant();
-        Lang = culture switch
-        {
-            "ko" => "ko",
-            "zh" => "zh",
-            "ja" => "ja",
-            _ => "en"
-        };
+        return culture switch { "ko" => "ko", "zh" => "zh", "ja" => "ja", _ => "en" };
+    }
+
+    public static void SetLanguage(string langCode)
+    {
+        Lang = langCode == "system" ? DetectSystemLang() : langCode;
+        LanguageChanged?.Invoke();
     }
 
     public static string CurrentLang => Lang;
@@ -957,6 +964,23 @@ public static class Loc
         "zh" => $"更新下载失败: {msg}",
         "ja" => $"アップデートダウンロード失敗: {msg}",
         _ => $"Update download failed: {msg}"
+    };
+
+    // Language
+    public static string LanguageSection => Lang switch
+    {
+        "ko" => "언어",
+        "zh" => "语言",
+        "ja" => "言語",
+        _ => "Language"
+    };
+
+    public static string LanguageSystem => Lang switch
+    {
+        "ko" => "시스템 언어",
+        "zh" => "系统语言",
+        "ja" => "システム言語",
+        _ => "System Language"
     };
 
     // Polling interval

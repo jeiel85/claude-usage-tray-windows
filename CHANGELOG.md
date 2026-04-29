@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.20.0] - 2026-04-29
+
+<!-- ko -->
+### 신규
+- **언어 선택 설정 추가** — 설정 창에 다크 테마 드롭다운으로 언어 선택 UI 추가 (시스템 언어 / 한국어 / English / 中文 / 日本語), 선택 즉시 전체 UI에 반영
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Language Selection in Settings** — Added a dark-themed dropdown in the Settings window for language selection (System / 한국어 / English / 中文 / 日本語); changes apply instantly to the entire UI
+<!-- /en -->
+
+---
+
 ## [1.19.0] - 2026-04-29
 
 <!-- ko -->

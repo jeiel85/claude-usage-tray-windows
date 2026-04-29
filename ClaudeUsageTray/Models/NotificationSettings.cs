@@ -29,4 +29,7 @@ public class NotificationSettings
 
     // 이 PC에서 ntfy 발송 여부 (여러 PC 중복 방지용)
     public bool NtfySendFromThisPc { get; set; } = true;
+
+    // 표시 언어 ("system"=OS 따라가기, "ko", "en", "zh", "ja")
+    public string Language { get; set; } = "system";
 }

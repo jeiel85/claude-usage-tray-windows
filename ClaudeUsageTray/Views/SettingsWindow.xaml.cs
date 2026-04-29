@@ -24,8 +24,19 @@ public partial class SettingsWindow : Window, IDisposable
         Deactivated += (_, _) => Hide();
         PreviewKeyDown += OnPreviewKeyDown;
 
+        Loc.LanguageChanged += OnLanguageChanged;
+
         ApplyLocalization();
         LoadValues();
+    }
+
+    private void OnLanguageChanged()
+    {
+        Dispatcher.Invoke(() =>
+        {
+            ApplyLocalization();
+            LangItemSystem.Content = Loc.LanguageSystem;
+        });
     }
 
     private void OnPreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
@@ -89,6 +100,8 @@ public partial class SettingsWindow : Window, IDisposable
         LblNtfySendFromThisPcHint.Text     = Loc.NtfySendFromThisPcHint;
         LblDisclaimer.Text                  = _vm.DisclaimerText;
         LblPollingInterval.Text             = Loc.PollingInterval;
+        LblLanguageSection.Text             = Loc.LanguageSection;
+        LangItemSystem.Content              = Loc.LanguageSystem;
     }
 
     private void LoadValues()
@@ -106,6 +119,20 @@ public partial class SettingsWindow : Window, IDisposable
         ChkStartWithWindows.IsChecked   = IsStartupEnabled();
         SliderPolling.Value = _vm.PollingIntervalMinutes > 0 ? _vm.PollingIntervalMinutes : 2;
         UpdatePollingLabel((int)SliderPolling.Value);
+
+        // Select the saved language
+        var savedLang = _vm.SelectedLanguage ?? "system";
+        foreach (ComboBoxItem item in CmbLanguage.Items)
+        {
+            if (item.Tag?.ToString() == savedLang)
+            {
+                CmbLanguage.SelectedItem = item;
+                break;
+            }
+        }
+        if (CmbLanguage.SelectedItem == null)
+            CmbLanguage.SelectedItem = LangItemSystem;
+
         _isLoadingValues = false;
     }
 
@@ -217,6 +244,17 @@ public partial class SettingsWindow : Window, IDisposable
         Process.Start(new ProcessStartInfo("https://ntfy.sh") { UseShellExecute = true });
     }
 
+    private void CmbLanguage_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isLoadingValues) return;
+        if (CmbLanguage.SelectedItem is ComboBoxItem item && item.Tag?.ToString() is string langCode)
+        {
+            _vm.SelectedLanguage = langCode;
+            Loc.SetLanguage(langCode);
+            _vm.SaveSettingsCommand.Execute(null);
+        }
+    }
+
     private void CloseBtn_Click(object sender, RoutedEventArgs e) => Hide();
 
     private void SliderPolling_ValueChanged(object sender, System.Windows.RoutedPropertyChangedEventArgs<double> e)
@@ -256,7 +294,7 @@ public partial class SettingsWindow : Window, IDisposable
 
         if (disposing)
         {
-            // 정리할 리소스가 있으면 여기서 처리
+            Loc.LanguageChanged -= OnLanguageChanged;
         }
 
         _disposed = true;
