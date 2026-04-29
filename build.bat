@@ -1,4 +1,5 @@
 @echo off
+:: WARNING: 에이전트는 로컬 빌드를 수행하지 마세요. (GitHub Actions 사용)
 cd /d "%~dp0"
 
 echo Building Main App...
