@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.19.0] - 2026-04-29
+
+<!-- ko -->
+### 신규
+- **OpenCode 사용량 모니터링 추가** — `~/.local/share/opencode/opencode.db` SQLite DB를 읽어 오늘의 입력/출력 토큰을 팝업에 표시
+- **Gemini 표시 개선** — 팝업에서 Gemini 항목을 토큰 기반 stat box(요청 수 + 출력 토큰) 방식으로 통일하여 다른 에이전트와 일관된 경험 제공
+- **트레이 표시 수정** — Gemini가 `0%`로 표시되던 문제 수정, OpenCode 항목 추가, 툴팁에 OpenCode 토큰 표시
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **OpenCode Usage Monitoring** — Reads `~/.local/share/opencode/opencode.db` to display today's input/output tokens in the popup
+- **Gemini Display Improvement** — Replaced Gemini's popup section with token-based stat boxes (request count + output tokens) for a consistent experience across all providers
+- **Tray Display Fix** — Fixed Gemini always showing `0%`; added OpenCode entry; tooltip now shows OpenCode output tokens
+<!-- /en -->
+
+---
+
 ## [1.18.4] - 2026-04-28
 
 <!-- ko -->

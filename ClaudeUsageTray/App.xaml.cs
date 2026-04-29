@@ -19,6 +19,7 @@ public partial class App : Application
     private ToolStripMenuItem? _claudeStatusItem;
     private ToolStripMenuItem? _codexStatusItem;
     private ToolStripMenuItem? _geminiStatusItem;
+    private ToolStripMenuItem? _openCodeStatusItem;
     private ToolStripMenuItem? _nextRefreshItem;
 
     protected override async void OnStartup(StartupEventArgs e)
@@ -59,12 +60,13 @@ public partial class App : Application
         var sessionMonitor = new SessionMonitor();
         var codexMonitor = new CodexUsageMonitor();
         var geminiCliMonitor = new GeminiCliUsageMonitor();
+        var openCodeMonitor = new OpenCodeUsageMonitor();
         var notifier = new NotificationService(() => _trayIcon);
         var updater = new UpdateService();
         var history = new HistoryService();
 
         _vm = new MainViewModel(apiService, credService, sessionMonitor, codexMonitor, geminiCliMonitor,
-            notifier, settingsService, updater, history);
+            openCodeMonitor, notifier, settingsService, updater, history);
         _popup = new UsagePopup(_vm);
 
         _trayIcon = new NotifyIcon
@@ -79,14 +81,16 @@ public partial class App : Application
         var contextMenu = new ContextMenuStrip();
 
         // Provider status items (read-only)
-        _claudeStatusItem = new ToolStripMenuItem("Claude: ---") { Enabled = false };
-        _codexStatusItem = new ToolStripMenuItem("Codex: ---") { Enabled = false };
-        _geminiStatusItem = new ToolStripMenuItem("Gemini: ---") { Enabled = false };
-        _nextRefreshItem = new ToolStripMenuItem("Next refresh: --") { Enabled = false };
-        
+        _claudeStatusItem    = new ToolStripMenuItem("Claude: ---")   { Enabled = false };
+        _codexStatusItem     = new ToolStripMenuItem("Codex: ---")    { Enabled = false };
+        _geminiStatusItem    = new ToolStripMenuItem("Gemini: ---")   { Enabled = false };
+        _openCodeStatusItem  = new ToolStripMenuItem("OpenCode: ---") { Enabled = false };
+        _nextRefreshItem     = new ToolStripMenuItem("Next refresh: --") { Enabled = false };
+
         contextMenu.Items.Add(_claudeStatusItem);
         contextMenu.Items.Add(_codexStatusItem);
         contextMenu.Items.Add(_geminiStatusItem);
+        contextMenu.Items.Add(_openCodeStatusItem);
         contextMenu.Items.Add(new ToolStripSeparator());
         contextMenu.Items.Add(_nextRefreshItem);
         contextMenu.Items.Add(new ToolStripSeparator());
@@ -115,10 +119,15 @@ public partial class App : Application
         if (args.PropertyName is nameof(MainViewModel.ClaudeShortPercent)
                               or nameof(MainViewModel.ClaudeLongPercent)
                               or nameof(MainViewModel.CodexPercent)
-                              or nameof(MainViewModel.GeminiPercent)
+                              or nameof(MainViewModel.GeminiRequestsLabel)
+                              or nameof(MainViewModel.GeminiOutputTokensLabel)
+                              or nameof(MainViewModel.OpenCodeRequestCountLabel)
+                              or nameof(MainViewModel.OpenCodeInputLabel)
+                              or nameof(MainViewModel.OpenCodeOutputLabel)
                               or nameof(MainViewModel.ClaudeHasError)
                               or nameof(MainViewModel.CodexHasError)
                               or nameof(MainViewModel.GeminiHasError)
+                              or nameof(MainViewModel.OpenCodeHasError)
                               or nameof(MainViewModel.IsLoading)
                               or nameof(MainViewModel.NextRefreshLabel))
         {
@@ -128,9 +137,10 @@ public partial class App : Application
 
                 if (_vm.IsLoading && _vm.ClaudeShortPercent == 0 && _vm.CodexPercent == 0)
                 {
-                    _claudeStatusItem.Text = "Claude: Loading...";
-                    _codexStatusItem!.Text = "Codex: Loading...";
-                    _geminiStatusItem!.Text = "Gemini: Loading...";
+                    _claudeStatusItem.Text   = "Claude: Loading...";
+                    _codexStatusItem!.Text   = "Codex: Loading...";
+                    _geminiStatusItem!.Text  = "Gemini: Loading...";
+                    _openCodeStatusItem!.Text = "OpenCode: Loading...";
                 }
                 else
                 {
@@ -142,11 +152,19 @@ public partial class App : Application
                     if (_vm.CodexHasError) _codexStatusItem!.Text = "Codex: Unavailable";
                     else _codexStatusItem!.Text = $"Codex: {_vm.CodexPercent:P0}";
 
-                    // Gemini Status
+                    // Gemini Status (token-based, no %)
                     if (_vm.GeminiHasError) _geminiStatusItem!.Text = "Gemini: Unavailable";
-                    else _geminiStatusItem!.Text = $"Gemini: {_vm.GeminiPercent:P0}";
+                    else if (_vm.GeminiRequestsLabel == "—" || string.IsNullOrEmpty(_vm.GeminiRequestsLabel))
+                        _geminiStatusItem!.Text = "Gemini: No usage today";
+                    else _geminiStatusItem!.Text = $"Gemini: {_vm.GeminiRequestsLabel} · {_vm.GeminiOutputTokensLabel}";
+
+                    // OpenCode Status (token-based)
+                    if (_vm.OpenCodeHasError) _openCodeStatusItem!.Text = "OpenCode: Unavailable";
+                    else if (_vm.OpenCodeRequestCountLabel == "—" || string.IsNullOrEmpty(_vm.OpenCodeRequestCountLabel))
+                        _openCodeStatusItem!.Text = "OpenCode: No usage today";
+                    else _openCodeStatusItem!.Text = $"OpenCode: {_vm.OpenCodeRequestCountLabel} · in {_vm.OpenCodeInputLabel} · out {_vm.OpenCodeOutputLabel}";
                 }
-                
+
                 _nextRefreshItem!.Text = $"Next: {_vm.NextRefreshLabel}";
             });
         }
@@ -156,10 +174,14 @@ public partial class App : Application
     {
         if (args.PropertyName is nameof(MainViewModel.ClaudeShortPercent)
                               or nameof(MainViewModel.CodexPercent)
-                              or nameof(MainViewModel.GeminiPercent)
+                              or nameof(MainViewModel.GeminiRequestsLabel)
+                              or nameof(MainViewModel.GeminiOutputTokensLabel)
+                              or nameof(MainViewModel.OpenCodeRequestCountLabel)
+                              or nameof(MainViewModel.OpenCodeOutputLabel)
                               or nameof(MainViewModel.ClaudeHasError)
                               or nameof(MainViewModel.CodexHasError)
                               or nameof(MainViewModel.GeminiHasError)
+                              or nameof(MainViewModel.OpenCodeHasError)
                               or nameof(MainViewModel.HasError)
                               or nameof(MainViewModel.LblAppTitle))
         {
@@ -168,26 +190,17 @@ public partial class App : Application
                 if (_vm is null || _trayIcon is null) return;
 
                 // Tray gauge always reflects Claude 5h usage (primary provider)
-                double activePercent = _vm.ClaudeShortPercent;
-                bool activeError = _vm.ClaudeHasError;
-
                 var oldIcon = _trayIcon.Icon;
-                if (activeError)
-                {
-                    _trayIcon.Icon = DrawTrayIcon(-1);
-                }
-                else
-                {
-                    _trayIcon.Icon = DrawTrayIcon(activePercent);
-                }
+                _trayIcon.Icon = _vm.ClaudeHasError ? DrawTrayIcon(-1) : DrawTrayIcon(_vm.ClaudeShortPercent);
                 oldIcon?.Dispose();
 
-                // Multi-provider summary in tooltip
-                string claudeInfo = _vm.ClaudeHasError ? "Error" : $"{_vm.ClaudeShortPercent:P0}";
-                string codexInfo  = _vm.CodexHasError  ? "Error" : $"{_vm.CodexPercent:P0}";
-                string geminiInfo = _vm.GeminiHasError ? "Error" : $"{_vm.GeminiPercent:P0}";
+                // Multi-provider summary in tooltip (token-based for Gemini/OpenCode)
+                string claudeInfo    = _vm.ClaudeHasError    ? "Err" : $"{_vm.ClaudeShortPercent:P0}";
+                string codexInfo     = _vm.CodexHasError     ? "Err" : $"{_vm.CodexPercent:P0}";
+                string geminiInfo    = _vm.GeminiHasError    ? "Err" : (_vm.GeminiOutputTokensLabel is "—" or "" ? "-" : _vm.GeminiOutputTokensLabel);
+                string openCodeInfo  = _vm.OpenCodeHasError  ? "Err" : (_vm.OpenCodeOutputLabel    is "—" or "" ? "-" : _vm.OpenCodeOutputLabel);
 
-                string tooltip = $"{Loc.AgentUsageTitle}\nClaude {claudeInfo} · Codex {codexInfo} · Gemini {geminiInfo}";
+                string tooltip = $"{Loc.AgentUsageTitle}\nClaude {claudeInfo} · Codex {codexInfo} · Gemini {geminiInfo} · OC {openCodeInfo}";
                 _trayIcon.Text = tooltip.Length > 63 ? tooltip[..63] : tooltip;
             });
         }

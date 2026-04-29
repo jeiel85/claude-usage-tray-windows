@@ -881,6 +881,54 @@ public static class Loc
         _ => requests > 0 ? $"Gemini {requests} req · {FormatTokenShort(outputTokens)}" : "Gemini"
     };
 
+    public static string TrayStatusOpenCode(int requests, long inputTokens, long outputTokens) => Lang switch
+    {
+        "ko" => requests > 0 ? $"OpenCode {requests}회 · {FormatTokenShort(inputTokens + outputTokens)}" : "OpenCode",
+        _ => requests > 0 ? $"OpenCode {requests} req · {FormatTokenShort(inputTokens + outputTokens)}" : "OpenCode"
+    };
+
+    public static string OpenCodeUsageTitle => Lang switch
+    {
+        "ko" => "OpenCode 사용량",
+        "zh" => "OpenCode 用量",
+        "ja" => "OpenCode 使用量",
+        _ => "OpenCode Usage"
+    };
+
+    public static string ProviderOpenCode => "OpenCode";
+
+    public static string ProviderOpenCodeNote => Lang switch
+    {
+        "ko" => "OpenCode 구독 플랜 기준 · 로컬 DB에서 읽음",
+        "zh" => "基于 OpenCode 订阅计划 · 从本地 DB 读取",
+        "ja" => "OpenCode サブスクリプション基準 · ローカル DB から読み込み",
+        _ => "Based on OpenCode subscription · read from local DB"
+    };
+
+    public static string OpenCodeDbNotFound => Lang switch
+    {
+        "ko" => "OpenCode 로컬 DB를 찾지 못했습니다.",
+        "zh" => "未找到 OpenCode 本地数据库。",
+        "ja" => "OpenCode のローカル DB が見つかりません。",
+        _ => "OpenCode local database was not found."
+    };
+
+    public static string OpenCodeNoUsageToday => Lang switch
+    {
+        "ko" => "오늘 OpenCode 사용 기록이 아직 없습니다.",
+        "zh" => "今天还没有 OpenCode 使用记录。",
+        "ja" => "本日の OpenCode 使用記録はまだありません。",
+        _ => "No OpenCode usage has been recorded today yet."
+    };
+
+    public static string GeminiRequests => Lang switch
+    {
+        "ko" => "요청",
+        "zh" => "请求",
+        "ja" => "リクエスト",
+        _ => "Requests"
+    };
+
     private static string FormatTokenShort(long tokens) =>
 
         tokens >= 1_000_000 ? $"{tokens / 1_000_000.0:F1}M" :

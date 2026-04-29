@@ -15,6 +15,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly SessionMonitor _session;
     private readonly CodexUsageMonitor _codex;
     private readonly GeminiCliUsageMonitor _geminiCli;
+    private readonly OpenCodeUsageMonitor _openCode;
     private readonly NotificationService _notifier;
     private readonly SettingsService _settingsService;
     private readonly UpdateService _updater;
@@ -76,6 +77,16 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _geminiNote = Loc.ProviderGeminiCliNote;
     [ObservableProperty] private string _geminiSummary = "";
     [ObservableProperty] private string _geminiRequestsLabel = "";
+    [ObservableProperty] private string _geminiOutputTokensLabel = "";
+
+    // OpenCode Usage
+    [ObservableProperty] private bool _openCodeHasError = false;
+    [ObservableProperty] private string _openCodeErrorMessage = "";
+    [ObservableProperty] private string _openCodeNote = Loc.ProviderOpenCodeNote;
+    [ObservableProperty] private string _openCodeSummary = "";
+    [ObservableProperty] private string _openCodeInputLabel = "";
+    [ObservableProperty] private string _openCodeOutputLabel = "";
+    [ObservableProperty] private string _openCodeRequestCountLabel = "";
 
     // 5h window (Legacy/Compatibility - will keep for now to avoid breaking other parts)
     [ObservableProperty] private double _shortUsagePercent = 0;
@@ -181,6 +192,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     // ntfy 발송 대상 토픽: 이 PC에서 발송 비활성화 시 빈 문자열 반환
     private string NtfyTopicEffective => NtfySendFromThisPc ? NtfyTopic : "";
+    public string LblGeminiRequests   => Loc.GeminiRequests;
     public string LblExtraCredits    => Loc.ExtraCreditsLabel;
     public string LblCheckUpdate     => Loc.CheckUpdate;
     public string DisclaimerText     => SelectedProvider == UsageProviderKind.Claude ? Loc.Disclaimer : Loc.GenericDisclaimer;
@@ -193,6 +205,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public MainViewModel(UsageApiService api, CredentialService credentials,
                          SessionMonitor session, CodexUsageMonitor codex, GeminiCliUsageMonitor geminiCli,
+                         OpenCodeUsageMonitor openCode,
                          NotificationService notifier, SettingsService settingsService,
                          UpdateService updater, HistoryService history)
     {
@@ -201,6 +214,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _session = session;
         _codex = codex;
         _geminiCli = geminiCli;
+        _openCode = openCode;
         _notifier = notifier;
         _settingsService = settingsService;
         _updater = updater;
@@ -274,8 +288,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         ProviderNote = value switch
         {
-            UsageProviderKind.Codex => Loc.ProviderCodexNote,
+            UsageProviderKind.Codex     => Loc.ProviderCodexNote,
             UsageProviderKind.GeminiCli => Loc.ProviderGeminiCliNote,
+            UsageProviderKind.OpenCode  => Loc.ProviderOpenCodeNote,
             _ => ""
         };
     }
@@ -289,6 +304,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 break;
             case UsageProviderKind.GeminiCli:
                 _history.SetScope(UsageProviderKind.GeminiCli, null);
+                break;
+            case UsageProviderKind.OpenCode:
+                _history.SetScope(UsageProviderKind.OpenCode, null);
                 break;
             default:
                 _history.SetScope(UsageProviderKind.Claude, _credentials.GetOrganizationUuid());
@@ -521,7 +539,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
             {
                 RefreshClaudeAsync(),
                 RefreshCodexInternalAsync(),
-                RefreshGeminiCliInternalAsync()
+                RefreshGeminiCliInternalAsync(),
+                RefreshOpenCodeInternalAsync()
             };
 
             await Task.WhenAll(tasks);
@@ -531,7 +550,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 // 공통 정보 업데이트
                 UpdateOverallStatus();
                 
-                LastUpdatedLabel = (ClaudeHasError || CodexHasError || GeminiHasError)
+                LastUpdatedLabel = (ClaudeHasError || CodexHasError || GeminiHasError || OpenCodeHasError)
                     ? $"⚠ {DateTime.Now:HH:mm:ss}"
                     : Loc.UpdatedAt(DateTime.Now.ToString("HH:mm:ss"));
                 IsLoading = false;
@@ -552,17 +571,21 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private int _lastGeminiRequestCount = 0;
     private long _lastGeminiOutputTokens = 0;
 
+    private int _lastOpenCodeRequestCount = 0;
+    private long _lastOpenCodeInputTokens = 0;
+    private long _lastOpenCodeOutputTokens = 0;
+
     private void UpdateOverallStatus()
     {
-        if (ClaudeHasError && CodexHasError && GeminiHasError)
+        if (ClaudeHasError && CodexHasError && GeminiHasError && OpenCodeHasError)
         {
             StatusText = "All Providers Error";
             HasError = true;
         }
-        else if (ClaudeHasError || CodexHasError || GeminiHasError)
+        else if (ClaudeHasError || CodexHasError || GeminiHasError || OpenCodeHasError)
         {
             StatusText = "Partial Error";
-            HasError = false; 
+            HasError = false;
         }
         else if (IsExtraOnlyMode)
         {
@@ -573,8 +596,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
             // 현재 트레이 기준을 에이전트별 특성에 맞게 표시
             StatusText = SelectedProvider switch
             {
-                UsageProviderKind.Codex => Loc.TrayStatusCodex(CodexPercent, CodexDataSource),
+                UsageProviderKind.Codex     => Loc.TrayStatusCodex(CodexPercent, CodexDataSource),
                 UsageProviderKind.GeminiCli => Loc.TrayStatusGemini(_lastGeminiRequestCount, _lastGeminiOutputTokens),
+                UsageProviderKind.OpenCode  => Loc.TrayStatusOpenCode(_lastOpenCodeRequestCount, _lastOpenCodeInputTokens, _lastOpenCodeOutputTokens),
                 _ => Loc.TrayStatusClaude(ClaudeShortPercent)
             };
         }
@@ -798,8 +822,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 _lastGeminiOutputTokens = snapshot.TotalOutputTokens;
 
                 GeminiRequestsLabel = snapshot.RequestCount > 0
-                    ? Loc.CurrentLang == "ko" ? $"{snapshot.RequestCount}회 요청" : $"{snapshot.RequestCount} req"
-                    : "";
+                    ? Loc.CurrentLang == "ko" ? $"{snapshot.RequestCount}회" : $"{snapshot.RequestCount} req"
+                    : "—";
+                GeminiOutputTokensLabel = snapshot.TotalOutputTokens > 0
+                    ? FormatTokenShort(snapshot.TotalOutputTokens)
+                    : "—";
                 GeminiSummary = snapshot.HasData
                     ? Loc.GeminiCliRequestSummary(snapshot.RequestCount, snapshot.TotalOutputTokens)
                     : snapshot.ErrorMessage ?? "";
@@ -843,6 +870,41 @@ public partial class MainViewModel : ObservableObject, IDisposable
             {
                 _notifier.ShowUsageAlert(t, provider, resetLabel, ntfyTopic);
             }
+        }
+    }
+
+    private async Task RefreshOpenCodeInternalAsync()
+    {
+        try
+        {
+            var snapshot = _openCode.GetTodaySnapshot();
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                OpenCodeHasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage);
+                OpenCodeErrorMessage = snapshot.ErrorMessage ?? "";
+
+                _lastOpenCodeRequestCount = snapshot.RequestCount;
+                _lastOpenCodeInputTokens  = snapshot.TotalInputTokens;
+                _lastOpenCodeOutputTokens = snapshot.TotalOutputTokens;
+
+                OpenCodeRequestCountLabel = snapshot.RequestCount > 0
+                    ? Loc.CurrentLang == "ko" ? $"{snapshot.RequestCount}회" : $"{snapshot.RequestCount} req"
+                    : "—";
+                OpenCodeInputLabel  = snapshot.TotalInputTokens > 0  ? FormatTokenShort(snapshot.TotalInputTokens)  : "—";
+                OpenCodeOutputLabel = snapshot.TotalOutputTokens > 0 ? FormatTokenShort(snapshot.TotalOutputTokens) : "—";
+                OpenCodeSummary = snapshot.HasData
+                    ? Loc.CurrentLang == "ko"
+                        ? $"오늘 {snapshot.RequestCount}회 · 입력 {FormatTokenShort(snapshot.TotalInputTokens)} · 출력 {FormatTokenShort(snapshot.TotalOutputTokens)}"
+                        : $"Today {snapshot.RequestCount} req · in {FormatTokenShort(snapshot.TotalInputTokens)} · out {FormatTokenShort(snapshot.TotalOutputTokens)}"
+                    : snapshot.ErrorMessage ?? "";
+
+                UpdateOverallStatus();
+            });
+        }
+        catch (Exception ex)
+        {
+            OpenCodeHasError = true;
+            OpenCodeErrorMessage = ex.Message;
         }
     }
 
@@ -1024,6 +1086,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
             : depletionAt.ToString("M/d HH:mm");
         return Loc.DepletionAt(timeStr);
     }
+
+    private static string FormatTokenShort(long tokens) =>
+        tokens >= 1_000_000 ? $"{tokens / 1_000_000.0:F1}M" :
+        tokens >= 1_000     ? $"{tokens / 1_000.0:F1}K" :
+        tokens.ToString();
 
     private static string CalcCostLabel(long input, long output, long cacheRead, long cacheWrite)
     {

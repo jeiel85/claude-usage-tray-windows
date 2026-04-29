@@ -79,6 +79,29 @@
             </Setter>
         </Style>
 
+        <!-- OpenCode 바 (오렌지) -->
+        <Style x:Key="OpenCodeBarStyle" TargetType="ProgressBar">
+            <Setter Property="Height" Value="4"/>
+            <Setter Property="Background" Value="#2D2F45"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid>
+                            <Border Background="{TemplateBinding Background}" CornerRadius="2"/>
+                            <Border x:Name="PART_Track" CornerRadius="2"/>
+                            <Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="2" Background="#F97316"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Value" Value="0">
+                                <Setter TargetName="PART_Indicator" Property="Visibility" Value="Collapsed"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Gemini 바 (파랑) -->
         <Style x:Key="GeminiBarStyle" TargetType="ProgressBar">
             <Setter Property="Height" Value="4"/>
@@ -407,20 +430,57 @@
                     </StackPanel>
 
                     <!-- Gemini Section -->
-                    <StackPanel Margin="0,0,0,0">
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <StackPanel Margin="0,0,0,16">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <Border Width="12" Height="12" CornerRadius="2" Background="#3B82F6" Margin="0,0,8,0">
                                 <TextBlock Text="G" Foreground="White" FontSize="8" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
-                            <TextBlock Text="Gemini" Foreground="#F1F5F9" FontSize="11" FontWeight="Bold"/>
+                            <TextBlock Text="Gemini CLI" Foreground="#F1F5F9" FontSize="11" FontWeight="Bold"/>
                         </StackPanel>
-                        <Grid>
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="Gemini CLI" Foreground="#F1F5F9" FontSize="10.5"/>
-                            <TextBlock Grid.Column="1" Text="{Binding GeminiRequestsLabel}" Foreground="#60A5FA" FontSize="11" FontWeight="Bold"/>
-                        </Grid>
-                        <TextBlock Text="{Binding GeminiSummary}" Foreground="#8B92B3" FontSize="10" Margin="0,4,0,0"/>
-                        <TextBlock Text="{Binding GeminiNote}" Foreground="#5A5F7A" FontSize="10" Margin="0,4,0,0"/>
+                        <UniformGrid Columns="2" Rows="1" Margin="0,0,0,8">
+                            <Border Style="{StaticResource StatBox}" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding LblGeminiRequests}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                    <TextBlock Text="{Binding GeminiRequestsLabel}" Style="{StaticResource StatValue}" Foreground="#60A5FA"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource StatBox}" Margin="4,0,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding LblOutput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                    <TextBlock Text="{Binding GeminiOutputTokensLabel}" Style="{StaticResource StatValue}" Foreground="#93C5FD" FontSize="13"/>
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
+                        <TextBlock Text="{Binding GeminiNote}" Foreground="#5A5F7A" FontSize="10"/>
+                        <TextBlock Text="{Binding GeminiErrorMessage}" Foreground="#EF4444" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0"
+                                   Visibility="{Binding GeminiHasError, Converter={StaticResource BoolToVisibility}}"/>
+                    </StackPanel>
+
+                    <!-- OpenCode Section -->
+                    <StackPanel Margin="0,0,0,0">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <Border Width="12" Height="12" CornerRadius="2" Background="#F97316" Margin="0,0,8,0">
+                                <TextBlock Text="O" Foreground="White" FontSize="8" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="OpenCode" Foreground="#F1F5F9" FontSize="11" FontWeight="Bold"/>
+                        </StackPanel>
+                        <UniformGrid Columns="2" Rows="1" Margin="0,0,0,8">
+                            <Border Style="{StaticResource StatBox}" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding LblInput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                    <TextBlock Text="{Binding OpenCodeInputLabel}" Style="{StaticResource StatValue}" Foreground="#FB923C"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource StatBox}" Margin="4,0,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding LblOutput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                    <TextBlock Text="{Binding OpenCodeOutputLabel}" Style="{StaticResource StatValue}" Foreground="#FDBA74" FontSize="13"/>
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
+                        <TextBlock Text="{Binding OpenCodeNote}" Foreground="#5A5F7A" FontSize="10"/>
+                        <TextBlock Text="{Binding OpenCodeErrorMessage}" Foreground="#EF4444" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0"
+                                   Visibility="{Binding OpenCodeHasError, Converter={StaticResource BoolToVisibility}}"/>
                     </StackPanel>
                 </StackPanel>
 
