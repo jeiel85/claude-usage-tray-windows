@@ -491,29 +491,7 @@
                                 <ComboBoxItem Content="OpenCode" Tag="opencode"/>
                             </ComboBox>
                             <TextBlock x:Name="LblTrayAutoHelp" Foreground="#5A5F7A" FontSize="10" Margin="4,0,0,8" TextWrapping="Wrap"/>
-                            <CheckBox x:Name="ChkHideInactive" Style="{StaticResource CheckStyle}" Margin="0,0,0,8" Click="Setting_Changed"/>
-                            <Grid Margin="0,2,0,6">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="100"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="Gemini " Foreground="#C4C9E0" FontSize="11"/>
-                                    <TextBlock x:Name="LblDailyGoalGemini" Foreground="#8B92B3" FontSize="11"/>
-                                </StackPanel>
-                                <TextBox x:Name="TxtGeminiGoal" Grid.Column="1" Style="{StaticResource DarkTextBox}" LostFocus="TxtGoal_LostFocus" PreviewTextInput="NumberValidationTextBox"/>
-                            </Grid>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="100"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="OpenCode " Foreground="#C4C9E0" FontSize="11"/>
-                                    <TextBlock x:Name="LblDailyGoalOpenCode" Foreground="#8B92B3" FontSize="11"/>
-                                </StackPanel>
-                                <TextBox x:Name="TxtOpenCodeGoal" Grid.Column="1" Style="{StaticResource DarkTextBox}" LostFocus="TxtGoal_LostFocus" PreviewTextInput="NumberValidationTextBox"/>
-                            </Grid>
+                            <CheckBox x:Name="ChkHideInactive" Style="{StaticResource CheckStyle}" Margin="0,0,0,0" Click="Setting_Changed"/>
                         </StackPanel>
                     </Border>
 

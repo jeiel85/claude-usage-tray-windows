@@ -103,8 +103,6 @@ public partial class SettingsWindow : Window, IDisposable
         LblLanguageSection.Text             = Loc.LanguageSection;
         LangItemSystem.Content              = Loc.LanguageSystem;
         LblTrayDisplayMode.Text             = Loc.TrayDisplayMode;
-        LblDailyGoalGemini.Text             = Loc.DailyTokenGoal;
-        LblDailyGoalOpenCode.Text           = Loc.DailyTokenGoal;
         ChkHideInactive.Content             = Loc.HideInactiveProviders;
         TrayItemAuto.Content                = Loc.CurrentLang switch
         {
@@ -139,34 +137,6 @@ public partial class SettingsWindow : Window, IDisposable
         SliderPolling.Value = _vm.PollingIntervalMinutes > 0 ? _vm.PollingIntervalMinutes : 2;
         UpdatePollingLabel((int)SliderPolling.Value);
         UpdateTrayAutoHelp();
-        TxtGeminiGoal.Text = _vm.GeminiDailyTokenGoal.ToString();
-        TxtOpenCodeGoal.Text = _vm.OpenCodeDailyTokenGoal.ToString();
-        ChkHideInactive.IsChecked = _vm.HideInactiveProviders;
-
-        foreach (ComboBoxItem item in CmbTrayDisplayMode.Items)
-        {
-            if (item.Tag?.ToString() == _vm.TrayDisplayMode)
-            {
-                CmbTrayDisplayMode.SelectedItem = item;
-                break;
-            }
-        }
-        if (CmbTrayDisplayMode.SelectedItem == null)
-            CmbTrayDisplayMode.SelectedItem = TrayItemAuto;
-
-        // Select the saved language
-        var savedLang = _vm.SelectedLanguage ?? "system";
-        foreach (ComboBoxItem item in CmbLanguage.Items)
-        {
-            if (item.Tag?.ToString() == savedLang)
-            {
-                CmbLanguage.SelectedItem = item;
-                break;
-            }
-        }
-        if (CmbLanguage.SelectedItem == null)
-            CmbLanguage.SelectedItem = LangItemSystem;
-
         _isLoadingValues = false;
     }
 
@@ -194,15 +164,6 @@ public partial class SettingsWindow : Window, IDisposable
         UpdateTrayAutoHelp();
         _vm.HideInactiveProviders = ChkHideInactive.IsChecked == true;
 
-        _vm.SaveSettingsCommand.Execute(null);
-        _ = _vm.RefreshAsync();
-    }
-
-    private void TxtGoal_LostFocus(object sender, RoutedEventArgs e)
-    {
-        if (_isLoadingValues) return;
-        if (long.TryParse(TxtGeminiGoal.Text, out var gGoal)) _vm.GeminiDailyTokenGoal = gGoal;
-        if (long.TryParse(TxtOpenCodeGoal.Text, out var oGoal)) _vm.OpenCodeDailyTokenGoal = oGoal;
         _vm.SaveSettingsCommand.Execute(null);
         _ = _vm.RefreshAsync();
     }

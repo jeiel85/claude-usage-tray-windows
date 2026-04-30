@@ -166,8 +166,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _providerNote = "";
     [ObservableProperty] private string _trayDisplayMode = UsageProviderKind.Auto;
     [ObservableProperty] private bool _hideInactiveProviders = true;
-    [ObservableProperty] private long _geminiDailyTokenGoal = 50000;
-    [ObservableProperty] private long _openCodeDailyTokenGoal = 100000;
     [ObservableProperty] private double _openCodePercent = 0;
     [ObservableProperty] private double _trayUsagePercent = 0;
 
@@ -299,8 +297,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
         PollingIntervalMinutes = s.PollingIntervalMinutes;
         TrayDisplayMode = UsageProviderKind.IsValid(s.TrayDisplayMode) ? s.TrayDisplayMode : UsageProviderKind.Auto;
         HideInactiveProviders = s.HideInactiveProviders;
-        GeminiDailyTokenGoal = s.GeminiDailyTokenGoal > 0 ? s.GeminiDailyTokenGoal : 50000;
-        OpenCodeDailyTokenGoal = s.OpenCodeDailyTokenGoal > 0 ? s.OpenCodeDailyTokenGoal : 100000;
 
         // 현재 로그인된 계정의 orgUuid로 히스토리 경로 초기화
         ApplySelectedProviderScope();
@@ -379,8 +375,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
             PollingIntervalMinutes = PollingIntervalMinutes,
             TrayDisplayMode = TrayDisplayMode,
             HideInactiveProviders = HideInactiveProviders,
-            GeminiDailyTokenGoal = GeminiDailyTokenGoal,
-            OpenCodeDailyTokenGoal = OpenCodeDailyTokenGoal,
         });
     }
 
@@ -639,16 +633,19 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // 제미나이/오픈코드 등 고정 할당량이 없는 경우 최근 7일 최대치 대비 비율로 보정 (트레이 전용)
         if (TrayDisplayMode == UsageProviderKind.Auto || TrayDisplayMode == SelectedProvider)
         {
+            // 초기에 데이터가 없을 때를 대비해 최소 10,000 토큰을 기준으로 잡음
+            const long defaultMinGoal = 10000;
+
             if (SelectedProvider == UsageProviderKind.GeminiCli)
             {
                 var max = _history.GetRecentMaxTotalTokens(7);
-                var goal = Math.Max(GeminiDailyTokenGoal, max);
+                var goal = Math.Max(defaultMinGoal, max);
                 if (goal > 0) TrayUsagePercent = Math.Clamp(_lastGeminiOutputTokens / (double)goal, 0, 1);
             }
             else if (SelectedProvider == UsageProviderKind.OpenCode)
             {
                 var max = _history.GetRecentMaxTotalTokens(7);
-                var goal = Math.Max(OpenCodeDailyTokenGoal, max);
+                var goal = Math.Max(defaultMinGoal, max);
                 if (goal > 0) TrayUsagePercent = Math.Clamp((_lastOpenCodeInputTokens + _lastOpenCodeOutputTokens) / (double)goal, 0, 1);
             }
         }
@@ -906,7 +903,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 GeminiSummary = snapshot.HasData
                     ? Loc.GeminiCliRequestSummary(snapshot.RequestCount, snapshot.TotalOutputTokens)
                     : snapshot.ErrorMessage ?? "";
-                var goal = GeminiDailyTokenGoal > 0 ? GeminiDailyTokenGoal : 50000;
+                
+                var max = _history.GetRecentMaxTotalTokens(7);
+                var goal = Math.Max(10000, max);
                 var percent = Math.Clamp(snapshot.TotalOutputTokens / (double)goal, 0, 1);
                 GeminiPercent = percent;
                 _prevGeminiPercent = percent;
@@ -955,7 +954,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         try
         {
-            var snapshot = _openCode.GetTodaySnapshot(OpenCodeDailyTokenGoal);
+            var max = _history.GetRecentMaxTotalTokens(7);
+            var goal = Math.Max(10000, max);
+            var snapshot = _openCode.GetTodaySnapshot(goal);
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 OpenCodeHasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage);

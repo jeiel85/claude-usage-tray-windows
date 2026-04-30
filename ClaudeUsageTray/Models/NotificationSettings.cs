@@ -38,12 +38,6 @@ public class NotificationSettings
     // 트레이 아이콘 표시 기준 (auto, claude, codex, gemini-cli, opencode)
     public string TrayDisplayMode { get; set; } = "auto";
 
-    // Gemini 일일 출력 토큰 목표 (사용량 % 계산용)
-    public long GeminiDailyTokenGoal { get; set; } = 50000;
-
-    // OpenCode 일일 출력 토큰 목표 (사용량 % 계산용)
-    public long OpenCodeDailyTokenGoal { get; set; } = 100000;
-
     // 데이터가 없는 공급자 자동 숨김
     public bool HideInactiveProviders { get; set; } = true;
 

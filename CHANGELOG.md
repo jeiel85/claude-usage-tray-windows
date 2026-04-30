@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.21.8] - 2026-04-30
+
+<!-- ko -->
+### 개선
+- **일일 목표 설정 제거 및 자동화** — 동적 기준 로직 도입으로 불필요해진 Gemini 및 OpenCode의 수동 '일일 목표' 설정을 UI에서 제거하고 내부 로직을 7일 최대치 기반으로 완전 자동화 (초기 데이터 부재 시 기본값 10,000 사용)
+- **설정 화면 정리** — 사용하지 않는 입력 컨트롤 및 관련 이벤트 핸들러를 정리하여 앱 가벼움 유지
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Daily goal automation** — Removed manual 'Daily Token Goal' settings for Gemini and OpenCode from the UI. Fully automated the tray percentage calculation based on the 7-day maximum usage (fallback to 10,000 when no data exists).
+- **Settings cleanup** — Cleaned up unused input controls and event handlers to keep the app lightweight.
+<!-- /en -->
+
+---
+
 ## [1.21.7] - 2026-04-30
 
 <!-- ko -->
