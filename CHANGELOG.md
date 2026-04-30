@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.21.7] - 2026-04-30
+
+<!-- ko -->
+### 개선
+- **설정 안내 문구 간소화** — 설정 화면의 '자동 모드' 안내 문구를 간결하게 수정하여 좁은 화면에서도 개행되지 않도록 최적화 (예: "자동 모드: 현재 'Claude' 표시 중")
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Simplified settings help text** — Condensed the 'Auto mode' guidance in settings to prevent line breaks on narrow screens (e.g., "Auto mode: Showing 'Claude'")
+<!-- /en -->
+
+---
+
 ## [1.21.6] - 2026-04-30
 
 <!-- ko -->

@@ -347,10 +347,10 @@ public partial class SettingsWindow : Window, IDisposable
 
         LblTrayAutoHelp.Text = Loc.CurrentLang switch
         {
-            "ko" => $"자동 모드: 현재 '{providerName}' 기준으로 트레이에 표시 중입니다.",
-            "zh" => $"自动模式：目前正在根据 '{providerName}' 在托盘中显示。",
-            "ja" => $"自動モード：現在 '{providerName}' を基準にトレイに表示されています。",
-            _ => $"Auto mode: Currently displaying on tray based on '{providerName}'."
+            "ko" => $"자동 모드: 현재 '{providerName}' 표시 중",
+            "zh" => $"自动模式：正在显示 '{providerName}'",
+            "ja" => $"自動モード：'{providerName}' を表示中",
+            _ => $"Auto mode: Showing '{providerName}'"
         };
         LblTrayAutoHelp.Visibility = Visibility.Visible;
     }
