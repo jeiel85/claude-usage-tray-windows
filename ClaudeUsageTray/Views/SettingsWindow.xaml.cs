@@ -138,6 +138,7 @@ public partial class SettingsWindow : Window, IDisposable
         ChkStartWithWindows.IsChecked   = IsStartupEnabled();
         SliderPolling.Value = _vm.PollingIntervalMinutes > 0 ? _vm.PollingIntervalMinutes : 2;
         UpdatePollingLabel((int)SliderPolling.Value);
+        UpdateTrayAutoHelp();
         TxtGeminiGoal.Text = _vm.GeminiDailyTokenGoal.ToString();
         TxtOpenCodeGoal.Text = _vm.OpenCodeDailyTokenGoal.ToString();
         ChkHideInactive.IsChecked = _vm.HideInactiveProviders;
@@ -190,6 +191,7 @@ public partial class SettingsWindow : Window, IDisposable
         if (CmbTrayDisplayMode.SelectedItem is ComboBoxItem modeItem)
             _vm.TrayDisplayMode = modeItem.Tag?.ToString() ?? UsageProviderKind.Auto;
 
+        UpdateTrayAutoHelp();
         _vm.HideInactiveProviders = ChkHideInactive.IsChecked == true;
 
         _vm.SaveSettingsCommand.Execute(null);
@@ -321,6 +323,36 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.PollingIntervalMinutes = minutes;
         _vm.SaveSettingsCommand.Execute(null);
         _vm.ApplyPollingInterval();
+    }
+
+    private void UpdateTrayAutoHelp()
+    {
+        if (LblTrayAutoHelp == null) return;
+
+        bool isAuto = _vm.TrayDisplayMode == UsageProviderKind.Auto;
+        if (!isAuto)
+        {
+            LblTrayAutoHelp.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        string providerName = _vm.SelectedProvider switch
+        {
+            UsageProviderKind.Claude => "Claude",
+            UsageProviderKind.Codex => "Codex",
+            UsageProviderKind.GeminiCli => "Gemini CLI",
+            UsageProviderKind.OpenCode => "OpenCode",
+            _ => "Claude"
+        };
+
+        LblTrayAutoHelp.Text = Loc.CurrentLang switch
+        {
+            "ko" => $"자동 모드: 현재 '{providerName}' 기준으로 트레이에 표시 중입니다.",
+            "zh" => $"自动模式：目前正在根据 '{providerName}' 在托盘中显示。",
+            "ja" => $"自動モード：現在 '{providerName}' を基準にトレイに表示されています。",
+            _ => $"Auto mode: Currently displaying on tray based on '{providerName}'."
+        };
+        LblTrayAutoHelp.Visibility = Visibility.Visible;
     }
 
     public void ShowNearTray()

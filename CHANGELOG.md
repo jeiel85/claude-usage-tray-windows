@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.21.6] - 2026-04-30
+
+<!-- ko -->
+### 개선
+- **트레이 표시 기준 명확화** — 트레이 툴팁에서 현재 게이지의 기준이 되는 에이전트 이름 앞에 별표(*)를 표시하여 식별성 강화
+- **설정 화면 안내 추가** — 트레이 표시 기준이 '자동'일 때, 현재 어떤 에이전트가 선택되어 표시 중인지 알려주는 도움말 텍스트 추가
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Clarified tray display baseline** — Added an asterisk (*) before the agent name in the tray tooltip to clearly identify which agent the gauge is representing
+- **Settings UI enhancement** — Added a help text in settings to show which agent is currently selected when tray display mode is set to 'Auto'
+<!-- /en -->
+
+---
+
 ## [1.21.5] - 2026-04-30
 
 <!-- ko -->

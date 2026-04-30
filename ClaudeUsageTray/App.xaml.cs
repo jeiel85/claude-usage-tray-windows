@@ -213,14 +213,28 @@ public partial class App : Application
                 bool openCodeEmpty = _vm.OpenCodeOutputLabel    is "—" or "" or null;
 
                 var parts = new System.Collections.Generic.List<string>();
+                string currentKind = _vm.TrayDisplayMode == UsageProviderKind.Auto ? _vm.SelectedProvider : _vm.TrayDisplayMode;
+
                 if (!(hide && _vm.ClaudeHasError))
-                    parts.Add($"Claude {(_vm.ClaudeHasError ? "—" : $"{_vm.ClaudeShortPercent:P0}")}");
+                {
+                    string mark = currentKind == UsageProviderKind.Claude ? "*" : "";
+                    parts.Add($"{mark}Claude {(_vm.ClaudeHasError ? "—" : $"{_vm.ClaudeShortPercent:P0}")}");
+                }
                 if (!(hide && _vm.CodexHasError))
-                    parts.Add($"Codex {(_vm.CodexHasError ? "—" : $"{_vm.CodexPercent:P0}")}");
+                {
+                    string mark = currentKind == UsageProviderKind.Codex ? "*" : "";
+                    parts.Add($"{mark}Codex {(_vm.CodexHasError ? "—" : $"{_vm.CodexPercent:P0}")}");
+                }
                 if (!(hide && (_vm.GeminiHasError || geminiEmpty)))
-                    parts.Add($"Gemini {(_vm.GeminiHasError ? "—" : (geminiEmpty ? "-" : _vm.GeminiOutputTokensLabel))}");
+                {
+                    string mark = currentKind == UsageProviderKind.GeminiCli ? "*" : "";
+                    parts.Add($"{mark}Gemini {(_vm.GeminiHasError ? "—" : (geminiEmpty ? "-" : _vm.GeminiOutputTokensLabel))}");
+                }
                 if (!(hide && (_vm.OpenCodeHasError || openCodeEmpty)))
-                    parts.Add($"OC {(_vm.OpenCodeHasError ? "—" : (openCodeEmpty ? "-" : _vm.OpenCodeOutputLabel))}");
+                {
+                    string mark = currentKind == UsageProviderKind.OpenCode ? "*" : "";
+                    parts.Add($"{mark}OC {(_vm.OpenCodeHasError ? "—" : (openCodeEmpty ? "-" : _vm.OpenCodeOutputLabel))}");
+                }
 
                 string body = parts.Count == 0 ? "—" : string.Join(" · ", parts);
                 string tooltip = $"{Loc.AgentUsageTitle}\n{body}";
