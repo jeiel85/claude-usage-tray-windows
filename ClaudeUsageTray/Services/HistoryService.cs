@@ -83,6 +83,20 @@ public class HistoryService
             .ToList();
     }
 
+    /// <summary>
+    /// 최근 N일간의 일일 최대 총 토큰(입력+출력) 사용량을 반환합니다.
+    /// </summary>
+    public long GetRecentMaxTotalTokens(int days)
+    {
+        var cutoff = DateTime.UtcNow.AddDays(-days).ToString("yyyy-MM-dd");
+        var recentEntries = _data.Values
+            .Where(s => string.Compare(s.Date, cutoff, StringComparison.Ordinal) >= 0)
+            .ToList();
+
+        if (recentEntries.Count == 0) return 0;
+        return recentEntries.Max(s => s.InputTokens + s.OutputTokens);
+    }
+
     public void ExportCsv(string filePath)
     {
         var sb = new StringBuilder();

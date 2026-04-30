@@ -826,8 +826,16 @@ public static class Loc
     {
         "ko" => "오늘 Codex 사용 기록이 아직 없습니다.",
         "zh" => "今天还没有 Codex 使用记录。",
-        "ja" => "本日の Codex 使用記録はまだありません。",
+        "ja" => "本지의 Codex 使用記録はまだありません。",
         _ => "No Codex usage has been recorded today yet."
+    };
+
+    public static string ClaudeNoUsageToday => Lang switch
+    {
+        "ko" => "오늘 사용 기록이 아직 없습니다.",
+        "zh" => "今天还没有使用记录。",
+        "ja" => "本日の使用記録はまだありません。",
+        _ => "No usage has been recorded today yet."
     };
 
     public static string GeminiCliSourceNotFound => Lang switch

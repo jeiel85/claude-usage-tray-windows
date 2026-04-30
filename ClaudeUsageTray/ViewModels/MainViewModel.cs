@@ -171,6 +171,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private double _openCodePercent = 0;
     [ObservableProperty] private double _trayUsagePercent = 0;
 
+    // Visibility control
+    [ObservableProperty] private bool _isClaudeActive = true;
+    [ObservableProperty] private bool _isCodexActive = false;
+    [ObservableProperty] private bool _isGeminiActive = false;
+    [ObservableProperty] private bool _isOpenCodeActive = false;
+    [ObservableProperty] private bool _isClaudeUsageEmpty = true;
+
     private string _updateDownloadUrl = "";
     private string _updateSha256Url = "";
     public string CurrentVersionLabel => $"v{UpdateService.CurrentVersion.ToString(3)}";
@@ -204,6 +211,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public string LblGeminiRequests   => Loc.GeminiRequests;
     public string LblExtraCredits    => Loc.ExtraCreditsLabel;
     public string LblCheckUpdate     => Loc.CheckUpdate;
+    public string LblClaudeNoUsage   => Loc.ClaudeNoUsageToday;
     public string DisclaimerText     => SelectedProvider == UsageProviderKind.Claude ? Loc.Disclaimer : Loc.GenericDisclaimer;
 
     // Tooltips
@@ -601,6 +609,18 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private void UpdateOverallStatus()
     {
+        // 1. 각 공급자 활성 상태 판단 (데이터가 있거나 에러가 있는 경우 활성으로 간주, 단 설정에 따라 숨김)
+        var settings = _settingsService.Load();
+        var hideInactive = settings.HideInactiveProviders;
+
+        IsClaudeActive = !hideInactive || TodayInputTokens + TodayOutputTokens > 0 || ClaudeShortPercent > 0 || ClaudeHasError;
+        IsCodexActive = !hideInactive || CodexPercent > 0 || CodexHasError;
+        IsGeminiActive = !hideInactive || _lastGeminiRequestCount > 0 || GeminiHasError;
+        IsOpenCodeActive = !hideInactive || _lastOpenCodeRequestCount > 0 || OpenCodeHasError;
+
+        IsClaudeUsageEmpty = TodayInputTokens + TodayOutputTokens == 0;
+
+        // 2. 트레이 표시 비율 계산
         TrayUsagePercent = TrayDisplayMode switch
         {
             UsageProviderKind.Claude => ClaudeShortPercent,
@@ -615,6 +635,23 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 _ => ClaudeShortPercent
             }
         };
+
+        // 제미나이/오픈코드 등 고정 할당량이 없는 경우 최근 7일 최대치 대비 비율로 보정 (트레이 전용)
+        if (TrayDisplayMode == UsageProviderKind.Auto || TrayDisplayMode == SelectedProvider)
+        {
+            if (SelectedProvider == UsageProviderKind.GeminiCli)
+            {
+                var max = _history.GetRecentMaxTotalTokens(7);
+                var goal = Math.Max(GeminiDailyTokenGoal, max);
+                if (goal > 0) TrayUsagePercent = Math.Clamp(_lastGeminiOutputTokens / (double)goal, 0, 1);
+            }
+            else if (SelectedProvider == UsageProviderKind.OpenCode)
+            {
+                var max = _history.GetRecentMaxTotalTokens(7);
+                var goal = Math.Max(OpenCodeDailyTokenGoal, max);
+                if (goal > 0) TrayUsagePercent = Math.Clamp((_lastOpenCodeInputTokens + _lastOpenCodeOutputTokens) / (double)goal, 0, 1);
+            }
+        }
 
         if (ClaudeHasError && CodexHasError && GeminiHasError && OpenCodeHasError)
         {

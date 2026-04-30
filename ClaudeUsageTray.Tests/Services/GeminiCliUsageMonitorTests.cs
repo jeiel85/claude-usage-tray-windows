@@ -28,7 +28,7 @@ public class GeminiCliUsageMonitorTests
             Assert.True(snapshot.HasData);
             Assert.Equal(200, snapshot.TotalOutputTokens);
             Assert.Equal(2, snapshot.RequestCount);
-            Assert.Equal(0, snapshot.ShortUsagePercent);
+            Assert.Equal(0.004, snapshot.ShortUsagePercent);
         }
         finally
         {

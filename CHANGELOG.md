@@ -3,6 +3,30 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.21.5] - 2026-04-30
+
+<!-- ko -->
+### 개선
+- **사용량 화면 가시성 제어** — 데이터가 없는 공급자를 숨길 수 있는 기능 추가 및 UI 최적화
+- **동적 트레이 표시 기준** — 제미나이/오픈코드 등 고정 할당량이 없는 경우 최근 7일 최대 사용량을 기준으로 트레이 비율 계산
+- **클로드 사용량 표시 개선** — 오늘 사용 기록이 없는 경우 상세 정보를 숨기고 단순 안내 메시지 표시
+- **통계 서비스 강화** — 최근 사용량 최대치를 계산하는 로직 추가
+### 수정
+- **단위 테스트 수정** — 사용량 계산 로직 변경에 따른 Gemini CLI 모니터 테스트 케이스 업데이트
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Usage display visibility** — Added ability to hide inactive providers and optimized UI layout
+- **Dynamic tray display baseline** — Calculated tray percentage based on recent 7-day maximum usage for providers without fixed quotas (Gemini, OpenCode)
+- **Claude usage display** — Simplified UI with a "no record" message when no usage is detected today
+- **Enhanced statistics** — Added logic to calculate recent maximum usage in HistoryService
+### Fixed
+- **Unit tests** — Updated Gemini CLI monitor test case to match the new usage calculation logic
+<!-- /en -->
+
+---
+
 ## [1.21.4] - 2026-04-29
 
 <!-- ko -->
