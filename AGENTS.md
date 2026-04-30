@@ -36,6 +36,11 @@ git fetch origin && git pull origin master && git status
 - `IDisposable` 리소스는 반드시 정리한다.
 - 파일 접근 시 `FileShare.ReadWrite`를 사용하여 충돌을 방지한다.
 
+### 5. 즉시 배포 원칙 (CD 우선)
+- 주요 기능 추가나 버그 수정이 완료되어 `master` 브랜치에 푸시된 경우, **반드시 즉시 버전을 올리고(bump) 태그를 생성하여 푸시**한다.
+- 이는 사용자가 수동 빌드 없이 GitHub Actions를 통해 즉시 최신 버전을 내려받을 수 있도록 하기 위함이다.
+- 태그 생성 전 `csproj`의 버전과 `CHANGELOG.md`가 최신화되었는지 재확인한다.
+
 ---
 
 ## 🔄 레슨 런 (Lessons Learned — 반복 실수 방지)
