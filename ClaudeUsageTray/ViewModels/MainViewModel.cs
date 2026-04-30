@@ -165,6 +165,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _selectedProvider = UsageProviderKind.Claude;
     [ObservableProperty] private string _providerNote = "";
     [ObservableProperty] private string _trayDisplayMode = UsageProviderKind.Auto;
+    [ObservableProperty] private string _effectiveTrayProvider = UsageProviderKind.Claude;
     [ObservableProperty] private bool _hideInactiveProviders = true;
     [ObservableProperty] private double _openCodePercent = 0;
     [ObservableProperty] private double _trayUsagePercent = 0;
@@ -614,35 +615,52 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         IsClaudeUsageEmpty = TodayInputTokens + TodayOutputTokens == 0;
 
-        // 2. 트레이 표시 비율 계산
-        TrayUsagePercent = TrayDisplayMode switch
+        // 2. 트레이 표시 기준 결정 (자동 모드 로직 개선)
+        if (TrayDisplayMode == UsageProviderKind.Auto)
+        {
+            // 오늘 사용량이 있는 공급자를 우선순위에 따라 선택 (OpenCode -> Gemini -> Codex -> Claude)
+            if (_lastOpenCodeRequestCount > 0)
+                EffectiveTrayProvider = UsageProviderKind.OpenCode;
+            else if (_lastGeminiRequestCount > 0)
+                EffectiveTrayProvider = UsageProviderKind.GeminiCli;
+            else if (CodexPercent > 0 && !CodexHasError)
+                EffectiveTrayProvider = UsageProviderKind.Codex;
+            else if (TodayInputTokens + TodayOutputTokens > 0)
+                EffectiveTrayProvider = UsageProviderKind.Claude;
+            else
+            {
+                // 오늘 사용량이 없는 경우 fallback (현재 수동 선택된 공급자 또는 Claude)
+                EffectiveTrayProvider = UsageProviderKind.IsValid(SelectedProvider) ? SelectedProvider : UsageProviderKind.Claude;
+            }
+        }
+        else
+        {
+            EffectiveTrayProvider = TrayDisplayMode;
+        }
+
+        // 3. 트레이 표시 비율 계산
+        TrayUsagePercent = EffectiveTrayProvider switch
         {
             UsageProviderKind.Claude => ClaudeShortPercent,
             UsageProviderKind.Codex => CodexPercent,
             UsageProviderKind.GeminiCli => GeminiPercent,
             UsageProviderKind.OpenCode => OpenCodePercent,
-            _ => SelectedProvider switch
-            {
-                UsageProviderKind.Codex => CodexPercent,
-                UsageProviderKind.GeminiCli => GeminiPercent,
-                UsageProviderKind.OpenCode => OpenCodePercent,
-                _ => ClaudeShortPercent
-            }
+            _ => ClaudeShortPercent
         };
 
         // 제미나이/오픈코드 등 고정 할당량이 없는 경우 최근 7일 최대치 대비 비율로 보정 (트레이 전용)
-        if (TrayDisplayMode == UsageProviderKind.Auto || TrayDisplayMode == SelectedProvider)
+        if (TrayDisplayMode == UsageProviderKind.Auto || TrayDisplayMode == EffectiveTrayProvider)
         {
             // 초기에 데이터가 없을 때를 대비해 최소 10,000 토큰을 기준으로 잡음
             const long defaultMinGoal = 10000;
 
-            if (SelectedProvider == UsageProviderKind.GeminiCli)
+            if (EffectiveTrayProvider == UsageProviderKind.GeminiCli)
             {
                 var max = _history.GetRecentMaxTotalTokens(7);
                 var goal = Math.Max(defaultMinGoal, max);
                 if (goal > 0) TrayUsagePercent = Math.Clamp(_lastGeminiOutputTokens / (double)goal, 0, 1);
             }
-            else if (SelectedProvider == UsageProviderKind.OpenCode)
+            else if (EffectiveTrayProvider == UsageProviderKind.OpenCode)
             {
                 var max = _history.GetRecentMaxTotalTokens(7);
                 var goal = Math.Max(defaultMinGoal, max);
@@ -667,7 +685,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         else
         {
             // 현재 트레이 기준을 에이전트별 특성에 맞게 표시
-            StatusText = SelectedProvider switch
+            StatusText = EffectiveTrayProvider switch
             {
                 UsageProviderKind.Codex     => Loc.TrayStatusCodex(CodexPercent, CodexDataSource),
                 UsageProviderKind.GeminiCli => Loc.TrayStatusGemini(_lastGeminiRequestCount, _lastGeminiOutputTokens),

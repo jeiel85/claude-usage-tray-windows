@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.21.10] - 2026-04-30
+
+<!-- ko -->
+### 개선
+- **트레이 표시 '자동' 모드 로직 개선** — 이제 자동 모드에서 단순히 수동 선택된 공급자를 따르는 대신, 오늘 실제로 사용량이 있는 공급자(OpenCode, Gemini, Codex, Claude 순)를 동적으로 감지하여 우선적으로 표시합니다.
+- **설정 안내 실시간 반영** — 트레이 표시 기준이 자동일 때 설정창 하단에 표시되는 "현재 'X' 표시 중" 안내가 사용량 변화에 따라 실시간으로 갱신되도록 개선했습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Enhanced 'Auto' Tray Display Logic** — Instead of defaulting to the manually selected provider, the "Automatic" mode now dynamically detects and prioritizes providers with active usage today (OpenCode > Gemini > Codex > Claude).
+- **Real-time Settings Guidance** — The help text in the settings window (e.g., "Auto mode: Showing 'X'") now updates in real-time as usage data changes.
+<!-- /en -->
+
+---
+
 ## [1.21.9] - 2026-04-30
 
 <!-- ko -->

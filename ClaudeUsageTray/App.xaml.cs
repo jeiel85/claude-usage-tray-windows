@@ -175,6 +175,7 @@ public partial class App : Application
     {
         if (args.PropertyName is nameof(MainViewModel.TrayUsagePercent)
                               or nameof(MainViewModel.TrayDisplayMode)
+                              or nameof(MainViewModel.EffectiveTrayProvider)
                               or nameof(MainViewModel.ClaudeHasError)
                               or nameof(MainViewModel.CodexHasError)
                               or nameof(MainViewModel.GeminiHasError)
@@ -195,13 +196,13 @@ public partial class App : Application
                 var oldIcon = _trayIcon.Icon;
                 
                 // Determine if the current active provider has an error
-                bool currentHasError = _vm.TrayDisplayMode switch
+                bool currentHasError = _vm.EffectiveTrayProvider switch
                 {
                     UsageProviderKind.Claude => _vm.ClaudeHasError,
                     UsageProviderKind.Codex => _vm.CodexHasError,
                     UsageProviderKind.GeminiCli => _vm.GeminiHasError,
                     UsageProviderKind.OpenCode => _vm.OpenCodeHasError,
-                    _ => _vm.ClaudeHasError && _vm.CodexHasError && _vm.GeminiHasError && _vm.OpenCodeHasError // Auto mode: only error if all fail
+                    _ => false
                 };
 
                 _trayIcon.Icon = currentHasError ? DrawTrayIcon(-1) : DrawTrayIcon(_vm.TrayUsagePercent);
@@ -213,7 +214,7 @@ public partial class App : Application
                 bool openCodeEmpty = _vm.OpenCodeOutputLabel    is "—" or "" or null;
 
                 var parts = new System.Collections.Generic.List<string>();
-                string currentKind = _vm.TrayDisplayMode == UsageProviderKind.Auto ? _vm.SelectedProvider : _vm.TrayDisplayMode;
+                string currentKind = _vm.EffectiveTrayProvider;
 
                 if (!(hide && _vm.ClaudeHasError))
                 {

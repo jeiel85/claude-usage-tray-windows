@@ -25,9 +25,18 @@ public partial class SettingsWindow : Window, IDisposable
         PreviewKeyDown += OnPreviewKeyDown;
 
         Loc.LanguageChanged += OnLanguageChanged;
+        _vm.PropertyChanged += OnVmPropertyChanged;
 
         ApplyLocalization();
         LoadValues();
+    }
+
+    private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.EffectiveTrayProvider))
+        {
+            Dispatcher.Invoke(UpdateTrayAutoHelp);
+        }
     }
 
     private void OnLanguageChanged()
@@ -325,7 +334,7 @@ public partial class SettingsWindow : Window, IDisposable
             return;
         }
 
-        string providerName = _vm.SelectedProvider switch
+        string providerName = _vm.EffectiveTrayProvider switch
         {
             UsageProviderKind.Claude => "Claude",
             UsageProviderKind.Codex => "Codex",
@@ -371,6 +380,7 @@ public partial class SettingsWindow : Window, IDisposable
         if (disposing)
         {
             Loc.LanguageChanged -= OnLanguageChanged;
+            _vm.PropertyChanged -= OnVmPropertyChanged;
         }
 
         _disposed = true;
