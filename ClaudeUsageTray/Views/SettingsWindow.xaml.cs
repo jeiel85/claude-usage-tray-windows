@@ -137,6 +137,34 @@ public partial class SettingsWindow : Window, IDisposable
         SliderPolling.Value = _vm.PollingIntervalMinutes > 0 ? _vm.PollingIntervalMinutes : 2;
         UpdatePollingLabel((int)SliderPolling.Value);
         UpdateTrayAutoHelp();
+
+        // Load Tray Display Mode
+        foreach (ComboBoxItem item in CmbTrayDisplayMode.Items)
+        {
+            if (item.Tag?.ToString() == _vm.TrayDisplayMode)
+            {
+                CmbTrayDisplayMode.SelectedItem = item;
+                break;
+            }
+        }
+        if (CmbTrayDisplayMode.SelectedItem == null)
+            CmbTrayDisplayMode.SelectedItem = TrayItemAuto;
+
+        // Load Language
+        var savedLang = _vm.SelectedLanguage ?? "system";
+        foreach (ComboBoxItem item in CmbLanguage.Items)
+        {
+            if (item.Tag?.ToString() == savedLang)
+            {
+                CmbLanguage.SelectedItem = item;
+                break;
+            }
+        }
+        if (CmbLanguage.SelectedItem == null)
+            CmbLanguage.SelectedItem = LangItemSystem;
+
+        ChkHideInactive.IsChecked = _vm.HideInactiveProviders;
+
         _isLoadingValues = false;
     }
 
