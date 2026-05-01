@@ -41,6 +41,14 @@ public class NotificationSettings
     // 데이터가 없는 공급자 자동 숨김
     public bool HideInactiveProviders { get; set; } = true;
 
+    // 명시적으로 표시할 공급자 목록 (기본값: 전체)
+    public List<string> VisibleProviders { get; set; } = [
+        UsageProviderKind.Claude,
+        UsageProviderKind.Codex,
+        UsageProviderKind.GeminiCli,
+        UsageProviderKind.OpenCode
+    ];
+
     // Backward compatibility with old schema used by ViewModel.
     [JsonIgnore]
     public bool NotifyOnRateLimit

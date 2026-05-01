@@ -964,9 +964,18 @@ public static class Loc
     {
         "ko" => "데이터 없는 공급자 숨기기",
         "zh" => "隐藏无数据的供应商",
-        "ja" => "データのないプロバイダー를 숨기기",
+        "ja" => "データのないプロバイダーを隠す",
         _ => "Hide inactive providers"
     };
+
+    public static string VisibleProviders => CurrentLang switch
+    {
+        "ko" => "표시할 에이전트 선택",
+        "zh" => "选择要显示的代理",
+        "ja" => "表示するエージェントを選択",
+        _ => "Select agents to display"
+    };
+
 
     public static string SubscriptionExpired => CurrentLang switch
     {

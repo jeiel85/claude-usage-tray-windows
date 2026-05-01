@@ -491,7 +491,16 @@
                                 <ComboBoxItem Content="OpenCode" Tag="opencode"/>
                             </ComboBox>
                             <TextBlock x:Name="LblTrayAutoHelp" Foreground="#5A5F7A" FontSize="10" Margin="4,0,0,8" TextWrapping="Wrap"/>
-                            <CheckBox x:Name="ChkHideInactive" Style="{StaticResource CheckStyle}" Margin="0,0,0,0" Click="Setting_Changed"/>
+                            <CheckBox x:Name="ChkHideInactive" Style="{StaticResource CheckStyle}" Margin="0,0,0,8" Click="Setting_Changed"/>
+
+                            <Border Height="1" Background="#2D2F45" Margin="0,4,0,8"/>
+                            <TextBlock x:Name="LblVisibleProviders" Style="{StaticResource SectionLabel}" Margin="0,0,0,8"/>
+                            <WrapPanel>
+                                <CheckBox x:Name="ChkVisibleClaude" Style="{StaticResource CheckStyle}" Margin="0,0,14,4" Click="Setting_Changed"/>
+                                <CheckBox x:Name="ChkVisibleCodex" Style="{StaticResource CheckStyle}" Margin="0,0,14,4" Click="Setting_Changed"/>
+                                <CheckBox x:Name="ChkVisibleGemini" Style="{StaticResource CheckStyle}" Margin="0,0,14,4" Click="Setting_Changed"/>
+                                <CheckBox x:Name="ChkVisibleOpenCode" Style="{StaticResource CheckStyle}" Margin="0,0,0,4" Click="Setting_Changed"/>
+                            </WrapPanel>
                         </StackPanel>
                     </Border>
 

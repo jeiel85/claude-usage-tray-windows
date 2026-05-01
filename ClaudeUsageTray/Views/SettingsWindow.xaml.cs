@@ -113,6 +113,11 @@ public partial class SettingsWindow : Window, IDisposable
         LangItemSystem.Content              = Loc.LanguageSystem;
         LblTrayDisplayMode.Text             = Loc.TrayDisplayMode;
         ChkHideInactive.Content             = Loc.HideInactiveProviders;
+        LblVisibleProviders.Text            = Loc.VisibleProviders;
+        ChkVisibleClaude.Content            = "Claude";
+        ChkVisibleCodex.Content             = "Codex";
+        ChkVisibleGemini.Content            = "Gemini CLI";
+        ChkVisibleOpenCode.Content          = "OpenCode";
         TrayItemAuto.Content                = Loc.CurrentLang switch
         {
             "ko" => "자동",
@@ -174,6 +179,11 @@ public partial class SettingsWindow : Window, IDisposable
 
         ChkHideInactive.IsChecked = _vm.HideInactiveProviders;
 
+        ChkVisibleClaude.IsChecked   = _vm.IsClaudeEnabled;
+        ChkVisibleCodex.IsChecked    = _vm.IsCodexEnabled;
+        ChkVisibleGemini.IsChecked   = _vm.IsGeminiEnabled;
+        ChkVisibleOpenCode.IsChecked = _vm.IsOpenCodeEnabled;
+
         _isLoadingValues = false;
     }
 
@@ -200,6 +210,11 @@ public partial class SettingsWindow : Window, IDisposable
 
         UpdateTrayAutoHelp();
         _vm.HideInactiveProviders = ChkHideInactive.IsChecked == true;
+
+        _vm.IsClaudeEnabled   = ChkVisibleClaude.IsChecked == true;
+        _vm.IsCodexEnabled    = ChkVisibleCodex.IsChecked == true;
+        _vm.IsGeminiEnabled   = ChkVisibleGemini.IsChecked == true;
+        _vm.IsOpenCodeEnabled = ChkVisibleOpenCode.IsChecked == true;
 
         _vm.SaveSettingsCommand.Execute(null);
         _ = _vm.RefreshAsync();

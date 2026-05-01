@@ -167,6 +167,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _trayDisplayMode = UsageProviderKind.Auto;
     [ObservableProperty] private string _effectiveTrayProvider = UsageProviderKind.Claude;
     [ObservableProperty] private bool _hideInactiveProviders = true;
+    
+    // Manual provider visibility toggles
+    [ObservableProperty] private bool _isClaudeEnabled = true;
+    [ObservableProperty] private bool _isCodexEnabled = true;
+    [ObservableProperty] private bool _isGeminiEnabled = true;
+    [ObservableProperty] private bool _isOpenCodeEnabled = true;
+
     [ObservableProperty] private double _openCodePercent = 0;
     [ObservableProperty] private double _trayUsagePercent = 0;
 
@@ -217,6 +224,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public string LblCodexNoUsage    => Loc.CodexNoUsageToday;
     public string LblGeminiNoUsage   => Loc.GeminiCliNoUsageToday;
     public string LblOpenCodeNoUsage => Loc.OpenCodeNoUsageToday;
+    public string LblVisibleProviders => Loc.VisibleProviders;
     public string DisclaimerText     => SelectedProvider == UsageProviderKind.Claude ? Loc.Disclaimer : Loc.GenericDisclaimer;
 
     // Tooltips
@@ -305,6 +313,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
         TrayDisplayMode = UsageProviderKind.IsValid(s.TrayDisplayMode) ? s.TrayDisplayMode : UsageProviderKind.Auto;
         HideInactiveProviders = s.HideInactiveProviders;
 
+        // Manual provider visibility
+        IsClaudeEnabled   = s.VisibleProviders.Contains(UsageProviderKind.Claude);
+        IsCodexEnabled    = s.VisibleProviders.Contains(UsageProviderKind.Codex);
+        IsGeminiEnabled   = s.VisibleProviders.Contains(UsageProviderKind.GeminiCli);
+        IsOpenCodeEnabled = s.VisibleProviders.Contains(UsageProviderKind.OpenCode);
+
         // 현재 로그인된 계정의 orgUuid로 히스토리 경로 초기화
         ApplySelectedProviderScope();
 
@@ -364,6 +378,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
         if (Threshold90)  thresholds.Add(90);
         if (Threshold100) thresholds.Add(100);
 
+        var visibleProviders = new List<string>();
+        if (IsClaudeEnabled)   visibleProviders.Add(UsageProviderKind.Claude);
+        if (IsCodexEnabled)    visibleProviders.Add(UsageProviderKind.Codex);
+        if (IsGeminiEnabled)   visibleProviders.Add(UsageProviderKind.GeminiCli);
+        if (IsOpenCodeEnabled) visibleProviders.Add(UsageProviderKind.OpenCode);
+
         // Preserve SkippedVersion from disk
         var existing = _settingsService.Load();
 
@@ -382,6 +402,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             PollingIntervalMinutes = PollingIntervalMinutes,
             TrayDisplayMode = TrayDisplayMode,
             HideInactiveProviders = HideInactiveProviders,
+            VisibleProviders = visibleProviders,
         });
     }
 
@@ -614,10 +635,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
         var settings = _settingsService.Load();
         var hideInactive = settings.HideInactiveProviders;
 
-        IsClaudeActive = !hideInactive || TodayInputTokens + TodayOutputTokens > 0 || ClaudeShortPercent > 0 || ClaudeHasError;
-        IsCodexActive = !hideInactive || CodexPercent > 0 || CodexHasError;
-        IsGeminiActive = !hideInactive || _lastGeminiRequestCount > 0 || GeminiHasError;
-        IsOpenCodeActive = !hideInactive || _lastOpenCodeRequestCount > 0 || OpenCodeHasError;
+        IsClaudeActive = IsClaudeEnabled && (!hideInactive || TodayInputTokens + TodayOutputTokens > 0 || ClaudeShortPercent > 0 || ClaudeHasError);
+        IsCodexActive = IsCodexEnabled && (!hideInactive || CodexPercent > 0 || CodexHasError);
+        IsGeminiActive = IsGeminiEnabled && (!hideInactive || _lastGeminiRequestCount > 0 || GeminiHasError);
+        IsOpenCodeActive = IsOpenCodeEnabled && (!hideInactive || _lastOpenCodeRequestCount > 0 || OpenCodeHasError);
 
         IsClaudeUsageEmpty = TodayInputTokens + TodayOutputTokens == 0;
         IsCodexUsageEmpty = CodexPercent == 0;
@@ -628,18 +649,28 @@ public partial class MainViewModel : ObservableObject, IDisposable
         if (TrayDisplayMode == UsageProviderKind.Auto)
         {
             // 오늘 사용량이 있는 공급자를 우선순위에 따라 선택 (OpenCode -> Gemini -> Codex -> Claude)
-            if (_lastOpenCodeRequestCount > 0)
+            // 단, 사용자가 활성화(Enabled)한 공급자만 선택 대상
+            if (IsOpenCodeEnabled && _lastOpenCodeRequestCount > 0)
                 EffectiveTrayProvider = UsageProviderKind.OpenCode;
-            else if (_lastGeminiRequestCount > 0)
+            else if (IsGeminiEnabled && _lastGeminiRequestCount > 0)
                 EffectiveTrayProvider = UsageProviderKind.GeminiCli;
-            else if (CodexPercent > 0 && !CodexHasError)
+            else if (IsCodexEnabled && CodexPercent > 0 && !CodexHasError)
                 EffectiveTrayProvider = UsageProviderKind.Codex;
-            else if (TodayInputTokens + TodayOutputTokens > 0)
+            else if (IsClaudeEnabled && TodayInputTokens + TodayOutputTokens > 0)
                 EffectiveTrayProvider = UsageProviderKind.Claude;
             else
             {
-                // 오늘 사용량이 없는 경우 fallback (현재 수동 선택된 공급자 또는 Claude)
-                EffectiveTrayProvider = UsageProviderKind.IsValid(SelectedProvider) ? SelectedProvider : UsageProviderKind.Claude;
+                // 오늘 사용량이 없거나 모두 비활성인 경우 fallback
+                // 현재 수동 선택된 공급자가 활성 상태면 그것을, 아니면 활성된 것 중 첫 번째(우선순위 역순)
+                if (SelectedProvider == UsageProviderKind.Claude && IsClaudeEnabled) EffectiveTrayProvider = UsageProviderKind.Claude;
+                else if (SelectedProvider == UsageProviderKind.Codex && IsCodexEnabled) EffectiveTrayProvider = UsageProviderKind.Codex;
+                else if (SelectedProvider == UsageProviderKind.GeminiCli && IsGeminiEnabled) EffectiveTrayProvider = UsageProviderKind.GeminiCli;
+                else if (SelectedProvider == UsageProviderKind.OpenCode && IsOpenCodeEnabled) EffectiveTrayProvider = UsageProviderKind.OpenCode;
+                else if (IsClaudeEnabled)   EffectiveTrayProvider = UsageProviderKind.Claude;
+                else if (IsCodexEnabled)    EffectiveTrayProvider = UsageProviderKind.Codex;
+                else if (IsGeminiEnabled)   EffectiveTrayProvider = UsageProviderKind.GeminiCli;
+                else if (IsOpenCodeEnabled) EffectiveTrayProvider = UsageProviderKind.OpenCode;
+                else EffectiveTrayProvider = UsageProviderKind.Claude; // All disabled fallback
             }
         }
         else
