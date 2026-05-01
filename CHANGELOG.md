@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.21.11] - 2026-04-30
+
+<!-- ko -->
+### 개선
+- **사용량 없음 UI 일관성 강화** — 모든 공급자(Claude 포함)가 오늘 사용량이 없을 때 게이지와 통계를 그대로 유지하면서 하단에 "오늘 기록된 사용량이 없습니다"라는 안내를 일관되게 표시하도록 수정했습니다.
+- **포인터 문서 구조 확립** — `GEMINI.md`를 `AGENTS.md`로 연결되는 포인터로 설정하여 지침 관리 체계를 단일화했습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Unified "No Usage" UI** — Standardized the display across all providers (including Claude). When no usage is recorded for today, gauges and stats remain visible while a discrete "No usage recorded today" message is shown at the bottom.
+- **Pointer Doc Structure** — Established `GEMINI.md` as a pointer to `AGENTS.md` for unified instruction management.
+<!-- /en -->
+
+---
+
 ## [1.21.10] - 2026-04-30
 
 <!-- ko -->

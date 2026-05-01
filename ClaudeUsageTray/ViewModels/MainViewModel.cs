@@ -176,6 +176,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _isGeminiActive = false;
     [ObservableProperty] private bool _isOpenCodeActive = false;
     [ObservableProperty] private bool _isClaudeUsageEmpty = true;
+    [ObservableProperty] private bool _isCodexUsageEmpty = true;
+    [ObservableProperty] private bool _isGeminiUsageEmpty = true;
+    [ObservableProperty] private bool _isOpenCodeUsageEmpty = true;
 
     private string _updateDownloadUrl = "";
     private string _updateSha256Url = "";
@@ -211,6 +214,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public string LblExtraCredits    => Loc.ExtraCreditsLabel;
     public string LblCheckUpdate     => Loc.CheckUpdate;
     public string LblClaudeNoUsage   => Loc.ClaudeNoUsageToday;
+    public string LblCodexNoUsage    => Loc.CodexNoUsageToday;
+    public string LblGeminiNoUsage   => Loc.GeminiCliNoUsageToday;
+    public string LblOpenCodeNoUsage => Loc.OpenCodeNoUsageToday;
     public string DisclaimerText     => SelectedProvider == UsageProviderKind.Claude ? Loc.Disclaimer : Loc.GenericDisclaimer;
 
     // Tooltips
@@ -614,6 +620,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
         IsOpenCodeActive = !hideInactive || _lastOpenCodeRequestCount > 0 || OpenCodeHasError;
 
         IsClaudeUsageEmpty = TodayInputTokens + TodayOutputTokens == 0;
+        IsCodexUsageEmpty = CodexPercent == 0;
+        IsGeminiUsageEmpty = _lastGeminiRequestCount == 0;
+        IsOpenCodeUsageEmpty = _lastOpenCodeRequestCount == 0;
 
         // 2. 트레이 표시 기준 결정 (자동 모드 로직 개선)
         if (TrayDisplayMode == UsageProviderKind.Auto)
