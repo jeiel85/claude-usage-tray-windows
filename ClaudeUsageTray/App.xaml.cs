@@ -5,6 +5,7 @@ using ClaudeUsageTray.Models;
 using ClaudeUsageTray.Services;
 using ClaudeUsageTray.ViewModels;
 using ClaudeUsageTray.Views;
+using SQLitePCL;
 using Application = System.Windows.Application;
 
 namespace ClaudeUsageTray;
@@ -26,6 +27,9 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // SQLitePCLRaw 네이티브 라이브러리 초기화 (OpenCode DB 접근 전 필수)
+        SQLitePCL.Batteries.Init();
 
         _mutex = new Mutex(true, "ClaudeUsageTray_SingleInstance_v1", out bool isNewInstance);
         if (!isNewInstance)

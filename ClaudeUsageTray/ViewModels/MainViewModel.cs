@@ -901,8 +901,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            ClaudeHasError = true;
-            ClaudeErrorMessage = ex.Message;
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                ClaudeHasError = true;
+                ClaudeErrorMessage = ex.Message;
+                UpdateOverallStatus();
+            });
         }
     }
 
@@ -934,8 +938,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            CodexHasError = true;
-            CodexErrorMessage = ex.Message;
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                CodexHasError = true;
+                CodexErrorMessage = ex.Message;
+                UpdateOverallStatus();
+            });
         }
     }
 
@@ -974,8 +982,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            GeminiHasError = true;
-            GeminiErrorMessage = ex.Message;
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                GeminiHasError = true;
+                GeminiErrorMessage = ex.Message;
+                UpdateOverallStatus();
+            });
         }
     }
 
@@ -1041,8 +1053,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            OpenCodeHasError = true;
-            OpenCodeErrorMessage = ex.Message;
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                OpenCodeHasError = true;
+                OpenCodeErrorMessage = ex.Message;
+                UpdateOverallStatus();
+            });
         }
     }
 
