@@ -441,12 +441,34 @@ public partial class MainViewModel : ObservableObject, IDisposable
         {
             result = await _updater.CheckForUpdateAsync();
         }
-        catch
+        catch (UpdateCheckException uex)
         {
+            // 카테고리별 안내문구 분기 — 사용자가 원인과 다음 액션을 즉시 알 수 있도록
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
             {
-                UpdateCheckLabel = Loc.UpdateCheckFailed;
-                await Task.Delay(3000);
+                UpdateCheckLabel = uex.Kind switch
+                {
+                    UpdateCheckErrorKind.RateLimit => Loc.UpdateCheckRateLimited(uex.RetryAtLocal ?? ""),
+                    UpdateCheckErrorKind.Network   => Loc.UpdateCheckNetworkError,
+                    UpdateCheckErrorKind.Timeout   => Loc.UpdateCheckTimeout,
+                    UpdateCheckErrorKind.ApiError  => Loc.UpdateCheckApiError(uex.StatusCode ?? 0),
+                    _ => Loc.UpdateCheckFailed
+                };
+                // 긴 안내일 수 있으니 표시 시간 5초로 연장
+                await Task.Delay(5000);
+                UpdateCheckLabel = "";
+            });
+            return;
+        }
+        catch (Exception ex)
+        {
+            // 분류되지 않은 예외 — 메시지 일부라도 노출
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
+            {
+                var detail = ex.Message;
+                if (detail.Length > 80) detail = detail[..80] + "…";
+                UpdateCheckLabel = $"{Loc.UpdateCheckFailed}: {detail}";
+                await Task.Delay(5000);
                 UpdateCheckLabel = "";
             });
             return;

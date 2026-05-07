@@ -716,6 +716,59 @@ public static class Loc
         _ => "Check failed"
     };
 
+    /// <summary>GitHub API 무인증 60/h rate limit 도달 — 사용자에게 재시도 시각과 직접 다운로드 옵션 안내.</summary>
+    public static string UpdateCheckRateLimited(string retryAt) => Lang switch
+    {
+        "ko" => string.IsNullOrEmpty(retryAt)
+            ? "GitHub API 한도 초과 — 잠시 후 재시도하거나 GitHub Releases 페이지에서 직접 받기"
+            : $"GitHub API 한도 초과 ({retryAt}에 재시도 가능) — 또는 Releases 페이지에서 직접 받기",
+        "zh" => string.IsNullOrEmpty(retryAt)
+            ? "GitHub API 限额已用完 — 请稍后重试或前往 Releases 页面直接下载"
+            : $"GitHub API 限额已用完（{retryAt} 后可重试）— 或前往 Releases 页面直接下载",
+        "ja" => string.IsNullOrEmpty(retryAt)
+            ? "GitHub API レート制限 — 後で再試行するか、Releases ページから直接ダウンロード"
+            : $"GitHub API レート制限（{retryAt} 以降で再試行可）— または Releases ページから直接ダウンロード",
+        _ => string.IsNullOrEmpty(retryAt)
+            ? "GitHub API rate limit hit — retry later or download from the Releases page"
+            : $"GitHub API rate limit (retry after {retryAt}) — or download from the Releases page"
+    };
+
+    /// <summary>네트워크 도달 불가 (DNS/연결 실패).</summary>
+    public static string UpdateCheckNetworkError => Lang switch
+    {
+        "ko" => "네트워크 연결 실패 — 인터넷 연결을 확인해주세요",
+        "zh" => "网络连接失败 — 请检查网络连接",
+        "ja" => "ネットワーク接続失敗 — インターネット接続を確認してください",
+        _ => "Network unreachable — please check your internet connection"
+    };
+
+    /// <summary>응답 지연 (15초 timeout).</summary>
+    public static string UpdateCheckTimeout => Lang switch
+    {
+        "ko" => "GitHub 응답 지연 — 잠시 후 다시 시도해주세요",
+        "zh" => "GitHub 响应超时 — 请稍后重试",
+        "ja" => "GitHub の応答が遅延 — 後で再試行してください",
+        _ => "GitHub timed out — please retry shortly"
+    };
+
+    /// <summary>그 외 GitHub API 에러 (5xx 등).</summary>
+    public static string UpdateCheckApiError(int statusCode) => Lang switch
+    {
+        "ko" => $"GitHub API 오류 (HTTP {statusCode}) — Releases 페이지에서 직접 받기 권장",
+        "zh" => $"GitHub API 错误 (HTTP {statusCode}) — 建议前往 Releases 页面直接下载",
+        "ja" => $"GitHub API エラー (HTTP {statusCode}) — Releases ページから直接ダウンロード推奨",
+        _ => $"GitHub API error (HTTP {statusCode}) — try downloading from the Releases page"
+    };
+
+    /// <summary>"Releases 페이지 열기" 액션 버튼 라벨.</summary>
+    public static string OpenReleasesPage => Lang switch
+    {
+        "ko" => "Releases 페이지 열기 ↗",
+        "zh" => "打开 Releases 页面 ↗",
+        "ja" => "Releases ページを開く ↗",
+        _ => "Open Releases page ↗"
+    };
+
     /// <summary>
     /// 릴리즈 노트에서 현재 언어 블록만 추출한다.
     /// <!-- ko -->...<!-- /ko --> 형식. 해당 언어 블록이 없으면 en 블록을 반환한다.

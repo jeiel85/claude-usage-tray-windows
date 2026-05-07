@@ -3,6 +3,40 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.24.2] - 2026-05-07
+
+<!-- ko -->
+### 수정
+- **"업데이트 확인 실패" 가 원인을 가리던 문제 수정** — 기존 catch block 이 변수 없이 예외를 통째로 삼키고 있어, GitHub API 무인증 한도(60/hour/IP) 초과나 네트워크 단절 같은 서로 다른 원인이 모두 같은 일반 메시지로 표시되었습니다. 이제 원인이 4 가지 카테고리로 분류되어 각각 명확한 안내가 표시됩니다:
+  - **GitHub API rate limit 초과**: 재시도 가능 시각(`X-RateLimit-Reset` / `Retry-After` 헤더 기반)을 같이 보여주며, "Releases 페이지에서 직접 다운로드" 대안 안내
+  - **네트워크 도달 불가**: "인터넷 연결 확인" 안내
+  - **타임아웃**: "잠시 후 재시도" 안내
+  - **그 외 GitHub API 에러**: HTTP 상태 코드 + Releases 페이지 안내
+- 분류되지 않은 예외도 `ex.Message` 의 80자 prefix 가 같이 표시되어 진단이 가능해집니다.
+
+### 개선
+- **HttpClient 타임아웃을 100초 → 15초로 단축** — 업데이트 확인이 멈춘 줄 알 정도의 긴 기본 타임아웃을 줄여서 사용자 체감 응답성 향상.
+- **표시 시간 3초 → 5초로 연장** — 새 안내문구는 이전보다 정보량이 많아져 충분히 읽을 시간 확보.
+- **`UpdateCheckException` + `UpdateCheckErrorKind` enum 신설** — 향후 다른 화면에서도 같은 분류 기반으로 라우팅 가능하도록 공개 타입으로 노출.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **"Update check failed" was hiding the actual reason** — The previous `catch` block discarded the exception variable, so completely different causes (GitHub API unauthenticated rate limit at 60/hour/IP, network failures, transient API errors) all surfaced as the same generic message. Failures are now classified into 4 categories with specific guidance:
+  - **GitHub API rate-limited**: shows the retry-after time (from `X-RateLimit-Reset` / `Retry-After` headers) plus a hint to download from the Releases page directly
+  - **Network unreachable**: prompts the user to check the internet connection
+  - **Timeout**: suggests retrying shortly
+  - **Other GitHub API error**: shows the HTTP status code with a Releases-page fallback hint
+- Unclassified exceptions now include the first 80 characters of `ex.Message` so users can self-diagnose or report meaningfully.
+
+### Improved
+- **HttpClient timeout shortened from 100 s → 15 s** — The default felt like the app was hung. Faster perceived responsiveness on update checks.
+- **Failure message display time extended from 3 s → 5 s** — The new categorized notices carry more information; users need a beat longer to read them.
+- **Publicly exposed `UpdateCheckException` and `UpdateCheckErrorKind`** so future surfaces can route by failure category as well.
+<!-- /en -->
+
+---
+
 ## [1.24.1] - 2026-05-07
 
 <!-- ko -->

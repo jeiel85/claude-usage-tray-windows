@@ -6,13 +6,42 @@ using System.Text.Json;
 
 namespace ClaudeUsageTray.Services;
 
+/// <summary>업데이트 확인 실패 원인 분류 — UI 가 카테고리별로 안내문구를 라우팅한다.</summary>
+public enum UpdateCheckErrorKind
+{
+    Unknown,
+    Network,     // 네트워크 도달 불가
+    Timeout,     // 응답 지연
+    RateLimit,   // GitHub API 무인증 60/h 초과 (HTTP 403 + "rate limit")
+    ApiError,    // 그 외 GitHub API 측 에러 (HTTP 4xx/5xx)
+}
+
+/// <summary>분류된 업데이트 확인 예외 — Kind 별로 사용자 안내문구가 갈라진다.</summary>
+public class UpdateCheckException : Exception
+{
+    public UpdateCheckErrorKind Kind { get; }
+    public int? StatusCode { get; }
+    public string? RetryAtLocal { get; }   // RateLimit 시 사용자 시간대 "HH:mm" 문자열
+
+    public UpdateCheckException(string message, UpdateCheckErrorKind kind,
+                                int? statusCode = null, string? retryAtLocal = null,
+                                Exception? inner = null)
+        : base(message, inner)
+    {
+        Kind = kind;
+        StatusCode = statusCode;
+        RetryAtLocal = retryAtLocal;
+    }
+}
+
 public class UpdateService
 {
     private const string Repo        = "jeiel85/claude-usage-tray-windows";
     private const string ApiListUrl  = $"https://api.github.com/repos/{Repo}/releases?per_page=30";
-    private const string ReleasePage = $"https://github.com/{Repo}/releases/latest";
+    public  const string ReleasePage = $"https://github.com/{Repo}/releases/latest";
 
-    private static readonly HttpClient Http = new();
+    // 100초 기본은 너무 길어 사용자가 멈춘 줄 안다 — 15초로 단축
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(15) };
 
     // Verification logic
     public record UpdateInfo(Version version, string downloadUrl, string sha256Url, string releaseNotes);
@@ -27,18 +56,71 @@ public class UpdateService
 
     /// <summary>
     /// Returns UpdateInfo if a newer release exists, null if already up to date.
-    /// Throws on network or API errors so callers can distinguish from "no update".
+    /// Throws <see cref="UpdateCheckException"/> on classified failures so callers can route messaging by Kind.
     /// Release notes include all versions between current and latest.
     /// </summary>
     public async Task<UpdateInfo?> CheckForUpdateAsync()
     {
-        var json = await Http.GetStringAsync(ApiListUrl);
-        using var doc = JsonDocument.Parse(json);
+        HttpResponseMessage response;
+        string rawJson;
+        try
+        {
+            response = await Http.GetAsync(ApiListUrl);
+            rawJson = await response.Content.ReadAsStringAsync();
+        }
+        catch (TaskCanceledException ex)
+        {
+            throw new UpdateCheckException(ex.Message, UpdateCheckErrorKind.Timeout, inner: ex);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new UpdateCheckException(ex.Message, UpdateCheckErrorKind.Network, inner: ex);
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            int code = (int)response.StatusCode;
+            // GitHub 무인증 rate limit: 403 + body의 "rate limit" 패턴 + X-RateLimit-Remaining: 0
+            bool isRateLimit = code == 403 &&
+                               (rawJson.Contains("rate limit", StringComparison.OrdinalIgnoreCase) ||
+                                (response.Headers.TryGetValues("X-RateLimit-Remaining", out var remVals) &&
+                                 remVals.FirstOrDefault() == "0"));
+
+            if (isRateLimit)
+            {
+                string? retryAt = null;
+                // 우선순위: X-RateLimit-Reset (epoch) > Retry-After (delta seconds)
+                if (response.Headers.TryGetValues("X-RateLimit-Reset", out var resetVals) &&
+                    long.TryParse(resetVals.FirstOrDefault(), out var epoch))
+                {
+                    retryAt = DateTimeOffset.FromUnixTimeSeconds(epoch).ToLocalTime().ToString("HH:mm");
+                }
+                else if (response.Headers.TryGetValues("Retry-After", out var raVals) &&
+                         int.TryParse(raVals.FirstOrDefault(), out var raSec))
+                {
+                    retryAt = DateTimeOffset.UtcNow.AddSeconds(raSec).ToLocalTime().ToString("HH:mm");
+                }
+                throw new UpdateCheckException(
+                    "GitHub API rate limit exceeded (60/h, unauthenticated).",
+                    UpdateCheckErrorKind.RateLimit,
+                    statusCode: code,
+                    retryAtLocal: retryAt);
+            }
+
+            throw new UpdateCheckException(
+                $"GitHub API returned HTTP {code}.",
+                UpdateCheckErrorKind.ApiError,
+                statusCode: code);
+        }
+
+        using var doc = JsonDocument.Parse(rawJson);
         var root = doc.RootElement;
 
-        // GitHub returns {"message":"..."} on rate limit or server error
+        // 정상 응답이지만 message 필드가 있으면 (방어적) — 분류는 ApiError 로
         if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("message", out var msgEl))
-            throw new InvalidOperationException($"GitHub API: {msgEl.GetString()}");
+            throw new UpdateCheckException(
+                $"GitHub API: {msgEl.GetString()}",
+                UpdateCheckErrorKind.ApiError);
 
         // Collect all releases newer than current version, sorted newest first
         var newer = new List<(Version ver, string tag, string body, JsonElement element)>();
