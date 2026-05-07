@@ -511,6 +511,15 @@ public static class Loc
         _ => $"Rate limited — retry after {time}"
     };
 
+    // 쿨다운 안내(에러 아님): 회색 톤으로 자동 재시도 시점만 부드럽게 알려준다
+    public static string ApiCooldownNote(string time) => Lang switch
+    {
+        "ko" => $"API 응답 대기 중 — {time}에 자동 재시도",
+        "zh" => $"等待 API 响应 — 将在 {time} 自动重试",
+        "ja" => $"API 応答待ち — {time} に自動再試行",
+        _ => $"Waiting for API — auto retry at {time}"
+    };
+
     public static string HistoryTitleFor(string provider) => Lang switch
     {
         "ko" => $"{provider} {HistoryTitle}",

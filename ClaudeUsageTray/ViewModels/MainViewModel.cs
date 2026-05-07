@@ -59,6 +59,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _claudeLongDepletion = "";
     [ObservableProperty] private bool _claudeHasError = false;
     [ObservableProperty] private string _claudeErrorMessage = "";
+    // 쿨다운(API 일시 제한) 안내: 에러가 아니라 재시도 시점만 부드럽게 표시
+    [ObservableProperty] private string _claudeApiNote = "";
 
     // Codex Usage
     [ObservableProperty] private double _codexPercent = 0;
@@ -794,6 +796,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 {
                     ClaudeHasError = false;
                     ClaudeErrorMessage = "";
+                    ClaudeApiNote = "";
 
                     if (usage.FiveHour != null && usage.FiveHour.UsagePercent < 1.0)
                     {
@@ -892,10 +895,22 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     ClaudeLongReset    = _lastKnownLongReset;
                     ClaudeLongSummary  = Loc.UsageSummary(_lastKnownLongPercent);
 
-                    ClaudeHasError = true;
-                    ClaudeErrorMessage = skipApi && _apiRetryAfter > DateTimeOffset.MinValue
-                        ? Loc.RateLimitedUntil(_apiRetryAfter.ToLocalTime().ToString("HH:mm:ss"))
-                        : _api.LastError != null ? ParseFriendlyError(_api.LastError) : Loc.RateLimited;
+                    bool isCooldown = skipApi && _apiRetryAfter > DateTimeOffset.MinValue;
+                    if (isCooldown)
+                    {
+                        // 일시 제한은 에러 아닌 안내로만 — 빨간 박스 대신 회색 톤 자동 재시도 안내
+                        ClaudeHasError = false;
+                        ClaudeErrorMessage = "";
+                        ClaudeApiNote = Loc.ApiCooldownNote(_apiRetryAfter.ToLocalTime().ToString("HH:mm"));
+                    }
+                    else
+                    {
+                        ClaudeHasError = true;
+                        ClaudeErrorMessage = _api.LastError != null
+                            ? ParseFriendlyError(_api.LastError)
+                            : Loc.RateLimited;
+                        ClaudeApiNote = "";
+                    }
                 }
             });
         }
@@ -905,6 +920,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             {
                 ClaudeHasError = true;
                 ClaudeErrorMessage = ex.Message;
+                ClaudeApiNote = "";
                 UpdateOverallStatus();
             });
         }
@@ -920,8 +936,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 var newPercent = snapshot.ShortUsagePercent;
                 CodexReset = FormatResetLabel(snapshot.ShortResetAt, snapshot.IsShortResetEstimated);
                 CodexDataSource = snapshot.DataSource ?? "";
-                CodexHasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage);
-                CodexErrorMessage = snapshot.ErrorMessage ?? "";
+                // "오늘 사용 기록 없음"은 정보성 메시지이므로 회색 placeholder만 표시 — 빨간 에러 중복 방지
+                var codexInformational = IsNoUsageInformational(snapshot.ErrorMessage, UsageProviderKind.Codex);
+                CodexHasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage) && !codexInformational;
+                CodexErrorMessage = codexInformational ? "" : (snapshot.ErrorMessage ?? "");
                 CodexSummary = Loc.UsageSummary(newPercent);
                 
                 if (NotificationsEnabled && _prevCodexPercent >= 0)
@@ -954,8 +972,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
             var snapshot = _geminiCli.GetTodaySnapshot();
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                GeminiHasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage);
-                GeminiErrorMessage = snapshot.ErrorMessage ?? "";
+                var geminiInformational = IsNoUsageInformational(snapshot.ErrorMessage, UsageProviderKind.GeminiCli);
+                GeminiHasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage) && !geminiInformational;
+                GeminiErrorMessage = geminiInformational ? "" : (snapshot.ErrorMessage ?? "");
                 
                 _lastGeminiRequestCount = snapshot.RequestCount;
                 _lastGeminiOutputTokens = snapshot.TotalOutputTokens;
@@ -1029,8 +1048,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
             var snapshot = _openCode.GetTodaySnapshot(goal);
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                OpenCodeHasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage);
-                OpenCodeErrorMessage = snapshot.ErrorMessage ?? "";
+                var openCodeInformational = IsNoUsageInformational(snapshot.ErrorMessage, UsageProviderKind.OpenCode);
+                OpenCodeHasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage) && !openCodeInformational;
+                OpenCodeErrorMessage = openCodeInformational ? "" : (snapshot.ErrorMessage ?? "");
 
                 _lastOpenCodeRequestCount = snapshot.RequestCount;
                 _lastOpenCodeInputTokens  = snapshot.TotalInputTokens;
@@ -1245,6 +1265,20 @@ public partial class MainViewModel : ObservableObject, IDisposable
         tokens >= 1_000_000 ? $"{tokens / 1_000_000.0:F1}M" :
         tokens >= 1_000     ? $"{tokens / 1_000.0:F1}K" :
         tokens.ToString();
+
+    // 회색 placeholder로 이미 표시되는 "오늘 사용 기록 없음" 류는 빨간 에러로 중복 표시하지 않는다
+    private static bool IsNoUsageInformational(string? message, string providerKey)
+    {
+        if (string.IsNullOrWhiteSpace(message)) return false;
+        return providerKey switch
+        {
+            UsageProviderKind.Codex     => message == Loc.CodexNoUsageToday,
+            UsageProviderKind.GeminiCli => message == Loc.GeminiCliNoUsageToday
+                                       || message == Loc.GeminiCliEstimateOnly,
+            UsageProviderKind.OpenCode  => message == Loc.OpenCodeNoUsageToday,
+            _ => false,
+        };
+    }
 
     private static string CalcCostLabel(long input, long output, long cacheRead, long cacheWrite)
     {

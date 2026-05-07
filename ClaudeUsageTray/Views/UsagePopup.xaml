@@ -290,10 +290,10 @@
                     </Grid>
                 </Border>
 
-                <!-- Error panel -->
+                <!-- Error panel — 메시지가 비어 있으면 숨겨서 빈 박스가 보이지 않도록 함 (Windows 10 렌더링 대응) -->
                 <Border Padding="12,8" Margin="16,4"
                         Background="#2D1515" CornerRadius="8"
-                        Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}">
+                        Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibility}}">
                     <TextBlock Text="{Binding ErrorMessage}" Foreground="#EF4444"
                                FontSize="10" TextWrapping="Wrap"/>
                 </Border>
@@ -404,6 +404,10 @@
                                        Visibility="{Binding IsClaudeUsageEmpty, Converter={StaticResource BoolToVisibility}}"/>
 
                             <TextBlock Text="{Binding ClaudeErrorMessage}" Foreground="#EF4444" FontSize="10" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="{Binding ClaudeHasError, Converter={StaticResource BoolToVisibility}}"/>
+
+                            <!-- API 쿨다운 안내(에러 아님) — 회색 톤으로 자동 재시도 시점만 표시 -->
+                            <TextBlock Text="{Binding ClaudeApiNote}" Foreground="#8B92B3" FontSize="10" FontStyle="Italic" TextWrapping="Wrap" Margin="0,4,0,0"
+                                       Visibility="{Binding ClaudeApiNote, Converter={StaticResource StringToVisibility}}"/>
 
                             <!-- History Chart (Claude 기준) -->
                             <Border Height="1" Background="#2D2F45" Margin="0,14,0,12"/>
