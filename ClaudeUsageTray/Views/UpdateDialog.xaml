@@ -73,12 +73,23 @@
                 <!-- Release Notes -->
                 <ScrollViewer Grid.Row="1" Margin="20,15" VerticalScrollBarVisibility="Auto">
                     <StackPanel>
-                        <RichTextBox x:Name="NotesRichText" Background="Transparent" BorderThickness="0" 
+                        <RichTextBox x:Name="NotesRichText" Background="Transparent" BorderThickness="0"
                                      IsReadOnly="True" IsDocumentEnabled="True" Focusable="False"
-                                     Foreground="{StaticResource TextPrimary}" FontSize="13">
+                                     Foreground="{StaticResource TextPrimary}" FontSize="13"
+                                     CaretBrush="#A78BFA" SelectionBrush="#8B5CF6">
                             <RichTextBox.Resources>
                                 <Style TargetType="Paragraph">
                                     <Setter Property="Margin" Value="0,0,0,8"/>
+                                </Style>
+                                <!-- 릴리즈 노트 안의 하이퍼링크도 다크 테마 보라톤으로 -->
+                                <Style TargetType="Hyperlink">
+                                    <Setter Property="Foreground" Value="#A78BFA"/>
+                                    <Setter Property="TextDecorations" Value="Underline"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Foreground" Value="#C4B5FD"/>
+                                        </Trigger>
+                                    </Style.Triggers>
                                 </Style>
                             </RichTextBox.Resources>
                         </RichTextBox>
