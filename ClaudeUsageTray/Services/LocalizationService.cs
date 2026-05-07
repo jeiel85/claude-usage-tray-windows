@@ -168,6 +168,24 @@ public static class Loc
         _ => "7-Day Window"
     };
 
+    // v1.26.0: Codex 의 primary/secondary 처럼 윈도우 의미가 플랜별로 가변인 경우용 라벨.
+    // Anthropic 의 5h/7d 처럼 시간 기반으로 단정할 수 없는 케이스에 사용.
+    public static string ShortWindow => Lang switch
+    {
+        "ko" => "단기 윈도우",
+        "zh" => "短期窗口",
+        "ja" => "短期ウィンドウ",
+        _ => "Short window"
+    };
+
+    public static string LongWindow => Lang switch
+    {
+        "ko" => "장기 윈도우",
+        "zh" => "长期窗口",
+        "ja" => "長期ウィンドウ",
+        _ => "Long window"
+    };
+
     // Token labels
     public static string Input => Lang switch
     {

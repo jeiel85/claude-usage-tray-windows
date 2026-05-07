@@ -33,9 +33,44 @@ public partial class UsagePopup : Window, IDisposable
         MouseLeftButtonDown += (_, e) => { if (!e.Handled) DragMove(); };
         PreviewKeyDown += OnPreviewKeyDown;
 
+        // v1.26.0: 컨텐츠 크기 변경(focus 토글) 시 우하단 앵커 자동 유지 — 작업표시줄 침범 방지
+        SizeChanged += OnSizeChangedKeepAnchor;
+
         vm.PropertyChanged += OnVmPropertyChanged;
-        Loaded += (_, _) => RefreshChart();
+        Loaded += (_, _) =>
+        {
+            ApplyMaxHeight();
+            RefreshChart();
+        };
         UpdateToggleStyle();
+    }
+
+    /// <summary>
+    /// popup 의 컨텐츠 사이즈가 변경되면(예: 사용자가 컴팩트 행 클릭 → 다른 공급자 detail 펼침)
+    /// 우하단 모서리 앵커를 다시 적용해 작업표시줄 위로 끌어올린다.
+    /// </summary>
+    private void OnSizeChangedKeepAnchor(object sender, SizeChangedEventArgs e)
+    {
+        if (!IsLoaded || !IsVisible) return;
+        AnchorToTrayCorner();
+    }
+
+    /// <summary>
+    /// popup 우하단(작업표시줄 위) 8px 마진 위치로 정렬. 화면 work area 밖으로 밀려나지 않도록 클램프.
+    /// </summary>
+    private void AnchorToTrayCorner()
+    {
+        var workArea = SystemParameters.WorkArea;
+        Left = workArea.Right - Width - 8;
+        Top  = Math.Max(workArea.Top, workArea.Bottom - ActualHeight - 8);
+    }
+
+    /// <summary>
+    /// popup 최대 높이를 현재 작업영역 높이로 클램프 — 극단적으로 작은 모니터/공급자 4개 활성 케이스 안전망.
+    /// </summary>
+    private void ApplyMaxHeight()
+    {
+        MaxHeight = SystemParameters.WorkArea.Height - 16;
     }
 
     private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -337,15 +372,12 @@ public partial class UsagePopup : Window, IDisposable
 
     public void ShowNearTray()
     {
-        var workArea = SystemParameters.WorkArea;
-        Left = workArea.Right - Width - 8;
-        Top  = workArea.Bottom - ActualHeight - 8;
+        ApplyMaxHeight();
+        AnchorToTrayCorner();
         Show();
         Activate();
-        Dispatcher.InvokeAsync(() =>
-        {
-            Left = workArea.Right - Width - 8;
-            Top  = workArea.Bottom - ActualHeight - 8;
-        }, System.Windows.Threading.DispatcherPriority.Render);
+        // 첫 레이아웃 패스 후 ActualHeight 가 안정될 때 한 번 더 정렬 (showing 시점엔 부정확할 수 있음)
+        Dispatcher.InvokeAsync(AnchorToTrayCorner,
+            System.Windows.Threading.DispatcherPriority.Render);
     }
 }

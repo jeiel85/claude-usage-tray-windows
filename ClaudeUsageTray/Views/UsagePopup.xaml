@@ -556,19 +556,41 @@
 
                         <!-- Detail body — focused 일 때만 -->
                         <StackPanel Margin="10,6,10,0" Visibility="{Binding IsCodexFocused, Converter={StaticResource BoolToVisibility}}">
+
+                        <!-- v1.26.0: PlanType 라벨 ("ChatGPT Plus" 등) -->
+                        <TextBlock Text="{Binding CodexPlanLabel}" Foreground="#6EE7B7" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,8"/>
+
+                        <!-- 단기 윈도우 (primary) -->
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="ChatGPT plan" Foreground="#F1F5F9" FontSize="10.5"/>
+                            <TextBlock Grid.Column="0" Text="{Binding LblShortWindow}" Foreground="#F1F5F9" FontSize="10.5"/>
                             <StackPanel Grid.Column="1" Orientation="Horizontal">
                                 <TextBlock Text="{Binding CodexPercent, StringFormat={}{0:P0}}" Foreground="#6EE7B7" FontSize="11" FontWeight="Bold"/>
                                 <TextBlock Text="{Binding CodexReset}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0"/>
                             </StackPanel>
                         </Grid>
                         <ProgressBar Value="{Binding CodexPercent}" Maximum="1" Style="{StaticResource CodexBarStyle}" Margin="0,4,0,0"/>
-                        <TextBlock Text="{Binding CodexSummary}" Foreground="#8B92B3" FontSize="10" Margin="0,4,0,0"/>
+                        <TextBlock Text="{Binding CodexSummary}" Foreground="#8B92B3" FontSize="10" Margin="0,4,0,10"/>
+
+                        <!-- v1.26.0: 장기 윈도우 (secondary) — 응답에 데이터 있을 때만 노출 -->
+                        <StackPanel Visibility="{Binding IsCodexLongVisible, Converter={StaticResource BoolToVisibility}}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{Binding LblLongWindow}" Foreground="#F1F5F9" FontSize="10.5"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                    <TextBlock Text="{Binding CodexLongPercent, StringFormat={}{0:P0}}" Foreground="#6EE7B7" FontSize="11" FontWeight="Bold"/>
+                                    <TextBlock Text="{Binding CodexLongReset}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                            <ProgressBar Value="{Binding CodexLongPercent}" Maximum="1" Style="{StaticResource CodexBarStyle}" Margin="0,4,0,0"/>
+                            <TextBlock Text="{Binding CodexLongSummary}" Foreground="#8B92B3" FontSize="10" Margin="0,4,0,0"/>
+                        </StackPanel>
 
                         <!-- Usage Empty Placeholder (Codex) -->
                         <TextBlock Text="{Binding LblCodexNoUsage}" Foreground="#5A5F7A" FontSize="10" FontStyle="Italic" Margin="0,10,0,0"

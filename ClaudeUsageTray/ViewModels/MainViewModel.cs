@@ -70,6 +70,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _codexErrorMessage = "";
     [ObservableProperty] private string _codexNote = Loc.ProviderCodexNote;
     [ObservableProperty] private string _codexSummary = "";
+    // v1.26.0: 보조(secondary) 윈도우 — Anthropic 의 7d 와 같은 위치
+    [ObservableProperty] private double _codexLongPercent = 0;
+    [ObservableProperty] private string _codexLongReset = "";
+    [ObservableProperty] private string _codexLongSummary = "";
+    [ObservableProperty] private bool _isCodexLongVisible = false;   // secondary 응답이 있을 때만 노출
+    // v1.26.0: PlanType 라벨 — 응답에 PlanType 있으면 "ChatGPT Plus" 식으로, 없으면 "ChatGPT plan"
+    [ObservableProperty] private string _codexPlanLabel = "ChatGPT plan";
     // 오늘의 토큰 4타일 (Input / Output / CacheRead / CacheWrite — Codex는 cache write 개념 없어 "—")
     [ObservableProperty] private string _codexInputLabel = "—";
     [ObservableProperty] private string _codexOutputLabel = "—";
@@ -221,6 +228,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public string LblTodayTokens     => Loc.TodayTokens;
     public string LblFiveHour        => Loc.FiveHourWindow;
     public string LblSevenDay        => Loc.SevenDayWindow;
+    public string LblShortWindow     => Loc.ShortWindow;
+    public string LblLongWindow      => Loc.LongWindow;
     public string LblInput           => Loc.Input;
     public string LblOutput          => Loc.Output;
     public string LblCacheRead       => Loc.CacheRead;
@@ -1061,6 +1070,18 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
                 CodexPercent = newPercent;
                 _prevCodexPercent = newPercent;
+
+                // v1.26.0: 보조 윈도우 (Anthropic 의 7d 와 동등한 위치)
+                CodexLongPercent   = snapshot.LongUsagePercent;
+                CodexLongReset     = FormatResetLabel(snapshot.LongResetAt);
+                CodexLongSummary   = Loc.UsageSummary(snapshot.LongUsagePercent);
+                // 응답에 secondary가 있으면(% > 0 또는 reset이 채워짐) 노출
+                IsCodexLongVisible = snapshot.LongUsagePercent > 0 || snapshot.LongResetAt is not null;
+
+                // v1.26.0: PlanType 라벨링 — "ChatGPT Plus" 등으로 더 구체적
+                CodexPlanLabel = !string.IsNullOrWhiteSpace(snapshot.PlanType)
+                    ? $"ChatGPT {snapshot.PlanType}"
+                    : "ChatGPT plan";
 
                 // 오늘의 토큰 4타일 라벨 채우기
                 CodexInputLabel      = snapshot.TotalInputTokens      > 0 ? FormatTokenShort(snapshot.TotalInputTokens)      : "—";

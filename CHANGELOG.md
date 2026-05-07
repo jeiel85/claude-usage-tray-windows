@@ -3,6 +3,32 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.26.0] - 2026-05-07
+
+<!-- ko -->
+### 수정
+- **Popup 이 컴팩트 → 펼침 시 작업표시줄을 침범하던 문제 수정** — v1.25.0 의 Focus + Compact Rows 모델에서 컴팩트 행을 클릭해 다른 공급자 detail 이 펼쳐지면 popup 높이가 늘어나면서 작업표시줄과 겹쳐 잘리는 현상이 있었습니다. 이제 popup 이 자체 `SizeChanged` 이벤트를 감지해 우하단 모서리 앵커를 자동 재계산합니다 — 펼침/접힘 시 popup 이 위로 자라거나 아래로 줄어 항상 작업표시줄 바로 위에 정렬됩니다.
+- **`MaxHeight` 안전망 추가** — popup 최대 높이를 작업영역 높이로 자동 클램프(`SystemParameters.WorkArea.Height - 16`). 작은 모니터/공급자 4개 활성 같은 극단 케이스에서도 popup 이 화면 밖으로 밀려나지 않습니다.
+
+### 추가
+- **Codex 보조 윈도우 (secondary) 게이지 노출** — 그동안 `CodexUsageMonitor` 가 `rate_limits.secondary` 데이터까지 캡처하고 있었지만 UI 에 노출되지 않던 상태였습니다. 이제 Codex focused 시 단기 윈도우(primary, 기존) 와 장기 윈도우(secondary, 신규) 두 게이지가 Anthropic 의 5h/7d 처럼 나란히 표시됩니다. secondary 응답이 없는 플랜에서는 자동으로 숨김.
+- **Codex Plan 라벨링** — 응답에 `plan_type` 이 있으면 "ChatGPT plan" 대신 "ChatGPT Plus" / "ChatGPT Pro" / "ChatGPT Team" 등 구체적인 플랜명을 표시. 사용자가 "내가 무엇 기준의 % 인지" 즉시 인식할 수 있습니다.
+- **`ShortWindow` / `LongWindow` 4개 언어 라벨 추가** — Codex 처럼 윈도우 의미가 플랜별 가변일 때 사용. Anthropic 의 시간 기반 5시간/7일 라벨과는 분리.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Popup overlapped the taskbar when expanding from compact → focused** — In v1.25.0's Focus + Compact Rows model, clicking a compact row to expand a different provider made the popup grow taller, but its `Top` position stayed pinned, so the new content slid behind the taskbar and was clipped. The popup now hooks `SizeChanged` and re-anchors to the bottom-right corner whenever its height changes — the window grows upward or shrinks downward and always sits flush above the taskbar.
+- **`MaxHeight` safety clamp** — The popup's max height is auto-clamped to the available work area (`SystemParameters.WorkArea.Height - 16`), so even on small displays with all four providers active the window can't be pushed off-screen.
+
+### Added
+- **Codex secondary-window gauge surfaced** — `CodexUsageMonitor` already captured `rate_limits.secondary` from the API/log payloads, but the data was never bound to the UI. The Codex section, when focused, now shows both a Short window (primary) and a Long window (secondary) gauge side by side — analogous to Anthropic's 5h/7d. The secondary gauge auto-hides on plans where the field isn't present.
+- **Codex plan label** — When the response carries `plan_type`, the section now reads "ChatGPT Plus" / "ChatGPT Pro" / "ChatGPT Team" instead of the generic "ChatGPT plan", so the user immediately sees what tier the percentages refer to.
+- **`ShortWindow` / `LongWindow` localized labels (4 languages)** added for cases where the window's semantic meaning is plan-dependent (vs Anthropic's strict 5h/7d).
+<!-- /en -->
+
+---
+
 ## [1.25.0] - 2026-05-07
 
 <!-- ko -->
