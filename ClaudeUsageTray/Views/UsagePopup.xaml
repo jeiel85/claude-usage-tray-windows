@@ -557,8 +557,9 @@
                         <!-- Detail body — focused 일 때만 -->
                         <StackPanel Margin="10,6,10,0" Visibility="{Binding IsCodexFocused, Converter={StaticResource BoolToVisibility}}">
 
-                        <!-- v1.26.0: PlanType 라벨 ("ChatGPT Plus" 등) -->
-                        <TextBlock Text="{Binding CodexPlanLabel}" Foreground="#6EE7B7" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <!-- v1.26.0: PlanType 라벨 ("ChatGPT Plus" 등) — v1.27.0: ShowCodexPlanBadge 토글 -->
+                        <TextBlock Text="{Binding CodexPlanLabel}" Foreground="#6EE7B7" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,8"
+                                   Visibility="{Binding ShowCodexPlanBadge, Converter={StaticResource BoolToVisibility}}"/>
 
                         <!-- 단기 윈도우 (primary) -->
                         <Grid>

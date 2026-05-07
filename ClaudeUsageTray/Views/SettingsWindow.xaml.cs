@@ -100,7 +100,6 @@ public partial class SettingsWindow : Window, IDisposable
         LblThresholds.Text                  = Loc.ThresholdsLabel;
         LblNtfyTitle.Text                   = Loc.NtfyTitle;
         LblNtfyDesc.Text                   = Loc.NtfyDesc;
-        BtnNtfyDownload.Content             = Loc.NtfyDownload;
         LblStep2.Text                      = Loc.NtfyStep2;
         LblStep3.Text                      = Loc.NtfyStep3;
         LblNtfyTopic.Text                   = Loc.NtfyTopic;
@@ -119,6 +118,12 @@ public partial class SettingsWindow : Window, IDisposable
         ChkVisibleCodex.Content             = "Codex";
         ChkVisibleGemini.Content            = "Gemini CLI";
         ChkVisibleOpenCode.Content          = "OpenCode";
+
+        // v1.27.0 표시 옵션 토글
+        LblDisplayOptions.Text              = Loc.DisplayOptionsSection;
+        ChkShowCodexPlanBadge.Content       = Loc.ShowCodexPlanBadge;
+        ChkShowAbsoluteResetTime.Content    = Loc.ShowAbsoluteResetTime;
+        LblShowAbsoluteResetTimeHint.Text   = Loc.ShowAbsoluteResetTimeHint;
         TrayItemAuto.Content                = Loc.CurrentLang switch
         {
             "ko" => "자동",
@@ -226,6 +231,9 @@ public partial class SettingsWindow : Window, IDisposable
         ChkVisibleGemini.IsChecked   = _vm.IsGeminiEnabled;
         ChkVisibleOpenCode.IsChecked = _vm.IsOpenCodeEnabled;
 
+        ChkShowCodexPlanBadge.IsChecked    = _vm.ShowCodexPlanBadge;
+        ChkShowAbsoluteResetTime.IsChecked = _vm.ShowAbsoluteResetTime;
+
         UpdateTrayModeAvailability();
 
         _isLoadingValues = false;
@@ -259,6 +267,9 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.IsCodexEnabled    = ChkVisibleCodex.IsChecked == true;
         _vm.IsGeminiEnabled   = ChkVisibleGemini.IsChecked == true;
         _vm.IsOpenCodeEnabled = ChkVisibleOpenCode.IsChecked == true;
+
+        _vm.ShowCodexPlanBadge    = ChkShowCodexPlanBadge.IsChecked == true;
+        _vm.ShowAbsoluteResetTime = ChkShowAbsoluteResetTime.IsChecked == true;
 
         UpdateTrayModeAvailability();
         _vm.SaveSettingsCommand.Execute(null);
@@ -357,7 +368,8 @@ public partial class SettingsWindow : Window, IDisposable
 
     private void BtnNtfyDownload_Click(object sender, RoutedEventArgs e)
     {
-        Process.Start(new ProcessStartInfo("https://ntfy.sh") { UseShellExecute = true });
+        const string GuideUrl = "https://github.com/jeiel85/claude-usage-tray-windows#ntfy-guide";
+        Process.Start(new ProcessStartInfo(GuideUrl) { UseShellExecute = true });
     }
 
     private void CmbLanguage_SelectionChanged(object sender, SelectionChangedEventArgs e)

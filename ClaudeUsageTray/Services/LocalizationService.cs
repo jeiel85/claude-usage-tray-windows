@@ -487,6 +487,39 @@ public static class Loc
         _ => "If multiple PCs share the same topic, enable only on one"
     };
 
+    // v1.27.0 표시 옵션 토글
+    public static string DisplayOptionsSection => Lang switch
+    {
+        "ko" => "표시 옵션",
+        "zh" => "显示选项",
+        "ja" => "表示オプション",
+        _ => "Display options"
+    };
+
+    public static string ShowCodexPlanBadge => Lang switch
+    {
+        "ko" => "Codex 플랜 배지 표시 (예: ChatGPT Plus)",
+        "zh" => "显示 Codex 套餐徽章 (例: ChatGPT Plus)",
+        "ja" => "Codex プランバッジを表示 (例: ChatGPT Plus)",
+        _ => "Show Codex plan badge (e.g. ChatGPT Plus)"
+    };
+
+    public static string ShowAbsoluteResetTime => Lang switch
+    {
+        "ko" => "리셋 라벨에 절대 시각 병기",
+        "zh" => "在重置标签中并列显示具体时间",
+        "ja" => "リセットラベルに絶対時刻を併記",
+        _ => "Show absolute reset time alongside countdown"
+    };
+
+    public static string ShowAbsoluteResetTimeHint => Lang switch
+    {
+        "ko" => "예: \"1h 23m 후 리셋 (18:30)\"",
+        "zh" => "示例: \"1h 23m 后重置 (18:30)\"",
+        "ja" => "例: \"1h 23m 後にリセット (18:30)\"",
+        _ => "e.g. \"resets in 1h 23m (18:30)\""
+    };
+
     public static string ThresholdsLabel => Lang switch
     {
         "ko" => "5시간 윈도우 임계값",

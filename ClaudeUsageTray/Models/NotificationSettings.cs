@@ -54,6 +54,13 @@ public class NotificationSettings
     // 사용자가 popup의 다른 공급자 행을 클릭하면 해당 키로 갱신되어 영속화된다.
     public string FocusedProvider { get; set; } = "";
 
+    // v1.27.0 표시 옵션 토글
+    // Codex 플랜 배지 ("ChatGPT Plus" 등) 표시 여부
+    public bool ShowCodexPlanBadge { get; set; } = true;
+
+    // 리셋 라벨에 절대 시각을 병기할지 ("1h 23m 후 리셋 (18:30)")
+    public bool ShowAbsoluteResetTime { get; set; } = false;
+
     // Backward compatibility with old schema used by ViewModel.
     [JsonIgnore]
     public bool NotifyOnRateLimit

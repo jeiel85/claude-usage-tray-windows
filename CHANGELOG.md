@@ -3,6 +3,42 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.27.0] - 2026-05-07
+
+<!-- ko -->
+### 추가
+- **ntfy 가이드 README 섹션** — README 에 `<a id="ntfy-guide"></a>` 앵커가 있는 본격 ntfy 가이드 섹션 작성. 앱 설치 / 토픽 보안 (20자+ 권장 이유) / 앱 구독 / 트레이 입력 / 테스트 / 멀티-PC / FAQ 까지 한 페이지로 정리. v1.24.0 에서 압축한 "ntfy 가이드 ↗" 링크가 실제로 클릭 가능한 가이드를 가리키지 않던 문제를 해소.
+- **표시 옵션 토글 2종** (설정 → 트레이 탭 하단 "표시 옵션" 섹션):
+  - **Codex 플랜 배지 표시** (기본 ON) — Codex 섹션 위쪽의 "ChatGPT Plus" / "ChatGPT Pro" 같은 플랜명 라벨을 끌 수 있음.
+  - **리셋 라벨에 절대 시각 병기** (기본 OFF) — `1h 23m 후 리셋` → `1h 23m 후 리셋 (18:30)` 처럼 상대 카운트다운에 절대 시각을 병기. 같은 날이 아닌 리셋(7일 윈도우 등)은 `MM/dd HH:mm` 으로 표시. 토글 즉시 4개 reset 라벨이 raw 시간값에서 재포맷되어 API 재호출 없이 반영.
+
+### 변경
+- **설정 창 "ntfy 가이드 ↗" 링크의 실제 목적지 수정** — `https://ntfy.sh` 단순 홈으로 이동하던 것을 `README#ntfy-guide` 앵커로 변경 (라벨이 이미 "가이드"였는데 도착지는 다운로드 페이지였던 부조리 해소).
+
+### 기술
+- `NotificationSettings.ShowCodexPlanBadge` (default `true`), `ShowAbsoluteResetTime` (default `false`) 신규 영속화 필드.
+- `MainViewModel.FormatResetLabel` 을 `static` → 인스턴스 메서드로 전환 — `ShowAbsoluteResetTime` 토글을 읽기 위함. 동시에 4개 raw `DateTimeOffset?` 필드(`_rawClaudeShortResetAt` 등)를 도입해 토글 즉시 라벨 재계산.
+- `partial void OnShowAbsoluteResetTimeChanged` 핸들러로 토글 변경 시점에 4개 reset 라벨을 raw 값에서 즉시 재포맷.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **ntfy guide section in README** — README now hosts a full ntfy walkthrough at `<a id="ntfy-guide"></a>`: app install, topic-name security rationale (why 20+ chars), subscription, tray input, testing, multi-PC behavior, and FAQ. Closes the v1.24.0 gap where the compacted "ntfy guide ↗" link pointed at no real guide.
+- **Two display option toggles** (Settings → Tray tab → "Display options"):
+  - **Show Codex plan badge** (default ON) — toggles the green "ChatGPT Plus" / "ChatGPT Pro" label above the Codex section.
+  - **Show absolute reset time alongside countdown** (default OFF) — turns `resets in 1h 23m` into `resets in 1h 23m (18:30)`. Resets on a different date render as `MM/dd HH:mm`. The four reset labels re-format from cached raw `DateTimeOffset` values the moment the toggle flips — no API call needed.
+
+### Changed
+- **Settings "ntfy guide ↗" link points where it claims** — previously navigated to `https://ntfy.sh`, now opens `README#ntfy-guide`. (The label said "guide" but the destination was the download page.)
+
+### Technical
+- `NotificationSettings.ShowCodexPlanBadge` (default `true`), `ShowAbsoluteResetTime` (default `false`) — new persisted fields.
+- `MainViewModel.FormatResetLabel` changed from `static` to instance method so it can read `ShowAbsoluteResetTime`. Four raw `DateTimeOffset?` fields (`_rawClaudeShortResetAt` etc.) added to enable on-toggle re-format without an API round-trip.
+- `partial void OnShowAbsoluteResetTimeChanged` recomputes the four reset labels from raw values when the toggle flips.
+<!-- /en -->
+
+---
+
 ## [1.26.0] - 2026-05-07
 
 <!-- ko -->

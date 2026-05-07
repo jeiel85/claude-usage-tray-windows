@@ -148,6 +148,17 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _startWithWindows;
     [ObservableProperty] private int _pollingIntervalMinutes;
 
+    // v1.27.0 표시 옵션 토글
+    [ObservableProperty] private bool _showCodexPlanBadge = true;
+    [ObservableProperty] private bool _showAbsoluteResetTime = false;
+
+    // 절대 시각 토글 시 재포맷 위해 raw DateTimeOffset 보관 — API 재호출 없이 즉시 라벨 갱신
+    private DateTimeOffset? _rawClaudeShortResetAt;
+    private DateTimeOffset? _rawClaudeLongResetAt;
+    private DateTimeOffset? _rawCodexShortResetAt;
+    private bool _rawCodexShortResetEstimated;
+    private DateTimeOffset? _rawCodexLongResetAt;
+
     // History
     [ObservableProperty] private IReadOnlyList<DailyStats> _historyData = [];
 
@@ -354,6 +365,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
         FocusedProvider = string.IsNullOrEmpty(s.FocusedProvider) ? UsageProviderKind.Claude : s.FocusedProvider;
         EnsureValidFocusedProvider();
 
+        // v1.27.0 표시 옵션
+        ShowCodexPlanBadge   = s.ShowCodexPlanBadge;
+        ShowAbsoluteResetTime = s.ShowAbsoluteResetTime;
+
         // 현재 로그인된 계정의 orgUuid로 히스토리 경로 초기화
         ApplySelectedProviderScope();
 
@@ -481,6 +496,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
             HideInactiveProviders = HideInactiveProviders,
             VisibleProviders = visibleProviders,
             FocusedProvider = FocusedProvider,
+            ShowCodexPlanBadge = ShowCodexPlanBadge,
+            ShowAbsoluteResetTime = ShowAbsoluteResetTime,
         });
     }
 
@@ -908,7 +925,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     if (usage!.FiveHour != null)
                     {
                         var newPercent = usage.FiveHour.UsagePercent;
-                        ClaudeShortReset = FormatResetLabel(usage.FiveHour.ResetsAtParsed);
+                        _rawClaudeShortResetAt = usage.FiveHour.ResetsAtParsed;
+                        ClaudeShortReset = FormatResetLabel(_rawClaudeShortResetAt);
                         ClaudeShortSummary = Loc.UsageSummary(newPercent);
                         ClaudeShortDepletion = CalcDepletionLabel(usage.FiveHour);
 
@@ -930,7 +948,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     if (usage.SevenDay != null)
                     {
                         ClaudeLongPercent    = usage.SevenDay.UsagePercent;
-                        ClaudeLongReset      = FormatResetLabel(usage.SevenDay.ResetsAtParsed);
+                        _rawClaudeLongResetAt = usage.SevenDay.ResetsAtParsed;
+                        ClaudeLongReset      = FormatResetLabel(_rawClaudeLongResetAt);
                         ClaudeLongSummary    = Loc.UsageSummary(ClaudeLongPercent);
                         ClaudeLongDepletion  = CalcLongDepletionLabel(usage.SevenDay);
                         _lastKnownLongPercent = ClaudeLongPercent;
@@ -1055,7 +1074,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 var newPercent = snapshot.ShortUsagePercent;
-                CodexReset = FormatResetLabel(snapshot.ShortResetAt, snapshot.IsShortResetEstimated);
+                _rawCodexShortResetAt = snapshot.ShortResetAt;
+                _rawCodexShortResetEstimated = snapshot.IsShortResetEstimated;
+                CodexReset = FormatResetLabel(_rawCodexShortResetAt, _rawCodexShortResetEstimated);
                 CodexDataSource = snapshot.DataSource ?? "";
                 // "오늘 사용 기록 없음"은 정보성 메시지이므로 회색 placeholder만 표시 — 빨간 에러 중복 방지
                 var codexInformational = IsNoUsageInformational(snapshot.ErrorMessage, UsageProviderKind.Codex);
@@ -1073,7 +1094,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
                 // v1.26.0: 보조 윈도우 (Anthropic 의 7d 와 동등한 위치)
                 CodexLongPercent   = snapshot.LongUsagePercent;
-                CodexLongReset     = FormatResetLabel(snapshot.LongResetAt);
+                _rawCodexLongResetAt = snapshot.LongResetAt;
+                CodexLongReset     = FormatResetLabel(_rawCodexLongResetAt);
                 CodexLongSummary   = Loc.UsageSummary(snapshot.LongUsagePercent);
                 // 응답에 secondary가 있으면(% > 0 또는 reset이 채워짐) 노출
                 IsCodexLongVisible = snapshot.LongUsagePercent > 0 || snapshot.LongResetAt is not null;
@@ -1347,7 +1369,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    private static string FormatResetLabel(DateTimeOffset? resetAt, bool isEstimated = false)
+    private string FormatResetLabel(DateTimeOffset? resetAt, bool isEstimated = false)
     {
         if (resetAt is null) return "";
         var diff = resetAt.Value - DateTimeOffset.Now;
@@ -1356,7 +1378,27 @@ public partial class MainViewModel : ObservableObject, IDisposable
         if (diff.TotalHours < 1) time = $"{(int)diff.TotalMinutes}m";
         else if (diff.TotalDays < 1) time = $"{(int)diff.TotalHours}h {diff.Minutes}m";
         else time = $"{(int)diff.TotalDays}d {diff.Hours}h";
-        return isEstimated ? Loc.ResetsInEstimated(time) : Loc.ResetsIn(time);
+        var rel = isEstimated ? Loc.ResetsInEstimated(time) : Loc.ResetsIn(time);
+        if (!ShowAbsoluteResetTime) return rel;
+
+        // 절대 시각 병기: 같은 날이면 "HH:mm", 다른 날이면 "MM/dd HH:mm"
+        var local = resetAt.Value.ToLocalTime();
+        var stamp = local.Date == DateTimeOffset.Now.LocalDateTime.Date
+            ? local.ToString("HH:mm")
+            : local.ToString("MM/dd HH:mm");
+        return $"{rel} ({stamp})";
+    }
+
+    /// <summary>
+    /// ShowAbsoluteResetTime 토글 시 4개 reset 라벨을 raw 값에서 즉시 재포맷.
+    /// (API 재호출 없이 사용자가 토글한 즉시 반영)
+    /// </summary>
+    partial void OnShowAbsoluteResetTimeChanged(bool value)
+    {
+        ClaudeShortReset = FormatResetLabel(_rawClaudeShortResetAt);
+        ClaudeLongReset  = FormatResetLabel(_rawClaudeLongResetAt);
+        CodexReset       = FormatResetLabel(_rawCodexShortResetAt, _rawCodexShortResetEstimated);
+        CodexLongReset   = FormatResetLabel(_rawCodexLongResetAt);
     }
 
     private static string ParseFriendlyError(string raw)
