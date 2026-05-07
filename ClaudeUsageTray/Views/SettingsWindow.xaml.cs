@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media.Animation;
 using Microsoft.Win32;
 using ClaudeUsageTray.ViewModels;
 using ClaudeUsageTray.Services;
@@ -125,6 +126,20 @@ public partial class SettingsWindow : Window, IDisposable
             "ja" => "自動",
             _ => "Auto"
         };
+        TabGeneral.Header = Loc.CurrentLang switch
+        {
+            "ko" => "일반",
+            "zh" => "常规",
+            "ja" => "一般",
+            _ => "General"
+        };
+        TabTray.Header = Loc.CurrentLang switch
+        {
+            "ko" => "트레이",
+            "zh" => "托盘",
+            "ja" => "トレイ",
+            _ => "Tray"
+        };
         TabAlerts.Header = Loc.CurrentLang switch
         {
             "ko" => "알림",
@@ -133,6 +148,33 @@ public partial class SettingsWindow : Window, IDisposable
             _ => "Alerts"
         };
         TabNtfy.Header = "ntfy";
+
+        // 새 ntfy 가이드 링크 — 이전 3줄 가이드를 단일 링크로 압축
+        BtnNtfyDownload.Content = Loc.CurrentLang switch
+        {
+            "ko" => "ntfy 가이드 ↗",
+            "zh" => "ntfy 指南 ↗",
+            "ja" => "ntfy ガイド ↗",
+            _ => "ntfy guide ↗"
+        };
+
+        // Footer "기본값 복원"
+        BtnResetDefaults.Content = Loc.CurrentLang switch
+        {
+            "ko" => "기본값 복원",
+            "zh" => "恢复默认",
+            "ja" => "既定値に戻す",
+            _ => "Reset defaults"
+        };
+
+        // 저장됨 인디케이터 툴팁 (시각적 ✓는 동일, 다국어 보조)
+        LblSavedIndicator.ToolTip = Loc.CurrentLang switch
+        {
+            "ko" => "저장됨",
+            "zh" => "已保存",
+            "ja" => "保存済み",
+            _ => "Saved"
+        };
     }
 
     private void LoadValues()
@@ -184,6 +226,8 @@ public partial class SettingsWindow : Window, IDisposable
         ChkVisibleGemini.IsChecked   = _vm.IsGeminiEnabled;
         ChkVisibleOpenCode.IsChecked = _vm.IsOpenCodeEnabled;
 
+        UpdateTrayModeAvailability();
+
         _isLoadingValues = false;
     }
 
@@ -216,7 +260,9 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.IsGeminiEnabled   = ChkVisibleGemini.IsChecked == true;
         _vm.IsOpenCodeEnabled = ChkVisibleOpenCode.IsChecked == true;
 
+        UpdateTrayModeAvailability();
         _vm.SaveSettingsCommand.Execute(null);
+        FlashSavedIndicator();
         _ = _vm.RefreshAsync();
     }
 
@@ -380,6 +426,120 @@ public partial class SettingsWindow : Window, IDisposable
             Left = workArea.Right - Width - 8;
             Top  = workArea.Bottom - ActualHeight - 8;
         }, System.Windows.Threading.DispatcherPriority.Render);
+    }
+
+    /// <summary>
+    /// 저장됨 인디케이터 ✓ 를 페이드인 → 1초 유지 → 페이드아웃 으로 잠깐 보여준다.
+    /// 동일한 시점에 여러 변경이 발생해도 부드럽게 다시 트리거되도록 단일 애니메이션을 갱신한다.
+    /// </summary>
+    private void FlashSavedIndicator()
+    {
+        if (LblSavedIndicator == null) return;
+
+        // 진행 중이던 애니메이션이 있다면 즉시 1로 고정시킨 뒤 새 사이클 시작
+        LblSavedIndicator.BeginAnimation(System.Windows.UIElement.OpacityProperty, null);
+        LblSavedIndicator.Opacity = 0;
+
+        var fadeIn = new DoubleAnimation
+        {
+            From = 0,
+            To = 1,
+            Duration = new Duration(TimeSpan.FromMilliseconds(150))
+        };
+        var fadeOut = new DoubleAnimation
+        {
+            From = 1,
+            To = 0,
+            BeginTime = TimeSpan.FromMilliseconds(900),
+            Duration = new Duration(TimeSpan.FromMilliseconds(400))
+        };
+        var sb = new Storyboard();
+        Storyboard.SetTarget(fadeIn, LblSavedIndicator);
+        Storyboard.SetTargetProperty(fadeIn, new PropertyPath(System.Windows.UIElement.OpacityProperty));
+        Storyboard.SetTarget(fadeOut, LblSavedIndicator);
+        Storyboard.SetTargetProperty(fadeOut, new PropertyPath(System.Windows.UIElement.OpacityProperty));
+        sb.Children.Add(fadeIn);
+        sb.Children.Add(fadeOut);
+        sb.Begin();
+    }
+
+    /// <summary>
+    /// "Visible providers" 체크 상태에 따라 트레이 표시 기준 콤보의 해당 항목을 enable/disable.
+    /// 켜져 있지 않은 공급자가 트레이 모드로 선택되어 있으면 자동으로 "자동" 으로 폴백.
+    /// </summary>
+    private void UpdateTrayModeAvailability()
+    {
+        if (TrayItemClaude   == null || TrayItemCodex     == null
+         || TrayItemGemini   == null || TrayItemOpenCode  == null) return;
+
+        TrayItemClaude.IsEnabled   = ChkVisibleClaude.IsChecked   == true;
+        TrayItemCodex.IsEnabled    = ChkVisibleCodex.IsChecked    == true;
+        TrayItemGemini.IsEnabled   = ChkVisibleGemini.IsChecked   == true;
+        TrayItemOpenCode.IsEnabled = ChkVisibleOpenCode.IsChecked == true;
+
+        // 현재 선택된 모드가 disable 상태가 되면 자동(Auto) 으로 폴백
+        if (CmbTrayDisplayMode.SelectedItem is ComboBoxItem item &&
+            item.IsEnabled == false)
+        {
+            CmbTrayDisplayMode.SelectedItem = TrayItemAuto;
+        }
+    }
+
+    private void BtnResetDefaults_Click(object sender, RoutedEventArgs e)
+    {
+        // 안전한 기본값으로 일괄 복원 — 토픽 같은 사용자 입력값은 보존
+        var preservedNtfyTopic = _vm.NtfyTopic;
+
+        _isLoadingValues = true;
+        try
+        {
+            // ViewModel 기본값 (NotificationSettings 의 디폴트와 정렬)
+            _vm.NotificationsEnabled  = false;
+            _vm.NotifyRateLimit       = true;
+            _vm.NotifyOnQuotaReset    = false;
+            _vm.Threshold50           = false;
+            _vm.Threshold75           = true;
+            _vm.Threshold90           = true;
+            _vm.Threshold100          = true;
+            _vm.PollingIntervalMinutes = 2;
+            _vm.TrayDisplayMode       = UsageProviderKind.Auto;
+            _vm.HideInactiveProviders = true;
+            _vm.IsClaudeEnabled       = true;
+            _vm.IsCodexEnabled        = true;
+            _vm.IsGeminiEnabled       = true;
+            _vm.IsOpenCodeEnabled     = true;
+            _vm.NtfySendFromThisPc    = true;
+            _vm.NtfyTopic             = preservedNtfyTopic; // 사용자 토픽 보존
+
+            // UI 동기화
+            ChkEnabled.IsChecked        = _vm.NotificationsEnabled;
+            ChkRateLimit.IsChecked      = _vm.NotifyRateLimit;
+            ChkQuotaReset.IsChecked     = _vm.NotifyOnQuotaReset;
+            Chk50.IsChecked             = _vm.Threshold50;
+            Chk75.IsChecked             = _vm.Threshold75;
+            Chk90.IsChecked             = _vm.Threshold90;
+            Chk100.IsChecked            = _vm.Threshold100;
+            SliderPolling.Value         = _vm.PollingIntervalMinutes;
+            UpdatePollingLabel(_vm.PollingIntervalMinutes);
+            ChkHideInactive.IsChecked   = _vm.HideInactiveProviders;
+            ChkVisibleClaude.IsChecked  = _vm.IsClaudeEnabled;
+            ChkVisibleCodex.IsChecked   = _vm.IsCodexEnabled;
+            ChkVisibleGemini.IsChecked  = _vm.IsGeminiEnabled;
+            ChkVisibleOpenCode.IsChecked= _vm.IsOpenCodeEnabled;
+            ChkNtfySendFromThisPc.IsChecked = _vm.NtfySendFromThisPc;
+            CmbTrayDisplayMode.SelectedItem = TrayItemAuto;
+
+            UpdateTrayModeAvailability();
+            UpdateTrayAutoHelp();
+        }
+        finally
+        {
+            _isLoadingValues = false;
+        }
+
+        _vm.SaveSettingsCommand.Execute(null);
+        FlashSavedIndicator();
+        _ = _vm.RefreshAsync();
     }
 
     public void Dispose()

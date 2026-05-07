@@ -3,6 +3,32 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.24.0] - 2026-05-07
+
+<!-- ko -->
+### 변경
+- **설정 창 4탭 구조로 재배치 — 스크롤 제거** — 기존엔 일반/트레이 카드 위에 알림/ntfy 탭이 겹쳐 있어 세로로 길어 스크롤이 발생했습니다. 이제 모든 설정이 동일한 메타포(탭) 안에 들어가며, 폭 360→400px, `MaxHeight=640`로 한 화면에 들어옵니다. 카드↔탭↔footer 가 섞여 있던 시각적 혼선이 해소됩니다.
+- **ntfy 탭 압축** — 3줄짜리 단계별 가이드를 "ntfy 가이드 ↗" 단일 링크로 압축. 토픽 입력과 발송 토글, 보안 경고만 한 화면에 노출. 학습 표면이 아니라 조작 표면에 집중.
+- **footer 신설** — 면책 문구를 footer 영역으로 이동하고, 우측에 **"기본값 복원"** 링크를 추가했습니다 (사용자 입력 ntfy 토픽은 보존).
+
+### 추가
+- **"저장됨 ✓" 인디케이터** — 설정 변경이 영속화되는 순간 헤더에 ✓ 가 짧게 페이드인 → 페이드아웃하여 저장 사실을 시각적으로 알립니다 (별도 저장 버튼 없는 자동 저장 모델 보강).
+- **트레이 표시 기준 콤보의 비활성 항목 disable** — "표시 공급자" 체크에서 꺼진 공급자는 트레이 표시 기준 드롭다운에서 자동으로 흐려집니다(클릭 불가). 현재 트레이 모드가 disable 상태가 되면 자동(Auto)으로 폴백.
+<!-- /ko -->
+
+<!-- en -->
+### Changed
+- **Settings window restructured into 4 tabs — scroll removed** — Previously the General / Tray cards stacked above the Alerts / ntfy tabs forced the window to scroll. Everything now lives inside the same tab metaphor; width 360→400px with `MaxHeight=640` keeps every tab on a single screen. The earlier mix of cards / tabs / footer is gone.
+- **ntfy tab compacted** — The three-line step-by-step guide is replaced by a single "ntfy guide ↗" link. The tab now focuses on the topic input, send toggle, and security warning — operating surface, not teaching surface.
+- **Footer added** — The disclaimer moves to a real footer, and a **"Reset defaults"** link sits on the right (user-entered ntfy topic is preserved).
+
+### Added
+- **"Saved ✓" indicator** — Whenever a setting change is persisted, a green ✓ briefly fades in/out next to the header. Reinforces the auto-save model (no explicit save button).
+- **Tray-mode dropdown items disabled when their provider is hidden** — Providers unchecked under "Visible providers" are now greyed out (and unclickable) in the "Tray display mode" dropdown. If the currently-selected mode becomes disabled, it falls back to Auto automatically.
+<!-- /en -->
+
+---
+
 ## [1.23.0] - 2026-05-07
 
 <!-- ko -->

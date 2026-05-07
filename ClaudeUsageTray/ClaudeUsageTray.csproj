@@ -7,8 +7,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>1.23.0</Version>
-    <AssemblyVersion>1.23.0</AssemblyVersion>
+    <Version>1.24.0</Version>
+    <AssemblyVersion>1.24.0</AssemblyVersion>
     <ApplicationIcon>icon.ico</ApplicationIcon>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>false</SelfContained>
