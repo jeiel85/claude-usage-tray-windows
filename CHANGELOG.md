@@ -3,6 +3,44 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.23.0] - 2026-05-07
+
+<!-- ko -->
+### 추가
+- **비-Claude 공급자에 4타일 "오늘의 토큰" 패널 추가** — Codex / Gemini CLI / OpenCode 섹션도 Claude와 동일한 입력 / 출력 / 캐시 읽기 / 캐시 쓰기 4타일 그리드를 표시합니다. 각 공급자가 캐시 쓰기 개념을 지원하지 않는 경우(Codex, Gemini)는 해당 타일에 "—"를 표시합니다.
+- **Gemini CLI 요청 횟수 / OpenCode 요청 횟수를 섹션 헤더 옆 인라인으로 표시** — 4타일 영역을 토큰 데이터에 집중시키고 카운터는 메타 정보로 분리.
+
+### 수정
+- **Gemini CLI 파서 전면 재작성** — 이전 파서는 `tokens.output` 만 읽고 시간대별 집계를 파일 mtime으로 잘못 계산했습니다. 새 파서는 실제 Gemini CLI v3 로그 스키마(`type:"gemini"` 라인 + 메시지 단위 `timestamp` + `tokens.{input,output,cached,thoughts,tool}`)를 정확히 파싱하여 입력 / 출력 / 캐시 읽기 토큰을 모두 집계하고, 시간대별 차트도 메시지 timestamp 기준으로 정확하게 표시합니다.
+- **Codex / Gemini / OpenCode 의 7일 history 가 쌓이지 않던 문제 수정** — 기존에는 Claude 만 `HistoryService.RecordToday()` 를 호출하고 다른 공급자는 누락되어 있었습니다. 이제 모든 공급자가 자기 scope에 자동으로 일별 history를 기록합니다 (provider별 별도 JSON 파일).
+
+### 개선
+- **`HistoryService` multi-scope 구조로 리팩터링** — 4개 공급자가 병렬 refresh 시 각자 자기 scope 에 안전하게 기록할 수 있도록 내부 저장소를 다중 scope dict 로 확장. 활성 scope(차트 바인딩이 보는 곳) 와 무관하게 임의 scope 에 기록 가능. 기존 공개 메서드(`SetScope`, `RecordToday`, `GetLast`, `GetRecentMaxTotalTokens`)는 호환성 유지를 위해 그대로 두고 scope-explicit 오버로드를 추가.
+- **Gemini / OpenCode 트레이 게이지 비율을 자기 공급자 history 기준으로 계산** — 이전엔 활성 scope(주로 Claude)의 7일 최대값을 분모로 써서 비율이 낮게 표시되던 문제 해결.
+
+### 테스트
+- **Gemini 파서 단위 테스트 추가** — 실제 Gemini CLI 로그 스키마에 맞춘 합성 픽스처로 4가지 시나리오(전 토큰 합산, 사용자 라인/과거 라인/손상 JSON 무시, 오늘 데이터 없음, 메시지 timestamp 기반 hourly bucketing) 검증.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **4-tile "Today's tokens" panel for non-Claude providers** — Codex / Gemini CLI / OpenCode sections now mirror Claude's grid with input / output / cache-read / cache-write tiles. Tiles show "—" where a provider has no concept of that token type (e.g. Codex and Gemini have no cache-write).
+- **Gemini / OpenCode request counts moved to inline meta beside the section header**, freeing the 4-tile area for token data.
+
+### Fixed
+- **Full rewrite of the Gemini CLI parser** — The old parser only read `tokens.output` and bucketed hourly by file mtime (very wrong for long sessions). The new parser walks the real Gemini CLI v3 schema (`type:"gemini"` lines + per-message `timestamp` + `tokens.{input,output,cached,thoughts,tool}`) and aggregates input / output / cache-read tokens accurately, with hourly bucketing driven by message timestamps.
+- **7-day history was never recorded for Codex / Gemini / OpenCode** — Only the Claude refresh path called `HistoryService.RecordToday()`. Each provider now records into its own scope automatically, so the per-provider history JSON files actually accumulate over time.
+
+### Improved
+- **`HistoryService` refactored to a multi-scope store** so the four parallel `Refresh*Async` methods can each write into their own provider scope without contention. The active scope (chart binding) is decoupled from per-provider records. Existing public methods are preserved verbatim; new scope-explicit overloads are additive.
+- **Gemini / OpenCode tray gauge percentages now use each provider's own 7-day max** as the denominator, instead of the active scope's max (usually Claude's), which previously produced misleadingly low percentages.
+
+### Tests
+- **Added unit tests for the Gemini parser**, with synthetic fixtures that match the real Gemini CLI schema. Covers all-token aggregation, ignoring user / past-day / malformed JSON lines, no-usage-today fallback, and message-timestamp-driven hourly bucketing.
+<!-- /en -->
+
+---
+
 ## [1.22.5] - 2026-05-07
 
 <!-- ko -->

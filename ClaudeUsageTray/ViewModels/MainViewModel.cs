@@ -70,6 +70,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _codexErrorMessage = "";
     [ObservableProperty] private string _codexNote = Loc.ProviderCodexNote;
     [ObservableProperty] private string _codexSummary = "";
+    // 오늘의 토큰 4타일 (Input / Output / CacheRead / CacheWrite — Codex는 cache write 개념 없어 "—")
+    [ObservableProperty] private string _codexInputLabel = "—";
+    [ObservableProperty] private string _codexOutputLabel = "—";
+    [ObservableProperty] private string _codexCacheReadLabel = "—";
+    [ObservableProperty] private string _codexCacheWriteLabel = "—";
 
     // Gemini Usage
     [ObservableProperty] private double _geminiPercent = 0;
@@ -80,6 +85,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _geminiSummary = "";
     [ObservableProperty] private string _geminiRequestsLabel = "";
     [ObservableProperty] private string _geminiOutputTokensLabel = "";
+    // 오늘의 토큰 4타일 (Input / Output / CacheRead / CacheWrite — Gemini는 cache write 없어 "—")
+    [ObservableProperty] private string _geminiInputLabel = "—";
+    [ObservableProperty] private string _geminiCacheReadLabel = "—";
+    [ObservableProperty] private string _geminiCacheWriteLabel = "—";
 
     // OpenCode Usage
     [ObservableProperty] private bool _openCodeHasError = false;
@@ -89,6 +98,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _openCodeInputLabel = "";
     [ObservableProperty] private string _openCodeOutputLabel = "";
     [ObservableProperty] private string _openCodeRequestCountLabel = "";
+    // 오늘의 토큰 4타일 보강 — input/output 이미 있고 cache read/write 추가
+    [ObservableProperty] private string _openCodeCacheReadLabel = "—";
+    [ObservableProperty] private string _openCodeCacheWriteLabel = "—";
 
     // 5h window (Legacy/Compatibility - will keep for now to avoid breaking other parts)
     [ObservableProperty] private double _shortUsagePercent = 0;
@@ -698,13 +710,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
             if (EffectiveTrayProvider == UsageProviderKind.GeminiCli)
             {
-                var max = _history.GetRecentMaxTotalTokens(7);
+                var max = _history.GetRecentMaxTotalTokens(UsageProviderKind.GeminiCli, null, 7);
                 var goal = Math.Max(defaultMinGoal, max);
                 if (goal > 0) TrayUsagePercent = Math.Clamp(_lastGeminiOutputTokens / (double)goal, 0, 1);
             }
             else if (EffectiveTrayProvider == UsageProviderKind.OpenCode)
             {
-                var max = _history.GetRecentMaxTotalTokens(7);
+                var max = _history.GetRecentMaxTotalTokens(UsageProviderKind.OpenCode, null, 7);
                 var goal = Math.Max(defaultMinGoal, max);
                 if (goal > 0) TrayUsagePercent = Math.Clamp((_lastOpenCodeInputTokens + _lastOpenCodeOutputTokens) / (double)goal, 0, 1);
             }
@@ -954,14 +966,26 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 CodexHasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage) && !codexInformational;
                 CodexErrorMessage = codexInformational ? "" : (snapshot.ErrorMessage ?? "");
                 CodexSummary = Loc.UsageSummary(newPercent);
-                
+
                 if (NotificationsEnabled && _prevCodexPercent >= 0)
                 {
                     CheckProviderThresholds(UsageProviderKind.Codex, newPercent, CodexReset, NtfyTopicEffective);
                 }
-                
+
                 CodexPercent = newPercent;
                 _prevCodexPercent = newPercent;
+
+                // 오늘의 토큰 4타일 라벨 채우기
+                CodexInputLabel      = snapshot.TotalInputTokens      > 0 ? FormatTokenShort(snapshot.TotalInputTokens)      : "—";
+                CodexOutputLabel     = snapshot.TotalOutputTokens     > 0 ? FormatTokenShort(snapshot.TotalOutputTokens)     : "—";
+                CodexCacheReadLabel  = snapshot.TotalCacheReadTokens  > 0 ? FormatTokenShort(snapshot.TotalCacheReadTokens)  : "—";
+                CodexCacheWriteLabel = snapshot.TotalCacheWriteTokens > 0 ? FormatTokenShort(snapshot.TotalCacheWriteTokens) : "—";
+
+                // Codex 자체 scope에 오늘 일별 history 기록 (활성 scope와 무관)
+                _history.RecordToday(UsageProviderKind.Codex, null,
+                    snapshot.TotalInputTokens, snapshot.TotalOutputTokens,
+                    snapshot.TotalCacheReadTokens, snapshot.TotalCacheWriteTokens,
+                    snapshot.SessionCount);
 
                 // 전체 상태 갱신
                 UpdateOverallStatus();
@@ -995,18 +1019,32 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 GeminiRequestsLabel = snapshot.RequestCount > 0
                     ? Loc.CurrentLang == "ko" ? $"{snapshot.RequestCount}회" : $"{snapshot.RequestCount} req"
                     : "—";
+                GeminiInputLabel = snapshot.TotalInputTokens > 0
+                    ? FormatTokenShort(snapshot.TotalInputTokens)
+                    : "—";
                 GeminiOutputTokensLabel = snapshot.TotalOutputTokens > 0
                     ? FormatTokenShort(snapshot.TotalOutputTokens)
                     : "—";
+                GeminiCacheReadLabel = snapshot.TotalCacheReadTokens > 0
+                    ? FormatTokenShort(snapshot.TotalCacheReadTokens)
+                    : "—";
+                GeminiCacheWriteLabel = "—"; // Gemini는 cache write 개념 없음
                 GeminiSummary = snapshot.HasData
                     ? Loc.GeminiCliRequestSummary(snapshot.RequestCount, snapshot.TotalOutputTokens)
                     : snapshot.ErrorMessage ?? "";
-                
-                var max = _history.GetRecentMaxTotalTokens(7);
+
+                // Gemini 자체 scope의 최근 7일 최대치 대비 게이지 비율 계산
+                var max = _history.GetRecentMaxTotalTokens(UsageProviderKind.GeminiCli, null, 7);
                 var goal = Math.Max(10000, max);
                 var percent = Math.Clamp(snapshot.TotalOutputTokens / (double)goal, 0, 1);
                 GeminiPercent = percent;
                 _prevGeminiPercent = percent;
+
+                // Gemini 자체 scope에 오늘 일별 history 기록
+                _history.RecordToday(UsageProviderKind.GeminiCli, null,
+                    snapshot.TotalInputTokens, snapshot.TotalOutputTokens,
+                    snapshot.TotalCacheReadTokens, snapshot.TotalCacheWriteTokens,
+                    snapshot.SessionCount);
 
                 // 전체 상태 갱신
                 UpdateOverallStatus();
@@ -1056,7 +1094,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         try
         {
-            var max = _history.GetRecentMaxTotalTokens(7);
+            // OpenCode 자체 scope의 최근 7일 최대치 대비 게이지 비율 계산
+            var max = _history.GetRecentMaxTotalTokens(UsageProviderKind.OpenCode, null, 7);
             var goal = Math.Max(10000, max);
             var snapshot = _openCode.GetTodaySnapshot(goal);
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
@@ -1072,14 +1111,22 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 OpenCodeRequestCountLabel = snapshot.RequestCount > 0
                     ? Loc.CurrentLang == "ko" ? $"{snapshot.RequestCount}회" : $"{snapshot.RequestCount} req"
                     : "—";
-                OpenCodeInputLabel  = snapshot.TotalInputTokens > 0  ? FormatTokenShort(snapshot.TotalInputTokens)  : "—";
-                OpenCodeOutputLabel = snapshot.TotalOutputTokens > 0 ? FormatTokenShort(snapshot.TotalOutputTokens) : "—";
+                OpenCodeInputLabel      = snapshot.TotalInputTokens      > 0 ? FormatTokenShort(snapshot.TotalInputTokens)      : "—";
+                OpenCodeOutputLabel     = snapshot.TotalOutputTokens     > 0 ? FormatTokenShort(snapshot.TotalOutputTokens)     : "—";
+                OpenCodeCacheReadLabel  = snapshot.TotalCacheReadTokens  > 0 ? FormatTokenShort(snapshot.TotalCacheReadTokens)  : "—";
+                OpenCodeCacheWriteLabel = snapshot.TotalCacheWriteTokens > 0 ? FormatTokenShort(snapshot.TotalCacheWriteTokens) : "—";
                 OpenCodeSummary = snapshot.HasData
                     ? Loc.CurrentLang == "ko"
                         ? $"오늘 {snapshot.RequestCount}회 · 입력 {FormatTokenShort(snapshot.TotalInputTokens)} · 출력 {FormatTokenShort(snapshot.TotalOutputTokens)}"
                         : $"Today {snapshot.RequestCount} req · in {FormatTokenShort(snapshot.TotalInputTokens)} · out {FormatTokenShort(snapshot.TotalOutputTokens)}"
                     : snapshot.ErrorMessage ?? "";
                 OpenCodePercent = snapshot.ShortUsagePercent;
+
+                // OpenCode 자체 scope에 오늘 일별 history 기록
+                _history.RecordToday(UsageProviderKind.OpenCode, null,
+                    snapshot.TotalInputTokens, snapshot.TotalOutputTokens,
+                    snapshot.TotalCacheReadTokens, snapshot.TotalCacheWriteTokens,
+                    snapshot.SessionCount);
 
                 UpdateOverallStatus();
             });

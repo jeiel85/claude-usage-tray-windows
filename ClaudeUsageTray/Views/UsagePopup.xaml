@@ -523,12 +523,43 @@
                         </Grid>
                         <ProgressBar Value="{Binding CodexPercent}" Maximum="1" Style="{StaticResource CodexBarStyle}" Margin="0,4,0,0"/>
                         <TextBlock Text="{Binding CodexSummary}" Foreground="#8B92B3" FontSize="10" Margin="0,4,0,0"/>
-                        
+
                         <!-- Usage Empty Placeholder (Codex) -->
                         <TextBlock Text="{Binding LblCodexNoUsage}" Foreground="#5A5F7A" FontSize="10" FontStyle="Italic" Margin="0,10,0,0"
                                    Visibility="{Binding IsCodexUsageEmpty, Converter={StaticResource BoolToVisibility}}"/>
 
-                        <Grid Margin="0,4,0,0">
+                        <!-- 오늘의 토큰 4타일 (Claude와 동일 레이아웃) -->
+                        <Border Height="1" Background="#2D2F45" Margin="0,12,0,10"
+                                Visibility="{Binding IsCodexUsageEmpty, Converter={StaticResource BoolToVisibilityInverse}}"/>
+                        <UniformGrid Columns="2" Rows="2"
+                                     Visibility="{Binding IsCodexUsageEmpty, Converter={StaticResource BoolToVisibilityInverse}}">
+                            <Border Style="{StaticResource StatBox}" Margin="0,0,4,4">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding LblInput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                    <TextBlock Text="{Binding CodexInputLabel}" Style="{StaticResource StatValue}" Foreground="#6EE7B7" FontSize="13"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource StatBox}" Margin="4,0,0,4">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding LblOutput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                    <TextBlock Text="{Binding CodexOutputLabel}" Style="{StaticResource StatValue}" Foreground="#34D399" FontSize="13"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource StatBox}" Margin="0,4,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding LblCacheRead}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                    <TextBlock Text="{Binding CodexCacheReadLabel}" Style="{StaticResource StatValue}" Foreground="#A7F3D0" FontSize="13"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource StatBox}" Margin="4,4,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding LblCacheWrite}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                    <TextBlock Text="{Binding CodexCacheWriteLabel}" Style="{StaticResource StatValue}" Foreground="#5A5F7A" FontSize="13"/>
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
+
+                        <Grid Margin="0,8,0,0">
                             <TextBlock Text="{Binding CodexNote}" Foreground="#5A5F7A" FontSize="10" HorizontalAlignment="Left"/>
                             <TextBlock Text="{Binding CodexDataSource}" Foreground="#3D4266" FontSize="9" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
                         </Grid>
@@ -541,27 +572,43 @@
                                 <TextBlock Text="G" Foreground="White" FontSize="8" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                             <TextBlock Text="Gemini CLI" Foreground="#F1F5F9" FontSize="11" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding GeminiRequestsLabel}" Foreground="#8B92B3" FontSize="10" Margin="8,0,0,0" VerticalAlignment="Bottom"/>
                         </StackPanel>
-                        <UniformGrid Columns="2" Rows="1" Margin="0,0,0,8">
-                            <Border Style="{StaticResource StatBox}" Margin="0,0,4,0">
+
+                        <!-- Usage Empty Placeholder (Gemini) -->
+                        <TextBlock Text="{Binding LblGeminiNoUsage}" Foreground="#5A5F7A" FontSize="10" FontStyle="Italic" Margin="0,0,0,10"
+                                   Visibility="{Binding IsGeminiUsageEmpty, Converter={StaticResource BoolToVisibility}}"/>
+
+                        <!-- 오늘의 토큰 4타일 (Claude와 동일 레이아웃) -->
+                        <UniformGrid Columns="2" Rows="2"
+                                     Visibility="{Binding IsGeminiUsageEmpty, Converter={StaticResource BoolToVisibilityInverse}}">
+                            <Border Style="{StaticResource StatBox}" Margin="0,0,4,4">
                                 <StackPanel>
-                                    <TextBlock Text="{Binding LblGeminiRequests}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
-                                    <TextBlock Text="{Binding GeminiRequestsLabel}" Style="{StaticResource StatValue}" Foreground="#60A5FA"/>
+                                    <TextBlock Text="{Binding LblInput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                    <TextBlock Text="{Binding GeminiInputLabel}" Style="{StaticResource StatValue}" Foreground="#60A5FA" FontSize="13"/>
                                 </StackPanel>
                             </Border>
-                            <Border Style="{StaticResource StatBox}" Margin="4,0,0,0">
+                            <Border Style="{StaticResource StatBox}" Margin="4,0,0,4">
                                 <StackPanel>
                                     <TextBlock Text="{Binding LblOutput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
                                     <TextBlock Text="{Binding GeminiOutputTokensLabel}" Style="{StaticResource StatValue}" Foreground="#93C5FD" FontSize="13"/>
                                 </StackPanel>
                             </Border>
+                            <Border Style="{StaticResource StatBox}" Margin="0,4,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding LblCacheRead}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                    <TextBlock Text="{Binding GeminiCacheReadLabel}" Style="{StaticResource StatValue}" Foreground="#BFDBFE" FontSize="13"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource StatBox}" Margin="4,4,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding LblCacheWrite}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                    <TextBlock Text="{Binding GeminiCacheWriteLabel}" Style="{StaticResource StatValue}" Foreground="#5A5F7A" FontSize="13"/>
+                                </StackPanel>
+                            </Border>
                         </UniformGrid>
-                        
-                        <!-- Usage Empty Placeholder (Gemini) -->
-                        <TextBlock Text="{Binding LblGeminiNoUsage}" Foreground="#5A5F7A" FontSize="10" FontStyle="Italic" Margin="0,0,0,10"
-                                   Visibility="{Binding IsGeminiUsageEmpty, Converter={StaticResource BoolToVisibility}}"/>
 
-                        <TextBlock Text="{Binding GeminiNote}" Foreground="#5A5F7A" FontSize="10"/>
+                        <TextBlock Text="{Binding GeminiNote}" Foreground="#5A5F7A" FontSize="10" Margin="0,8,0,0"/>
                         <TextBlock Text="{Binding GeminiErrorMessage}" Foreground="#EF4444" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0" Visibility="{Binding GeminiHasError, Converter={StaticResource BoolToVisibility}}"/>
                     </StackPanel>
 
@@ -572,27 +619,43 @@
                                 <TextBlock Text="O" Foreground="White" FontSize="8" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                             <TextBlock Text="OpenCode" Foreground="#F1F5F9" FontSize="11" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding OpenCodeRequestCountLabel}" Foreground="#8B92B3" FontSize="10" Margin="8,0,0,0" VerticalAlignment="Bottom"/>
                         </StackPanel>
-                        <UniformGrid Columns="2" Rows="1" Margin="0,0,0,8">
-                            <Border Style="{StaticResource StatBox}" Margin="0,0,4,0">
-                                <StackPanel>
-                                    <TextBlock Text="{Binding LblInput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
-                                    <TextBlock Text="{Binding OpenCodeInputLabel}" Style="{StaticResource StatValue}" Foreground="#FB923C"/>
-                                </StackPanel>
-                            </Border>
-                            <Border Style="{StaticResource StatBox}" Margin="4,0,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="{Binding LblOutput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
-                                    <TextBlock Text="{Binding OpenCodeOutputLabel}" Style="{StaticResource StatValue}" Foreground="#FDBA74" FontSize="13"/>
-                                </StackPanel>
-                            </Border>
-                        </UniformGrid>
 
                         <!-- Usage Empty Placeholder (OpenCode) -->
                         <TextBlock Text="{Binding LblOpenCodeNoUsage}" Foreground="#5A5F7A" FontSize="10" FontStyle="Italic" Margin="0,0,0,10"
                                    Visibility="{Binding IsOpenCodeUsageEmpty, Converter={StaticResource BoolToVisibility}}"/>
 
-                        <TextBlock Text="{Binding OpenCodeNote}" Foreground="#5A5F7A" FontSize="10"/>
+                        <!-- 오늘의 토큰 4타일 (Claude와 동일 레이아웃) -->
+                        <UniformGrid Columns="2" Rows="2"
+                                     Visibility="{Binding IsOpenCodeUsageEmpty, Converter={StaticResource BoolToVisibilityInverse}}">
+                            <Border Style="{StaticResource StatBox}" Margin="0,0,4,4">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding LblInput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                    <TextBlock Text="{Binding OpenCodeInputLabel}" Style="{StaticResource StatValue}" Foreground="#FB923C" FontSize="13"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource StatBox}" Margin="4,0,0,4">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding LblOutput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                    <TextBlock Text="{Binding OpenCodeOutputLabel}" Style="{StaticResource StatValue}" Foreground="#FDBA74" FontSize="13"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource StatBox}" Margin="0,4,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding LblCacheRead}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                    <TextBlock Text="{Binding OpenCodeCacheReadLabel}" Style="{StaticResource StatValue}" Foreground="#FED7AA" FontSize="13"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource StatBox}" Margin="4,4,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding LblCacheWrite}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
+                                    <TextBlock Text="{Binding OpenCodeCacheWriteLabel}" Style="{StaticResource StatValue}" Foreground="#FBBF24" FontSize="13"/>
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
+
+                        <TextBlock Text="{Binding OpenCodeNote}" Foreground="#5A5F7A" FontSize="10" Margin="0,8,0,0"/>
                         <TextBlock Text="{Binding OpenCodeErrorMessage}" Foreground="#EF4444" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0" Visibility="{Binding OpenCodeHasError, Converter={StaticResource BoolToVisibility}}"/>
                     </StackPanel>
                 </StackPanel>
