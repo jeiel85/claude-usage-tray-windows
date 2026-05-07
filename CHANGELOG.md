@@ -17,6 +17,7 @@
 
 ### 수정
 - **Popup footer 가 긴 업데이트 메시지에 우측 ⚙/Quit 버튼이 가려지던 문제 수정** — footer Grid 가 ColumnDefinitions 없이 좌/우 StackPanel 을 같은 셀에 겹쳐 두던 구조였습니다. "GitHub API 한도 초과 (HH:mm 에 재시도 가능) — 또는 Releases 페이지에서 직접 받기" 같은 긴 메시지가 표시되면 우측 ⚙ 버튼을 가려 클릭 불가능했던 케이스. 이제 `Auto / * / Auto` 3-컬럼 Grid + 메시지 `TextWrapping="Wrap"` 조합으로, 메시지가 길면 두 줄로 줄바꿈되고 ⚙/Quit 버튼은 항상 우측에서 보호됩니다.
+- **설정 창에도 v1.26.0 의 우하단 자동 앵커 적용** — popup 은 이미 `SizeChanged` 시 우하단 모서리로 재정렬되었지만, 설정 창은 같은 처리가 빠져 있어 탭 전환/언어 변경 등으로 컨텐츠 높이가 바뀌면 작업표시줄을 침범하는 동일한 증상이 있었습니다. 이제 `SettingsWindow` 도 `SizeChanged += AnchorToTrayCorner` 로 동일 패턴이 적용되어, 어떤 탭/언어 조합에서도 항상 작업표시줄 바로 위에 정렬됩니다.
 
 ### 기술
 - `NotificationSettings.ShowCodexPlanBadge` (default `true`), `ShowAbsoluteResetTime` (default `false`) 신규 영속화 필드.
@@ -36,6 +37,7 @@
 
 ### Fixed
 - **Popup footer no longer hides the ⚙/Quit buttons when the update-check message is long** — the footer Grid had no ColumnDefinitions, so the left and right StackPanels overlapped in the same cell. Long status text like "GitHub API rate limit (retry after HH:mm) — or download from the Releases page" pushed past the right edge and covered the ⚙ button, making it unclickable. Footer is now a 3-column Grid (`Auto / * / Auto`) with `TextWrapping="Wrap"` on the status message — long messages wrap to a second line, and the ⚙/Quit buttons stay anchored on the right.
+- **Settings window now auto-anchors to bottom-right too (v1.26.0 parity)** — the popup re-anchored on `SizeChanged` since v1.26.0, but the settings window was missing the same handler. Switching tabs or language could grow the content and push the window into the taskbar. `SettingsWindow` now uses the same `SizeChanged + AnchorToTrayCorner` pattern as `UsagePopup`, so it always sits flush above the taskbar regardless of tab/language.
 
 ### Technical
 - `NotificationSettings.ShowCodexPlanBadge` (default `true`), `ShowAbsoluteResetTime` (default `false`) — new persisted fields.

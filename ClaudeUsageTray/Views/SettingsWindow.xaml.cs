@@ -28,8 +28,31 @@ public partial class SettingsWindow : Window, IDisposable
         Loc.LanguageChanged += OnLanguageChanged;
         _vm.PropertyChanged += OnVmPropertyChanged;
 
+        // v1.27.0: 컨텐츠 크기 변경(탭 전환/언어 변경/표시 옵션 추가 등) 시 우하단 앵커 자동 유지
+        // — popup 과 동일하게 작업표시줄 침범 방지 (UsagePopup 의 OnSizeChangedKeepAnchor 와 같은 패턴)
+        SizeChanged += OnSizeChangedKeepAnchor;
+
         ApplyLocalization();
         LoadValues();
+    }
+
+    /// <summary>
+    /// 설정 창 사이즈가 변경되면(탭 전환으로 컨텐츠 높이 변경 등) 우하단 모서리 앵커를 다시 적용.
+    /// </summary>
+    private void OnSizeChangedKeepAnchor(object sender, SizeChangedEventArgs e)
+    {
+        if (!IsLoaded || !IsVisible) return;
+        AnchorToTrayCorner();
+    }
+
+    /// <summary>
+    /// 설정 창을 우하단(작업표시줄 위) 8px 마진 위치로 정렬. 화면 work area 밖으로 밀려나지 않도록 클램프.
+    /// </summary>
+    private void AnchorToTrayCorner()
+    {
+        var workArea = SystemParameters.WorkArea;
+        Left = workArea.Right - Width - 8;
+        Top  = Math.Max(workArea.Top, workArea.Bottom - ActualHeight - 8);
     }
 
     private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -428,16 +451,12 @@ public partial class SettingsWindow : Window, IDisposable
 
     public void ShowNearTray()
     {
-        var workArea = SystemParameters.WorkArea;
-        Left = workArea.Right - Width - 8;
-        Top  = workArea.Bottom - ActualHeight - 8;
+        AnchorToTrayCorner();
         Show();
         Activate();
-        Dispatcher.InvokeAsync(() =>
-        {
-            Left = workArea.Right - Width - 8;
-            Top  = workArea.Bottom - ActualHeight - 8;
-        }, System.Windows.Threading.DispatcherPriority.Render);
+        // 첫 레이아웃 패스 후 ActualHeight 가 안정될 때 한 번 더 정렬 (showing 시점엔 부정확할 수 있음)
+        Dispatcher.InvokeAsync(AnchorToTrayCorner,
+            System.Windows.Threading.DispatcherPriority.Render);
     }
 
     /// <summary>
