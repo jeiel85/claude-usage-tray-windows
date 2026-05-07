@@ -755,18 +755,22 @@
                 <!-- Footer -->
                 <Border Padding="16,12" Background="#1A1D2E" CornerRadius="0,0,16,16">
                     <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
                         <!-- 좌측: 버전 클릭 → 업데이트 확인 -->
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <Button Command="{Binding ManualCheckForUpdateCommand}"
-                                    Style="{StaticResource GhostBtn}">
-                                <TextBlock Text="{Binding CurrentVersionLabel}" Foreground="#5A5F7A" FontSize="9"/>
-                            </Button>
-                            <TextBlock Text="{Binding UpdateCheckLabel}" Foreground="#A78BFA" FontSize="9"
-                                       Margin="6,0,0,0" VerticalAlignment="Center"
-                                       Visibility="{Binding UpdateCheckLabel, Converter={StaticResource StringToVisibility}}"/>
-                        </StackPanel>
+                        <Button Grid.Column="0" Command="{Binding ManualCheckForUpdateCommand}"
+                                Style="{StaticResource GhostBtn}" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding CurrentVersionLabel}" Foreground="#5A5F7A" FontSize="9"/>
+                        </Button>
+                        <!-- 중앙: 업데이트 체크 메시지 — 길어지면 줄바꿈으로 처리해 우측 버튼을 침범하지 않음 -->
+                        <TextBlock Grid.Column="1" Text="{Binding UpdateCheckLabel}" Foreground="#A78BFA" FontSize="9"
+                                   Margin="6,0,8,0" VerticalAlignment="Center" TextWrapping="Wrap"
+                                   Visibility="{Binding UpdateCheckLabel, Converter={StaticResource StringToVisibility}}"/>
                         <!-- 우측: 설정 + 종료 -->
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                             <Button Click="SettingsBtn_Click" Cursor="Hand" Margin="0,0,10,0">
                                 <Button.Style>
                                     <Style TargetType="Button">

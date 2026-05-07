@@ -15,6 +15,9 @@
 ### 변경
 - **설정 창 "ntfy 가이드 ↗" 링크의 실제 목적지 수정** — `https://ntfy.sh` 단순 홈으로 이동하던 것을 `README#ntfy-guide` 앵커로 변경 (라벨이 이미 "가이드"였는데 도착지는 다운로드 페이지였던 부조리 해소).
 
+### 수정
+- **Popup footer 가 긴 업데이트 메시지에 우측 ⚙/Quit 버튼이 가려지던 문제 수정** — footer Grid 가 ColumnDefinitions 없이 좌/우 StackPanel 을 같은 셀에 겹쳐 두던 구조였습니다. "GitHub API 한도 초과 (HH:mm 에 재시도 가능) — 또는 Releases 페이지에서 직접 받기" 같은 긴 메시지가 표시되면 우측 ⚙ 버튼을 가려 클릭 불가능했던 케이스. 이제 `Auto / * / Auto` 3-컬럼 Grid + 메시지 `TextWrapping="Wrap"` 조합으로, 메시지가 길면 두 줄로 줄바꿈되고 ⚙/Quit 버튼은 항상 우측에서 보호됩니다.
+
 ### 기술
 - `NotificationSettings.ShowCodexPlanBadge` (default `true`), `ShowAbsoluteResetTime` (default `false`) 신규 영속화 필드.
 - `MainViewModel.FormatResetLabel` 을 `static` → 인스턴스 메서드로 전환 — `ShowAbsoluteResetTime` 토글을 읽기 위함. 동시에 4개 raw `DateTimeOffset?` 필드(`_rawClaudeShortResetAt` 등)를 도입해 토글 즉시 라벨 재계산.
@@ -30,6 +33,9 @@
 
 ### Changed
 - **Settings "ntfy guide ↗" link points where it claims** — previously navigated to `https://ntfy.sh`, now opens `README#ntfy-guide`. (The label said "guide" but the destination was the download page.)
+
+### Fixed
+- **Popup footer no longer hides the ⚙/Quit buttons when the update-check message is long** — the footer Grid had no ColumnDefinitions, so the left and right StackPanels overlapped in the same cell. Long status text like "GitHub API rate limit (retry after HH:mm) — or download from the Releases page" pushed past the right edge and covered the ⚙ button, making it unclickable. Footer is now a 3-column Grid (`Auto / * / Auto`) with `TextWrapping="Wrap"` on the status message — long messages wrap to a second line, and the ⚙/Quit buttons stay anchored on the right.
 
 ### Technical
 - `NotificationSettings.ShowCodexPlanBadge` (default `true`), `ShowAbsoluteResetTime` (default `false`) — new persisted fields.
