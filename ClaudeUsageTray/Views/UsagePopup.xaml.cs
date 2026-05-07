@@ -321,6 +321,20 @@ public partial class UsagePopup : Window, IDisposable
     private void QuitBtn_Click(object sender, RoutedEventArgs e) =>
         System.Windows.Application.Current.Shutdown();
 
+    // ===== Agent focus 전환 핸들러 (v1.25.0 신규) =====
+    // 클릭 시 해당 공급자만 상세 펼치고 나머지는 컴팩트 행으로 접힘. 영속화 자동.
+    private void ClaudeFocus_Click(object sender, RoutedEventArgs e)   => SetFocusedProvider(Models.UsageProviderKind.Claude);
+    private void CodexFocus_Click(object sender, RoutedEventArgs e)    => SetFocusedProvider(Models.UsageProviderKind.Codex);
+    private void GeminiFocus_Click(object sender, RoutedEventArgs e)   => SetFocusedProvider(Models.UsageProviderKind.GeminiCli);
+    private void OpenCodeFocus_Click(object sender, RoutedEventArgs e) => SetFocusedProvider(Models.UsageProviderKind.OpenCode);
+
+    private void SetFocusedProvider(string provider)
+    {
+        if (_vm.FocusedProvider == provider) return; // 이미 focused
+        _vm.FocusedProvider = provider;
+        _vm.SaveSettingsCommand.Execute(null);
+    }
+
     public void ShowNearTray()
     {
         var workArea = SystemParameters.WorkArea;

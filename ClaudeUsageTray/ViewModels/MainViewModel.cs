@@ -188,6 +188,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _isGeminiEnabled = true;
     [ObservableProperty] private bool _isOpenCodeEnabled = true;
 
+    // Popup에서 한 번에 한 공급자만 상세 펼침 — 나머지는 컴팩트 행 (v1.25.0 신규)
+    // 빈 문자열은 "자동 결정" 의미 — LoadSettings/EnsureValidFocusedProvider 가 즉시 채움
+    [ObservableProperty] private string _focusedProvider = UsageProviderKind.Claude;
+    [ObservableProperty] private bool _isClaudeFocused = true;
+    [ObservableProperty] private bool _isCodexFocused = false;
+    [ObservableProperty] private bool _isGeminiFocused = false;
+    [ObservableProperty] private bool _isOpenCodeFocused = false;
+
     [ObservableProperty] private double _openCodePercent = 0;
     [ObservableProperty] private double _trayUsagePercent = 0;
 
@@ -333,6 +341,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
         IsGeminiEnabled   = s.VisibleProviders.Contains(UsageProviderKind.GeminiCli);
         IsOpenCodeEnabled = s.VisibleProviders.Contains(UsageProviderKind.OpenCode);
 
+        // Popup focused provider — 빈 값/유효하지 않으면 자동 결정
+        FocusedProvider = string.IsNullOrEmpty(s.FocusedProvider) ? UsageProviderKind.Claude : s.FocusedProvider;
+        EnsureValidFocusedProvider();
+
         // 현재 로그인된 계정의 orgUuid로 히스토리 경로 초기화
         ApplySelectedProviderScope();
 
@@ -351,6 +363,48 @@ public partial class MainViewModel : ObservableObject, IDisposable
             UsageProviderKind.OpenCode  => Loc.ProviderOpenCodeNote,
             _ => ""
         };
+    }
+
+    /// <summary>
+    /// FocusedProvider 변경 시 IsXxxFocused 부울 4개를 동기화.
+    /// (UsagePopup.xaml 의 Visibility 바인딩이 이 부울들을 본다)
+    /// </summary>
+    partial void OnFocusedProviderChanged(string value)
+    {
+        IsClaudeFocused   = value == UsageProviderKind.Claude;
+        IsCodexFocused    = value == UsageProviderKind.Codex;
+        IsGeminiFocused   = value == UsageProviderKind.GeminiCli;
+        IsOpenCodeFocused = value == UsageProviderKind.OpenCode;
+    }
+
+    /// <summary>
+    /// FocusedProvider 가 비어있거나 비활성화/숨김 공급자를 가리키면 안전한 값으로 폴백.
+    /// 우선순위: Claude → Codex → Gemini → OpenCode (활성된 것 중 첫 번째).
+    /// </summary>
+    private void EnsureValidFocusedProvider()
+    {
+        bool IsEnabledFor(string p) => p switch
+        {
+            UsageProviderKind.Claude    => IsClaudeEnabled,
+            UsageProviderKind.Codex     => IsCodexEnabled,
+            UsageProviderKind.GeminiCli => IsGeminiEnabled,
+            UsageProviderKind.OpenCode  => IsOpenCodeEnabled,
+            _ => false
+        };
+
+        if (!string.IsNullOrEmpty(FocusedProvider) &&
+            UsageProviderKind.IsValid(FocusedProvider) &&
+            IsEnabledFor(FocusedProvider))
+        {
+            return; // 현재 값 유효
+        }
+
+        // 폴백
+        if (IsClaudeEnabled)        FocusedProvider = UsageProviderKind.Claude;
+        else if (IsCodexEnabled)    FocusedProvider = UsageProviderKind.Codex;
+        else if (IsGeminiEnabled)   FocusedProvider = UsageProviderKind.GeminiCli;
+        else if (IsOpenCodeEnabled) FocusedProvider = UsageProviderKind.OpenCode;
+        else                        FocusedProvider = UsageProviderKind.Claude; // 모두 비활성 시 최후 폴백
     }
 
     private void ApplySelectedProviderScope()
@@ -417,6 +471,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             TrayDisplayMode = TrayDisplayMode,
             HideInactiveProviders = HideInactiveProviders,
             VisibleProviders = visibleProviders,
+            FocusedProvider = FocusedProvider,
         });
     }
 
@@ -667,6 +722,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private void UpdateOverallStatus()
     {
+        // FocusedProvider가 비활성 공급자를 가리키면 자동 폴백 (사용자가 표시 OFF 했는데 그 공급자가 focus였던 경우)
+        EnsureValidFocusedProvider();
+
         // 1. 각 공급자 활성 상태 판단 (데이터가 있거나 에러가 있는 경우 활성으로 간주, 단 설정에 따라 숨김)
         var settings = _settingsService.Load();
         var hideInactive = settings.HideInactiveProviders;

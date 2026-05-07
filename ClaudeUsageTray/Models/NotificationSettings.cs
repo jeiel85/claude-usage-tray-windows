@@ -49,6 +49,11 @@ public class NotificationSettings
         UsageProviderKind.OpenCode
     ];
 
+    // 현재 popup에서 펼쳐 보여주는(=focused) 공급자.
+    // 빈 문자열이면 MainViewModel이 자동 결정 (Claude 우선, 비활성 시 활성된 첫 공급자).
+    // 사용자가 popup의 다른 공급자 행을 클릭하면 해당 키로 갱신되어 영속화된다.
+    public string FocusedProvider { get; set; } = "";
+
     // Backward compatibility with old schema used by ViewModel.
     [JsonIgnore]
     public bool NotifyOnRateLimit

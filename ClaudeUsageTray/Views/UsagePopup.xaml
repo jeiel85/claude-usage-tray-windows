@@ -185,6 +185,30 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- 에이전트 행 클릭 버튼 — focus 전환용. 호버 시 살짝 톤 변화, focus 시 액센트 라인 -->
+        <Style x:Key="AgentRowBtn" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#1A1D2E"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Border Margin="8">
@@ -303,15 +327,25 @@
                     <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblApiQuota}" Margin="0,0,0,12"/>
 
                     <!-- Claude Section -->
-                    <StackPanel Margin="0,0,0,16" Visibility="{Binding IsClaudeActive, Converter={StaticResource BoolToVisibility}}">
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                            <Border Width="12" Height="12" CornerRadius="2" Background="#8B5CF6" Margin="0,0,8,0">
-                                <TextBlock Text="C" Foreground="White" FontSize="8" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-                            <TextBlock Text="Claude" Foreground="#F1F5F9" FontSize="11" FontWeight="Bold"/>
-                        </StackPanel>
+                    <StackPanel Margin="0,0,0,8" Visibility="{Binding IsClaudeActive, Converter={StaticResource BoolToVisibility}}">
+                        <!-- Compact clickable row — focus 토글 -->
+                        <Button Click="ClaudeFocus_Click" Style="{StaticResource AgentRowBtn}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Width="12" Height="12" CornerRadius="2" Background="#8B5CF6" Margin="0,0,8,0" VerticalAlignment="Center">
+                                    <TextBlock Text="C" Foreground="White" FontSize="8" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="Claude" Foreground="#F1F5F9" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="{Binding ClaudeShortPercent, StringFormat={}{0:P0}}" Foreground="#A78BFA" FontSize="13" FontWeight="Bold" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Button>
 
-                        <StackPanel>
+                        <!-- Detail body — focused 일 때만 -->
+                        <StackPanel Margin="10,6,10,0" Visibility="{Binding IsClaudeFocused, Converter={StaticResource BoolToVisibility}}">
                             <Grid Margin="0,0,0,10">
                                 <Grid.RowDefinitions>
                                     <RowDefinition/>
@@ -503,13 +537,25 @@
                     </StackPanel>
 
                     <!-- Codex Section -->
-                    <StackPanel Margin="0,0,0,16" Visibility="{Binding IsCodexActive, Converter={StaticResource BoolToVisibility}}">
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                            <Border Width="12" Height="12" CornerRadius="2" Background="#10B981" Margin="0,0,8,0">
-                                <TextBlock Text="X" Foreground="White" FontSize="8" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-                            <TextBlock Text="Codex" Foreground="#F1F5F9" FontSize="11" FontWeight="Bold"/>
-                        </StackPanel>
+                    <StackPanel Margin="0,0,0,8" Visibility="{Binding IsCodexActive, Converter={StaticResource BoolToVisibility}}">
+                        <!-- Compact clickable row -->
+                        <Button Click="CodexFocus_Click" Style="{StaticResource AgentRowBtn}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Width="12" Height="12" CornerRadius="2" Background="#10B981" Margin="0,0,8,0" VerticalAlignment="Center">
+                                    <TextBlock Text="X" Foreground="White" FontSize="8" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="Codex" Foreground="#F1F5F9" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="{Binding CodexPercent, StringFormat={}{0:P0}}" Foreground="#6EE7B7" FontSize="13" FontWeight="Bold" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Button>
+
+                        <!-- Detail body — focused 일 때만 -->
+                        <StackPanel Margin="10,6,10,0" Visibility="{Binding IsCodexFocused, Converter={StaticResource BoolToVisibility}}">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -563,18 +609,29 @@
                             <TextBlock Text="{Binding CodexNote}" Foreground="#5A5F7A" FontSize="10" HorizontalAlignment="Left"/>
                             <TextBlock Text="{Binding CodexDataSource}" Foreground="#3D4266" FontSize="9" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
                         </Grid>
+                        </StackPanel>
                     </StackPanel>
 
                     <!-- Gemini Section -->
-                    <StackPanel Margin="0,0,0,16" Visibility="{Binding IsGeminiActive, Converter={StaticResource BoolToVisibility}}">
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <Border Width="12" Height="12" CornerRadius="2" Background="#3B82F6" Margin="0,0,8,0">
-                                <TextBlock Text="G" Foreground="White" FontSize="8" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-                            <TextBlock Text="Gemini CLI" Foreground="#F1F5F9" FontSize="11" FontWeight="Bold"/>
-                            <TextBlock Text="{Binding GeminiRequestsLabel}" Foreground="#8B92B3" FontSize="10" Margin="8,0,0,0" VerticalAlignment="Bottom"/>
-                        </StackPanel>
+                    <StackPanel Margin="0,0,0,8" Visibility="{Binding IsGeminiActive, Converter={StaticResource BoolToVisibility}}">
+                        <!-- Compact clickable row -->
+                        <Button Click="GeminiFocus_Click" Style="{StaticResource AgentRowBtn}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Width="12" Height="12" CornerRadius="2" Background="#3B82F6" Margin="0,0,8,0" VerticalAlignment="Center">
+                                    <TextBlock Text="G" Foreground="White" FontSize="8" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="Gemini CLI" Foreground="#F1F5F9" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="{Binding GeminiRequestsLabel}" Foreground="#60A5FA" FontSize="13" FontWeight="Bold" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Button>
 
+                        <!-- Detail body — focused 일 때만 -->
+                        <StackPanel Margin="10,6,10,0" Visibility="{Binding IsGeminiFocused, Converter={StaticResource BoolToVisibility}}">
                         <!-- Usage Empty Placeholder (Gemini) -->
                         <TextBlock Text="{Binding LblGeminiNoUsage}" Foreground="#5A5F7A" FontSize="10" FontStyle="Italic" Margin="0,0,0,10"
                                    Visibility="{Binding IsGeminiUsageEmpty, Converter={StaticResource BoolToVisibility}}"/>
@@ -610,18 +667,29 @@
 
                         <TextBlock Text="{Binding GeminiNote}" Foreground="#5A5F7A" FontSize="10" Margin="0,8,0,0"/>
                         <TextBlock Text="{Binding GeminiErrorMessage}" Foreground="#EF4444" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0" Visibility="{Binding GeminiHasError, Converter={StaticResource BoolToVisibility}}"/>
+                        </StackPanel>
                     </StackPanel>
 
                     <!-- OpenCode Section -->
                     <StackPanel Margin="0,0,0,0" Visibility="{Binding IsOpenCodeActive, Converter={StaticResource BoolToVisibility}}">
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <Border Width="12" Height="12" CornerRadius="2" Background="#F97316" Margin="0,0,8,0">
-                                <TextBlock Text="O" Foreground="White" FontSize="8" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-                            <TextBlock Text="OpenCode" Foreground="#F1F5F9" FontSize="11" FontWeight="Bold"/>
-                            <TextBlock Text="{Binding OpenCodeRequestCountLabel}" Foreground="#8B92B3" FontSize="10" Margin="8,0,0,0" VerticalAlignment="Bottom"/>
-                        </StackPanel>
+                        <!-- Compact clickable row -->
+                        <Button Click="OpenCodeFocus_Click" Style="{StaticResource AgentRowBtn}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Width="12" Height="12" CornerRadius="2" Background="#F97316" Margin="0,0,8,0" VerticalAlignment="Center">
+                                    <TextBlock Text="O" Foreground="White" FontSize="8" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="OpenCode" Foreground="#F1F5F9" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="{Binding OpenCodeRequestCountLabel}" Foreground="#FB923C" FontSize="13" FontWeight="Bold" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Button>
 
+                        <!-- Detail body — focused 일 때만 -->
+                        <StackPanel Margin="10,6,10,0" Visibility="{Binding IsOpenCodeFocused, Converter={StaticResource BoolToVisibility}}">
                         <!-- Usage Empty Placeholder (OpenCode) -->
                         <TextBlock Text="{Binding LblOpenCodeNoUsage}" Foreground="#5A5F7A" FontSize="10" FontStyle="Italic" Margin="0,0,0,10"
                                    Visibility="{Binding IsOpenCodeUsageEmpty, Converter={StaticResource BoolToVisibility}}"/>
@@ -657,6 +725,7 @@
 
                         <TextBlock Text="{Binding OpenCodeNote}" Foreground="#5A5F7A" FontSize="10" Margin="0,8,0,0"/>
                         <TextBlock Text="{Binding OpenCodeErrorMessage}" Foreground="#EF4444" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0" Visibility="{Binding OpenCodeHasError, Converter={StaticResource BoolToVisibility}}"/>
+                        </StackPanel>
                     </StackPanel>
                 </StackPanel>
 

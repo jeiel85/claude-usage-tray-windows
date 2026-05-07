@@ -3,6 +3,44 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.25.0] - 2026-05-07
+
+<!-- ko -->
+### 변경
+- **Popup 레이아웃 = "Focus + Compact Rows" 모델** — 4개 에이전트가 모두 활성이어도 popup이 무한정 길어지지 않도록 한 번에 하나의 공급자만 상세 펼침. 나머지 3개는 32~40px 짜리 컴팩트 행(badge + name + 핵심 지표) 으로만 표시. 어느 행이든 클릭하면 해당 공급자로 focus 가 전환되고 즉시 펼쳐집니다.
+  - **공간 효과**: 4개 활성 시 ~1150px → ~570~700px 정도로 줄어 1080p 에서도 스크롤 없이 들어옴
+  - **글랜스 패턴**: 컴팩트 행에서도 핵심 % / 요청 횟수가 보임
+  - **선택 영속화**: 클릭한 focus 는 `~/.claude/claude-usage-tray.json` 에 저장되어 앱 재시작 후에도 유지
+
+### 추가
+- **`NotificationSettings.FocusedProvider`** — 사용자 선택 영속화 필드. 빈 문자열은 자동 결정(Claude 우선, 비활성 시 첫 활성 공급자) 의미.
+- **`MainViewModel.IsClaudeFocused / IsCodexFocused / IsGeminiFocused / IsOpenCodeFocused`** — XAML Visibility 바인딩용 부울 4개. `OnFocusedProviderChanged` partial 핸들러가 자동 동기화.
+- **`EnsureValidFocusedProvider()`** — 사용자가 현재 focused 공급자를 표시 OFF 했을 때 자동으로 활성된 다른 공급자로 폴백.
+
+### 기술
+- 각 에이전트 섹션 = `<Button Style="AgentRowBtn">` (compact row, 항상 보임) + `<StackPanel Visibility="IsXxxFocused">` (detail body, focused 일 때만)
+- `AgentRowBtn` 스타일: hover 시 `#1A1D2E` 배경, 라운드 8px, padding 10x8 — 클릭 가능 affordance
+<!-- /ko -->
+
+<!-- en -->
+### Changed
+- **Popup layout reworked into a "Focus + Compact Rows" model** — When all 4 agents are active, the popup no longer balloons. Only one provider expands its detail at a time; the other three render as 32-40 px compact rows (badge + name + key metric). Click any row to switch focus and instantly expand it.
+  - **Space win**: 4 active providers go from ~1150 px → ~570-700 px — fits comfortably on 1080 p without scrolling
+  - **Glance friendly**: compact rows still show the key %/request-count
+  - **Persistence**: the focused provider is saved to `~/.claude/claude-usage-tray.json` and survives restart
+
+### Added
+- **`NotificationSettings.FocusedProvider`** — persisted user choice. Empty string means auto-determine (Claude first, then the first enabled provider).
+- **`MainViewModel.IsClaudeFocused / IsCodexFocused / IsGeminiFocused / IsOpenCodeFocused`** — bool ObservableProperties for XAML Visibility binding. `OnFocusedProviderChanged` partial keeps them in sync.
+- **`EnsureValidFocusedProvider()`** — auto-rotates focus to another enabled provider if the user disables the currently-focused one.
+
+### Technical
+- Each agent section is now `<Button Style="AgentRowBtn">` (compact row, always visible) + `<StackPanel Visibility="IsXxxFocused">` (detail body, only when focused).
+- `AgentRowBtn` style: hover background `#1A1D2E`, 8 px corner radius, 10x8 padding — clear clickable affordance.
+<!-- /en -->
+
+---
+
 ## [1.24.2] - 2026-05-07
 
 <!-- ko -->
