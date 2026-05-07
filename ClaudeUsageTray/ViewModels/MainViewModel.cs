@@ -907,10 +907,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     ClaudeLongReset    = _lastKnownLongReset;
                     ClaudeLongSummary  = Loc.UsageSummary(_lastKnownLongPercent);
 
-                    // 403 permission_error: 토큰 스코프 부족 — 자동 회복 불가, 별도 안내 + 긴 backoff
+                    // 403 permission_error: 두 가지 케이스로 세분
+                    //   (a) "currently not allowed for this organization" — 신규 계정 검증/조직 OAuth 미활성 (일시적, 24h내 자동 해소 가능성)
+                    //   (b) 그 외 permission_error — 영구적 권한 부족 (워크스페이스 설정 필요 등)
                     bool isPermissionDenied = _api.LastError != null
                         && _api.LastError.Contains("HTTP 403")
                         && _api.LastError.Contains("permission_error");
+
+                    bool isOAuthNotAllowed = isPermissionDenied
+                        && _api.LastError!.Contains("currently not allowed");
 
                     // 쿨다운 판정은 호출 "후" _apiRetryAfter 기준으로 — 첫 429부터 즉시 회색 톤 라우팅
                     bool isCooldown = _apiRetryAfter > DateTimeOffset.UtcNow;
@@ -919,7 +924,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     {
                         ClaudeHasError = false;
                         ClaudeErrorMessage = "";
-                        ClaudeApiNote = Loc.ApiPermissionDeniedNote;
+                        ClaudeApiNote = isOAuthNotAllowed
+                            ? Loc.ApiOAuthNotAllowedNote
+                            : Loc.ApiPermissionDeniedNote;
                     }
                     else if (isCooldown)
                     {

@@ -49,6 +49,10 @@ internal static class AppConstants
     /// <summary>429 응답에 Retry-After 헤더가 없거나 파싱 실패한 경우의 기본 backoff (5분)</summary>
     public const int DefaultRateLimitBackoffSeconds = 300;
 
-    /// <summary>403 permission_error(스코프 부족 등) 발생 시 같은 결과를 반복 두드리지 않도록 적용하는 backoff (6시간)</summary>
-    public const int PermissionDeniedBackoffSeconds = 21_600;
+    /// <summary>
+    /// 403 permission_error 발생 시의 backoff (90분).
+    /// 신규 계정 검증/조직 OAuth API 활성화 같은 일시 차단 케이스에서 활성화 시점을 너무 늦게 잡지 않도록
+    /// 6시간(이전 값) 보다 짧게 잡는다. 90분이면 24시간 활성화 윈도우에서 ~6% 미만 지연 보장.
+    /// </summary>
+    public const int PermissionDeniedBackoffSeconds = 5_400;
 }

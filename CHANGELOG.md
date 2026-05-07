@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.24.1] - 2026-05-07
+
+<!-- ko -->
+### 개선
+- **403 `permission_error` 안에서 "신규 계정/조직 OAuth 미활성" 케이스 분리 안내** — Anthropic 응답 본문이 "currently not allowed" 패턴을 포함하면(예: "OAuth authentication is currently not allowed for this organization"), 기존의 영구 권한 부족 안내 대신 일시적 검증 게이트임을 알리는 메시지로 분기합니다. "신규 계정/플랜 검증 진행 중일 수 있으며 24시간 후에도 동일하면 워크스페이스 설정/Anthropic 지원 문의 권장" 톤. 4개 언어 모두 추가.
+- **403 발생 시 backoff 6시간 → 90분으로 단축** — 신규 계정의 OAuth API 활성화는 보통 수시간~24시간 안에 풀리는 일시 게이트이므로, 6시간 backoff 는 활성화 시점을 너무 늦게 잡습니다. 90분으로 줄여서 활성화 후 평균 ~45분, 최대 90분이면 게이지가 자동 채워지도록 조정.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **403 `permission_error` now distinguishes the "new-account / org OAuth not active yet" case** — When Anthropic's response body contains the `"currently not allowed"` pattern (e.g. "OAuth authentication is currently not allowed for this organization"), the popup shows a softer note framing this as a likely temporary verification gate rather than a permanent block. Wording: "OAuth API for this organization isn't active yet — likely a new-account or plan-verification gate. If it persists past 24 hours, check workspace settings or contact Anthropic support." (4 languages).
+- **403 backoff shortened from 6 hours to 90 minutes** — New-account OAuth API activation typically clears within a few hours to 24 hours, so a 6-hour backoff was too long: it would miss the activation window. 90 minutes keeps the average detection latency under ~45 minutes (max 90 min) so the gauges auto-populate soon after activation.
+<!-- /en -->
+
+---
+
 ## [1.24.0] - 2026-05-07
 
 <!-- ko -->

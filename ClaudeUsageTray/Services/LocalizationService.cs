@@ -529,6 +529,16 @@ public static class Loc
         _ => "This account's OAuth token lacks permission for the usage API — 5h/7d gauges will not appear, but local token aggregation continues to work."
     };
 
+    // 403 + "currently not allowed" 패턴: 일시적 차단 (신규 계정 검증/조직 OAuth API 미활성)
+    // — 영구 차단 아니라 24시간 내 자동 해소될 가능성 높다는 뉘앙스 전달
+    public static string ApiOAuthNotAllowedNote => Lang switch
+    {
+        "ko" => "조직(Organization) OAuth API 가 아직 활성화되지 않았습니다 — 신규 계정/플랜 검증 진행 중일 수 있습니다. 24시간 후에도 동일하면 워크스페이스 설정 또는 Anthropic 지원 문의를 권장합니다. (로컬 토큰 집계는 정상)",
+        "zh" => "组织 OAuth API 尚未激活 — 可能是新账号/订阅验证进行中。如 24 小时后仍未恢复，建议检查工作区设置或联系 Anthropic 支持。（本地用量统计正常）",
+        "ja" => "組織の OAuth API が未有効化です — 新規アカウント/プラン認証中の可能性があります。24時間経っても解消されない場合はワークスペース設定または Anthropic サポートへ。（ローカル使用量集計は正常）",
+        _ => "OAuth API for this organization isn't active yet — likely a new-account or plan-verification gate. If it persists past 24 hours, check workspace settings or contact Anthropic support. (Local token aggregation continues to work.)"
+    };
+
     public static string HistoryTitleFor(string provider) => Lang switch
     {
         "ko" => $"{provider} {HistoryTitle}",
