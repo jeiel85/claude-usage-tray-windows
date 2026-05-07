@@ -41,13 +41,26 @@ public class UsageApiService
             if (!response.IsSuccessStatusCode)
             {
                 LastRetryAfterSeconds = 0;
-                if ((int)response.StatusCode == 429 &&
-                    response.Headers.TryGetValues("Retry-After", out var vals) &&
-                    int.TryParse(vals.FirstOrDefault(), out var ra))
+                int statusCode = (int)response.StatusCode;
+                if (statusCode == 429)
                 {
-                    LastRetryAfterSeconds = ra;
+                    // Retry-After 헤더가 없거나 파싱 실패해도 기본 backoff(300s)을 보장 — UI가 항상 쿨다운 분기로 라우팅되도록
+                    if (response.Headers.TryGetValues("Retry-After", out var vals) &&
+                        int.TryParse(vals.FirstOrDefault(), out var ra) && ra > 0)
+                    {
+                        LastRetryAfterSeconds = ra;
+                    }
+                    else
+                    {
+                        LastRetryAfterSeconds = AppConstants.DefaultRateLimitBackoffSeconds;
+                    }
                 }
-                LastError = $"HTTP {(int)response.StatusCode}: {LastRawResponse}";
+                else if (statusCode == 403 && (LastRawResponse?.Contains("permission_error") ?? false))
+                {
+                    // 403 permission_error: 토큰 스코프 문제이므로 같은 결과를 반복 두드리지 않도록 긴 backoff
+                    LastRetryAfterSeconds = AppConstants.PermissionDeniedBackoffSeconds;
+                }
+                LastError = $"HTTP {statusCode}: {LastRawResponse}";
                 return null;
             }
 

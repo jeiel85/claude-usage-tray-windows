@@ -520,6 +520,15 @@ public static class Loc
         _ => $"Waiting for API — auto retry at {time}"
     };
 
+    // 403 permission_error 안내: 토큰 스코프 부족이라 자동 회복 불가 — 사용자 액션 유도
+    public static string ApiPermissionDeniedNote => Lang switch
+    {
+        "ko" => "이 계정의 OAuth 토큰에는 사용량 API 권한이 없습니다 — 5h/7d 게이지는 표시되지 않으며, 로컬 토큰 집계는 정상 동작합니다.",
+        "zh" => "当前账号的 OAuth 令牌没有访问用量 API 的权限 — 无法显示 5h/7d 进度条，但本地用量统计仍正常工作。",
+        "ja" => "このアカウントの OAuth トークンには使用量 API へのアクセス権限がありません — 5h/7d ゲージは表示されませんが、ローカル使用量集計は正常に動作します。",
+        _ => "This account's OAuth token lacks permission for the usage API — 5h/7d gauges will not appear, but local token aggregation continues to work."
+    };
+
     public static string HistoryTitleFor(string provider) => Lang switch
     {
         "ko" => $"{provider} {HistoryTitle}",

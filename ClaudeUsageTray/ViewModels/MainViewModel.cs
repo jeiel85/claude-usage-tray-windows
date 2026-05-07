@@ -895,8 +895,21 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     ClaudeLongReset    = _lastKnownLongReset;
                     ClaudeLongSummary  = Loc.UsageSummary(_lastKnownLongPercent);
 
-                    bool isCooldown = skipApi && _apiRetryAfter > DateTimeOffset.MinValue;
-                    if (isCooldown)
+                    // 403 permission_error: 토큰 스코프 부족 — 자동 회복 불가, 별도 안내 + 긴 backoff
+                    bool isPermissionDenied = _api.LastError != null
+                        && _api.LastError.Contains("HTTP 403")
+                        && _api.LastError.Contains("permission_error");
+
+                    // 쿨다운 판정은 호출 "후" _apiRetryAfter 기준으로 — 첫 429부터 즉시 회색 톤 라우팅
+                    bool isCooldown = _apiRetryAfter > DateTimeOffset.UtcNow;
+
+                    if (isPermissionDenied)
+                    {
+                        ClaudeHasError = false;
+                        ClaudeErrorMessage = "";
+                        ClaudeApiNote = Loc.ApiPermissionDeniedNote;
+                    }
+                    else if (isCooldown)
                     {
                         // 일시 제한은 에러 아닌 안내로만 — 빨간 박스 대신 회색 톤 자동 재시도 안내
                         ClaudeHasError = false;
@@ -1207,13 +1220,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     err.TryGetProperty("message", out var msg))
                 {
                     var msgText = msg.GetString() ?? raw;
-                    return Loc.ApiError(msgText.Length > 80 ? msgText[..80] + "…" : msgText);
+                    return Loc.ApiError(msgText.Length > 200 ? msgText[..200] + "…" : msgText);
                 }
             }
         }
         catch { }
 #endif
-        return Loc.ApiError(raw.Length > 80 ? raw[..80] + "…" : raw);
+        return Loc.ApiError(raw.Length > 200 ? raw[..200] + "…" : raw);
     }
 
     private static string CalcDepletionLabel(Models.UsageWindow w)
