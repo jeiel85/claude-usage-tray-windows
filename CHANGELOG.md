@@ -3,6 +3,32 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.28.0] - 2026-05-08
+
+<!-- ko -->
+### 수정
+- **"조직 OAuth API 미활성" 안내가 24시간 지나도 똑같이 보이던 문제** — 기존 분기는 시간 추적 없이 문자열 패턴(`HTTP 403 + permission_error + currently not allowed`) 만 보고 *"24시간 후에도 동일하면..."* 이라는 유예 톤 안내문을 무한 반복 표시했습니다. 이제 첫 감지 시각을 settings 에 영속화해 24h 미만이면 기존 유예 안내, 24h 이상이면 *"X시간/일째 지속 중 — console.anthropic.com 에서 워크스페이스 설정을 확인하거나 Anthropic 지원에 문의하세요"* 식의 에스컬레이션 안내로 자동 전환합니다. API 가 정상 응답을 주거나 다른 종류의 에러로 전이되면 추적 상태가 자동 정리됩니다.
+
+### 기술
+- `NotificationSettings.OAuthNotAllowedFirstSeenUtc` (`DateTime?`) 신규 영속화 필드 — 미감지 상태에서는 `null`. 디스크 쓰기는 상태 전이(미감지→감지, 감지→해소) 시에만 발생하며 폴링 2분마다 매번 쓰지 않습니다.
+- `MainViewModel.ResolveOAuthNotAllowedNote()` / `ClearOAuthNotAllowedFirstSeenIfNeeded()` 신규 private helper. 성공 분기, 다른 permission_error 분기, 다른 에러 분기 모두에서 추적 상태를 정리합니다. 쿨다운 분기는 OAuth 와 무관해 추적 상태를 유지합니다.
+- `Loc.ApiOAuthNotAllowedEscalatedNote(elapsedLabel)` + `Loc.ElapsedDurationLabel(span)` ko/zh/ja/en 4개 언어 추가. 경과 시간은 2일 미만이면 시간, 그 이상이면 일 단위로 자연스럽게 표기.
+- `MainViewModel.SaveSettings` 에서 새 객체 직렬화 시 `OAuthNotAllowedFirstSeenUtc = existing.OAuthNotAllowedFirstSeenUtc` 보존 라인 추가 — 설정창 저장으로 추적 시각이 사라지지 않도록 보장.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **"Organization OAuth API not active" notice no longer freezes in grace-period tone past 24h** — the old branch only matched strings (`HTTP 403 + permission_error + currently not allowed`), with no time tracking, so the *"if it persists past 24 hours..."* grace-tone note kept showing forever. The first-seen timestamp now persists in settings; under 24h shows the original grace-tone note, past 24h auto-escalates to *"Organization OAuth API has been inactive for X hours/days — past the new-account grace window. Review your workspace settings at console.anthropic.com or contact Anthropic support."* The tracker is cleared automatically on a successful API response or a different error type.
+
+### Technical
+- `NotificationSettings.OAuthNotAllowedFirstSeenUtc` (`DateTime?`) — new persisted field, `null` when not tripped. Disk writes happen only on state transitions (clear→set, set→clear), not on every 2-min poll.
+- New private helpers `MainViewModel.ResolveOAuthNotAllowedNote()` / `ClearOAuthNotAllowedFirstSeenIfNeeded()`. Success branch, other-permission_error branch, and generic-error branch all clear the tracker. Cooldown branch leaves it alone (cooldown is unrelated to OAuth).
+- `Loc.ApiOAuthNotAllowedEscalatedNote(elapsedLabel)` + `Loc.ElapsedDurationLabel(span)` added in ko/zh/ja/en. Elapsed time renders in hours under 2 days, in days afterwards.
+- `MainViewModel.SaveSettings` now propagates `OAuthNotAllowedFirstSeenUtc = existing.OAuthNotAllowedFirstSeenUtc` when persisting a new settings instance — prevents the tracker from being wiped when the user saves the Settings window.
+<!-- /en -->
+
+---
+
 ## [1.27.0] - 2026-05-07
 
 <!-- ko -->

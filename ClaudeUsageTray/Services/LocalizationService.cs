@@ -590,6 +590,41 @@ public static class Loc
         _ => "OAuth API for this organization isn't active yet — likely a new-account or plan-verification gate. If it persists past 24 hours, check workspace settings or contact Anthropic support. (Local token aggregation continues to work.)"
     };
 
+    // 403 + "currently not allowed" 가 24h 이상 지속 — 신규 계정 유예 시간을 넘어섰으니
+    // 자동 해소를 더는 기대하지 말고 명확히 사용자 액션을 유도한다.
+    // {elapsedLabel} = 첫 감지 이후 경과 시간 라벨 (예: "27시간", "2일")
+    public static string ApiOAuthNotAllowedEscalatedNote(string elapsedLabel) => Lang switch
+    {
+        "ko" => $"조직(Organization) OAuth API 미활성 상태가 {elapsedLabel}째 지속 중입니다 — 신규 계정 유예 시간을 넘어섰으니 console.anthropic.com 에서 워크스페이스 설정을 확인하거나 Anthropic 지원에 문의하세요. (로컬 토큰 집계는 정상)",
+        "zh" => $"组织 OAuth API 未激活已持续 {elapsedLabel} — 已超过新账号宽限期，请到 console.anthropic.com 检查工作区设置或联系 Anthropic 支持。（本地用量统计正常）",
+        "ja" => $"組織 OAuth API 未有効化の状態が {elapsedLabel} 続いています — 新規アカウントの猶予を超過しているため console.anthropic.com でワークスペース設定を確認するか Anthropic サポートへご連絡ください。（ローカル使用量集計は正常）",
+        _ => $"Organization OAuth API has been inactive for {elapsedLabel} — past the new-account grace window. Review your workspace settings at console.anthropic.com or contact Anthropic support. (Local token aggregation continues to work.)"
+    };
+
+    // 경과 시간 라벨 — "27시간" / "2일" 식으로 자연스러운 단위
+    public static string ElapsedDurationLabel(TimeSpan span)
+    {
+        var totalDays = (int)span.TotalDays;
+        var totalHours = (int)span.TotalHours;
+        if (totalDays >= 2)
+        {
+            return Lang switch
+            {
+                "ko" => $"{totalDays}일",
+                "zh" => $"{totalDays}天",
+                "ja" => $"{totalDays}日",
+                _ => $"{totalDays} days"
+            };
+        }
+        return Lang switch
+        {
+            "ko" => $"{totalHours}시간",
+            "zh" => $"{totalHours}小时",
+            "ja" => $"{totalHours}時間",
+            _ => totalHours == 1 ? "1 hour" : $"{totalHours} hours"
+        };
+    }
+
     public static string HistoryTitleFor(string provider) => Lang switch
     {
         "ko" => $"{provider} {HistoryTitle}",

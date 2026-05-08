@@ -92,4 +92,8 @@ public class NotificationSettings
     }
 
     public string SkippedVersion { get; set; } = "";
+
+    // 403 + "currently not allowed" (조직 OAuth API 미활성) 첫 감지 시각 (UTC).
+    // null = 현재 미감지 / 정상. 값이 있고 24h 이상 경과하면 안내문이 에스컬레이션 톤으로 전환된다.
+    public DateTime? OAuthNotAllowedFirstSeenUtc { get; set; }
 }

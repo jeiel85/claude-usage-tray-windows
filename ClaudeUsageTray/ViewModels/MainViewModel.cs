@@ -498,6 +498,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
             FocusedProvider = FocusedProvider,
             ShowCodexPlanBadge = ShowCodexPlanBadge,
             ShowAbsoluteResetTime = ShowAbsoluteResetTime,
+            // 추적 필드 보존 — settings 저장 시 매번 잃지 않도록
+            OAuthNotAllowedFirstSeenUtc = existing.OAuthNotAllowedFirstSeenUtc,
         });
     }
 
@@ -915,6 +917,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     ClaudeHasError = false;
                     ClaudeErrorMessage = "";
                     ClaudeApiNote = "";
+                    // OAuth-not-allowed 가 해소된 첫 성공 → 첫감지 시각 클리어
+                    ClearOAuthNotAllowedFirstSeenIfNeeded();
 
                     if (usage.FiveHour != null && usage.FiveHour.UsagePercent < 1.0)
                     {
@@ -1032,9 +1036,16 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     {
                         ClaudeHasError = false;
                         ClaudeErrorMessage = "";
-                        ClaudeApiNote = isOAuthNotAllowed
-                            ? Loc.ApiOAuthNotAllowedNote
-                            : Loc.ApiPermissionDeniedNote;
+                        if (isOAuthNotAllowed)
+                        {
+                            ClaudeApiNote = ResolveOAuthNotAllowedNote();
+                        }
+                        else
+                        {
+                            // 다른 종류의 permission_error → OAuth-not-allowed 추적 상태가 있다면 정리
+                            ClearOAuthNotAllowedFirstSeenIfNeeded();
+                            ClaudeApiNote = Loc.ApiPermissionDeniedNote;
+                        }
                     }
                     else if (isCooldown)
                     {
@@ -1042,6 +1053,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                         ClaudeHasError = false;
                         ClaudeErrorMessage = "";
                         ClaudeApiNote = Loc.ApiCooldownNote(_apiRetryAfter.ToLocalTime().ToString("HH:mm"));
+                        // 쿨다운은 OAuth-not-allowed 와 무관 — 추적 상태 유지(클리어하지 않음)
                     }
                     else
                     {
@@ -1050,6 +1062,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
                             ? ParseFriendlyError(_api.LastError)
                             : Loc.RateLimited;
                         ClaudeApiNote = "";
+                        // 다른 종류의 에러로 전이 → 추적 상태 정리
+                        ClearOAuthNotAllowedFirstSeenIfNeeded();
                     }
                 }
             });
@@ -1064,6 +1078,42 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 UpdateOverallStatus();
             });
         }
+    }
+
+    // 403 + "currently not allowed" 가 처음 감지된 시각을 settings 에 보관해두고,
+    // 24h 이상 지속되면 안내문을 에스컬레이션 톤으로 전환한다.
+    // settings 디스크 쓰기는 상태 전이(미감지→감지) 시 1회만 — 폴링마다 매번 쓰지 않음.
+    private string ResolveOAuthNotAllowedNote()
+    {
+        var settings = _settingsService.Load();
+        var nowUtc = DateTime.UtcNow;
+        DateTime firstSeen;
+        if (settings.OAuthNotAllowedFirstSeenUtc is DateTime existing)
+        {
+            firstSeen = existing;
+        }
+        else
+        {
+            firstSeen = nowUtc;
+            settings.OAuthNotAllowedFirstSeenUtc = nowUtc;
+            _settingsService.Save(settings);
+        }
+
+        var elapsed = nowUtc - firstSeen;
+        if (elapsed >= TimeSpan.FromHours(24))
+        {
+            return Loc.ApiOAuthNotAllowedEscalatedNote(Loc.ElapsedDurationLabel(elapsed));
+        }
+        return Loc.ApiOAuthNotAllowedNote;
+    }
+
+    // OAuth-not-allowed 추적 상태를 정리한다. 값이 이미 null 이면 디스크 I/O 생략.
+    private void ClearOAuthNotAllowedFirstSeenIfNeeded()
+    {
+        var settings = _settingsService.Load();
+        if (settings.OAuthNotAllowedFirstSeenUtc is null) return;
+        settings.OAuthNotAllowedFirstSeenUtc = null;
+        _settingsService.Save(settings);
     }
 
     private async Task RefreshCodexInternalAsync()
