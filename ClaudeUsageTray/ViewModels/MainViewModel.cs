@@ -1094,8 +1094,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
         else
         {
-            firstSeen = nowUtc;
-            settings.OAuthNotAllowedFirstSeenUtc = nowUtc;
+            // 첫 감지 — history 에 24h+ 전 기록이 있으면 사용자가 이미 그만큼 앱을 써온 셈이므로
+            // firstSeen 을 가장 오래된 history 시점으로 추정해 즉시 에스컬레이션 톤으로 진입.
+            // 신규 사용자(history 비어있음 / 24h 미만)는 nowUtc 로 잡아 기존 유예 톤 유지.
+            firstSeen = EstimateOAuthNotAllowedFirstSeenUtc(nowUtc);
+            settings.OAuthNotAllowedFirstSeenUtc = firstSeen;
             _settingsService.Save(settings);
         }
 
@@ -1105,6 +1108,39 @@ public partial class MainViewModel : ObservableObject, IDisposable
             return Loc.ApiOAuthNotAllowedEscalatedNote(Loc.ElapsedDurationLabel(elapsed));
         }
         return Loc.ApiOAuthNotAllowedNote;
+    }
+
+    // history 에서 가장 오래된 사용 기록 시점을 찾아 24h+ 전이면 그 시점을 반환.
+    // history 가 비어있거나 모든 기록이 24h 이내면 nowUtc 반환 (=신규 사용자).
+    // history Date 는 "yyyy-MM-dd" UTC 기준 — 자정으로 환산해 보수적으로 추정.
+    private DateTime EstimateOAuthNotAllowedFirstSeenUtc(DateTime nowUtc)
+    {
+        try
+        {
+            var orgUuid = _credentials.GetOrganizationUuid();
+            var entries = _history.GetLast(UsageProviderKind.Claude, orgUuid, AppConstants.HistoryRetentionDays);
+            if (entries.Count == 0) return nowUtc;
+
+            var earliestStr = entries.Min(s => s.Date);
+            if (string.IsNullOrEmpty(earliestStr)) return nowUtc;
+
+            if (DateTime.TryParseExact(earliestStr, "yyyy-MM-dd",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
+                out var earliestUtc))
+            {
+                // 자정 UTC 로 잡혀있어 충분히 보수적. 24h 이상 전이어야 즉시 에스컬레이션.
+                if (earliestUtc <= nowUtc.AddHours(-24)) return earliestUtc;
+            }
+        }
+        catch (Exception ex)
+        {
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine($"[MainViewModel] EstimateOAuthNotAllowedFirstSeenUtc failed: {ex.Message}");
+#endif
+            GC.KeepAlive(ex);
+        }
+        return nowUtc;
     }
 
     // OAuth-not-allowed 추적 상태를 정리한다. 값이 이미 null 이면 디스크 I/O 생략.

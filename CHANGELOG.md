@@ -11,7 +11,8 @@
 
 ### 기술
 - `NotificationSettings.OAuthNotAllowedFirstSeenUtc` (`DateTime?`) 신규 영속화 필드 — 미감지 상태에서는 `null`. 디스크 쓰기는 상태 전이(미감지→감지, 감지→해소) 시에만 발생하며 폴링 2분마다 매번 쓰지 않습니다.
-- `MainViewModel.ResolveOAuthNotAllowedNote()` / `ClearOAuthNotAllowedFirstSeenIfNeeded()` 신규 private helper. 성공 분기, 다른 permission_error 분기, 다른 에러 분기 모두에서 추적 상태를 정리합니다. 쿨다운 분기는 OAuth 와 무관해 추적 상태를 유지합니다.
+- `MainViewModel.ResolveOAuthNotAllowedNote()` / `ClearOAuthNotAllowedFirstSeenIfNeeded()` / `EstimateOAuthNotAllowedFirstSeenUtc()` 신규 private helper. 성공 분기, 다른 permission_error 분기, 다른 에러 분기 모두에서 추적 상태를 정리합니다. 쿨다운 분기는 OAuth 와 무관해 추적 상태를 유지합니다.
+- **첫 감지 시각 추정 휴리스틱** — 새 버전이 설치되어 처음 OAuth-not-allowed 가 감지될 때 history DB 에 24h+ 전 사용 기록이 있으면 사용자가 이미 그만큼 앱을 써온 것으로 간주, `firstSeen` 을 가장 오래된 history 시점(자정 UTC)으로 추정해 곧바로 에스컬레이션 톤으로 진입합니다. history 가 비어있거나 모든 기록이 24h 이내라면 신규 사용자로 보고 `firstSeen=now` 로 잡아 기존 유예 톤을 유지. 이로써 *"24시간이 지났는데도 똑같은 안내가 나오네"* 가 패치 이후에도 24시간 더 이어지지 않습니다.
 - `Loc.ApiOAuthNotAllowedEscalatedNote(elapsedLabel)` + `Loc.ElapsedDurationLabel(span)` ko/zh/ja/en 4개 언어 추가. 경과 시간은 2일 미만이면 시간, 그 이상이면 일 단위로 자연스럽게 표기.
 - `MainViewModel.SaveSettings` 에서 새 객체 직렬화 시 `OAuthNotAllowedFirstSeenUtc = existing.OAuthNotAllowedFirstSeenUtc` 보존 라인 추가 — 설정창 저장으로 추적 시각이 사라지지 않도록 보장.
 <!-- /ko -->
@@ -22,7 +23,8 @@
 
 ### Technical
 - `NotificationSettings.OAuthNotAllowedFirstSeenUtc` (`DateTime?`) — new persisted field, `null` when not tripped. Disk writes happen only on state transitions (clear→set, set→clear), not on every 2-min poll.
-- New private helpers `MainViewModel.ResolveOAuthNotAllowedNote()` / `ClearOAuthNotAllowedFirstSeenIfNeeded()`. Success branch, other-permission_error branch, and generic-error branch all clear the tracker. Cooldown branch leaves it alone (cooldown is unrelated to OAuth).
+- New private helpers `MainViewModel.ResolveOAuthNotAllowedNote()` / `ClearOAuthNotAllowedFirstSeenIfNeeded()` / `EstimateOAuthNotAllowedFirstSeenUtc()`. Success branch, other-permission_error branch, and generic-error branch all clear the tracker. Cooldown branch leaves it alone (cooldown is unrelated to OAuth).
+- **First-seen estimation heuristic** — when this build is freshly installed and OAuth-not-allowed trips for the first time, the helper checks the history DB for usage records older than 24h. If found, `firstSeen` snaps to the oldest history date (midnight UTC) so the escalated tone shows immediately. If history is empty or all entries are within 24h (genuinely new user), `firstSeen=now` so the original grace-tone note still gets its first day. This prevents *"the notice has been the same for 24 hours"* from extending another 24h post-upgrade.
 - `Loc.ApiOAuthNotAllowedEscalatedNote(elapsedLabel)` + `Loc.ElapsedDurationLabel(span)` added in ko/zh/ja/en. Elapsed time renders in hours under 2 days, in days afterwards.
 - `MainViewModel.SaveSettings` now propagates `OAuthNotAllowedFirstSeenUtc = existing.OAuthNotAllowedFirstSeenUtc` when persisting a new settings instance — prevents the tracker from being wiped when the user saves the Settings window.
 <!-- /en -->
