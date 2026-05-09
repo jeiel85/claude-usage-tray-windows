@@ -42,7 +42,7 @@ public class SessionMonitor
     public SessionStats ScanTodayUsage()
     {
         var stats = new SessionStats();
-        var today = DateTime.UtcNow.Date;
+        var today = DateTime.Today;
 
         // Check if any files changed since last scan
         bool scanAll = !_hasChanges;
@@ -112,7 +112,7 @@ public class SessionMonitor
                     DateTime parsedTs = default;
                     if (root.TryGetProperty("timestamp", out var tsEl) && DateTime.TryParse(tsEl.GetString(), out parsedTs))
                     {
-                        if (parsedTs.ToUniversalTime().Date < sinceDate) continue;
+                        if (parsedTs.ToLocalTime().Date < sinceDate) continue;
                         fileHadActivity = true;
                     }
 
@@ -172,7 +172,7 @@ public class SessionMonitor
                 {
                     if (DateTime.TryParse(tsEl.GetString(), out parsedTs))
                     {
-                        if (parsedTs.ToUniversalTime().Date < sinceDate) continue;
+                        if (parsedTs.ToLocalTime().Date < sinceDate) continue;
                         fileHadActivity = true;
                         if (parsedTs.ToUniversalTime() > stats.LastActivity)
                             stats.LastActivity = parsedTs.ToUniversalTime();

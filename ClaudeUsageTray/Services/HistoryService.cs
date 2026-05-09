@@ -96,7 +96,7 @@ public class HistoryService
     private void RecordTodayCore(string scopeKey,
                                  long input, long output, long cacheRead, long cacheWrite, int sessions)
     {
-        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        var today = DateTime.Now.ToString("yyyy-MM-dd");
         lock (_scopesLock)
         {
             EnsureLoadedNoLock(scopeKey);
@@ -108,7 +108,7 @@ public class HistoryService
 
     private IReadOnlyList<DailyStats> GetLastCore(string scopeKey, int days)
     {
-        var cutoff = DateTime.UtcNow.AddDays(-days + 1).ToString("yyyy-MM-dd");
+        var cutoff = DateTime.Now.AddDays(-days + 1).ToString("yyyy-MM-dd");
         lock (_scopesLock)
         {
             EnsureLoadedNoLock(scopeKey);
@@ -121,7 +121,7 @@ public class HistoryService
 
     private long GetRecentMaxTotalTokensCore(string scopeKey, int days)
     {
-        var cutoff = DateTime.UtcNow.AddDays(-days).ToString("yyyy-MM-dd");
+        var cutoff = DateTime.Now.AddDays(-days).ToString("yyyy-MM-dd");
         lock (_scopesLock)
         {
             EnsureLoadedNoLock(scopeKey);
@@ -225,7 +225,7 @@ public class HistoryService
 
     private static void TrimOldEntries(Dictionary<string, DailyStats> data)
     {
-        var cutoff = DateTime.UtcNow.AddDays(-AppConstants.HistoryRetentionDays).ToString("yyyy-MM-dd");
+        var cutoff = DateTime.Now.AddDays(-AppConstants.HistoryRetentionDays).ToString("yyyy-MM-dd");
         foreach (var key in data.Keys.Where(k => string.Compare(k, cutoff, StringComparison.Ordinal) < 0).ToList())
             data.Remove(key);
     }

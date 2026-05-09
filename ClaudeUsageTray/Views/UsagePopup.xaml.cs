@@ -244,7 +244,7 @@ public partial class UsagePopup : Window, IDisposable
             WColor.FromRgb(99, 102, 241),
             new WPoint(0, 0), new WPoint(0, 1));
 
-        var todayKey = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        var todayKey = DateTime.Now.ToString("yyyy-MM-dd");
 
         for (int i = 0; i < count; i++)
         {

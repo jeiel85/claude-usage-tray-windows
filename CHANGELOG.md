@@ -3,6 +3,30 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.28.1] - 2026-05-09
+
+<!-- ko -->
+### 수정
+- **타임존 보정 (오늘 사용량 0 표시 버그)** — KST(UTC+9) 등 UTC 외 타임존에서 자정~오전 9시 사이에 시작된 Claude 세션이 "오늘 사용량" 통계와 7일 차트의 오늘 막대에서 누락되던 문제를 수정했습니다. API의 5h/7d 윈도우는 정상 응답을 받았지만 로컬 세션 스캔이 UTC 날짜 기준으로 필터링되어 "오늘 기록된 사용량이 없습니다"가 표시되는 모순이 발생했습니다.
+
+### 기술
+- `SessionMonitor.ScanTodayUsage`: `DateTime.UtcNow.Date` → `DateTime.Today`, 타임스탬프 비교를 `ToUniversalTime()` → `ToLocalTime()` 로 전환.
+- `HistoryService` (`RecordTodayCore` / `GetLastCore` / `GetRecentMaxTotalTokensCore` / `TrimOldEntries`): "오늘" 키와 cutoff 를 모두 로컬 시간 기준으로 통일.
+- `UsagePopup.DrawHistoryChart`: 차트의 "오늘" 하이라이트 키도 로컬 날짜 기준으로 변경.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Timezone Handling (Today's Usage Showing Zero)** — Fixed an issue where Claude sessions started between local midnight and 9 AM (in non-UTC time zones such as KST/UTC+9) were excluded from "Today's Usage" totals and the today bar in the 7-day chart. The API-driven 5h/7d windows reported usage correctly, but local session scanning filtered by UTC date, producing the contradictory "No usage recorded today" placeholder.
+
+### Technical
+- `SessionMonitor.ScanTodayUsage`: switched `DateTime.UtcNow.Date` → `DateTime.Today` and timestamp comparison from `ToUniversalTime()` → `ToLocalTime()`.
+- `HistoryService` (`RecordTodayCore` / `GetLastCore` / `GetRecentMaxTotalTokensCore` / `TrimOldEntries`): unified "today" keys and cutoffs to local time.
+- `UsagePopup.DrawHistoryChart`: today-highlight key also now uses local date.
+<!-- /en -->
+
+---
+
 ## [1.28.0] - 2026-05-08
 
 <!-- ko -->
