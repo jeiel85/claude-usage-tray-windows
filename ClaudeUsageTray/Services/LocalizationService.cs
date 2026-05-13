@@ -886,10 +886,10 @@ public static class Loc
 
     public static string DepletionAt(string time) => Lang switch
     {
-        "ko" => $"⚡ 추세대로면 {time}경 소진",
-        "zh" => $"⚡ 按当前趋势 {time} 耗尽",
-        "ja" => $"⚡ このペースなら {time} 頃に枯渇",
-        _ => $"⚡ at this rate, depletes ~{time}"
+        "ko" => $"⚡ 이 속도면 {time}경 조기 소진",
+        "zh" => $"⚡ 按此速度 {time} 提前耗尽",
+        "ja" => $"⚡ このペースなら {time} 頃に早期枯渇",
+        _ => $"⚡ at this rate, depletes early ~{time}"
     };
 
     public static string CostEstimate(double usd) => Lang switch

@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.28.2] - 2026-05-13
+
+<!-- ko -->
+### 개선
+- **소진 예측 문구 개선** — "추세대로면 ~경 소진" → "이 속도면 ~경 조기 소진" 으로 변경하여 예상보다 빠르게 소진될 수 있다는 경고 의미를 강화했습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Depletion forecast wording** — Changed Korean wording from "추세대로면" to "이 속도면 ... 조기 소진" (all 4 locales updated) to emphasize early-depletion warning.
+<!-- /en -->
+
 ## [1.28.1] - 2026-05-09
 
 <!-- ko -->
