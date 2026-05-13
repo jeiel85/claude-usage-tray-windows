@@ -186,6 +186,15 @@ public partial class SettingsWindow : Window, IDisposable
             _ => "ntfy guide ↗"
         };
 
+        // Footer "프로젝트 페이지"
+        BtnProjectPage.Content = Loc.CurrentLang switch
+        {
+            "ko" => "프로젝트 페이지 ↗",
+            "zh" => "项目页面 ↗",
+            "ja" => "プロジェクトページ ↗",
+            _ => "Project Page ↗"
+        };
+
         // Footer "기본값 복원"
         BtnResetDefaults.Content = Loc.CurrentLang switch
         {
@@ -514,6 +523,12 @@ public partial class SettingsWindow : Window, IDisposable
         {
             CmbTrayDisplayMode.SelectedItem = TrayItemAuto;
         }
+    }
+
+    private void BtnProjectPage_Click(object sender, RoutedEventArgs e)
+    {
+        const string ProjectUrl = "https://jeiel85.github.io/claude-usage-tray-windows/";
+        Process.Start(new ProcessStartInfo(ProjectUrl) { UseShellExecute = true });
     }
 
     private void BtnResetDefaults_Click(object sender, RoutedEventArgs e)

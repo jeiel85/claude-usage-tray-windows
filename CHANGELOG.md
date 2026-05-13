@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.28.3] - 2026-05-13
+
+<!-- ko -->
+### 추가
+- **설정 창 footer에 프로젝트 페이지(GitHub.io) 링크 추가** — footer 우측에 "프로젝트 페이지 ↗" 링크를 추가하여 GitHub.io 프로젝트 페이지에 쉽게 접근할 수 있습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Project page (GitHub.io) link in Settings footer** — Added a "Project Page ↗" link in the footer to provide quick access to the GitHub.io project page.
+<!-- /en -->
+
 ## [1.28.2] - 2026-05-13
 
 <!-- ko -->

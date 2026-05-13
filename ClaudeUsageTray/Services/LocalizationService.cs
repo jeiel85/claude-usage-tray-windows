@@ -1127,6 +1127,14 @@ public static class Loc
         _ => "Daily Token Goal (Output)"
     };
 
+    public static string ProjectPage => CurrentLang switch
+    {
+        "ko" => "프로젝트 페이지",
+        "zh" => "项目页面",
+        "ja" => "プロジェクトページ",
+        _ => "Project Page"
+    };
+
     public static string HideInactiveProviders => CurrentLang switch
     {
         "ko" => "데이터 없는 공급자 숨기기",
