@@ -108,12 +108,14 @@ public class HistoryService
 
     private IReadOnlyList<DailyStats> GetLastCore(string scopeKey, int days)
     {
-        var cutoff = DateTime.Now.AddDays(-days + 1).ToString("yyyy-MM-dd");
+        var cutoff = DateTime.Now.AddDays(-days).ToString("yyyy-MM-dd");
         lock (_scopesLock)
         {
             EnsureLoadedNoLock(scopeKey);
             return _scopes[scopeKey].Values
                 .Where(s => string.Compare(s.Date, cutoff, StringComparison.Ordinal) >= 0)
+                .OrderByDescending(s => s.Date)
+                .Take(days)
                 .OrderBy(s => s.Date)
                 .ToList();
         }
@@ -127,6 +129,8 @@ public class HistoryService
             EnsureLoadedNoLock(scopeKey);
             var recentEntries = _scopes[scopeKey].Values
                 .Where(s => string.Compare(s.Date, cutoff, StringComparison.Ordinal) >= 0)
+                .OrderByDescending(s => s.Date)
+                .Take(days)
                 .ToList();
             if (recentEntries.Count == 0) return 0;
             return recentEntries.Max(s => s.InputTokens + s.OutputTokens);

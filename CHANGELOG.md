@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.28.4] - 2026-05-14
+
+<!-- ko -->
+### 수정
+- **7일 사용 추이 자정 이후 추가 바 표시 버그 수정** — 자정 이후 히스토리 데이터가 8일치로 반환될 수 있던 문제를 `.Take(days)` 안전장치로 해결했습니다.
+- **설정 창 footer 레이아웃 개선** — disclaimer 텍스트와 링크 버튼을 가로 3열에서 세로 2단으로 재배치하여 텍스트가 충분한 가로폭을 확보하도록 했습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **7-day trend chart extra bar after midnight** — Added `.Take(days)` safeguard to prevent more than N days from being returned after midnight edge cases.
+- **Settings footer layout improved** — Restructured from a cramped 3-column horizontal layout to a 2-row vertical stack so the disclaimer text has full width.
+<!-- /en -->
+
 ## [1.28.3] - 2026-05-13
 
 <!-- ko -->

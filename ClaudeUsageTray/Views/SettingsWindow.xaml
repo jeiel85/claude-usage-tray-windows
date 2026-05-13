@@ -537,25 +537,22 @@
 
                 <!-- Footer -->
                 <Border Grid.Row="2" Background="#141622" CornerRadius="0,0,16,16" Padding="16,10">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="LblDisclaimer" Grid.Column="0" Foreground="#3D4266"
-                                   FontSize="9" TextWrapping="Wrap" VerticalAlignment="Center"/>
-                        <Button x:Name="BtnProjectPage" Grid.Column="1"
-                                Style="{StaticResource FooterLinkBtn}"
-                                Click="BtnProjectPage_Click"
-                                VerticalAlignment="Center"
-                                Margin="0,0,8,0"/>
-                        <Button x:Name="BtnResetDefaults" Grid.Column="2"
-                                Style="{StaticResource FooterLinkBtn}"
-                                Click="BtnResetDefaults_Click"
-                                VerticalAlignment="Center"
-                                Margin="8,0,0,0"/>
-                    </Grid>
+                    <StackPanel>
+                        <TextBlock x:Name="LblDisclaimer" Foreground="#3D4266"
+                                   FontSize="9" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button x:Name="BtnProjectPage"
+                                    Style="{StaticResource FooterLinkBtn}"
+                                    Click="BtnProjectPage_Click"
+                                    VerticalAlignment="Center"
+                                    Margin="0,0,10,0"/>
+                            <Button x:Name="BtnResetDefaults"
+                                    Style="{StaticResource FooterLinkBtn}"
+                                    Click="BtnResetDefaults_Click"
+                                    VerticalAlignment="Center"
+                                    Margin="0,0,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
                 </Border>
             </Grid>
         </Border>
