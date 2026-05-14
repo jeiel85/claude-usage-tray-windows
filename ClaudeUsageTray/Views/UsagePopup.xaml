@@ -336,6 +336,7 @@
                             <Border Grid.Column="0" Width="28" Height="28" CornerRadius="6"
                                     Background="#2D2F45" Margin="0,0,10,0" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding WeatherIcon}" FontSize="15"
+                                           FontFamily="Segoe UI Emoji"
                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">

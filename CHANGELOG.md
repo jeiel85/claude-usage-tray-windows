@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.29.4] - 2026-05-14
+
+<!-- ko -->
+### 수정
+- **날씨 아이콘 두부글자 렌더링** — 기본 폰트(Segoe UI)에 이모지 글리프가 없어 빈 사각형(□)으로 표시되던 문제 수정. 아이콘 TextBlock에 `FontFamily="Segoe UI Emoji"`를 지정하여 ☀ 🌧 ⛅ 등이 정상 렌더링됩니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Weather icon rendered as tofu** — The default font (Segoe UI) lacks the emoji glyphs, so the popup weather card showed an empty square (□). Applied `FontFamily="Segoe UI Emoji"` to the icon TextBlock so ☀ 🌧 ⛅ etc. render correctly.
+<!-- /en -->
+
 ## [1.29.3] - 2026-05-14
 
 <!-- ko -->
