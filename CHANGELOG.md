@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.29.5] - 2026-05-14
+
+<!-- ko -->
+### 개선
+- **현재 위치 도시 수준으로 표시** — 📍 버튼으로 현재 위치를 지정할 때 Nominatim의 structured `address` 필드에서 city/town/county 우선으로 추출해, "헬로소프트 ..., 294-7, 하안로, ..., 광명시, 경기도, ..., 대한민국" 같은 긴 전체 주소 대신 "광명시"만 저장합니다.
+- **기존 긴 주소도 도시명만 표시** — 이전 버전에서 저장된 긴 주소도 팝업·트레이에서는 시/구/군 접미어를 자동 인식하여 도시 부분만 노출합니다. 설정 화면에서 📍를 다시 누르면 저장값 자체도 짧게 갱신됩니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Current location shown at city level** — When 📍 picks the current location, we now read Nominatim's structured `address` (city → town → county → state) instead of the full `display_name`, so the saved location is "Seoul" rather than the full street/building/postcode chain.
+- **Existing long addresses are trimmed for display** — Locations stored as the full display_name in earlier versions are now displayed at city granularity in the popup and tray tooltip (suffixes like 시/구/군/City/Town/市/区 are recognized). Re-tapping 📍 in settings updates the saved value itself.
+<!-- /en -->
+
 ## [1.29.4] - 2026-05-14
 
 <!-- ko -->

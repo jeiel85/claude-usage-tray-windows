@@ -151,8 +151,38 @@ public partial class MainViewModel : ObservableObject, IDisposable
         get
         {
             if (string.IsNullOrEmpty(WeatherLocationName)) return "";
-            var first = WeatherLocationName.Split(',')[0].Trim();
-            return string.IsNullOrEmpty(first) ? WeatherLocationName : first;
+
+            // Single-segment names (e.g. "Seoul", or the new structured reverse-geocode
+            // result) — show as-is.
+            var parts = WeatherLocationName
+                .Split(',')
+                .Select(p => p.Trim())
+                .Where(p => p.Length > 0)
+                .ToArray();
+            if (parts.Length <= 1) return parts.Length == 1 ? parts[0] : WeatherLocationName;
+
+            // Migration path for users whose location was saved as the full
+            // Nominatim display_name before v1.29.5 (e.g.
+            // "헬로소프트 ..., 294-7, 하안로, 하안3동, 광명시, 경기도, ..., 대한민국").
+            // Walk parts looking for a city-like administrative suffix.
+            string[] citySuffixes = ["시", "구", "군", "City", "Town", "市", "区"];
+            foreach (var p in parts)
+            {
+                foreach (var suf in citySuffixes)
+                {
+                    if (p.EndsWith(suf, StringComparison.OrdinalIgnoreCase))
+                        return p;
+                }
+            }
+
+            // Fallback: first non-numeric, non-postal segment.
+            foreach (var p in parts)
+            {
+                if (!System.Text.RegularExpressions.Regex.IsMatch(p, @"^[\d\s\-]+$"))
+                    return p;
+            }
+
+            return parts[0];
         }
     }
     public string LblWeatherSection => Loc.WeatherForecastTitle;

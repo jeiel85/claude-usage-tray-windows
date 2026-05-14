@@ -141,8 +141,11 @@ public class WeatherService
         try
         {
             var lang = language switch { "ko" => "ko", "zh" => "zh", "ja" => "ja", _ => "en" };
+            // addressdetails=1: structured 'address' object so we can pick city-level granularity
+            // and avoid leaking building/amenity/road into the display name.
             var url = $"https://nominatim.openstreetmap.org/reverse?" +
-                      $"format=jsonv2&lat={lat.ToString(CultureInfo.InvariantCulture)}" +
+                      $"format=jsonv2&addressdetails=1" +
+                      $"&lat={lat.ToString(CultureInfo.InvariantCulture)}" +
                       $"&lon={lon.ToString(CultureInfo.InvariantCulture)}" +
                       $"&accept-language={lang}";
 
@@ -156,6 +159,19 @@ public class WeatherService
             var body = await json.Content.ReadAsStringAsync();
 
             using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("address", out var addr))
+            {
+                // Prefer the most administratively meaningful name available, in order
+                // of granularity. Falls through to display_name only as last resort.
+                foreach (var key in new[] { "city", "town", "village", "municipality",
+                                             "county", "city_district", "suburb",
+                                             "state_district", "state" })
+                {
+                    if (addr.TryGetProperty(key, out var v) && v.GetString() is { Length: > 0 } s)
+                        return s;
+                }
+            }
+
             if (doc.RootElement.TryGetProperty("display_name", out var name))
                 return name.GetString();
 
