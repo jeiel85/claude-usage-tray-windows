@@ -7,6 +7,7 @@ using Microsoft.Win32;
 using ClaudeUsageTray.ViewModels;
 using ClaudeUsageTray.Services;
 using ClaudeUsageTray.Models;
+using Windows.Devices.Geolocation;
 
 namespace ClaudeUsageTray.Views;
 
@@ -192,6 +193,7 @@ public partial class SettingsWindow : Window, IDisposable
         LblWeatherWindThreshold.Text               = Loc.WeatherWindSpeedThreshold;
         ChkWeatherOfficialAlerts.Content           = Loc.WeatherOfficialAlerts;
         LblWeatherOfficialAlertsHint.Text          = Loc.WeatherOfficialAlertsHint;
+        BtnWeatherUseCurrentLocation.Content        = Loc.WeatherUseCurrentLocation;
 
         // 새 ntfy 가이드 링크 — 이전 3줄 가이드를 단일 링크로 압축
         BtnNtfyDownload.Content = Loc.CurrentLang switch
@@ -684,6 +686,52 @@ public partial class SettingsWindow : Window, IDisposable
         {
             BtnWeatherSearch_Click(sender, e);
             e.Handled = true;
+        }
+    }
+
+    private async void BtnWeatherUseCurrentLocation_Click(object sender, RoutedEventArgs e)
+    {
+        BtnWeatherUseCurrentLocation.IsEnabled = false;
+        BtnWeatherUseCurrentLocation.Content = "...";
+
+        try
+        {
+            var access = await Geolocator.RequestAccessAsync();
+            if (access != GeolocationAccessStatus.Allowed)
+            {
+                LblWeatherSearchError.Text = Loc.WeatherSearchFailed;
+                LblWeatherSearchError.Visibility = Visibility.Visible;
+                return;
+            }
+
+            var geolocator = new Geolocator { DesiredAccuracy = PositionAccuracy.Default };
+            var pos = await geolocator.GetGeopositionAsync();
+
+            var lat = pos.Coordinate.Point.Position.Latitude;
+            var lon = pos.Coordinate.Point.Position.Longitude;
+
+            var weatherService = new WeatherService();
+            var name = await weatherService.ReverseGeocodeAsync(lat, lon, Loc.CurrentLang);
+
+            _vm.WeatherLocationName  = name ?? $"{lat:F4}, {lon:F4}";
+            _vm.WeatherCountryCode   = "";
+            _vm.WeatherLatitude      = lat;
+            _vm.WeatherLongitude     = lon;
+            _vm.WeatherTimezone      = "auto";
+            _vm.WeatherLocationMode  = "windows";
+            UpdateWeatherLocationLabel();
+            _vm.SaveSettingsCommand.Execute(null);
+            FlashSavedIndicator();
+        }
+        catch (Exception ex)
+        {
+            LblWeatherSearchError.Text = $"{Loc.WeatherSearchFailed}: {ex.Message}";
+            LblWeatherSearchError.Visibility = Visibility.Visible;
+        }
+        finally
+        {
+            BtnWeatherUseCurrentLocation.IsEnabled = true;
+            BtnWeatherUseCurrentLocation.Content = Loc.WeatherUseCurrentLocation;
         }
     }
 

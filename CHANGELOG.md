@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.29.1] - 2026-05-14
+
+<!-- ko -->
+### 개선
+- **날씨 탭 레이아웃 개선** — 탭 최대 높이를 720px로 확장하고 내부에 ScrollViewer를 추가하여 콘텐츠가 짤리지 않도록 수정했습니다.
+- **현재 위치 사용 버튼 추가** — Windows Geolocator API로 현재 위치를 가져오고, Nominatim reverse geocoding으로 주소명을 조회하여 날씨 위치로 지정할 수 있습니다.
+- TargetFramework를 `net9.0-windows` → `net9.0-windows10.0.17763.0`으로 변경 (Geolocator API 지원)
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Weather tab layout** — Increased max height to 720px and added ScrollViewer to prevent content clipping.
+- **Use Current Location button** — Fetches current position via Windows Geolocator API and resolves address name using Nominatim reverse geocoding.
+- Changed TargetFramework from `net9.0-windows` to `net9.0-windows10.0.17763.0` for Geolocator API support.
+<!-- /en -->
+
 ## [1.29.0] - 2026-05-14
 
 <!-- ko -->

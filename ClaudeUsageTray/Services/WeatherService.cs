@@ -136,6 +136,37 @@ public class WeatherService
     public static bool IsSignificantWeather(int wmoCode) =>
         wmoCode is >= 51 and <= 67 or >= 71 and <= 86 or >= 95 and <= 99;
 
+    public async Task<string?> ReverseGeocodeAsync(double lat, double lon, string language)
+    {
+        try
+        {
+            var lang = language switch { "ko" => "ko", "zh" => "zh", "ja" => "ja", _ => "en" };
+            var url = $"https://nominatim.openstreetmap.org/reverse?" +
+                      $"format=jsonv2&lat={lat.ToString(CultureInfo.InvariantCulture)}" +
+                      $"&lon={lon.ToString(CultureInfo.InvariantCulture)}" +
+                      $"&accept-language={lang}";
+
+            var req = new HttpRequestMessage(HttpMethod.Get, url);
+            req.Headers.UserAgent.ParseAdd(
+                $"ClaudeUsageTray/{UpdateService.CurrentVersion.ToString(3)} " +
+                "(https://github.com/jeiel85/claude-usage-tray-windows)");
+
+            var json = await Http.SendAsync(req);
+            json.EnsureSuccessStatusCode();
+            var body = await json.Content.ReadAsStringAsync();
+
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("display_name", out var name))
+                return name.GetString();
+
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static DateOnly[] ParseDateArray(JsonElement el, string key)
     {
         if (!el.TryGetProperty(key, out var arr)) return Array.Empty<DateOnly>();
