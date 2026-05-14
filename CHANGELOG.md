@@ -3,6 +3,32 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.29.0] - 2026-05-14
+
+<!-- ko -->
+### 추가
+- **날씨 알림 및 트레이 날씨 정보 표시 (#63)** — 설정 창에 날씨 탭을 추가하고, Open-Meteo Geocoding으로 수동 위치 검색을 지원합니다.
+  - Open-Meteo Forecast API로 현재 날씨(기온, 체감온도, 기상 상태, 풍속)와 3일 예보를 조회합니다.
+  - 트레이 툴팁에 위치명, 현재기온, 기상 상태를 표시합니다 (`Seoul 22°C 맑음`).
+  - 매일 오전 지정 시각에 일일 예보 알림을 Windows 알림 + ntfy 경로로 발송합니다.
+  - 조건 기반 알림: 강수확률, 폭염, 한파, 강풍 임계값 초과 시 알림을 발송합니다.
+  - 미국 위치에서 NWS(미국 기상청) 공식 기상 특보를 조회하여 새 특보 발생 시 알림을 발송합니다.
+  - 중복 알림 방지를 위한 dedup 키 캐시를 포함합니다.
+  - 다국어(ko, zh, ja, en) 35개 날씨 문자열을 추가했습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Weather alerts and tray weather display (#63)** — Added a Weather tab in Settings with manual location search via Open-Meteo Geocoding.
+  - Fetches current weather (temperature, feels-like, condition, wind) and 3-day forecast from Open-Meteo Forecast API.
+  - Displays location name, temperature, and weather condition in tray tooltip (`Seoul 22°C Clear`).
+  - Sends daily forecast alerts at a user-configurable time via Windows notifications + ntfy.
+  - Condition-based alerts for rain probability, heat, cold, and wind thresholds.
+  - NWS (National Weather Service) official alerts for US locations.
+  - Dedup key cache prevents duplicate notifications.
+  - Added 35 weather localization strings in ko, zh, ja, en.
+<!-- /en -->
+
 ## [1.28.4] - 2026-05-14
 
 <!-- ko -->

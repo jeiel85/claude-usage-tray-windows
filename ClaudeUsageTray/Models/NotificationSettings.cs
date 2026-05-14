@@ -96,4 +96,23 @@ public class NotificationSettings
     // 403 + "currently not allowed" (조직 OAuth API 미활성) 첫 감지 시각 (UTC).
     // null = 현재 미감지 / 정상. 값이 있고 24h 이상 경과하면 안내문이 에스컬레이션 톤으로 전환된다.
     public DateTime? OAuthNotAllowedFirstSeenUtc { get; set; }
+
+    // ===== 날씨 설정 (v1.29.0) =====
+    public bool WeatherEnabled { get; set; } = false;
+    public bool WeatherShowInTrayTooltip { get; set; } = true;
+    public string WeatherLocationMode { get; set; } = "manual";
+    public string WeatherLocationName { get; set; } = "";
+    public string WeatherCountryCode { get; set; } = "";
+    public double? WeatherLatitude { get; set; }
+    public double? WeatherLongitude { get; set; }
+    public string WeatherTimezone { get; set; } = "auto";
+    public int WeatherRefreshIntervalMinutes { get; set; } = 30;
+    public bool WeatherDailyForecastEnabled { get; set; } = true;
+    public string WeatherDailyForecastTime { get; set; } = "07:30";
+    public bool WeatherConditionAlertsEnabled { get; set; } = true;
+    public int WeatherRainProbabilityThreshold { get; set; } = 70;
+    public double WeatherHighTemperatureThresholdC { get; set; } = 33;
+    public double WeatherLowTemperatureThresholdC { get; set; } = -10;
+    public double WeatherWindSpeedThresholdKmh { get; set; } = 50;
+    public bool WeatherOfficialAlertsEnabled { get; set; } = true;
 }

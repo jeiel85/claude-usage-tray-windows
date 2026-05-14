@@ -63,6 +63,56 @@ public class NotificationService
         SendNtfy(ntfyTopic, title, body);
     }
 
+    public void ShowWeatherAlert(string title, string body, string ntfyTopic,
+        string? ntfyMessage = null, int priority = 4, string[]? tags = null)
+    {
+        ShowBalloon(title, body);
+        SendNtfyWeather(ntfyTopic, title, ntfyMessage ?? body, priority, tags ?? ["sunny"]);
+    }
+
+    private static void SendNtfyWeather(string topic, string title, string message,
+        int priority, string[] tags)
+    {
+        if (string.IsNullOrWhiteSpace(topic)) return;
+
+        _ = Task.Run(async () =>
+        {
+            await SendNtfyWeatherAsync(topic, title, message, priority, tags);
+        });
+    }
+
+    private static async Task<bool> SendNtfyWeatherAsync(string topic, string title,
+        string message, int priority, string[] tags)
+    {
+        try
+        {
+            if (await IsRecentDuplicateAsync(topic, title, message)) return true;
+
+            var payload = JsonSerializer.Serialize(new
+            {
+                topic = topic.Trim(),
+                title,
+                message,
+                priority,
+                tags
+            });
+            var req = new HttpRequestMessage(HttpMethod.Post, "https://ntfy.sh/")
+            {
+                Content = new StringContent(payload, Encoding.UTF8, "application/json")
+            };
+            using var resp = await Http.SendAsync(req);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine($"[NotificationService] Ntfy weather failed: {ex.Message}");
+#endif
+            GC.KeepAlive(ex);
+            return false;
+        }
+    }
+
     private void ShowBalloon(string title, string body)
     {
         try

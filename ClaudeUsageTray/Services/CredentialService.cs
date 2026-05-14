@@ -91,6 +91,12 @@ public class CredentialService : IDisposable
     public bool HasCredentials() => File.Exists(CredentialsPath);
 
     /// <summary>
+    /// Returns the Claude subscription type from stored credentials (e.g. "free", "pro", "max").
+    /// Returns null if credentials don't exist or the field is absent.
+    /// </summary>
+    public string? GetSubscriptionType() => Load()?.ClaudeAiOauth?.SubscriptionType;
+
+    /// <summary>
     /// Returns a valid access token, refreshing it first if it has expired.
     /// Returns null if no credentials exist or refresh failed.
     /// Thread-safe: serializes concurrent refresh attempts.

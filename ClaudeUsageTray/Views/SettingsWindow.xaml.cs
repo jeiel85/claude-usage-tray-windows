@@ -177,6 +177,22 @@ public partial class SettingsWindow : Window, IDisposable
         };
         TabNtfy.Header = "ntfy";
 
+        // 날씨 탭
+        TabWeather.Header = Loc.WeatherTab;
+        ChkWeatherEnabled.Content                  = Loc.WeatherEnabled;
+        ChkWeatherShowInTray.Content               = Loc.WeatherShowInTrayTooltip;
+        LblWeatherLocation.Text                    = Loc.WeatherLocation;
+        BtnWeatherSearch.Content                   = Loc.WeatherSearch;
+        ChkWeatherDailyForecast.Content            = Loc.WeatherDailyForecast;
+        LblWeatherDailyTime.Text                   = Loc.WeatherDailyForecastTime;
+        ChkWeatherConditionAlerts.Content          = Loc.WeatherConditionAlerts;
+        LblWeatherRainThreshold.Text               = Loc.WeatherRainProbabilityThreshold;
+        LblWeatherHeatThreshold.Text               = Loc.WeatherHighTemperatureThreshold;
+        LblWeatherColdThreshold.Text               = Loc.WeatherLowTemperatureThreshold;
+        LblWeatherWindThreshold.Text               = Loc.WeatherWindSpeedThreshold;
+        ChkWeatherOfficialAlerts.Content           = Loc.WeatherOfficialAlerts;
+        LblWeatherOfficialAlertsHint.Text          = Loc.WeatherOfficialAlertsHint;
+
         // 새 ntfy 가이드 링크 — 이전 3줄 가이드를 단일 링크로 압축
         BtnNtfyDownload.Content = Loc.CurrentLang switch
         {
@@ -266,6 +282,19 @@ public partial class SettingsWindow : Window, IDisposable
         ChkShowCodexPlanBadge.IsChecked    = _vm.ShowCodexPlanBadge;
         ChkShowAbsoluteResetTime.IsChecked = _vm.ShowAbsoluteResetTime;
 
+        // Weather
+        ChkWeatherEnabled.IsChecked          = _vm.WeatherEnabled;
+        ChkWeatherShowInTray.IsChecked       = _vm.WeatherShowInTrayTooltip;
+        ChkWeatherDailyForecast.IsChecked    = _vm.WeatherDailyForecastEnabled;
+        TxtWeatherDailyTime.Text             = _vm.WeatherDailyForecastTime;
+        ChkWeatherConditionAlerts.IsChecked  = _vm.WeatherConditionAlertsEnabled;
+        TxtWeatherRainThreshold.Text         = _vm.WeatherRainProbabilityThreshold.ToString();
+        TxtWeatherHeatThreshold.Text         = _vm.WeatherHighTemperatureThresholdC.ToString();
+        TxtWeatherColdThreshold.Text         = _vm.WeatherLowTemperatureThresholdC.ToString();
+        TxtWeatherWindThreshold.Text         = _vm.WeatherWindSpeedThresholdKmh.ToString();
+        ChkWeatherOfficialAlerts.IsChecked   = _vm.WeatherOfficialAlertsEnabled;
+        UpdateWeatherLocationLabel();
+
         UpdateTrayModeAvailability();
 
         _isLoadingValues = false;
@@ -302,6 +331,12 @@ public partial class SettingsWindow : Window, IDisposable
 
         _vm.ShowCodexPlanBadge    = ChkShowCodexPlanBadge.IsChecked == true;
         _vm.ShowAbsoluteResetTime = ChkShowAbsoluteResetTime.IsChecked == true;
+
+        _vm.WeatherEnabled              = ChkWeatherEnabled.IsChecked == true;
+        _vm.WeatherShowInTrayTooltip    = ChkWeatherShowInTray.IsChecked == true;
+        _vm.WeatherDailyForecastEnabled = ChkWeatherDailyForecast.IsChecked == true;
+        _vm.WeatherConditionAlertsEnabled = ChkWeatherConditionAlerts.IsChecked == true;
+        _vm.WeatherOfficialAlertsEnabled  = ChkWeatherOfficialAlerts.IsChecked == true;
 
         UpdateTrayModeAvailability();
         _vm.SaveSettingsCommand.Execute(null);
@@ -592,6 +627,133 @@ public partial class SettingsWindow : Window, IDisposable
     {
         Dispose(true);
         GC.SuppressFinalize(this);
+    }
+
+    private async void BtnWeatherSearch_Click(object sender, RoutedEventArgs e)
+    {
+        var query = TxtWeatherSearch.Text.Trim();
+        if (query.Length < 2) return;
+
+        BtnWeatherSearch.IsEnabled = false;
+        BtnWeatherSearch.Content = "...";
+
+        try
+        {
+            var weatherService = new WeatherService();
+            var results = await weatherService.SearchLocationsAsync(query, Loc.CurrentLang);
+
+            CmbWeatherResults.Items.Clear();
+            foreach (var r in results)
+            {
+                var label = $"{r.Name}, {r.Admin1 ?? ""}, {r.CountryCode}".TrimEnd(',', ' ');
+                CmbWeatherResults.Items.Add(new ComboBoxItem
+                {
+                    Content = label,
+                    Tag = r
+                });
+            }
+
+            if (CmbWeatherResults.Items.Count == 0)
+            {
+                CmbWeatherResults.Visibility = Visibility.Collapsed;
+                LblWeatherSearchError.Text = Loc.WeatherSearchNoResults;
+                LblWeatherSearchError.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                CmbWeatherResults.Visibility = Visibility.Visible;
+                LblWeatherSearchError.Visibility = Visibility.Collapsed;
+                CmbWeatherResults.IsDropDownOpen = true;
+            }
+        }
+        catch
+        {
+            LblWeatherSearchError.Text = Loc.WeatherSearchFailed;
+            LblWeatherSearchError.Visibility = Visibility.Visible;
+        }
+        finally
+        {
+            BtnWeatherSearch.IsEnabled = true;
+            BtnWeatherSearch.Content = Loc.WeatherSearch;
+        }
+    }
+
+    private void WeatherSearch_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.Enter)
+        {
+            BtnWeatherSearch_Click(sender, e);
+            e.Handled = true;
+        }
+    }
+
+    private void CmbWeatherResults_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isLoadingValues) return;
+        if (CmbWeatherResults.SelectedItem is ComboBoxItem item && item.Tag is Models.WeatherLocation loc)
+        {
+            _vm.WeatherLocationName    = loc.Name;
+            _vm.WeatherCountryCode     = loc.CountryCode;
+            _vm.WeatherLatitude        = loc.Latitude;
+            _vm.WeatherLongitude       = loc.Longitude;
+            _vm.WeatherTimezone        = loc.Timezone;
+            _vm.WeatherLocationMode    = "manual";
+            UpdateWeatherLocationLabel();
+            _vm.SaveSettingsCommand.Execute(null);
+            FlashSavedIndicator();
+            CmbWeatherResults.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void WeatherDailyTime_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingValues) return;
+        var text = TxtWeatherDailyTime.Text.Trim();
+        if (System.Text.RegularExpressions.Regex.IsMatch(text, @"^\d{2}:\d{2}$"))
+        {
+            _vm.WeatherDailyForecastTime = text;
+            _vm.SaveSettingsCommand.Execute(null);
+        }
+    }
+
+    private void WeatherThreshold_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingValues) return;
+
+        if (sender == TxtWeatherRainThreshold && int.TryParse(TxtWeatherRainThreshold.Text, out var rain))
+        {
+            _vm.WeatherRainProbabilityThreshold = Math.Clamp(rain, 0, 100);
+            TxtWeatherRainThreshold.Text = _vm.WeatherRainProbabilityThreshold.ToString();
+        }
+        else if (sender == TxtWeatherHeatThreshold && double.TryParse(TxtWeatherHeatThreshold.Text, out var heat))
+        {
+            _vm.WeatherHighTemperatureThresholdC = heat;
+        }
+        else if (sender == TxtWeatherColdThreshold && double.TryParse(TxtWeatherColdThreshold.Text, out var cold))
+        {
+            _vm.WeatherLowTemperatureThresholdC = cold;
+        }
+        else if (sender == TxtWeatherWindThreshold && double.TryParse(TxtWeatherWindThreshold.Text, out var wind))
+        {
+            _vm.WeatherWindSpeedThresholdKmh = Math.Max(0, wind);
+        }
+        _vm.SaveSettingsCommand.Execute(null);
+    }
+
+    private void UpdateWeatherLocationLabel()
+    {
+        if (!string.IsNullOrEmpty(_vm.WeatherLocationName))
+        {
+            var parts = new List<string> { _vm.WeatherLocationName };
+            if (!string.IsNullOrEmpty(_vm.WeatherCountryCode))
+                parts.Add(_vm.WeatherCountryCode.ToUpperInvariant());
+            LblWeatherLocationSelected.Text = $"📍 {string.Join(", ", parts)}";
+            LblWeatherLocationSelected.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            LblWeatherLocationSelected.Visibility = Visibility.Collapsed;
+        }
     }
 
     protected virtual void Dispose(bool disposing)

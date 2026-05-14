@@ -533,6 +533,103 @@
                             </StackPanel>
                         </Border>
                     </TabItem>
+
+                    <!-- ===== TAB 5: 날씨 ===== -->
+                    <TabItem x:Name="TabWeather" Style="{StaticResource DarkTabItem}">
+                        <Border Style="{StaticResource TabCard}">
+                            <StackPanel>
+                                <CheckBox x:Name="ChkWeatherEnabled" Style="{StaticResource CheckStyle}" Margin="0,0,0,4" Click="Setting_Changed"/>
+                                <CheckBox x:Name="ChkWeatherShowInTray" Style="{StaticResource CheckStyle}" Margin="0,0,0,8" Click="Setting_Changed"/>
+
+                                <Border Height="1" Background="#2D2F45" Margin="0,4,0,8"/>
+                                <TextBlock x:Name="LblWeatherLocation" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="TxtWeatherSearch" Style="{StaticResource DarkTextBox}" Grid.Column="0"
+                                             Padding="10,7" KeyDown="WeatherSearch_KeyDown"/>
+                                    <Button x:Name="BtnWeatherSearch" Grid.Column="1" Width="60" Margin="6,0,0,0"
+                                            Style="{StaticResource LinkBtn}" Click="BtnWeatherSearch_Click"/>
+                                </Grid>
+                                <ComboBox x:Name="CmbWeatherResults" Style="{StaticResource DarkCombo}" Margin="0,0,0,6"
+                                          SelectionChanged="CmbWeatherResults_SelectionChanged" Visibility="Collapsed"/>
+                                <TextBlock x:Name="LblWeatherLocationSelected" Foreground="#A78BFA" FontSize="12"
+                                           Margin="0,0,0,8" TextWrapping="Wrap"/>
+
+                                <Border Height="1" Background="#2D2F45" Margin="0,4,0,8"/>
+                                <CheckBox x:Name="ChkWeatherDailyForecast" Style="{StaticResource CheckStyle}" Margin="0,0,0,4" Click="Setting_Changed"/>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="LblWeatherDailyTime" Foreground="#C4C9E0" FontSize="12" VerticalAlignment="Center"/>
+                                    <TextBox x:Name="TxtWeatherDailyTime" Grid.Column="1" Style="{StaticResource DarkTextBox}"
+                                             Padding="8,5" Width="80" HorizontalAlignment="Left" Margin="8,0,0,0"
+                                             LostFocus="WeatherDailyTime_LostFocus"/>
+                                </Grid>
+
+                                <CheckBox x:Name="ChkWeatherConditionAlerts" Style="{StaticResource CheckStyle}" Margin="0,0,0,6" Click="Setting_Changed"/>
+                                <StackPanel Margin="8,0,0,6">
+                                    <Grid Margin="0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="140"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="40"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="LblWeatherRainThreshold" Foreground="#8B92B3" FontSize="11" VerticalAlignment="Center"/>
+                                        <TextBox x:Name="TxtWeatherRainThreshold" Grid.Column="1" Style="{StaticResource DarkTextBox}"
+                                                 Padding="6,4" Width="60" HorizontalAlignment="Left"
+                                                 LostFocus="WeatherThreshold_LostFocus"/>
+                                        <TextBlock Grid.Column="2" Text="%" Foreground="#8B92B3" FontSize="11" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Grid Margin="0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="140"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="40"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="LblWeatherHeatThreshold" Foreground="#8B92B3" FontSize="11" VerticalAlignment="Center"/>
+                                        <TextBox x:Name="TxtWeatherHeatThreshold" Grid.Column="1" Style="{StaticResource DarkTextBox}"
+                                                 Padding="6,4" Width="60" HorizontalAlignment="Left"
+                                                 LostFocus="WeatherThreshold_LostFocus"/>
+                                        <TextBlock Grid.Column="2" Text="°C" Foreground="#8B92B3" FontSize="11" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Grid Margin="0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="140"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="40"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="LblWeatherColdThreshold" Foreground="#8B92B3" FontSize="11" VerticalAlignment="Center"/>
+                                        <TextBox x:Name="TxtWeatherColdThreshold" Grid.Column="1" Style="{StaticResource DarkTextBox}"
+                                                 Padding="6,4" Width="60" HorizontalAlignment="Left"
+                                                 LostFocus="WeatherThreshold_LostFocus"/>
+                                        <TextBlock Grid.Column="2" Text="°C" Foreground="#8B92B3" FontSize="11" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Grid Margin="0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="140"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="40"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="LblWeatherWindThreshold" Foreground="#8B92B3" FontSize="11" VerticalAlignment="Center"/>
+                                        <TextBox x:Name="TxtWeatherWindThreshold" Grid.Column="1" Style="{StaticResource DarkTextBox}"
+                                                 Padding="6,4" Width="60" HorizontalAlignment="Left"
+                                                 LostFocus="WeatherThreshold_LostFocus"/>
+                                        <TextBlock Grid.Column="2" Text="km/h" Foreground="#8B92B3" FontSize="11" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </StackPanel>
+
+                                <Border Height="1" Background="#2D2F45" Margin="0,4,0,6"/>
+                                <CheckBox x:Name="ChkWeatherOfficialAlerts" Style="{StaticResource CheckStyle}" Margin="0,0,0,2" Click="Setting_Changed"/>
+                                <TextBlock x:Name="LblWeatherOfficialAlertsHint" Foreground="#5A5F7A" FontSize="10" Margin="2,0,0,0" TextWrapping="Wrap"/>
+                                <TextBlock x:Name="LblWeatherSearchError" Foreground="#EF4444" FontSize="10" Margin="0,4,0,0" Visibility="Collapsed"/>
+                            </StackPanel>
+                        </Border>
+                    </TabItem>
                 </TabControl>
 
                 <!-- Footer -->

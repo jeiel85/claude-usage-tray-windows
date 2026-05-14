@@ -20,6 +20,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly SettingsService _settingsService;
     private readonly UpdateService _updater;
     private readonly HistoryService _history;
+    private readonly WeatherService _weather;
+    private readonly WeatherAlertService _weatherAlert;
     private readonly Timer _timer;
     private readonly Timer _countdownTimer;
     private readonly Timer _updateTimer;
@@ -40,6 +42,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     // Rate limit backoff — skip API calls until this time
     private DateTimeOffset _apiRetryAfter = DateTimeOffset.MinValue;
+    private DateTimeOffset _weatherLastRefresh = DateTimeOffset.MinValue;
 
     [ObservableProperty] private string _statusText = "Loading...";
     [ObservableProperty] private string _nextRefreshLabel = "";
@@ -108,6 +111,30 @@ public partial class MainViewModel : ObservableObject, IDisposable
     // 오늘의 토큰 4타일 보강 — input/output 이미 있고 cache read/write 추가
     [ObservableProperty] private string _openCodeCacheReadLabel = "—";
     [ObservableProperty] private string _openCodeCacheWriteLabel = "—";
+
+    // Weather (v1.29.0)
+    [ObservableProperty] private bool _weatherEnabled;
+    [ObservableProperty] private bool _weatherShowInTrayTooltip = true;
+    [ObservableProperty] private string _weatherLocationMode = "manual";
+    [ObservableProperty] private string _weatherLocationName = "";
+    [ObservableProperty] private string _weatherCountryCode = "";
+    [ObservableProperty] private double? _weatherLatitude;
+    [ObservableProperty] private double? _weatherLongitude;
+    [ObservableProperty] private string _weatherTimezone = "auto";
+    [ObservableProperty] private int _weatherRefreshIntervalMinutes = 30;
+    [ObservableProperty] private bool _weatherDailyForecastEnabled = true;
+    [ObservableProperty] private string _weatherDailyForecastTime = "07:30";
+    [ObservableProperty] private bool _weatherConditionAlertsEnabled = true;
+    [ObservableProperty] private int _weatherRainProbabilityThreshold = 70;
+    [ObservableProperty] private double _weatherHighTemperatureThresholdC = 33;
+    [ObservableProperty] private double _weatherLowTemperatureThresholdC = -10;
+    [ObservableProperty] private double _weatherWindSpeedThresholdKmh = 50;
+    [ObservableProperty] private bool _weatherOfficialAlertsEnabled = true;
+    [ObservableProperty] private string _weatherStatusLabel = "";
+    [ObservableProperty] private string _weatherTooltipLabel = "";
+    [ObservableProperty] private bool _weatherHasError;
+    [ObservableProperty] private string _weatherErrorMessage = "";
+    private WeatherReport? _lastWeatherReport;
 
     // 5h window (Legacy/Compatibility - will keep for now to avoid breaking other parts)
     [ObservableProperty] private double _shortUsagePercent = 0;
@@ -227,6 +254,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _isGeminiUsageEmpty = true;
     [ObservableProperty] private bool _isOpenCodeUsageEmpty = true;
 
+    // Claude 구독 상태 — credentials의 subscriptionType 기준으로 paid plan 여부 판단
+    [ObservableProperty] private bool _isClaudeSubscribed = false;
+
     private string _updateDownloadUrl = "";
     private string _updateSha256Url = "";
     public string CurrentVersionLabel => $"v{UpdateService.CurrentVersion.ToString(3)}";
@@ -279,7 +309,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
                          SessionMonitor session, CodexUsageMonitor codex, GeminiCliUsageMonitor geminiCli,
                          OpenCodeUsageMonitor openCode,
                          NotificationService notifier, SettingsService settingsService,
-                         UpdateService updater, HistoryService history)
+                         UpdateService updater, HistoryService history,
+                         WeatherService weather, WeatherAlertService weatherAlert)
     {
         _api = api;
         _credentials = credentials;
@@ -291,6 +322,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _settingsService = settingsService;
         _updater = updater;
         _history = history;
+        _weather = weather;
+        _weatherAlert = weatherAlert;
 
         // 계정 전환 자동 감지: credentials 파일 변경 → 새로고침
         _credentials.CredentialsChanged += OnCredentialsChanged;
@@ -324,6 +357,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private void OnCredentialsChanged()
     {
+        // 구독 상태 재확인 (credentials 변경 시 subscriptionType 갱신)
+        UpdateClaudeSubscription();
+        
         if (SelectedProvider != UsageProviderKind.Claude) return;
         // 계정 전환 감지 — 히스토리를 새 계정으로 전환하고 즉시 새로고침
         var orgUuid = _credentials.GetOrganizationUuid();
@@ -374,6 +410,28 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         // Apply polling interval
         ApplyPollingInterval();
+
+        // Weather settings
+        WeatherEnabled                = s.WeatherEnabled;
+        WeatherShowInTrayTooltip      = s.WeatherShowInTrayTooltip;
+        WeatherLocationMode           = s.WeatherLocationMode;
+        WeatherLocationName            = s.WeatherLocationName;
+        WeatherCountryCode            = s.WeatherCountryCode;
+        WeatherLatitude               = s.WeatherLatitude;
+        WeatherLongitude              = s.WeatherLongitude;
+        WeatherTimezone               = s.WeatherTimezone;
+        WeatherRefreshIntervalMinutes = s.WeatherRefreshIntervalMinutes;
+        WeatherDailyForecastEnabled   = s.WeatherDailyForecastEnabled;
+        WeatherDailyForecastTime      = s.WeatherDailyForecastTime;
+        WeatherConditionAlertsEnabled = s.WeatherConditionAlertsEnabled;
+        WeatherRainProbabilityThreshold   = s.WeatherRainProbabilityThreshold;
+        WeatherHighTemperatureThresholdC  = s.WeatherHighTemperatureThresholdC;
+        WeatherLowTemperatureThresholdC   = s.WeatherLowTemperatureThresholdC;
+        WeatherWindSpeedThresholdKmh      = s.WeatherWindSpeedThresholdKmh;
+        WeatherOfficialAlertsEnabled      = s.WeatherOfficialAlertsEnabled;
+
+        // Check Claude subscription status from stored credentials
+        UpdateClaudeSubscription();
     }
 
     partial void OnSelectedProviderChanged(string value)
@@ -461,6 +519,17 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _timer.Interval = interval;
     }
 
+    /// <summary>
+    /// Reads subscriptionType from local credentials and determines if Claude is a paid plan.
+    /// Paid plans (pro, max, team, etc.) should always show the Claude section even at 0% usage.
+    /// </summary>
+    private void UpdateClaudeSubscription()
+    {
+        var subType = _credentials.GetSubscriptionType();
+        IsClaudeSubscribed = !string.IsNullOrEmpty(subType)
+            && !string.Equals(subType, "free", StringComparison.OrdinalIgnoreCase);
+    }
+
     [RelayCommand]
     public void SaveSettings()
     {
@@ -500,6 +569,25 @@ public partial class MainViewModel : ObservableObject, IDisposable
             ShowAbsoluteResetTime = ShowAbsoluteResetTime,
             // 추적 필드 보존 — settings 저장 시 매번 잃지 않도록
             OAuthNotAllowedFirstSeenUtc = existing.OAuthNotAllowedFirstSeenUtc,
+
+            // Weather settings
+            WeatherEnabled                = WeatherEnabled,
+            WeatherShowInTrayTooltip      = WeatherShowInTrayTooltip,
+            WeatherLocationMode           = WeatherLocationMode,
+            WeatherLocationName            = WeatherLocationName,
+            WeatherCountryCode            = WeatherCountryCode,
+            WeatherLatitude               = WeatherLatitude,
+            WeatherLongitude              = WeatherLongitude,
+            WeatherTimezone               = WeatherTimezone,
+            WeatherRefreshIntervalMinutes = WeatherRefreshIntervalMinutes,
+            WeatherDailyForecastEnabled   = WeatherDailyForecastEnabled,
+            WeatherDailyForecastTime      = WeatherDailyForecastTime,
+            WeatherConditionAlertsEnabled = WeatherConditionAlertsEnabled,
+            WeatherRainProbabilityThreshold   = WeatherRainProbabilityThreshold,
+            WeatherHighTemperatureThresholdC  = WeatherHighTemperatureThresholdC,
+            WeatherLowTemperatureThresholdC   = WeatherLowTemperatureThresholdC,
+            WeatherWindSpeedThresholdKmh      = WeatherWindSpeedThresholdKmh,
+            WeatherOfficialAlertsEnabled      = WeatherOfficialAlertsEnabled,
         });
     }
 
@@ -715,6 +803,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 RefreshGeminiCliInternalAsync(),
                 RefreshOpenCodeInternalAsync()
             };
+
+            if (WeatherEnabled)
+                tasks.Add(RefreshWeatherInternalAsync());
 
             await Task.WhenAll(tasks);
 
@@ -1586,6 +1677,91 @@ public partial class MainViewModel : ObservableObject, IDisposable
         if (cost < 0.001) return "";
         return Loc.CostEstimate(cost);
     }
+
+    public NotificationSettings GetCurrentSettings()
+    {
+        return _settingsService.Load();
+    }
+
+    private async Task RefreshWeatherInternalAsync()
+    {
+        if (!WeatherLatitude.HasValue || !WeatherLongitude.HasValue)
+            return;
+
+        var interval = TimeSpan.FromMinutes(WeatherRefreshIntervalMinutes);
+        if (DateTimeOffset.Now - _weatherLastRefresh < interval)
+            return;
+
+        try
+        {
+            var location = new Models.WeatherLocation(
+                WeatherLocationName, WeatherCountryCode, null,
+                WeatherLatitude.Value, WeatherLongitude.Value, WeatherTimezone);
+
+            var report = await _weather.GetForecastAsync(location);
+
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                WeatherHasError = false;
+                WeatherErrorMessage = "";
+                _lastWeatherReport = report;
+
+                if (report.Current != null)
+                {
+                    var condLabel = GetWeatherConditionLabel(report.Current.ConditionKey);
+                    WeatherStatusLabel = $"{report.Current.TemperatureC:F0}°C {condLabel}";
+                    WeatherTooltipLabel = Loc.WeatherTooltipFormat(
+                        WeatherLocationName, report.Current.TemperatureC, condLabel);
+                }
+                else
+                {
+                    WeatherTooltipLabel = $"{WeatherLocationName} {Loc.WeatherCurrentUnavailable}";
+                    WeatherStatusLabel = Loc.WeatherCurrentUnavailable;
+                }
+
+                WeatherHasError = report.Current == null;
+                if (WeatherHasError && string.IsNullOrEmpty(WeatherErrorMessage))
+                    WeatherErrorMessage = Loc.WeatherCurrentUnavailable;
+            });
+
+            _weatherLastRefresh = DateTimeOffset.Now;
+
+            if (report.Current != null)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _weatherAlert.ProcessAlertsAsync(report);
+                    }
+                    catch { }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                WeatherHasError = true;
+                WeatherErrorMessage = ex.Message;
+                WeatherTooltipLabel = Loc.WeatherCurrentUnavailable;
+            });
+        }
+    }
+
+    private static string GetWeatherConditionLabel(string conditionKey) => conditionKey switch
+    {
+        "clear" => Loc.WeatherClear,
+        "mainly_clear" => Loc.WeatherMainlyClear,
+        "partly_cloudy" => Loc.WeatherPartlyCloudy,
+        "overcast" => Loc.WeatherOvercast,
+        "fog" => Loc.WeatherFog,
+        "drizzle" or "freezing_drizzle" => Loc.WeatherDrizzle,
+        "rain" or "freezing_rain" or "rain_showers" => Loc.WeatherRain,
+        "snow" or "snow_grains" or "snow_showers" => Loc.WeatherSnow,
+        "thunderstorm" => Loc.WeatherThunderstorm,
+        _ => Loc.WeatherUnknown
+    };
 
     public void Dispose()
     {

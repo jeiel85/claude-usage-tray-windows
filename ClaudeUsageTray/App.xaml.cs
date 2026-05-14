@@ -70,8 +70,14 @@ public partial class App : Application
         var updater = new UpdateService();
         var history = new HistoryService();
 
+        var weather = new Services.WeatherService();
+        var nwsProvider = new Services.WeatherWarnings.NwsWeatherWarningProvider();
+        var weatherAlert = new Services.WeatherAlertService(
+            weather, notifier, () => _vm?.GetCurrentSettings() ?? new NotificationSettings(),
+            [nwsProvider]);
+
         _vm = new MainViewModel(apiService, credService, sessionMonitor, codexMonitor, geminiCliMonitor,
-            openCodeMonitor, notifier, settingsService, updater, history);
+            openCodeMonitor, notifier, settingsService, updater, history, weather, weatherAlert);
         _popup = new UsagePopup(_vm);
 
         _trayIcon = new NotifyIcon
@@ -190,7 +196,10 @@ public partial class App : Application
                               or nameof(MainViewModel.OpenCodeOutputLabel)
                               or nameof(MainViewModel.ClaudeShortPercent)
                               or nameof(MainViewModel.CodexPercent)
-                              or nameof(MainViewModel.LblAppTitle))
+                              or nameof(MainViewModel.LblAppTitle)
+                              or nameof(MainViewModel.WeatherTooltipLabel)
+                              or nameof(MainViewModel.WeatherShowInTrayTooltip)
+                              or nameof(MainViewModel.WeatherHasError))
         {
             Dispatcher.Invoke(() =>
             {
@@ -243,6 +252,13 @@ public partial class App : Application
 
                 string body = parts.Count == 0 ? "—" : string.Join(" · ", parts);
                 string tooltip = $"{Loc.AgentUsageTitle}\n{body}";
+
+                // Weather line (v1.29.0)
+                if (_vm.WeatherShowInTrayTooltip && !string.IsNullOrEmpty(_vm.WeatherTooltipLabel))
+                {
+                    tooltip += $"\n{_vm.WeatherTooltipLabel}";
+                }
+
                 _trayIcon.Text = tooltip.Length > 63 ? tooltip[..63] : tooltip;
             });
         }

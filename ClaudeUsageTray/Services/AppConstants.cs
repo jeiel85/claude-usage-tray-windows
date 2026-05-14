@@ -22,6 +22,9 @@ internal static class AppConstants
     /// <summary>푸시 알림 타임아웃 (5초)</summary>
     public const int PushTimeoutSeconds = 5;
 
+    /// <summary>날씨 API 요청 타임아웃 (10초)</summary>
+    public const int WeatherTimeoutSeconds = 10;
+
     // ============== 알림 임계값 ==============
     /// <summary>기본 알림 임계값</summary>
     public static readonly int[] DefaultThresholds = [50, 75, 90, 100];

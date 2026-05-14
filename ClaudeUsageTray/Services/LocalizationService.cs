@@ -1240,4 +1240,308 @@ public static class Loc
         _ => "Enter a number greater than 0"
     };
 
+    // ===== 날씨 (v1.29.0) =====
+    public static string WeatherTab => Lang switch
+    {
+        "ko" => "날씨",
+        "zh" => "天气",
+        "ja" => "天気",
+        _ => "Weather"
+    };
+
+    public static string WeatherSettingsTitle => Lang switch
+    {
+        "ko" => "날씨 알림 설정",
+        "zh" => "天气通知设置",
+        "ja" => "天気通知設定",
+        _ => "Weather Alert Settings"
+    };
+
+    public static string WeatherEnabled => Lang switch
+    {
+        "ko" => "날씨 알림 사용",
+        "zh" => "启用天气通知",
+        "ja" => "天気通知を有効にする",
+        _ => "Enable weather alerts"
+    };
+
+    public static string WeatherShowInTrayTooltip => Lang switch
+    {
+        "ko" => "트레이 툴팁에 날씨 표시",
+        "zh" => "在托盘提示中显示天气",
+        "ja" => "トレイツールチップに天気を表示",
+        _ => "Show weather in tray tooltip"
+    };
+
+    public static string WeatherLocation => Lang switch
+    {
+        "ko" => "위치",
+        "zh" => "位置",
+        "ja" => "位置",
+        _ => "Location"
+    };
+
+    public static string WeatherSearchPlaceholder => Lang switch
+    {
+        "ko" => "도시명 또는 우편번호 검색...",
+        "zh" => "搜索城市或邮政编码...",
+        "ja" => "都市名または郵便番号で検索...",
+        _ => "Search city or postal code..."
+    };
+
+    public static string WeatherSearch => Lang switch
+    {
+        "ko" => "검색",
+        "zh" => "搜索",
+        "ja" => "検索",
+        _ => "Search"
+    };
+
+    public static string WeatherUseCurrentLocation => Lang switch
+    {
+        "ko" => "현재 위치 사용",
+        "zh" => "使用当前位置",
+        "ja" => "現在地を使用",
+        _ => "Use current location"
+    };
+
+    public static string WeatherDailyForecast => Lang switch
+    {
+        "ko" => "매일 예보 알림",
+        "zh" => "每日预报通知",
+        "ja" => "毎日の予報通知",
+        _ => "Daily forecast alert"
+    };
+
+    public static string WeatherDailyForecastTime => Lang switch
+    {
+        "ko" => "알림 시각 (HH:mm)",
+        "zh" => "通知时间 (HH:mm)",
+        "ja" => "通知時刻 (HH:mm)",
+        _ => "Alert time (HH:mm)"
+    };
+
+    public static string WeatherConditionAlerts => Lang switch
+    {
+        "ko" => "기상 조건 알림",
+        "zh" => "天气条件通知",
+        "ja" => "気象条件通知",
+        _ => "Condition alerts"
+    };
+
+    public static string WeatherRainProbabilityThreshold => Lang switch
+    {
+        "ko" => "강수확률 임계값 (%)",
+        "zh" => "降水概率阈值 (%)",
+        "ja" => "降水確率閾値 (%)",
+        _ => "Rain probability threshold (%)"
+    };
+
+    public static string WeatherHighTemperatureThreshold => Lang switch
+    {
+        "ko" => "폭염 임계값 (°C)",
+        "zh" => "高温阈值 (°C)",
+        "ja" => "高温閾値 (°C)",
+        _ => "Heat threshold (°C)"
+    };
+
+    public static string WeatherLowTemperatureThreshold => Lang switch
+    {
+        "ko" => "한파 임계값 (°C)",
+        "zh" => "低温阈值 (°C)",
+        "ja" => "低温閾値 (°C)",
+        _ => "Cold threshold (°C)"
+    };
+
+    public static string WeatherWindSpeedThreshold => Lang switch
+    {
+        "ko" => "강풍 임계값 (km/h)",
+        "zh" => "强风阈值 (km/h)",
+        "ja" => "強風閾値 (km/h)",
+        _ => "Wind threshold (km/h)"
+    };
+
+    public static string WeatherOfficialAlerts => Lang switch
+    {
+        "ko" => "공식 기상 특보 알림",
+        "zh" => "官方气象警报通知",
+        "ja" => "公式気象警報通知",
+        _ => "Official weather alerts"
+    };
+
+    public static string WeatherOfficialAlertsHint => Lang switch
+    {
+        "ko" => "미국 위치에서만 NWS(미국 기상청) 특보를 조회합니다",
+        "zh" => "仅美国位置可获取 NWS（美国气象局）警报",
+        "ja" => "米国内の位置でのみ NWS（米国気象局）警報を取得",
+        _ => "NWS alerts available for US locations only"
+    };
+
+    public static string WeatherSearchNoResults => Lang switch
+    {
+        "ko" => "검색 결과 없음",
+        "zh" => "无搜索结果",
+        "ja" => "検索結果なし",
+        _ => "No results found"
+    };
+
+    public static string WeatherSearchFailed => Lang switch
+    {
+        "ko" => "위치 검색 실패",
+        "zh" => "位置搜索失败",
+        "ja" => "位置検索に失敗",
+        _ => "Location search failed"
+    };
+
+    public static string WeatherCurrentUnavailable => Lang switch
+    {
+        "ko" => "날씨 정보 없음",
+        "zh" => "天气信息不可用",
+        "ja" => "天気情報なし",
+        _ => "Weather unavailable"
+    };
+
+    public static string WeatherForecastTitle => Lang switch
+    {
+        "ko" => "오늘의 날씨",
+        "zh" => "今日天气",
+        "ja" => "今日の天気",
+        _ => "Today's Weather"
+    };
+
+    public static string WeatherWarningTitle => Lang switch
+    {
+        "ko" => "기상 알림",
+        "zh" => "天气警报",
+        "ja" => "気象アラート",
+        _ => "Weather Alert"
+    };
+
+    public static string WeatherClear => Lang switch
+    {
+        "ko" => "맑음",
+        "zh" => "晴",
+        "ja" => "晴れ",
+        _ => "Clear"
+    };
+
+    public static string WeatherMainlyClear => Lang switch
+    {
+        "ko" => "대체로 맑음",
+        "zh" => "大部晴朗",
+        "ja" => "おおむね晴れ",
+        _ => "Mainly Clear"
+    };
+
+    public static string WeatherPartlyCloudy => Lang switch
+    {
+        "ko" => "구름 조금",
+        "zh" => "多云",
+        "ja" => "所々曇り",
+        _ => "Partly Cloudy"
+    };
+
+    public static string WeatherOvercast => Lang switch
+    {
+        "ko" => "흐림",
+        "zh" => "阴",
+        "ja" => "曇り",
+        _ => "Overcast"
+    };
+
+    public static string WeatherFog => Lang switch
+    {
+        "ko" => "안개",
+        "zh" => "雾",
+        "ja" => "霧",
+        _ => "Fog"
+    };
+
+    public static string WeatherDrizzle => Lang switch
+    {
+        "ko" => "이슬비",
+        "zh" => "毛毛雨",
+        "ja" => "霧雨",
+        _ => "Drizzle"
+    };
+
+    public static string WeatherRain => Lang switch
+    {
+        "ko" => "비",
+        "zh" => "雨",
+        "ja" => "雨",
+        _ => "Rain"
+    };
+
+    public static string WeatherSnow => Lang switch
+    {
+        "ko" => "눈",
+        "zh" => "雪",
+        "ja" => "雪",
+        _ => "Snow"
+    };
+
+    public static string WeatherThunderstorm => Lang switch
+    {
+        "ko" => "뇌우",
+        "zh" => "雷暴",
+        "ja" => "雷雨",
+        _ => "Thunderstorm"
+    };
+
+    public static string WeatherUnknown => Lang switch
+    {
+        "ko" => "알 수 없음",
+        "zh" => "未知",
+        "ja" => "不明",
+        _ => "Unknown"
+    };
+
+    public static string WeatherRainProbability(int percent) => Lang switch
+    {
+        "ko" => $"강수확률 {percent}%",
+        "zh" => $"降水概率 {percent}%",
+        "ja" => $"降水確率 {percent}%",
+        _ => $"Rain {percent}%"
+    };
+
+    public static string WeatherRainWarning(int percent) => Lang switch
+    {
+        "ko" => $"강수확률 {percent}%",
+        "zh" => $"降水概率 {percent}%",
+        "ja" => $"降水確率 {percent}%",
+        _ => $"Precipitation probability {percent}%"
+    };
+
+    public static string WeatherHeatWarning(double temp) => Lang switch
+    {
+        "ko" => $"최고 {temp:F0}°C 예보",
+        "zh" => $"预报最高 {temp:F0}°C",
+        "ja" => $"最高 {temp:F0}°C 予報",
+        _ => $"High of {temp:F0}°C forecast"
+    };
+
+    public static string WeatherColdWarning(double temp) => Lang switch
+    {
+        "ko" => $"최저 {temp:F0}°C 예보",
+        "zh" => $"预报最低 {temp:F0}°C",
+        "ja" => $"最低 {temp:F0}°C 予報",
+        _ => $"Low of {temp:F0}°C forecast"
+    };
+
+    public static string WeatherWindWarning(double speed) => Lang switch
+    {
+        "ko" => $"최대 풍속 {speed:F0} km/h 예보",
+        "zh" => $"预报最大风速 {speed:F0} km/h",
+        "ja" => $"最大風速 {speed:F0} km/h 予報",
+        _ => $"Wind up to {speed:F0} km/h forecast"
+    };
+
+    public static string WeatherTooltipFormat(string location, double temp, string condition) => Lang switch
+    {
+        "ko" => $"{location} {temp:F0}°C {condition}",
+        "zh" => $"{location} {temp:F0}°C {condition}",
+        "ja" => $"{location} {temp:F0}°C {condition}",
+        _ => $"{location} {temp:F0}°C {condition}"
+    };
 }
