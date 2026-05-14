@@ -290,14 +290,6 @@
                     </Grid>
                 </Border>
 
-                <!-- Weather info (v1.29.0) -->
-                <Border Padding="12,4,16,6" Margin="0,0,0,0"
-                        Visibility="{Binding WeatherHasLocation, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Text="{Binding WeatherPopupLabel}"
-                               Foreground="#6EE7B7" FontSize="10"
-                               VerticalAlignment="Center"/>
-                </Border>
-
                 <!-- Update banner -->
                 <Border Padding="12,8" Margin="16,8,16,0"
                         Background="#1A2E1A" CornerRadius="8"
@@ -329,6 +321,37 @@
                     <TextBlock Text="{Binding ErrorMessage}" Foreground="#EF4444"
                                FontSize="10" TextWrapping="Wrap"/>
                 </Border>
+
+                <!-- Weather Section (v1.29.0) -->
+                <StackPanel Margin="16,14,16,0"
+                            Visibility="{Binding WeatherHasLocation, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblWeatherSection}" Margin="0,0,0,12"/>
+                    <Border Style="{StaticResource StatBox}" Padding="12,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Width="28" Height="28" CornerRadius="6"
+                                    Background="#2D2F45" Margin="0,0,10,0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding WeatherIcon}" FontSize="15"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding WeatherShortLocation}"
+                                           Foreground="#F1F5F9" FontSize="11" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding WeatherConditionLabel}"
+                                           Foreground="#8B92B3" FontSize="10" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <TextBlock Grid.Column="2" Text="{Binding WeatherTemperatureLabel}"
+                                       Foreground="#6EE7B7" FontSize="16" FontWeight="Bold"
+                                       VerticalAlignment="Center"
+                                       Visibility="{Binding WeatherHasCurrent, Converter={StaticResource BoolToVisibility}}"/>
+                        </Grid>
+                    </Border>
+                </StackPanel>
 
                 <!-- Provider Sections -->
                 <StackPanel Margin="16,14,16,14">

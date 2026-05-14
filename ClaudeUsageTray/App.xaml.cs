@@ -253,13 +253,14 @@ public partial class App : Application
                 string body = parts.Count == 0 ? "—" : string.Join(" · ", parts);
                 string tooltip = $"{Loc.AgentUsageTitle}\n{body}";
 
-                // Weather line (v1.29.0)
+                // Weather line (v1.29.0) — uses short location to keep within NotifyIcon 127-char budget
                 if (_vm.WeatherShowInTrayTooltip && !string.IsNullOrEmpty(_vm.WeatherTooltipLabel))
                 {
-                    tooltip += $"\n{_vm.WeatherTooltipLabel}";
+                    tooltip += $"\n📍 {_vm.WeatherTooltipLabel}";
                 }
 
-                _trayIcon.Text = tooltip.Length > 63 ? tooltip[..63] : tooltip;
+                // NotifyIcon szTip supports 128 chars on Vista+; cap at 127 to leave room for null terminator.
+                _trayIcon.Text = tooltip.Length > 127 ? tooltip[..127] : tooltip;
             });
         }
     }

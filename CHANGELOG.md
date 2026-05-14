@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.29.3] - 2026-05-14
+
+<!-- ko -->
+### 개선
+- **팝업 날씨 카드 디자인 정리** — 헤더 아래에 떠 있던 한 줄 텍스트를 제거하고, "API 할당량" 섹션과 같은 레벨에 "오늘의 날씨" 섹션을 추가했습니다. 기상 아이콘, 위치, 기온, 상태가 카드 형태로 표시되어 전체 디자인과 톤이 일치합니다.
+- **트레이 툴팁에 현재 날씨 노출** — 툴팁 길이 제한을 63자 → 127자로 확장(Vista+ NotifyIcon 한도)하여 에이전트 사용량 뒤에 잘리지 않고 날씨 줄이 표시됩니다. 위치는 짧은 형식(첫 구역명)을 사용합니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Popup weather card redesign** — Replaced the floating single-line text under the header with a proper "Today's Weather" section at the same level as "API Quota". The card now shows a condition icon, short location, temperature, and condition label in a layout consistent with the rest of the popup.
+- **Current weather in tray tooltip** — Bumped the tooltip cap from 63 → 127 chars (Vista+ NotifyIcon limit) so the weather line no longer gets truncated after the agent usage summary. The tooltip uses a short location form (first segment) to stay readable.
+<!-- /en -->
+
 ## [1.29.2] - 2026-05-14
 
 <!-- ko -->

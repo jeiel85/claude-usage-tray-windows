@@ -134,13 +134,28 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _weatherTooltipLabel = "";
     [ObservableProperty] private bool _weatherHasError;
     [ObservableProperty] private string _weatherErrorMessage = "";
+    [ObservableProperty] private string _weatherTemperatureLabel = "";
+    [ObservableProperty] private string _weatherConditionLabel = "";
+    [ObservableProperty] private string _weatherIcon = "🌡";
     private WeatherReport? _lastWeatherReport;
 
     public bool WeatherHasLocation => WeatherEnabled
         && WeatherLatitude.HasValue && WeatherLongitude.HasValue
         && !string.IsNullOrEmpty(WeatherLocationName);
+    public bool WeatherHasCurrent => WeatherHasLocation
+        && !string.IsNullOrEmpty(WeatherTemperatureLabel);
     public string WeatherPopupLabel => WeatherHasLocation && !string.IsNullOrEmpty(WeatherTooltipLabel)
         ? $"📍 {WeatherTooltipLabel}" : "";
+    public string WeatherShortLocation
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(WeatherLocationName)) return "";
+            var first = WeatherLocationName.Split(',')[0].Trim();
+            return string.IsNullOrEmpty(first) ? WeatherLocationName : first;
+        }
+    }
+    public string LblWeatherSection => Loc.WeatherForecastTitle;
 
     // 5h window (Legacy/Compatibility - will keep for now to avoid breaking other parts)
     [ObservableProperty] private double _shortUsagePercent = 0;
@@ -1587,12 +1602,18 @@ public partial class MainViewModel : ObservableObject, IDisposable
     partial void OnWeatherEnabledChanged(bool value) => NotifyWeatherComputed();
     partial void OnWeatherLatitudeChanged(double? value) => NotifyWeatherComputed();
     partial void OnWeatherLongitudeChanged(double? value) => NotifyWeatherComputed();
-    partial void OnWeatherLocationNameChanged(string value) => NotifyWeatherComputed();
+    partial void OnWeatherLocationNameChanged(string value)
+    {
+        NotifyWeatherComputed();
+        OnPropertyChanged(nameof(WeatherShortLocation));
+    }
     partial void OnWeatherTooltipLabelChanged(string value) => OnPropertyChanged(nameof(WeatherPopupLabel));
+    partial void OnWeatherTemperatureLabelChanged(string value) => OnPropertyChanged(nameof(WeatherHasCurrent));
 
     private void NotifyWeatherComputed()
     {
         OnPropertyChanged(nameof(WeatherHasLocation));
+        OnPropertyChanged(nameof(WeatherHasCurrent));
         OnPropertyChanged(nameof(WeatherPopupLabel));
     }
 
@@ -1727,13 +1748,20 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 if (report.Current != null)
                 {
                     var condLabel = GetWeatherConditionLabel(report.Current.ConditionKey);
-                    WeatherStatusLabel = $"{report.Current.TemperatureC:F0}°C {condLabel}";
+                    var tempLabel = $"{report.Current.TemperatureC:F0}°C";
+                    WeatherTemperatureLabel = tempLabel;
+                    WeatherConditionLabel = condLabel;
+                    WeatherIcon = GetWeatherIcon(report.Current.ConditionKey);
+                    WeatherStatusLabel = $"{tempLabel} {condLabel}";
                     WeatherTooltipLabel = Loc.WeatherTooltipFormat(
-                        WeatherLocationName, report.Current.TemperatureC, condLabel);
+                        WeatherShortLocation, report.Current.TemperatureC, condLabel);
                 }
                 else
                 {
-                    WeatherTooltipLabel = $"{WeatherLocationName} {Loc.WeatherCurrentUnavailable}";
+                    WeatherTemperatureLabel = "";
+                    WeatherConditionLabel = Loc.WeatherCurrentUnavailable;
+                    WeatherIcon = "🌡";
+                    WeatherTooltipLabel = $"{WeatherShortLocation} {Loc.WeatherCurrentUnavailable}";
                     WeatherStatusLabel = Loc.WeatherCurrentUnavailable;
                 }
 
@@ -1763,9 +1791,26 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 WeatherHasError = true;
                 WeatherErrorMessage = ex.Message;
                 WeatherTooltipLabel = Loc.WeatherCurrentUnavailable;
+                WeatherTemperatureLabel = "";
+                WeatherConditionLabel = Loc.WeatherCurrentUnavailable;
+                WeatherIcon = "🌡";
             });
         }
     }
+
+    private static string GetWeatherIcon(string conditionKey) => conditionKey switch
+    {
+        "clear" => "☀",
+        "mainly_clear" => "🌤",
+        "partly_cloudy" => "⛅",
+        "overcast" => "☁",
+        "fog" => "🌫",
+        "drizzle" or "freezing_drizzle" => "🌦",
+        "rain" or "freezing_rain" or "rain_showers" => "🌧",
+        "snow" or "snow_grains" or "snow_showers" => "❄",
+        "thunderstorm" => "⛈",
+        _ => "🌡"
+    };
 
     private static string GetWeatherConditionLabel(string conditionKey) => conditionKey switch
     {
