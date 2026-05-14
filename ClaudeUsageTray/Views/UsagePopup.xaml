@@ -335,8 +335,11 @@
                             </Grid.ColumnDefinitions>
                             <Border Grid.Column="0" Width="28" Height="28" CornerRadius="6"
                                     Background="#2D2F45" Margin="0,0,10,0" VerticalAlignment="Center">
+                                <!-- Segoe UI Symbol: monochrome BMP symbol font that WPF renders reliably
+                                     (Segoe UI Emoji's COLR color glyphs aren't supported by WPF) -->
                                 <TextBlock Text="{Binding WeatherIcon}" FontSize="15"
-                                           FontFamily="Segoe UI Emoji"
+                                           FontFamily="Segoe UI Symbol"
+                                           Foreground="#F1F5F9"
                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">

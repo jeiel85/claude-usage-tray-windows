@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.29.6] - 2026-05-14
+
+<!-- ko -->
+### 수정
+- **날씨 아이콘 여전히 안 보이던 문제** — WPF는 Segoe UI Emoji의 컬러 글리프(COLR)를 렌더링하지 못해 검은 윤곽선만 그려졌고, 어두운 배경(`#2D2F45`) 위에서 사실상 보이지 않았습니다. 또한 🌧/🌫/🌤 등 high-plane(U+1F3xx) 이모지는 폰트 fallback이 안 잡혔습니다.
+  - 아이콘 폰트를 `Segoe UI Symbol`(모노크롬 BMP 심볼 폰트)로 교체하고 밝은 색상(`#F1F5F9`) 지정.
+  - 아이콘 문자를 BMP 범위(U+2600–U+26FF, U+2744)로 정리: ☀ / ⛅ / ☁ / ☂ / ☔ / ❄ / ⚡.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Weather icon still invisible** — WPF doesn't render Segoe UI Emoji's COLR color glyphs, so the icon was drawn as black outlines that were nearly invisible on the dark `#2D2F45` background. High-plane emoji (🌧/🌫/🌤, U+1F3xx) also failed font fallback.
+  - Switched the icon TextBlock to `Segoe UI Symbol` (monochrome BMP symbol font) with an explicit light Foreground.
+  - Collapsed icon set to BMP-only glyphs (U+2600–U+26FF, U+2744): ☀ / ⛅ / ☁ / ☂ / ☔ / ❄ / ⚡.
+<!-- /en -->
+
 ## [1.29.5] - 2026-05-14
 
 <!-- ko -->

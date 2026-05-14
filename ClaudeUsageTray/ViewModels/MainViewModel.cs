@@ -136,7 +136,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _weatherErrorMessage = "";
     [ObservableProperty] private string _weatherTemperatureLabel = "";
     [ObservableProperty] private string _weatherConditionLabel = "";
-    [ObservableProperty] private string _weatherIcon = "🌡";
+    [ObservableProperty] private string _weatherIcon = "•";
     private WeatherReport? _lastWeatherReport;
 
     public bool WeatherHasLocation => WeatherEnabled
@@ -1790,7 +1790,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 {
                     WeatherTemperatureLabel = "";
                     WeatherConditionLabel = Loc.WeatherCurrentUnavailable;
-                    WeatherIcon = "🌡";
+                    WeatherIcon = "•";
                     WeatherTooltipLabel = $"{WeatherShortLocation} {Loc.WeatherCurrentUnavailable}";
                     WeatherStatusLabel = Loc.WeatherCurrentUnavailable;
                 }
@@ -1823,23 +1823,24 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 WeatherTooltipLabel = Loc.WeatherCurrentUnavailable;
                 WeatherTemperatureLabel = "";
                 WeatherConditionLabel = Loc.WeatherCurrentUnavailable;
-                WeatherIcon = "🌡";
+                WeatherIcon = "•";
             });
         }
     }
 
+    // BMP-only (U+2600–U+26FF, U+2744): WPF can render these via Segoe UI Symbol.
+    // High-plane emoji (U+1F3xx) like 🌤🌫🌦🌧⛈ aren't covered by symbol fonts, so
+    // we collapse those conditions onto the closest BMP analogue.
     private static string GetWeatherIcon(string conditionKey) => conditionKey switch
     {
-        "clear" => "☀",
-        "mainly_clear" => "🌤",
+        "clear" or "mainly_clear" => "☀",
         "partly_cloudy" => "⛅",
-        "overcast" => "☁",
-        "fog" => "🌫",
-        "drizzle" or "freezing_drizzle" => "🌦",
-        "rain" or "freezing_rain" or "rain_showers" => "🌧",
+        "overcast" or "fog" => "☁",
+        "drizzle" or "freezing_drizzle" => "☂",
+        "rain" or "freezing_rain" or "rain_showers" => "☔",
         "snow" or "snow_grains" or "snow_showers" => "❄",
-        "thunderstorm" => "⛈",
-        _ => "🌡"
+        "thunderstorm" => "⚡",
+        _ => "•"
     };
 
     private static string GetWeatherConditionLabel(string conditionKey) => conditionKey switch
