@@ -136,6 +136,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _weatherErrorMessage = "";
     private WeatherReport? _lastWeatherReport;
 
+    public bool WeatherHasLocation => WeatherEnabled
+        && WeatherLatitude.HasValue && WeatherLongitude.HasValue
+        && !string.IsNullOrEmpty(WeatherLocationName);
+    public string WeatherPopupLabel => WeatherHasLocation && !string.IsNullOrEmpty(WeatherTooltipLabel)
+        ? $"📍 {WeatherTooltipLabel}" : "";
+
     // 5h window (Legacy/Compatibility - will keep for now to avoid breaking other parts)
     [ObservableProperty] private double _shortUsagePercent = 0;
     [ObservableProperty] private string _shortResetLabel = "";
@@ -1576,6 +1582,18 @@ public partial class MainViewModel : ObservableObject, IDisposable
         ClaudeLongReset  = FormatResetLabel(_rawClaudeLongResetAt);
         CodexReset       = FormatResetLabel(_rawCodexShortResetAt, _rawCodexShortResetEstimated);
         CodexLongReset   = FormatResetLabel(_rawCodexLongResetAt);
+    }
+
+    partial void OnWeatherEnabledChanged(bool value) => NotifyWeatherComputed();
+    partial void OnWeatherLatitudeChanged(double? value) => NotifyWeatherComputed();
+    partial void OnWeatherLongitudeChanged(double? value) => NotifyWeatherComputed();
+    partial void OnWeatherLocationNameChanged(string value) => NotifyWeatherComputed();
+    partial void OnWeatherTooltipLabelChanged(string value) => OnPropertyChanged(nameof(WeatherPopupLabel));
+
+    private void NotifyWeatherComputed()
+    {
+        OnPropertyChanged(nameof(WeatherHasLocation));
+        OnPropertyChanged(nameof(WeatherPopupLabel));
     }
 
     private static string ParseFriendlyError(string raw)

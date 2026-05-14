@@ -187,13 +187,14 @@ public partial class SettingsWindow : Window, IDisposable
         ChkWeatherDailyForecast.Content            = Loc.WeatherDailyForecast;
         LblWeatherDailyTime.Text                   = Loc.WeatherDailyForecastTime;
         ChkWeatherConditionAlerts.Content          = Loc.WeatherConditionAlerts;
+        TxtWeatherSearch.ToolTip                    = Loc.WeatherSearchPlaceholder;
         LblWeatherRainThreshold.Text               = Loc.WeatherRainProbabilityThreshold;
         LblWeatherHeatThreshold.Text               = Loc.WeatherHighTemperatureThreshold;
         LblWeatherColdThreshold.Text               = Loc.WeatherLowTemperatureThreshold;
         LblWeatherWindThreshold.Text               = Loc.WeatherWindSpeedThreshold;
         ChkWeatherOfficialAlerts.Content           = Loc.WeatherOfficialAlerts;
         LblWeatherOfficialAlertsHint.Text          = Loc.WeatherOfficialAlertsHint;
-        BtnWeatherUseCurrentLocation.Content        = Loc.WeatherUseCurrentLocation;
+        BtnWeatherUseCurrentLocation.ToolTip        = Loc.WeatherUseCurrentLocation;
 
         // 새 ntfy 가이드 링크 — 이전 3줄 가이드를 단일 링크로 압축
         BtnNtfyDownload.Content = Loc.CurrentLang switch
@@ -692,7 +693,8 @@ public partial class SettingsWindow : Window, IDisposable
     private async void BtnWeatherUseCurrentLocation_Click(object sender, RoutedEventArgs e)
     {
         BtnWeatherUseCurrentLocation.IsEnabled = false;
-        BtnWeatherUseCurrentLocation.Content = "...";
+        var original = BtnWeatherUseCurrentLocation.Content;
+        BtnWeatherUseCurrentLocation.Content = "···";
 
         try
         {
@@ -731,7 +733,7 @@ public partial class SettingsWindow : Window, IDisposable
         finally
         {
             BtnWeatherUseCurrentLocation.IsEnabled = true;
-            BtnWeatherUseCurrentLocation.Content = Loc.WeatherUseCurrentLocation;
+            BtnWeatherUseCurrentLocation.Content = original;
         }
     }
 

@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.29.2] - 2026-05-14
+
+<!-- ko -->
+### 추가
+- **사용량 팝업에 현재 날씨 표시** — 날씨가 활성화되고 위치가 설정된 경우, 팝업 헤더 아래에 현재 기온과 기상 상태를 표시합니다 (`📍 Seoul 22°C Clear`).
+### 개선
+- **위치 검색 UX 개선** — 검색 버튼과 현재 위치(📍) 버튼을 검색창과 한 줄로 배치하여 공간을 절약하고 직관성을 높였습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Weather display in usage popup** — When weather is enabled and location is set, shows current temperature and condition below the popup header (`📍 Seoul 22°C Clear`).
+### Improved
+- **Location search UX** — Search button and current-location (📍) button now sit in a single row with the search box for a cleaner, more compact layout.
+<!-- /en -->
+
 ## [1.29.1] - 2026-05-14
 
 <!-- ko -->

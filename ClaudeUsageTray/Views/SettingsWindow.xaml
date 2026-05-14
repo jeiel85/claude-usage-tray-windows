@@ -548,14 +548,16 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBox x:Name="TxtWeatherSearch" Style="{StaticResource DarkTextBox}" Grid.Column="0"
                                              Padding="10,7" KeyDown="WeatherSearch_KeyDown"/>
-                                    <Button x:Name="BtnWeatherSearch" Grid.Column="1" Width="60" Margin="6,0,0,0"
+                                    <Button x:Name="BtnWeatherSearch" Grid.Column="1" Width="52" Margin="4,0,4,0"
                                             Style="{StaticResource LinkBtn}" Click="BtnWeatherSearch_Click"/>
+                                    <Button x:Name="BtnWeatherUseCurrentLocation" Grid.Column="2" Width="30"
+                                            Style="{StaticResource LinkBtn}" Click="BtnWeatherUseCurrentLocation_Click"
+                                            Content="📍" ToolTip="{Binding}" FontSize="14"/>
                                 </Grid>
-                                <Button x:Name="BtnWeatherUseCurrentLocation" Style="{StaticResource LinkBtn}"
-                                        Margin="0,2,0,6" Click="BtnWeatherUseCurrentLocation_Click"/>
                                 <ComboBox x:Name="CmbWeatherResults" Style="{StaticResource DarkCombo}" Margin="0,0,0,6"
                                           SelectionChanged="CmbWeatherResults_SelectionChanged" Visibility="Collapsed"/>
                                 <TextBlock x:Name="LblWeatherLocationSelected" Foreground="#A78BFA" FontSize="12"

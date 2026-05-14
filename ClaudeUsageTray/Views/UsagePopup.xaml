@@ -290,6 +290,14 @@
                     </Grid>
                 </Border>
 
+                <!-- Weather info (v1.29.0) -->
+                <Border Padding="12,4,16,6" Margin="0,0,0,0"
+                        Visibility="{Binding WeatherHasLocation, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{Binding WeatherPopupLabel}"
+                               Foreground="#6EE7B7" FontSize="10"
+                               VerticalAlignment="Center"/>
+                </Border>
+
                 <!-- Update banner -->
                 <Border Padding="12,8" Margin="16,8,16,0"
                         Background="#1A2E1A" CornerRadius="8"
