@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.29.7] - 2026-05-15
+
+<!-- ko -->
+### 수정
+- **7일 사용추이 차트가 카드 밖으로 삐져나오는 문제** — 팝업이 숨겨진 상태에서 백그라운드 새로고침이 차트 갱신을 트리거하면 `Canvas.ActualWidth`가 아직 0이어서 코드가 폴백 폭(288px)으로 막대/날짜 라벨을 그렸습니다. 실제 카드 내부 가용 폭은 약 252px이라 약 36px 만큼 카드 오른쪽 경계 밖으로 콘텐츠가 튀어나왔습니다(WPF `Canvas`는 기본적으로 자식을 클리핑하지 않음).
+  - `HistoryCanvas`에 `ClipToBounds="True"` 적용해 어떤 상황에서도 카드 안에 머물도록 안전망 추가.
+  - `Canvas.SizeChanged`에서 차트를 재렌더링해 폭이 잡힐 때 정확한 크기로 다시 그림.
+  - `ActualWidth`가 너무 작으면 즉시 그리지 않고 SizeChanged를 기다리도록 변경(잘못된 크기로 자식을 만들지 않음).
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **7-day usage chart overflowing the card** — When a background refresh triggered chart redraw while the popup was hidden, `Canvas.ActualWidth` was still 0, so the code used the 288px fallback to lay out bars and date labels. The actual content width inside the card is ~252px, so bars and labels spilled ~36px past the right edge (WPF `Canvas` does not clip children by default).
+  - Added `ClipToBounds="True"` on `HistoryCanvas` as a safety net.
+  - Re-render the chart on `Canvas.SizeChanged` so it draws at the correct width once layout settles.
+  - Skip drawing when `ActualWidth` is too small instead of seeding children at a wrong size — `SizeChanged` will trigger the real draw.
+<!-- /en -->
+
 ## [1.29.6] - 2026-05-14
 
 <!-- ko -->

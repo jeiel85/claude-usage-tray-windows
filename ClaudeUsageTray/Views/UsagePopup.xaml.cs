@@ -137,6 +137,13 @@ public partial class UsagePopup : Window, IDisposable
         else DrawHistoryChart();
     }
 
+    private void HistoryCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        // 캔버스 폭이 잡히는 시점(또는 변할 때) 정확한 크기로 다시 그림 — Loaded/PropertyChanged 단계에서
+        // ActualWidth 가 0 이라 폴백 폭으로 그린 자식이 카드 밖으로 튀어나오는 문제 방지
+        if (e.WidthChanged) RefreshChart();
+    }
+
     private void DrawHourlyChart()
     {
         HistoryCanvas.Children.Clear();
@@ -146,7 +153,8 @@ public partial class UsagePopup : Window, IDisposable
         const double canvasH  = 60;
         const double barAreaH = 46;
         double canvasW = HistoryCanvas.ActualWidth;
-        if (canvasW < 10) canvasW = 288;
+        // 레이아웃 전에 그리면 폴백 폭이 카드 밖으로 삐져나옴 — SizeChanged 가 올 때 다시 그림
+        if (canvasW < 10) return;
 
         int currentHour = DateTime.Now.Hour;
         int slotCount   = currentHour + 1; // 0 ~ 현재시각
@@ -229,7 +237,8 @@ public partial class UsagePopup : Window, IDisposable
         const double canvasH   = 60;
         const double barAreaH  = 46;
         double canvasW         = HistoryCanvas.ActualWidth;
-        if (canvasW < 10) canvasW = 288; // fallback before layout
+        // 레이아웃 전에 그리면 폴백 폭이 카드 밖으로 삐져나옴 — SizeChanged 가 올 때 다시 그림
+        if (canvasW < 10) return;
 
         int count   = data.Count;
         double slot = canvasW / count;

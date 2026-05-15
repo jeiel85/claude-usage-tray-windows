@@ -533,7 +533,7 @@
                                     </Border>
                                 </StackPanel>
                             </Grid>
-                            <Canvas x:Name="HistoryCanvas" Height="60" Background="Transparent"/>
+                            <Canvas x:Name="HistoryCanvas" Height="60" Background="Transparent" ClipToBounds="True" SizeChanged="HistoryCanvas_SizeChanged"/>
 
                             <!-- Today's Stats (Claude 세션 기준) -->
                             <Border Height="1" Background="#2D2F45" Margin="0,14,0,14"/>
