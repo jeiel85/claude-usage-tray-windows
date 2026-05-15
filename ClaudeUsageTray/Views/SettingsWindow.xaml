@@ -631,6 +631,11 @@
                                 <Border Height="1" Background="#2D2F45" Margin="0,4,0,6"/>
                                 <CheckBox x:Name="ChkWeatherOfficialAlerts" Style="{StaticResource CheckStyle}" Margin="0,0,0,2" Click="Setting_Changed"/>
                                 <TextBlock x:Name="LblWeatherOfficialAlertsHint" Foreground="#5A5F7A" FontSize="10" Margin="2,0,0,0" TextWrapping="Wrap"/>
+
+                                <Border Height="1" Background="#2D2F45" Margin="0,8,0,8"/>
+                                <Button x:Name="BtnTestWeather" Style="{StaticResource LinkBtn}" Margin="0,2,0,2" Click="BtnTestWeather_Click"/>
+                                <TextBlock x:Name="LblTestWeatherHint" Foreground="#5A5F7A" FontSize="10" Margin="2,0,0,0"/>
+
                                 <TextBlock x:Name="LblWeatherSearchError" Foreground="#EF4444" FontSize="10" Margin="0,4,0,0" Visibility="Collapsed"/>
                             </StackPanel>
                             </ScrollViewer>

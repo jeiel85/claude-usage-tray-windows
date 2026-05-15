@@ -3,6 +3,30 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.29.8] - 2026-05-15
+
+<!-- ko -->
+### 추가
+- **날씨 알림 테스트 버튼** — 설정 > 날씨 탭에 "날씨 알림 테스트" 버튼 추가. 현재 날씨 데이터로 알림을 즉시 전송하여 ntfy 연동 상태를 ping처럼 확인 가능.
+- **ntfy 날씨 알림 상세화** — 기존에 ntfy 메시지가 "오늘의 날씨" 제목만 전달하던 문제를 수정. 이제 최저/최고 기온, 현재 기온, 체감 온도, 강수확률이 모두 포함된 상세 메시지가 전송됨.
+- **ntfy 날씨 알림 클릭 링크** — 날씨 알림(일간 예보, 기상 상태 경고, 공식 경보) 클릭 시 Meteoblue 날씨 상세 페이지로 이동.
+- **다국어 문자열 4종 추가** — `WeatherDailyTemp`, `WeatherCurrentTemp`, `WeatherFeelsLike`, `TestWeatherNotification`/`TestWeatherHint`/`TestWeatherNoLocation`/`TestWeatherNoData` (ko/zh/ja/en).
+
+### 수정
+- **기상 상태 경고 ntfy 메시지 누락** — 비/폭염/한파/풍 경고 시 ntfy에 경고 제목만 전송되던 문제를 수정. 실제 경고 내용이 메시지 본문에 포함됨.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Weather alert test button** — Added "Test weather alert" button in Settings > Weather tab. Sends an immediate notification with current weather data, useful for verifying ntfy integration like a ping.
+- **Detailed ntfy weather notifications** — Fixed issue where ntfy messages only contained the "Today's Weather" title. Now includes daily low/high, current temperature, feels-like temperature, and precipitation probability.
+- **Clickable weather links in ntfy** — Weather notifications (daily forecast, condition alerts, official warnings) now include a click URL that opens the Meteoblue weather detail page.
+- **4 new localization strings** — `WeatherDailyTemp`, `WeatherCurrentTemp`, `WeatherFeelsLike`, `TestWeatherNotification`/`TestWeatherHint`/`TestWeatherNoLocation`/`TestWeatherNoData` (ko/zh/ja/en).
+
+### Fixed
+- **Condition alert ntfy message missing detail** — Rain/heat/cold/wind warnings only sent the alert title to ntfy instead of the actual warning content. Now the full message body is included.
+<!-- /en -->
+
 ## [1.29.7] - 2026-05-15
 
 <!-- ko -->

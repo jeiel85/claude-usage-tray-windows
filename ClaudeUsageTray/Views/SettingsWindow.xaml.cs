@@ -195,6 +195,8 @@ public partial class SettingsWindow : Window, IDisposable
         ChkWeatherOfficialAlerts.Content           = Loc.WeatherOfficialAlerts;
         LblWeatherOfficialAlertsHint.Text          = Loc.WeatherOfficialAlertsHint;
         BtnWeatherUseCurrentLocation.ToolTip        = Loc.WeatherUseCurrentLocation;
+        BtnTestWeather.Content                     = Loc.TestWeatherNotification;
+        LblTestWeatherHint.Text                   = Loc.TestWeatherHint;
 
         // 새 ntfy 가이드 링크 — 이전 3줄 가이드를 단일 링크로 압축
         BtnNtfyDownload.Content = Loc.CurrentLang switch
@@ -424,6 +426,28 @@ public partial class SettingsWindow : Window, IDisposable
         await Task.Delay(AppConstants.UiFeedbackDelayMs);
         BtnTestNotification.Content = original;
         BtnTestNotification.IsEnabled = true;
+    }
+
+    private async void BtnTestWeather_Click(object sender, RoutedEventArgs e)
+    {
+        var original = BtnTestWeather.Content;
+        BtnTestWeather.IsEnabled = false;
+
+        var error = await _vm.SendTestWeatherNotificationAsync();
+        if (error != null)
+        {
+            BtnTestWeather.Content = error;
+            await Task.Delay(AppConstants.UiFeedbackDelayMs);
+            BtnTestWeather.Content = original;
+        }
+        else
+        {
+            BtnTestWeather.Content = "✓";
+            await Task.Delay(AppConstants.UiFeedbackDelayMs);
+            BtnTestWeather.Content = original;
+        }
+
+        BtnTestWeather.IsEnabled = true;
     }
 
     private void StartWithWindows_Changed(object sender, RoutedEventArgs e)

@@ -832,6 +832,54 @@ public partial class MainViewModel : ObservableObject, IDisposable
         return await _notifier.ShowTestAlertAsync(NtfyTopicEffective);
     }
 
+    public async Task<string?> SendTestWeatherNotificationAsync()
+    {
+        if (!WeatherLatitude.HasValue || !WeatherLongitude.HasValue)
+            return Loc.TestWeatherNoLocation;
+
+        var location = new Models.WeatherLocation(
+            WeatherLocationName, WeatherCountryCode, null,
+            WeatherLatitude.Value, WeatherLongitude.Value, WeatherTimezone);
+
+        WeatherReport report;
+        try
+        {
+            report = await _weather.GetForecastAsync(location);
+        }
+        catch
+        {
+            return Loc.TestWeatherNoData;
+        }
+
+        if (report.Current == null)
+            return Loc.TestWeatherNoData;
+
+        var loc = report.Current.Location;
+        var condLabel = GetWeatherConditionLabel(report.Current.ConditionKey);
+        var ntfyTopic = NtfySendFromThisPc ? NtfyTopic : "";
+
+        var title = Loc.WeatherForecastTitle;
+        var ntfyBody = $"{loc.Name}: {condLabel}";
+        if (report.Daily.Count > 0)
+        {
+            var today = report.Daily[0];
+            if (today.MinTemperatureC.HasValue && today.MaxTemperatureC.HasValue)
+                ntfyBody += $"\n{Loc.WeatherDailyTemp(today.MinTemperatureC.Value, today.MaxTemperatureC.Value)}";
+        }
+        ntfyBody += $"\n{Loc.WeatherCurrentTemp(report.Current.TemperatureC)}";
+        if (report.Current.ApparentTemperatureC.HasValue)
+            ntfyBody += $" ({Loc.WeatherFeelsLike(report.Current.ApparentTemperatureC.Value)})";
+        if (report.Daily.Count > 0 && report.Daily[0].PrecipitationProbabilityMax is int precip)
+            ntfyBody += $"\n{Loc.WeatherRainProbability(precip)}";
+
+        var clickUrl = WeatherAlertService.BuildWeatherClickUrlPublic(loc);
+
+        _notifier.ShowWeatherAlert(title, ntfyBody, ntfyTopic,
+            ntfyBody, tags: ["sunny"], clickUrl: clickUrl);
+
+        return null;
+    }
+
     [RelayCommand]
     public void ApplyUpdate()
     {

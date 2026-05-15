@@ -1409,6 +1409,38 @@ public static class Loc
         _ => "Today's Weather"
     };
 
+    public static string TestWeatherNotification => Lang switch
+    {
+        "ko" => "날씨 알림 테스트",
+        "zh" => "天气通知测试",
+        "ja" => "天気通知テスト",
+        _ => "Test weather alert"
+    };
+
+    public static string TestWeatherHint => Lang switch
+    {
+        "ko" => "현재 날씨 정보로 알림을 전송합니다",
+        "zh" => "当前天气信息发送通知",
+        "ja" => "現在の天気情報で通知を送信します",
+        _ => "Sends a notification with current weather info"
+    };
+
+    public static string TestWeatherNoLocation => Lang switch
+    {
+        "ko" => "위치가 설정되지 않았습니다",
+        "zh" => "未设置位置",
+        "ja" => "位置が設定されていません",
+        _ => "No location set"
+    };
+
+    public static string TestWeatherNoData => Lang switch
+    {
+        "ko" => "날씨 데이터를 불러오지 못했습니다",
+        "zh" => "无法加载天气数据",
+        "ja" => "天気データを読み込めませんでした",
+        _ => "Could not load weather data"
+    };
+
     public static string WeatherWarningTitle => Lang switch
     {
         "ko" => "기상 알림",
@@ -1543,5 +1575,29 @@ public static class Loc
         "zh" => $"{location} {temp:F0}°C {condition}",
         "ja" => $"{location} {temp:F0}°C {condition}",
         _ => $"{location} {temp:F0}°C {condition}"
+    };
+
+    public static string WeatherDailyTemp(double min, double max) => Lang switch
+    {
+        "ko" => $"최저 {min:F0}°C / 최고 {max:F0}°C",
+        "zh" => $"最低 {min:F0}°C / 最高 {max:F0}°C",
+        "ja" => $"最低 {min:F0}°C / 最高 {max:F0}°C",
+        _ => $"Low {min:F0}°C / High {max:F0}°C"
+    };
+
+    public static string WeatherCurrentTemp(double temp) => Lang switch
+    {
+        "ko" => $"현재 {temp:F0}°C",
+        "zh" => $"当前 {temp:F0}°C",
+        "ja" => $"現在 {temp:F0}°C",
+        _ => $"Now {temp:F0}°C"
+    };
+
+    public static string WeatherFeelsLike(double temp) => Lang switch
+    {
+        "ko" => $"체감 {temp:F0}°C",
+        "zh" => $"体感 {temp:F0}°C",
+        "ja" => $"体感 {temp:F0}°C",
+        _ => $"feels like {temp:F0}°C"
     };
 }

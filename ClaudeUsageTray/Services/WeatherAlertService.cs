@@ -61,12 +61,23 @@ public class WeatherAlertService
                     var condLabel = GetConditionLabel(today.WeatherCode);
                     var body = $"{loc.Name}: {condLabel}";
                     if (today.MaxTemperatureC.HasValue && today.MinTemperatureC.HasValue)
-                        body += $", {today.MinTemperatureC.Value:F0}~{today.MaxTemperatureC.Value:F0}°C";
+                        body += $", {today.MinTemperatureC.Value:F0}/{today.MaxTemperatureC.Value:F0}°C";
                     if (today.PrecipitationProbabilityMax.HasValue)
                         body += $", {Loc.WeatherRainProbability(today.PrecipitationProbabilityMax.Value)}";
 
-                    _notifier.ShowWeatherAlert(title, body, ntfyTopic,
-                        Loc.WeatherForecastTitle, tags: ["sunny"]);
+                    var ntfyBody = $"{loc.Name}: {condLabel}";
+                    if (today.MinTemperatureC.HasValue && today.MaxTemperatureC.HasValue)
+                        ntfyBody += $"\n{Loc.WeatherDailyTemp(today.MinTemperatureC.Value, today.MaxTemperatureC.Value)}";
+                    ntfyBody += $"\n{Loc.WeatherCurrentTemp(report.Current.TemperatureC)}";
+                    if (report.Current.ApparentTemperatureC.HasValue)
+                        ntfyBody += $" ({Loc.WeatherFeelsLike(report.Current.ApparentTemperatureC.Value)})";
+                    if (today.PrecipitationProbabilityMax.HasValue)
+                        ntfyBody += $"\n{Loc.WeatherRainProbability(today.PrecipitationProbabilityMax.Value)}";
+
+                    var clickUrl = BuildWeatherClickUrl(loc);
+
+                    _notifier.ShowWeatherAlert(title, ntfyBody, ntfyTopic,
+                        ntfyBody, tags: ["sunny"], clickUrl: clickUrl);
                     cache.SentKeys.Add(dailyKey);
                 }
             }
@@ -92,6 +103,7 @@ public class WeatherAlertService
     {
         var settings = _getSettings();
         var today = report.Daily.Count > 0 ? report.Daily[0] : null;
+        var clickUrl = BuildWeatherClickUrl(loc);
 
         if (today != null)
         {
@@ -104,10 +116,10 @@ public class WeatherAlertService
                          $"{loc.Latitude:F2}:{loc.Longitude:F2}";
                 if (!cache.SentKeys.Contains(key))
                 {
+                    var body = $"{loc.Name}: {Loc.WeatherRainWarning(today.PrecipitationProbabilityMax.Value)}";
                     _notifier.ShowWeatherAlert(
-                        Loc.WeatherWarningTitle,
-                        $"{loc.Name}: {Loc.WeatherRainWarning(today.PrecipitationProbabilityMax.Value)}",
-                        ntfyTopic, Loc.WeatherWarningTitle, tags: ["umbrella"]);
+                        Loc.WeatherWarningTitle, body, ntfyTopic, body,
+                        tags: ["umbrella"], clickUrl: clickUrl);
                     cache.SentKeys.Add(key);
                 }
             }
@@ -118,10 +130,10 @@ public class WeatherAlertService
                          $"{loc.Latitude:F2}:{loc.Longitude:F2}";
                 if (!cache.SentKeys.Contains(key))
                 {
+                    var body = $"{loc.Name}: {Loc.WeatherHeatWarning(today.MaxTemperatureC.Value)}";
                     _notifier.ShowWeatherAlert(
-                        Loc.WeatherWarningTitle,
-                        $"{loc.Name}: {Loc.WeatherHeatWarning(today.MaxTemperatureC.Value)}",
-                        ntfyTopic, Loc.WeatherWarningTitle, tags: ["hot"]);
+                        Loc.WeatherWarningTitle, body, ntfyTopic, body,
+                        tags: ["hot"], clickUrl: clickUrl);
                     cache.SentKeys.Add(key);
                 }
             }
@@ -132,10 +144,10 @@ public class WeatherAlertService
                          $"{loc.Latitude:F2}:{loc.Longitude:F2}";
                 if (!cache.SentKeys.Contains(key))
                 {
+                    var body = $"{loc.Name}: {Loc.WeatherColdWarning(today.MinTemperatureC.Value)}";
                     _notifier.ShowWeatherAlert(
-                        Loc.WeatherWarningTitle,
-                        $"{loc.Name}: {Loc.WeatherColdWarning(today.MinTemperatureC.Value)}",
-                        ntfyTopic, Loc.WeatherWarningTitle, tags: ["snowflake"]);
+                        Loc.WeatherWarningTitle, body, ntfyTopic, body,
+                        tags: ["snowflake"], clickUrl: clickUrl);
                     cache.SentKeys.Add(key);
                 }
             }
@@ -148,10 +160,10 @@ public class WeatherAlertService
                      $"{loc.Latitude:F2}:{loc.Longitude:F2}";
             if (!cache.SentKeys.Contains(key))
             {
+                var body = $"{loc.Name}: {Loc.WeatherWindWarning(report.Current.WindSpeedKmh.Value)}";
                 _notifier.ShowWeatherAlert(
-                    Loc.WeatherWarningTitle,
-                    $"{loc.Name}: {Loc.WeatherWindWarning(report.Current.WindSpeedKmh.Value)}",
-                    ntfyTopic, Loc.WeatherWarningTitle, tags: ["wind"]);
+                    Loc.WeatherWarningTitle, body, ntfyTopic, body,
+                    tags: ["wind"], clickUrl: clickUrl);
                 cache.SentKeys.Add(key);
             }
         }
@@ -160,6 +172,8 @@ public class WeatherAlertService
     private async Task CheckOfficialAlerts(
         WeatherLocation loc, AlertCache cache, string ntfyTopic, WeatherReport report)
     {
+        var clickUrl = BuildWeatherClickUrl(loc);
+
         foreach (var provider in _warningProviders)
         {
             if (!provider.Supports(loc)) continue;
@@ -170,10 +184,10 @@ public class WeatherAlertService
                 var key = $"nws:{alert.Id}";
                 if (cache.SentKeys.Contains(key)) continue;
 
+                var body = $"{alert.Event} · {alert.Severity}\n{alert.Headline}";
                 _notifier.ShowWeatherAlert(
-                    Loc.WeatherWarningTitle,
-                    $"{alert.Event} · {alert.Severity}\n{alert.Headline}",
-                    ntfyTopic, Loc.WeatherWarningTitle, tags: ["warning"]);
+                    Loc.WeatherWarningTitle, body, ntfyTopic, body,
+                    tags: ["warning"], clickUrl: clickUrl);
                 cache.SentKeys.Add(key);
             }
 
@@ -192,6 +206,18 @@ public class WeatherAlertService
         var now = DateTime.Now;
         var target = new DateTime(now.Year, now.Month, now.Day, h, m, 0);
         return now >= target && now < target.AddMinutes(30);
+    }
+
+    private static string BuildWeatherClickUrl(WeatherLocation loc)
+    {
+        return BuildWeatherClickUrlPublic(loc);
+    }
+
+    public static string BuildWeatherClickUrlPublic(WeatherLocation loc)
+    {
+        var lat = loc.Latitude.ToString(CultureInfo.InvariantCulture);
+        var lon = loc.Longitude.ToString(CultureInfo.InvariantCulture);
+        return $"https://www.meteoblue.com/en/weather/widget/interactive/{lat}N{lon}E12";
     }
 
     private static bool IsSignificantPrecip(int wmoCode) =>

@@ -64,38 +64,44 @@ public class NotificationService
     }
 
     public void ShowWeatherAlert(string title, string body, string ntfyTopic,
-        string? ntfyMessage = null, int priority = 4, string[]? tags = null)
+        string? ntfyMessage = null, int priority = 4, string[]? tags = null,
+        string? clickUrl = null)
     {
         ShowBalloon(title, body);
-        SendNtfyWeather(ntfyTopic, title, ntfyMessage ?? body, priority, tags ?? ["sunny"]);
+        SendNtfyWeather(ntfyTopic, title, ntfyMessage ?? body, priority, tags ?? ["sunny"],
+            clickUrl);
     }
 
     private static void SendNtfyWeather(string topic, string title, string message,
-        int priority, string[] tags)
+        int priority, string[] tags, string? clickUrl)
     {
         if (string.IsNullOrWhiteSpace(topic)) return;
 
         _ = Task.Run(async () =>
         {
-            await SendNtfyWeatherAsync(topic, title, message, priority, tags);
+            await SendNtfyWeatherAsync(topic, title, message, priority, tags, clickUrl);
         });
     }
 
     private static async Task<bool> SendNtfyWeatherAsync(string topic, string title,
-        string message, int priority, string[] tags)
+        string message, int priority, string[] tags, string? clickUrl)
     {
         try
         {
             if (await IsRecentDuplicateAsync(topic, title, message)) return true;
 
-            var payload = JsonSerializer.Serialize(new
+            var payloadObj = new Dictionary<string, object?>
             {
-                topic = topic.Trim(),
-                title,
-                message,
-                priority,
-                tags
-            });
+                ["topic"] = topic.Trim(),
+                ["title"] = title,
+                ["message"] = message,
+                ["priority"] = priority,
+                ["tags"] = tags
+            };
+            if (!string.IsNullOrWhiteSpace(clickUrl))
+                payloadObj["click"] = clickUrl;
+
+            var payload = JsonSerializer.Serialize(payloadObj);
             var req = new HttpRequestMessage(HttpMethod.Post, "https://ntfy.sh/")
             {
                 Content = new StringContent(payload, Encoding.UTF8, "application/json")
