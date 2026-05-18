@@ -1486,12 +1486,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
 
         // 2. 임계값 알림
+        var providerLabel = UsageProviderKind.DisplayName(provider);
         foreach (var t in settings.Thresholds.OrderBy(x => x))
         {
             double tf = t / 100.0;
             if (prevPercent < tf && newPercent >= tf)
             {
-                _notifier.ShowUsageAlert(t, provider, resetLabel, ntfyTopic);
+                _notifier.ShowUsageAlert(t, providerLabel, resetLabel, ntfyTopic);
             }
         }
     }

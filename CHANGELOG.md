@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.29.9] - 2026-05-18
+
+<!-- ko -->
+### 변경
+- **알림 제목을 다중 에이전트 환경에 맞게 일반화** — 사용량 알림(Windows balloon · ntfy) 제목을 "Claude 사용량 알림" → "에이전트 사용량 알림"으로 변경. Claude 외에 Codex/Gemini CLI 등 다른 에이전트 임계값 알림도 모두 같은 제목으로 발송되므로 더 정확한 표현으로 통일.
+- **에이전트 이름 표기 정상화** — Codex/Gemini CLI 임계값 알림 본문에서 공급자 이름이 내부 키 그대로(`codex`, `gemini-cli`) 소문자로 출력되던 문제를 수정. 이제 본문에 "Codex가 90%에 도달했습니다", "Gemini CLI가 90%에 도달했습니다"처럼 사람이 읽기 좋은 표기로 표시됨.
+- **다국어 적용** — 알림 제목과 ntfy 안내 문구를 ko/zh/ja/en 모두 동일한 흐름으로 갱신.
+<!-- /ko -->
+
+<!-- en -->
+### Changed
+- **Generalized notification title for the multi-agent setup** — Usage alert title (Windows balloon · ntfy) renamed from "Claude Usage Alert" → "Agent Usage Alert". Threshold alerts now fire for Codex/Gemini CLI as well, so the title is updated to cover all monitored agents.
+- **Proper-cased agent names in alert body** — Threshold alerts for Codex/Gemini CLI previously printed the internal kind string (`codex`, `gemini-cli`) verbatim. The body now reads "Codex reached 90%" / "Gemini CLI reached 90%" instead.
+- **Localized everywhere** — Updated the notification title and ntfy onboarding copy across ko/zh/ja/en.
+<!-- /en -->
+
 ## [1.29.8] - 2026-05-15
 
 <!-- ko -->

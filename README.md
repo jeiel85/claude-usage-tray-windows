@@ -34,6 +34,7 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode A
 - [**.NET 9.0 Desktop Runtime**](https://dotnet.microsoft.com/download/dotnet/9.0/runtime) — 미설치 시 앱이 실행되지 않음
 
 ## 이슈
+- `개선` 모바일 알림 표기 정리 (2026-05-18): 사용량 알림 제목을 "Claude 사용량 알림" → "에이전트 사용량 알림"으로 일반화하고, Codex/Gemini CLI 임계값 알림 본문에서 공급자 이름이 내부 키 그대로 소문자로 노출되던 문제(`codex` → `Codex` 등) 수정.
 - `기능` 날씨 알림 및 트레이 날씨 정보 표시 (#63, 2026-05-14): 설정 창에서 날씨 알림 수신 여부와 위치를 설정하고, 현재 날씨/예보/특보를 기존 ntfy 경로로 발송하며 트레이 툴팁에 현재 위치와 날씨 정보를 표시하는 기능 설계.
 - `개선` CI 실패 대응 (2026-04-29): `v1.21.0` 태그 기준 GitHub Actions 빌드 실패 원인(C# 소스 말미 중복 코드로 인한 컴파일 오류) 분석 및 수정.
 

@@ -320,10 +320,10 @@ public static class Loc
     // Notifications
     public static string NotificationTitle => Lang switch
     {
-        "ko" => "Claude 사용량 알림",
-        "zh" => "Claude 用量提醒",
-        "ja" => "Claude 使用量アラート",
-        _ => "Claude Usage Alert"
+        "ko" => "에이전트 사용량 알림",
+        "zh" => "智能体用量提醒",
+        "ja" => "エージェント使用量アラート",
+        _ => "Agent Usage Alert"
     };
 
     public static string NotificationBody(int percent, string window, string resetLabel) => Lang switch
@@ -401,10 +401,10 @@ public static class Loc
 
     public static string NtfyDesc => Lang switch
     {
-        "ko" => "ntfy.sh는 무료 오픈소스 푸시 알림 서비스예요. 앱을 설치하고 토픽을 구독하면 Claude 사용량 알림을 스마트폰에서 바로 받을 수 있어요.",
-        "zh" => "ntfy.sh 是免费的开源推送通知服务。安装应用并订阅主题后，即可在手机上接收 Claude 用量提醒。",
-        "ja" => "ntfy.sh は無料のオープンソース Push 通知サービスです。アプリをインストールしてトピックを購読すると、Claude の使用量アラートをスマホで受け取れます。",
-        _ => "ntfy.sh is a free, open-source push notification service. Install the app, subscribe to a topic, and receive Claude usage alerts directly on your phone."
+        "ko" => "ntfy.sh는 무료 오픈소스 푸시 알림 서비스예요. 앱을 설치하고 토픽을 구독하면 에이전트 사용량 알림을 스마트폰에서 바로 받을 수 있어요.",
+        "zh" => "ntfy.sh 是免费的开源推送通知服务。安装应用并订阅主题后，即可在手机上接收智能体用量提醒。",
+        "ja" => "ntfy.sh は無料のオープンソース Push 通知サービスです。アプリをインストールしてトピックを購読すると、エージェントの使用量アラートをスマホで受け取れます。",
+        _ => "ntfy.sh is a free, open-source push notification service. Install the app, subscribe to a topic, and receive agent usage alerts directly on your phone."
     };
 
     public static string NtfyDownload => Lang switch

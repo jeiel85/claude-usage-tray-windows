@@ -10,4 +10,13 @@ public static class UsageProviderKind
 
     public static bool IsValid(string? value) =>
         value is Auto or Claude or Codex or GeminiCli or OpenCode;
+
+    public static string DisplayName(string? kind) => kind switch
+    {
+        Claude    => "Claude",
+        Codex     => "Codex",
+        GeminiCli => "Gemini CLI",
+        OpenCode  => "OpenCode",
+        _         => kind ?? ""
+    };
 }
