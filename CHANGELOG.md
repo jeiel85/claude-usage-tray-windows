@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.30.1] - 2026-05-19
+
+<!-- ko -->
+### 수정
+- **알림 본문 에이전트명 중복 제거** — Codex 등 타 에이전트 사용량 알림 본문에 `[Codex] Codex`처럼 에이전트명이 중복 표시되던 버그 수정. 이제 `[Codex] 사용량` 형식으로 간결하게 표시됨.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Removed duplicated agent name in notification body** — Fixed a bug where the agent name appeared twice (e.g. `[Codex] Codex`) in usage alerts for non-Claude providers. Now displays as `[Codex] Usage`.
+<!-- /en -->
+
 ## [1.30.0] - 2026-05-19
 
 <!-- ko -->

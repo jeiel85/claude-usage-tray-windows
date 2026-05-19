@@ -1492,7 +1492,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             double tf = t / 100.0;
             if (prevPercent < tf && newPercent >= tf)
             {
-                _notifier.ShowUsageAlert(t, providerLabel, resetLabel, ntfyTopic, providerLabel);
+                _notifier.ShowUsageAlert(t, Loc.Usage, resetLabel, ntfyTopic, providerLabel);
             }
         }
     }

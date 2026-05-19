@@ -317,6 +317,14 @@ public static class Loc
         _ => $"Updated {time}"
     };
 
+    public static string Usage => Lang switch
+    {
+        "ko" => "사용량",
+        "zh" => "用量",
+        "ja" => "使用量",
+        _ => "Usage"
+    };
+
     // Notifications
     public static string NotificationTitle => Lang switch
     {
