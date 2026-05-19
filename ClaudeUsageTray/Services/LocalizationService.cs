@@ -318,20 +318,20 @@ public static class Loc
     };
 
     // Notifications
-    public static string NotificationTitle(string agent) => Lang switch
+    public static string NotificationTitle => Lang switch
     {
-        "ko" => $"{agent} 사용량 알림",
-        "zh" => $"{agent} 用量提醒",
-        "ja" => $"{agent} 使用量アラート",
-        _ => $"{agent} Usage Alert"
+        "ko" => "에이전트 사용량 알림",
+        "zh" => "智能体用量提醒",
+        "ja" => "エージェント使用量アラート",
+        _ => "Agent Usage Alert"
     };
 
-    public static string NotificationBody(int percent, string window, string resetLabel) => Lang switch
+    public static string NotificationBody(int percent, string window, string resetLabel, string agent = "") => Lang switch
     {
-        "ko" => $"{window}{(window.EndsWith("량") ? "이" : "가")} {percent}%에 도달했습니다{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}",
-        "zh" => $"{window} 已达到 {percent}%{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}",
-        "ja" => $"{window} が {percent}% に達しました{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}",
-        _ => $"{window} reached {percent}%{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}"
+        "ko" => $"{(agent.Length > 0 ? $"[{agent}] " : "")}{window}{(window.EndsWith("량") ? "이" : "가")} {percent}%에 도달했습니다{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}",
+        "zh" => $"{(agent.Length > 0 ? $"[{agent}] " : "")}{window} 已达到 {percent}%{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}",
+        "ja" => $"{(agent.Length > 0 ? $"[{agent}] " : "")}{window} が {percent}% に達しました{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}",
+        _ => $"{(agent.Length > 0 ? $"[{agent}] " : "")}{window} reached {percent}%{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}"
     };
 
     public static string RateLimitTitle => Lang switch

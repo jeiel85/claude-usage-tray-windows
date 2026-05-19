@@ -17,8 +17,8 @@ public class NotificationService
 
     public void ShowUsageAlert(int thresholdPercent, string windowLabel, string resetLabel, string ntfyTopic, string agent = "Claude")
     {
-        var title = Loc.NotificationTitle(agent);
-        var body  = Loc.NotificationBody(thresholdPercent, windowLabel, resetLabel);
+        var title = Loc.NotificationTitle;
+        var body  = Loc.NotificationBody(thresholdPercent, windowLabel, resetLabel, agent);
 
         ShowBalloon(title, body);
         SendNtfy(ntfyTopic, title, body);
@@ -26,7 +26,7 @@ public class NotificationService
 
     public void ShowTestAlert(string ntfyTopic, string agent = "Claude")
     {
-        var title = Loc.NotificationTitle(agent);
+        var title = Loc.NotificationTitle;
         var body  = Loc.TestNotificationBody;
         ShowBalloon(title, body);
         SendNtfy(ntfyTopic, title, body);
@@ -34,7 +34,7 @@ public class NotificationService
 
     public async Task<NotificationTestResult> ShowTestAlertAsync(string ntfyTopic, string agent = "Claude")
     {
-        var title = Loc.NotificationTitle(agent);
+        var title = Loc.NotificationTitle;
         var body  = Loc.TestNotificationBody;
         ShowBalloon(title, body);
 

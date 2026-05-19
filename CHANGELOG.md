@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.30.0] - 2026-05-19
+
+<!-- ko -->
+### 변경
+- **알림 본문에 에이전트 이름 표시** — 사용량 알림 본문에 에이전트 이름(Claude, Codex, Gemini CLI 등)이 `[Claude]`, `[Codex]` 형식으로 표시되어 어떤 에이전트의 알림인지 즉시 구분 가능.
+<!-- /ko -->
+
+<!-- en -->
+### Changed
+- **Agent name in notification body** — Usage alert body now displays the agent name (Claude, Codex, Gemini CLI, etc.) in `[Claude]`, `[Codex]` format for immediate identification.
+<!-- /en -->
+
 ## [1.29.9] - 2026-05-18
 
 <!-- ko -->
