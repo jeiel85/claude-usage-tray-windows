@@ -318,12 +318,12 @@ public static class Loc
     };
 
     // Notifications
-    public static string NotificationTitle => Lang switch
+    public static string NotificationTitle(string agent) => Lang switch
     {
-        "ko" => "에이전트 사용량 알림",
-        "zh" => "智能体用量提醒",
-        "ja" => "エージェント使用量アラート",
-        _ => "Agent Usage Alert"
+        "ko" => $"{agent} 사용량 알림",
+        "zh" => $"{agent} 用量提醒",
+        "ja" => $"{agent} 使用量アラート",
+        _ => $"{agent} Usage Alert"
     };
 
     public static string NotificationBody(int percent, string window, string resetLabel) => Lang switch

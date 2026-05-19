@@ -1492,7 +1492,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             double tf = t / 100.0;
             if (prevPercent < tf && newPercent >= tf)
             {
-                _notifier.ShowUsageAlert(t, providerLabel, resetLabel, ntfyTopic);
+                _notifier.ShowUsageAlert(t, providerLabel, resetLabel, ntfyTopic, providerLabel);
             }
         }
     }
@@ -1626,7 +1626,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             double tf = t / 100.0;
             if (_prevShortPercent < tf && newPercent >= tf)
             {
-                _notifier.ShowUsageAlert(t, Loc.FiveHourWindow, resetLabel, ntfyTopic);
+                _notifier.ShowUsageAlert(t, Loc.FiveHourWindow, resetLabel, ntfyTopic, "Claude");
             }
         }
 
@@ -1639,7 +1639,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 // 이전 값과 현재 값 비교 (초기값 0에서 첫 알림이 가지 않도록)
                 if (_prevExtraPercent < tf && ExtraUsagePercent >= tf)
                 {
-                    _notifier.ShowUsageAlert(t, Loc.ExtraUsageTitle, "", ntfyTopic);
+                    _notifier.ShowUsageAlert(t, Loc.ExtraUsageTitle, "", ntfyTopic, "Claude");
                 }
             }
             _prevExtraPercent = ExtraUsagePercent;

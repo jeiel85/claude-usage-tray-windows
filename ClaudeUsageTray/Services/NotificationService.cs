@@ -15,26 +15,26 @@ public class NotificationService
         _getIcon = getNotifyIcon;
     }
 
-    public void ShowUsageAlert(int thresholdPercent, string windowLabel, string resetLabel, string ntfyTopic)
+    public void ShowUsageAlert(int thresholdPercent, string windowLabel, string resetLabel, string ntfyTopic, string agent = "Claude")
     {
-        var title = Loc.NotificationTitle;
+        var title = Loc.NotificationTitle(agent);
         var body  = Loc.NotificationBody(thresholdPercent, windowLabel, resetLabel);
 
         ShowBalloon(title, body);
         SendNtfy(ntfyTopic, title, body);
     }
 
-    public void ShowTestAlert(string ntfyTopic)
+    public void ShowTestAlert(string ntfyTopic, string agent = "Claude")
     {
-        var title = Loc.NotificationTitle;
+        var title = Loc.NotificationTitle(agent);
         var body  = Loc.TestNotificationBody;
         ShowBalloon(title, body);
         SendNtfy(ntfyTopic, title, body);
     }
 
-    public async Task<NotificationTestResult> ShowTestAlertAsync(string ntfyTopic)
+    public async Task<NotificationTestResult> ShowTestAlertAsync(string ntfyTopic, string agent = "Claude")
     {
-        var title = Loc.NotificationTitle;
+        var title = Loc.NotificationTitle(agent);
         var body  = Loc.TestNotificationBody;
         ShowBalloon(title, body);
 
