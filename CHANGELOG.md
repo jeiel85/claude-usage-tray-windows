@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.30.3] - 2026-05-20
+
+<!-- ko -->
+### 개선
+- **초기화 시간 10분 미만 시 초 단위 카운트다운 표시** — 리셋 시간이 10분 미만 남았을 때 "9m 59s"와 같이 초 단위로 정밀하게 표시하여 사용자가 정확한 초기화 시점을 파악할 수 있도록 개선. API 요청은 기존 2분 주기를 유지하면서 화면 표시만 1초마다 갱신.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Seconds-precision countdown when reset time is under 10 minutes** — When the quota reset time is less than 10 minutes away, the display now shows precise second-level countdown (e.g., "9m 59s") instead of rounding to minutes. The API polling interval remains unchanged at 2 minutes; only the display updates every second.
+<!-- /en -->
+
 ## [1.30.2] - 2026-05-20
 
 <!-- ko -->
