@@ -397,7 +397,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 _secondsUntilRefresh--;
             var s = _secondsUntilRefresh;
             var label = s >= 60 ? $"{s / 60}:{s % 60:D2}" : $"{s}s";
-            System.Windows.Application.Current.Dispatcher.Invoke(() => NextRefreshLabel = label);
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                NextRefreshLabel = label;
+                // 10분 미만일 때 리셋 라벨도 1초마다 업데이트
+                UpdateResetLabelsIfNeeded();
+            });
         };
         _countdownTimer.AutoReset = true;
 
@@ -1655,7 +1660,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         var diff = resetAt.Value - DateTimeOffset.Now;
         if (diff.TotalSeconds <= 0) return "";
         string time;
-        if (diff.TotalHours < 1) time = $"{(int)diff.TotalMinutes}m";
+        if (diff.TotalMinutes < 10) time = $"{(int)diff.Minutes}m {diff.Seconds:D2}s";
+        else if (diff.TotalHours < 1) time = $"{(int)diff.TotalMinutes}m";
         else if (diff.TotalDays < 1) time = $"{(int)diff.TotalHours}h {diff.Minutes}m";
         else time = $"{(int)diff.TotalDays}d {diff.Hours}h";
         var rel = isEstimated ? Loc.ResetsInEstimated(time) : Loc.ResetsIn(time);
@@ -1667,6 +1673,27 @@ public partial class MainViewModel : ObservableObject, IDisposable
             ? local.ToString("HH:mm")
             : local.ToString("MM/dd HH:mm");
         return $"{rel} ({stamp})";
+    }
+
+    /// <summary>
+    /// 10분 미만 남은 리셋 라벨을 1초마다 업데이트 (초 단위 카운트다운).
+    /// API 요청 없이 화면 표시만 갱신한다.
+    /// </summary>
+    private void UpdateResetLabelsIfNeeded()
+    {
+        var now = DateTimeOffset.Now;
+
+        if (_rawClaudeShortResetAt.HasValue && (_rawClaudeShortResetAt.Value - now).TotalMinutes < 10)
+            ClaudeShortReset = FormatResetLabel(_rawClaudeShortResetAt);
+
+        if (_rawClaudeLongResetAt.HasValue && (_rawClaudeLongResetAt.Value - now).TotalMinutes < 10)
+            ClaudeLongReset = FormatResetLabel(_rawClaudeLongResetAt);
+
+        if (_rawCodexShortResetAt.HasValue && (_rawCodexShortResetAt.Value - now).TotalMinutes < 10)
+            CodexReset = FormatResetLabel(_rawCodexShortResetAt, _rawCodexShortResetEstimated);
+
+        if (_rawCodexLongResetAt.HasValue && (_rawCodexLongResetAt.Value - now).TotalMinutes < 10)
+            CodexLongReset = FormatResetLabel(_rawCodexLongResetAt);
     }
 
     /// <summary>
