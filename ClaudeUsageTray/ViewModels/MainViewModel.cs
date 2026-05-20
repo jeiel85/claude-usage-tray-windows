@@ -525,14 +525,17 @@ public partial class MainViewModel : ObservableObject, IDisposable
             _ => false
         };
 
-        if (!string.IsNullOrEmpty(FocusedProvider) &&
-            UsageProviderKind.IsValid(FocusedProvider) &&
+        // 빈 문자열은 "모두 접힘" 상태로 허용
+        if (string.IsNullOrEmpty(FocusedProvider))
+            return;
+
+        if (UsageProviderKind.IsValid(FocusedProvider) &&
             IsEnabledFor(FocusedProvider))
         {
             return; // 현재 값 유효
         }
 
-        // 폴백
+        // 폴백 — 유효하지 않은 공급자거나 비활성된 공급자를 가리킬 때만
         if (IsClaudeEnabled)        FocusedProvider = UsageProviderKind.Claude;
         else if (IsCodexEnabled)    FocusedProvider = UsageProviderKind.Codex;
         else if (IsGeminiEnabled)   FocusedProvider = UsageProviderKind.GeminiCli;

@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.30.2] - 2026-05-20
+
+<!-- ko -->
+### 개선
+- **에이전트 아코디언 모두 접기 허용** — 메인 팝업에서 에이전트별 상세 사용량을 아코디언 방식으로 표시할 때, 기존에는 반드시 하나 이상 펼쳐져 있어야 했던 제약을 제거. 이제 펼쳐진 섹션을 다시 클릭하면 접히며, 모든 섹션을 동시에 접을 수 있음.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Allow collapsing all agent accordion sections** — Removed the constraint that required at least one agent detail section to remain expanded in the main popup. Clicking an already-expanded section now collapses it, allowing all sections to be collapsed simultaneously.
+<!-- /en -->
+
 ## [1.30.1] - 2026-05-19
 
 <!-- ko -->

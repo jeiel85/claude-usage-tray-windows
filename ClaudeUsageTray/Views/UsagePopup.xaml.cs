@@ -374,7 +374,13 @@ public partial class UsagePopup : Window, IDisposable
 
     private void SetFocusedProvider(string provider)
     {
-        if (_vm.FocusedProvider == provider) return; // 이미 focused
+        // 같은 공급자 클릭 → 토글 off (모두 접기)
+        if (_vm.FocusedProvider == provider)
+        {
+            _vm.FocusedProvider = "";
+            _vm.SaveSettingsCommand.Execute(null);
+            return;
+        }
         _vm.FocusedProvider = provider;
         _vm.SaveSettingsCommand.Execute(null);
     }
