@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.30.5] - 2026-05-21
+
+<!-- ko -->
+### 개선
+- **작은 화면에서 팝업 자동 접기** — work area 높이가 800px 이하인 작은 화면(노트북 등)에서 사용량 팝업을 열 때 모든 에이전트 섹션을 접은 상태로 시작. Claude 상세를 펼치면 팝업이 찌그러지는 문제를 방지하며, 사용자가 원하는 공급자를 클릭하여 직접 펼칠 수 있음.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Auto-collapse popup on small screens** — When the work area height is 800px or less (laptops etc.), the usage popup now opens with all agent sections collapsed. This prevents the popup from becoming cramped when Claude's detail section is expanded. Users can tap any provider row to expand it manually.
+<!-- /en -->
+
 ## [1.30.4] - 2026-05-21
 
 <!-- ko -->

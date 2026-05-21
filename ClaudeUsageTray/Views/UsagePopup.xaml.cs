@@ -388,6 +388,14 @@ public partial class UsagePopup : Window, IDisposable
     public void ShowNearTray()
     {
         ApplyMaxHeight();
+
+        // 작은 화면(work area 높이 ≤ 800px)에서는 Claude 상세를 펼치면 팝업이 찌그러지므로
+        // 모든 섹션을 접은 상태로 연다. 사용자가 원하는 공급자를 직접 클릭하여 펼칠 수 있다.
+        if (SystemParameters.WorkArea.Height <= 800)
+        {
+            _vm.FocusedProvider = "";
+        }
+
         AnchorToTrayCorner();
         Show();
         Activate();
