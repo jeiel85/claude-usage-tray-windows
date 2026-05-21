@@ -350,6 +350,22 @@ public static class Loc
         _ => "Claude Rate Limit Reached"
     };
 
+    public static string EarlyExhaustionTitle => Lang switch
+    {
+        "ko" => "Claude 조기 소진 경고",
+        "zh" => "Claude 提前耗尽警告",
+        "ja" => "Claude 早期枯渇警告",
+        _ => "Claude Early Exhaustion"
+    };
+
+    public static string EarlyExhaustionBody(string depletionTime, string resetTime) => Lang switch
+    {
+        "ko" => $"예상보다 빠른 소진 속도입니다. 이대로면 {depletionTime}경 소진 예상 (원래 초기화: {resetTime})",
+        "zh" => $"消耗速度超出预期。按此速度将于 {depletionTime} 耗尽（原重置时间：{resetTime}）",
+        "ja" => $"予想より早い枯渇ペースです。このままでは {depletionTime} 頃に枯渇する見込み（本来のリセット：{resetTime}）",
+        _ => $"Depleting faster than expected. At this rate will exhaust by {depletionTime} (original reset: {resetTime})"
+    };
+
     // Settings
     public static string Notifications => Lang switch
     {

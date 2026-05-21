@@ -63,6 +63,15 @@ public class NotificationService
         SendNtfy(ntfyTopic, title, body);
     }
 
+    public void ShowEarlyExhaustionAlert(string depletionTime, string resetTime, string ntfyTopic)
+    {
+        var title = Loc.EarlyExhaustionTitle;
+        var body  = Loc.EarlyExhaustionBody(depletionTime, resetTime);
+
+        ShowBalloon(title, body);
+        SendNtfy(ntfyTopic, title, body);
+    }
+
     public void ShowWeatherAlert(string title, string body, string ntfyTopic,
         string? ntfyMessage = null, int priority = 4, string[]? tags = null,
         string? clickUrl = null)

@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.30.4] - 2026-05-21
+
+<!-- ko -->
+### 추가
+- **조기 소진 푸시 알림** — 토큰 소진 속도가 예상보다 빨라 5시간 윈도우 하단에 조기 소진 라벨이 표시될 때, Windows 알림 및 ntfy 푸시 알림을 발송. 예상 소진 시각과 원래 초기화 시간을 비교하여 알려주며, 동일 윈도우 내에서는 중복 발송되지 않음.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Early exhaustion push notification** — When token consumption outpaces the 5-hour window and triggers the early exhaustion label, a Windows toast and ntfy push notification is now sent. The alert includes the predicted exhaustion time and original reset time for comparison. Duplicate alerts within the same window are suppressed.
+<!-- /en -->
+
 ## [1.30.3] - 2026-05-20
 
 <!-- ko -->
