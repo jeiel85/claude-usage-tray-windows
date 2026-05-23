@@ -228,9 +228,8 @@ public class UpdateService
             }
             catch (Exception ex)
             {
-                // If SHA256 file is missing or verification fails, we might still proceed 
-                // but let's be strict for security.
-                Debug.WriteLine($"SHA256 Error: {ex.Message}");
+                File.Delete(tempExe);
+                throw new Exception("SHA256 verification failed", ex);
             }
         }
 

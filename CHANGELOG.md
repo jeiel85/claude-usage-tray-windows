@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.30.6] - 2026-05-23
+
+<!-- ko -->
+### 수정
+- **테스트 빌드 및 코드 안정성 개선** — xUnit1031 규칙 위반으로 인한 테스트 프로젝트 빌드 실패 수정, 트레이 아이콘 GDI+ Bitmap 누수 해결, SHA256 업데이트 검증 실패 시 엄격하게 예외 발생, 날씨 알림 처리 중 예외를 무단 삼키던 빈 catch 블록 제거, 루트 폴더 미사용 오류 덤프 파일 정리.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Test build and code stability improvements** — Fixed test project build failure caused by xUnit1031 rule violations, resolved tray icon GDI+ Bitmap leak, made SHA256 update verification throw on failure, removed empty catch blocks that silently swallowed weather alert exceptions, cleaned up unused error dump file in root folder.
+<!-- /en -->
+
 ## [1.30.5] - 2026-05-21
 
 <!-- ko -->

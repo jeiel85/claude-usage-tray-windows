@@ -284,7 +284,7 @@ public partial class App : Application
     // usagePercent = -1 means unknown/error state → shows "?"
     private static Icon DrawTrayIcon(double usagePercent)
     {
-        var bmp = new Bitmap(16, 16);
+        using var bmp = new Bitmap(16, 16);
         using (var g = Graphics.FromImage(bmp))
         {
             g.Clear(Color.Transparent);
@@ -298,7 +298,7 @@ public partial class App : Application
                 g.DrawRectangle(borderPen, 1, 1, 13, 13);
                 using var font = new Font(new FontFamily("Arial"), 8f, System.Drawing.FontStyle.Bold);
                 using var textBrush = new SolidBrush(Color.FromArgb(180, 180, 200));
-                var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
                 g.DrawString("?", font, textBrush, new RectangleF(1, 1, 14, 14), sf);
             }
             else

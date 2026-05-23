@@ -63,14 +63,14 @@ public class WeatherServiceTests
     }
 
     [Fact]
-    public void GetForecastAsync_ParsesRealApiResponse()
+    public async Task GetForecastAsync_ParsesRealApiResponse()
     {
         // Uses the public Open-Meteo API to test real-world parsing
         var service = new WeatherService();
         var location = new ClaudeUsageTray.Models.WeatherLocation(
             "Seoul", "KR", "Seoul", 37.5665, 126.9780, "Asia/Seoul");
 
-        var report = service.GetForecastAsync(location).GetAwaiter().GetResult();
+        var report = await service.GetForecastAsync(location);
 
         Assert.NotNull(report);
         Assert.NotNull(report.Current);
@@ -80,10 +80,10 @@ public class WeatherServiceTests
     }
 
     [Fact]
-    public void SearchLocationsAsync_ReturnsResults_ForKnownCity()
+    public async Task SearchLocationsAsync_ReturnsResults_ForKnownCity()
     {
         var service = new WeatherService();
-        var results = service.SearchLocationsAsync("Seoul", "en").GetAwaiter().GetResult();
+        var results = await service.SearchLocationsAsync("Seoul", "en");
 
         Assert.NotEmpty(results);
         var first = results.First();
@@ -94,18 +94,18 @@ public class WeatherServiceTests
     }
 
     [Fact]
-    public void SearchLocationsAsync_ReturnsEmpty_ForTooShortQuery()
+    public async Task SearchLocationsAsync_ReturnsEmpty_ForTooShortQuery()
     {
         var service = new WeatherService();
-        var results = service.SearchLocationsAsync("X", "en").GetAwaiter().GetResult();
+        var results = await service.SearchLocationsAsync("X", "en");
         Assert.Empty(results);
     }
 
     [Fact]
-    public void SearchLocationsAsync_ReturnsEmpty_ForNonsenseQuery()
+    public async Task SearchLocationsAsync_ReturnsEmpty_ForNonsenseQuery()
     {
         var service = new WeatherService();
-        var results = service.SearchLocationsAsync("zxcvbnmasdfghj", "en").GetAwaiter().GetResult();
+        var results = await service.SearchLocationsAsync("zxcvbnmasdfghj", "en");
         Assert.Empty(results);
     }
 }

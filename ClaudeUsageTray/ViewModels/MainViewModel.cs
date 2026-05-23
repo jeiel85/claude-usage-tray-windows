@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using System.Timers;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -1926,7 +1927,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     {
                         await _weatherAlert.ProcessAlertsAsync(report);
                     }
-                    catch { }
+                    catch (Exception alertEx)
+                    {
+                        Debug.WriteLine($"Weather alert processing error: {alertEx.Message}");
+                    }
                 });
             }
         }
