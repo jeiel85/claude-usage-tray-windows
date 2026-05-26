@@ -6,7 +6,7 @@
 ![License](https://img.shields.io/badge/license-MIT-10B981?style=flat-square)
 ![Built with Claude](https://img.shields.io/badge/built%20with-Claude%20AI-F59E0B?style=flat-square)
 
-Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode AI 사용량을 실시간으로 통합 모니터링하는 앱입니다.
+Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode AI 사용량과 날씨 알림을 함께 확인하는 통합 모니터링 앱입니다.
 
 > **[claude-usage-mini](https://github.com/jeremy-prt/claude-usage-mini) by [@jeremy-prt](https://github.com/jeremy-prt) 에서 영감을 받았습니다**
 
@@ -20,7 +20,7 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode A
 
 | 파일 | 크기 | 설명 |
 |------|------|------|
-| `ClaudeUsageTray.exe` | ~170 KB | Framework-dependent — [.NET 9.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0/runtime) 필요 |
+| `ClaudeUsageTray.exe` | 약 32 MB | Framework-dependent 단일 실행 파일 — [.NET 9.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0/runtime) 필요 |
 
 **실행 방법:**
 1. 위 링크에서 `ClaudeUsageTray.exe` 다운로드
@@ -33,7 +33,14 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode A
 - [Claude Code](https://claude.ai/code) 설치 및 로그인 상태
 - [**.NET 9.0 Desktop Runtime**](https://dotnet.microsoft.com/download/dotnet/9.0/runtime) — 미설치 시 앱이 실행되지 않음
 
+## 공개 링크
+
+- **GitHub Pages**: [jeiel85.github.io/claude-usage-tray-windows](https://jeiel85.github.io/claude-usage-tray-windows/)
+- **최신 릴리즈**: [GitHub Releases latest](https://github.com/jeiel85/claude-usage-tray-windows/releases/latest)
+- **변경 이력**: [CHANGELOG.md](CHANGELOG.md)
+
 ## 이슈
+- `개선` GitHub Pages/README/저장소 메타데이터 최신화 (#69, 2026-05-26): 최신 v1.30.6 기준으로 GitHub IO 랜딩 페이지, README 다운로드/기능 설명, GitHub 저장소 설명 및 토픽 태그를 점검하고 서로 다른 공개 정보(지원 공급자, .NET 런타임 필요 여부, 릴리즈 자산 크기)를 일관되게 정리.
 - `버그` 테스트 빌드 실패 및 코드 안정성 개선 (2026-05-23): xUnit1031 규칙 위반으로 인한 테스트 프로젝트 빌드 실패 수정, 트레이 아이콘 GDI+ Bitmap 누수 해결, SHA256 업데이트 검증 실패 시 엄격하게 예외 발생, 날씨 알림 처리 중 예외를 무단 삼키던 빈 catch 블록 제거, 루트 폴더 미사용 오류 덤프 파일 정리.
 - `개선` 작은 화면에서 팝업 자동 접기 (2026-05-21): work area 높이가 800px 이하인 작은 화면(노트북 등)에서 사용량 팝업을 열 때 모든 에이전트 섹션을 접은 상태로 시작. Claude 상세를 펼치면 팝업이 찌그러지는 문제 방지. 사용자가 원하는 공급자를 클릭하여 직접 펼칠 수 있음.
 - `기능` 조기 소진 푸시 알림 (2026-05-21): 토큰 소진 속도가 예상보다 빨라 5시간 윈도우 하단에 조기 소진 라벨이 표시될 때, Windows 알림 및 ntfy 푸시 알림을 발송. 예상 소진 시각과 원래 초기화 시간을 비교하여 알려주며, 동일 윈도우 내에서는 중복 발송되지 않음.
@@ -52,6 +59,7 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode A
 - **Codex (ChatGPT Plan)**: ChatGPT 플랜 사용량 상태 확인
 - **Gemini CLI**: 로컬 로그 기반 요청 수 및 출력 토큰 실시간 추적
 - **OpenCode**: 로컬 DB 기반 오늘의 입력/출력 토큰 모니터링
+- **날씨 알림**: 설정한 위치의 현재 날씨, 예보, 특보를 트레이 툴팁과 알림 경로로 확인
 - **통합 트레이 툴팁**: 아이콘에 마우스를 올리면 4개 공급자의 상태 요약 즉시 확인
 - **동적 트레이 아이콘**: Claude 5시간 사용량 기준 게이지 표시
 
@@ -64,11 +72,12 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode A
 
 **스마트 알림**
 - **임계값 알림**: 설정된 임계값(50% / 75% / 90% / 100%) 도달 시 Windows 알림
+- **조기 소진 알림**: 5시간 윈도우보다 빠르게 토큰이 소진될 것으로 예상되면 Windows 및 ntfy 알림 발송
 - **모바일 푸시**: [ntfy.sh](https://ntfy.sh) 연동으로 스마트폰(iOS/Android) 실시간 푸시 수신
 
 **편의 기능**
 - **다국어 지원**: 한국어, 영어, 일본어, 중국어 완벽 지원 (설정 창에서 즉시 변경 가능)
-- **무설치 단일 파일**: 별도의 설치 과정 없이 `exe` 파일 하나로 실행
+- **무설치 단일 파일**: 별도의 설치 과정 없이 `exe` 파일 하나로 실행 (.NET 9.0 Desktop Runtime 필요)
 - **자동 업데이트**: 새 버전 출시 시 팝업 알림 및 원클릭 업데이트
 
 ---

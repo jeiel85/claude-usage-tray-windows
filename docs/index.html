@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Claude Usage Tray — Windows</title>
-  <meta name="description" content="Windows 시스템 트레이에서 Claude AI 사용량을 실시간으로 모니터링. 단일 .exe, 설치 불필요." />
+  <meta name="description" content="Windows 시스템 트레이에서 Claude, Codex, Gemini CLI, OpenCode 사용량과 날씨 알림을 함께 확인하는 통합 모니터링 앱." />
   <meta property="og:title" content="Claude Usage Tray" />
-  <meta property="og:description" content="Monitor your Claude AI usage from the Windows system tray." />
+  <meta property="og:description" content="Monitor Claude, Codex, Gemini CLI, OpenCode usage and weather alerts from the Windows system tray." />
   <meta property="og:image" content="https://jeiel85.github.io/claude-usage-tray-windows/screenshot.png" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -351,8 +351,8 @@
   <div class="app-icon">📊</div>
   <h1>Claude Usage Tray</h1>
   <p class="hero-sub">
-    Windows 시스템 트레이에서 Claude AI 사용량을<br>
-    실시간으로 모니터링하세요. 가볍고, 빠르고, 설치 없이.
+    Windows 시스템 트레이에서 Claude, Codex, Gemini CLI,<br>
+    OpenCode 사용량과 날씨 알림을 한눈에 확인하세요.
   </p>
 
   <div class="cta-group">
@@ -366,7 +366,7 @@
     </a>
   </div>
   <p class="cta-note">
-    Windows 10+ &nbsp;·&nbsp; .NET 런타임 불필요 &nbsp;·&nbsp; MIT License
+    Windows 10+ &nbsp;·&nbsp; .NET 9.0 Desktop Runtime 필요 &nbsp;·&nbsp; MIT License
     &nbsp;&nbsp;
     <a href="https://github.com/jeiel85/claude-usage-tray-windows/releases">모든 릴리즈 보기 →</a>
   </p>
@@ -383,13 +383,13 @@
   <div class="grid">
     <div class="card">
       <div class="card-icon">📊</div>
-      <h3>실시간 할당량 추적</h3>
-      <p>5시간 · 7일 롤링 윈도우 진행 바와 정확한 초기화 시각을 한눈에.</p>
+      <h3>멀티 에이전트 사용량 추적</h3>
+      <p>Claude, Codex, Gemini CLI, OpenCode 상태를 시스템 트레이에서 함께 확인.</p>
     </div>
     <div class="card">
       <div class="card-icon">🔔</div>
       <h3>스마트 알림</h3>
-      <p>50% · 75% · 90% · 100% 도달 시 Windows Toast 알림. ntfy.sh로 스마트폰 푸시도 지원.</p>
+      <p>임계값 도달과 조기 소진 예상 시 Windows Toast 알림. ntfy.sh 스마트폰 푸시도 지원.</p>
     </div>
     <div class="card">
       <div class="card-icon">🔄</div>
@@ -403,13 +403,13 @@
     </div>
     <div class="card">
       <div class="card-icon">⚡</div>
-      <h3>설치 없음 · 단일 파일</h3>
-      <p>.exe 하나로 끝. .NET 런타임 설치 불필요. 윈도우 시작 시 자동 실행도 지원.</p>
+      <h3>설치 없음 · 단일 실행 파일</h3>
+      <p>.exe 하나로 실행. Windows 시작 시 자동 실행을 지원하며 .NET 9.0 Desktop Runtime이 필요.</p>
     </div>
     <div class="card">
-      <div class="card-icon">🔐</div>
-      <h3>별도 로그인 없음</h3>
-      <p>Claude Code가 저장한 OAuth 토큰을 자동으로 재사용. 추가 인증 불필요.</p>
+      <div class="card-icon">☁️</div>
+      <h3>날씨 알림</h3>
+      <p>설정한 위치의 현재 날씨, 예보, 특보를 트레이 툴팁과 알림 흐름에 함께 표시.</p>
     </div>
   </div>
 </section>
@@ -430,8 +430,8 @@
       <div class="step">
         <div class="step-num">2</div>
         <div class="step-body">
-          <h4>실행</h4>
-          <p>Windows Defender 경고 시 → <strong>추가 정보 → 실행</strong> 클릭</p>
+          <h4>런타임 확인 후 실행</h4>
+          <p><a href="https://dotnet.microsoft.com/download/dotnet/9.0/runtime" style="color:var(--purple-light);">.NET 9.0 Desktop Runtime</a> 설치 후 Windows Defender 경고 시 <strong>추가 정보 → 실행</strong></p>
         </div>
       </div>
       <div class="step">
