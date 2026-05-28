@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.31.2] - 2026-05-28
+
+<!-- ko -->
+### 개선
+- **Antigravity 모델 다수 노출 시 화면 잘림 방지** — 사용률이 0% 초과인 활성 모델이 다수 존재할 때 메인 사용량 팝업 창이 너무 길어져 화면 경계 밖으로 잘리는 문제를 해결하기 위해 모델 목록을 MaxHeight="180" 제한이 적용된 ScrollViewer로 래핑하여 쾌적한 스크롤 조회를 제공함.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Prevent screen overflow for long Antigravity model lists** — Resolves popup height overflow by wrapping the model list in a ScrollViewer capped at MaxHeight="180" with vertical scrolling, ensuring the popup fits comfortably on all screens when many active models are shown.
+<!-- /en -->
+
 ## [1.31.1] - 2026-05-28
 
 <!-- ko -->
