@@ -66,6 +66,7 @@ public partial class App : Application
         var codexMonitor = new CodexUsageMonitor();
         var geminiCliMonitor = new GeminiCliUsageMonitor();
         var openCodeMonitor = new OpenCodeUsageMonitor();
+        var antigravityMonitor = new AntigravityUsageMonitor();
         var notifier = new NotificationService(() => _trayIcon);
         var updater = new UpdateService();
         var history = new HistoryService();
@@ -77,7 +78,7 @@ public partial class App : Application
             [nwsProvider]);
 
         _vm = new MainViewModel(apiService, credService, sessionMonitor, codexMonitor, geminiCliMonitor,
-            openCodeMonitor, notifier, settingsService, updater, history, weather, weatherAlert);
+            openCodeMonitor, antigravityMonitor, notifier, settingsService, updater, history, weather, weatherAlert);
         _popup = new UsagePopup(_vm);
 
         _trayIcon = new NotifyIcon

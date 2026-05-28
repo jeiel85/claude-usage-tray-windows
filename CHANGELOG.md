@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.31.0] - 2026-05-28
+
+<!-- ko -->
+### 추가
+- **Antigravity 모델별 쿼터 패널** — Google Antigravity IDE(2.0)의 모델별 사용량과 리셋 시간을 트레이 팝업에 표시. Windows Credential Manager의 OAuth 토큰을 활용해 `daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota`를 1시간마다 자동으로 갱신하며, Gemini 2.5/3.x, Claude Sonnet/Opus 4.6, GPT-OSS 120B 등 모델별 잔여 비율과 다음 리셋 시각을 progress bar 로 렌더. Antigravity 미설치/미로그인 PC에서는 섹션이 자동으로 숨겨짐.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Antigravity per-model quota panel** — Surfaces Google Antigravity IDE (2.0) per-model usage and reset times in the tray popup. Reads the OAuth token from Windows Credential Manager and polls `daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota` (hourly auto-refresh), rendering per-model remaining fractions and next reset times as progress bars for Gemini 2.5/3.x, Claude Sonnet/Opus 4.6, GPT-OSS 120B, and more. The section auto-hides on PCs where Antigravity is not installed or signed in.
+<!-- /en -->
+
 ## [1.30.7] - 2026-05-23
 
 <!-- ko -->

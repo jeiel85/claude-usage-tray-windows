@@ -785,6 +785,55 @@
                         <TextBlock Text="{Binding OpenCodeErrorMessage}" Foreground="#EF4444" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0" Visibility="{Binding OpenCodeHasError, Converter={StaticResource BoolToVisibility}}"/>
                         </StackPanel>
                     </StackPanel>
+
+                    <!-- Antigravity Section (v1.31.0) — per-model quota panel from Google's Antigravity IDE -->
+                    <StackPanel Margin="0,4,0,0" Visibility="{Binding AntigravityHasData, Converter={StaticResource BoolToVisibility}}">
+                        <Border Margin="0,4,0,0" Padding="10,8" Background="#1F2433" CornerRadius="8">
+                            <StackPanel>
+                                <!-- Header row: brand + tier -->
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Width="12" Height="12" CornerRadius="2" Background="#6366F1" Margin="0,0,8,0" VerticalAlignment="Center">
+                                        <TextBlock Text="A" Foreground="White" FontSize="8" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Antigravity" Foreground="#F1F5F9" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding AntigravityTierName}" Foreground="#A5B4FC" FontSize="10" VerticalAlignment="Center"/>
+                                </Grid>
+                                <!-- Per-model quota list -->
+                                <ItemsControl ItemsSource="{Binding AntigravityModels}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,2,0,4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Foreground="#E0E7FF" FontSize="10"/>
+                                                        <TextBlock Grid.Column="1" Text="{Binding UsageLabel}" Foreground="#94A3B8" FontSize="9" VerticalAlignment="Center"/>
+                                                    </Grid>
+                                                    <ProgressBar Value="{Binding UsagePercent}" Maximum="1" Height="4" Margin="0,2,0,0" Foreground="#818CF8" Background="#2A2F45" BorderThickness="0"/>
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="1" Text="{Binding ResetAtLabel}" Foreground="#6B7280" FontSize="9" VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <!-- Error line (if any) -->
+                                <TextBlock Text="{Binding AntigravityErrorMessage}" Foreground="#EF4444" FontSize="10" TextWrapping="Wrap" Margin="0,6,0,0"
+                                           Visibility="{Binding AntigravityHasError, Converter={StaticResource BoolToVisibility}}"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
                 </StackPanel>
 
                 <!-- Footer -->

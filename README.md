@@ -100,6 +100,25 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode A
 ### 4. OpenCode
 - **DB 분석**: OpenCode가 로컬에 저장하는 SQLite DB에서 오늘 사용된 메시지의 입력/출력/캐시 토큰을 집계합니다.
 
+### 5. Antigravity (Google Gemini Code Assist IDE) — v1.31.0+
+- **인증**: Windows Credential Manager 의 `gemini:antigravity` 항목(Antigravity 가 로그인 후 자동 저장하는 OAuth refresh token)을 재사용.
+- **할당량**: `daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota` 를 1시간 주기로 호출하여 모델별 잔여 비율 + 다음 리셋 시각을 받음.
+- **표시**: Gemini 2.5/3.x 계열, Claude Sonnet/Opus 4.6 (Thinking), GPT-OSS 120B 등 사용자 plan 에 포함된 모델 전부 progress bar 로 렌더.
+- **사전 설정 필요**: 비공식 API 라 OAuth client 자격 증명을 사용자가 직접 추출해 다음 경로에 두어야 합니다 — 파일이 없으면 섹션이 자동으로 숨겨집니다.
+
+  ```
+  %APPDATA%\ClaudeUsageTray\antigravity-oauth-client.json
+  ```
+
+  ```json
+  {
+    "client_id": "<Antigravity's OAuth client ID>",
+    "client_secret": "<Antigravity's OAuth client secret>"
+  }
+  ```
+
+  값 추출 방법은 [docs/antigravity-setup.md](docs/antigravity-setup.md) 참고. Antigravity 2.0 마이너 업데이트로 값이 바뀌면 파일을 다시 채워야 합니다.
+
 ---
 
 ## 시작하기

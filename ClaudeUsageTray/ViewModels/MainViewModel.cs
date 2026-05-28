@@ -17,6 +17,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly CodexUsageMonitor _codex;
     private readonly GeminiCliUsageMonitor _geminiCli;
     private readonly OpenCodeUsageMonitor _openCode;
+    private readonly AntigravityUsageMonitor _antigravity;
     private readonly NotificationService _notifier;
     private readonly SettingsService _settingsService;
     private readonly UpdateService _updater;
@@ -116,6 +117,16 @@ public partial class MainViewModel : ObservableObject, IDisposable
     // 오늘의 토큰 4타일 보강 — input/output 이미 있고 cache read/write 추가
     [ObservableProperty] private string _openCodeCacheReadLabel = "—";
     [ObservableProperty] private string _openCodeCacheWriteLabel = "—";
+
+    // Antigravity Usage (v1.31.0) — per-model quota panel from Antigravity (Gemini Code Assist) IDE
+    [ObservableProperty] private bool _antigravityHasData = false;
+    [ObservableProperty] private bool _antigravityHasError = false;
+    [ObservableProperty] private string _antigravityErrorMessage = "";
+    [ObservableProperty] private string _antigravityTierName = "";       // e.g. "Gemini Code Assist"
+    [ObservableProperty] private string _antigravityPaidTierName = "";   // e.g. "Gemini Code Assist in Google One AI Pro"
+    [ObservableProperty] private System.Collections.Generic.IReadOnlyList<AntigravityModelRow> _antigravityModels =
+        System.Array.Empty<AntigravityModelRow>();
+    [ObservableProperty] private bool _isAntigravityEnabled = true;
 
     // Weather (v1.29.0)
     [ObservableProperty] private bool _weatherEnabled;
@@ -363,7 +374,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public MainViewModel(UsageApiService api, CredentialService credentials,
                          SessionMonitor session, CodexUsageMonitor codex, GeminiCliUsageMonitor geminiCli,
-                         OpenCodeUsageMonitor openCode,
+                         OpenCodeUsageMonitor openCode, AntigravityUsageMonitor antigravity,
                          NotificationService notifier, SettingsService settingsService,
                          UpdateService updater, HistoryService history,
                          WeatherService weather, WeatherAlertService weatherAlert)
@@ -374,6 +385,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _codex = codex;
         _geminiCli = geminiCli;
         _openCode = openCode;
+        _antigravity = antigravity;
         _notifier = notifier;
         _settingsService = settingsService;
         _updater = updater;
@@ -913,7 +925,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 RefreshClaudeAsync(),
                 RefreshCodexInternalAsync(),
                 RefreshGeminiCliInternalAsync(),
-                RefreshOpenCodeInternalAsync()
+                RefreshOpenCodeInternalAsync(),
+                RefreshAntigravityInternalAsync()
             };
 
             if (WeatherEnabled)
@@ -1989,9 +2002,115 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         _credentials.CredentialsChanged -= OnCredentialsChanged;
         _credentials.Dispose();
+        _antigravity.Dispose();
         _timer.Dispose();
         _countdownTimer.Dispose();
         _updateTimer.Dispose();
         GC.SuppressFinalize(this);
     }
+
+    private async Task RefreshAntigravityInternalAsync()
+    {
+        if (!IsAntigravityEnabled)
+        {
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                AntigravityHasData = false;
+                AntigravityHasError = false;
+                AntigravityErrorMessage = "";
+                AntigravityModels = System.Array.Empty<AntigravityModelRow>();
+            });
+            return;
+        }
+
+        AntigravitySnapshot snap;
+        try
+        {
+            snap = await _antigravity.GetSnapshotAsync();
+        }
+        catch (Exception ex)
+        {
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                AntigravityHasData = false;
+                AntigravityHasError = true;
+                AntigravityErrorMessage = ex.Message;
+                AntigravityModels = System.Array.Empty<AntigravityModelRow>();
+            });
+            return;
+        }
+
+        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+        {
+            if (!snap.HasData)
+            {
+                AntigravityHasData = false;
+                // 미설치/미로그인은 에러로 띄우지 않고 섹션을 그냥 숨김
+                bool isInformational =
+                    string.Equals(snap.ErrorMessage, "Antigravity not signed in", StringComparison.Ordinal)
+                    || string.Equals(snap.ErrorMessage, "no refresh_token in credstore", StringComparison.Ordinal)
+                    || string.Equals(snap.ErrorMessage, "Antigravity OAuth client not configured", StringComparison.Ordinal);
+                AntigravityHasError = !isInformational && !string.IsNullOrEmpty(snap.ErrorMessage);
+                AntigravityErrorMessage = AntigravityHasError ? (snap.ErrorMessage ?? "") : "";
+                AntigravityModels = System.Array.Empty<AntigravityModelRow>();
+                return;
+            }
+
+            AntigravityHasData = true;
+            AntigravityHasError = false;
+            AntigravityErrorMessage = "";
+            AntigravityTierName = snap.TierName ?? "";
+            AntigravityPaidTierName = snap.PaidTierName ?? "";
+
+            var rows = new System.Collections.Generic.List<AntigravityModelRow>(snap.Models.Count);
+            foreach (var m in snap.Models)
+            {
+                // System buckets (chat_*, tab_*) have no resetTime and aren't user-facing — hide them.
+                if (m.ResetTime is null) continue;
+                if (m.ModelId.StartsWith("chat_", StringComparison.Ordinal) ||
+                    m.ModelId.StartsWith("tab_",  StringComparison.Ordinal))
+                    continue;
+
+                double used = Math.Clamp(1.0 - m.RemainingFraction, 0.0, 1.0);
+                rows.Add(new AntigravityModelRow
+                {
+                    ModelId = m.ModelId,
+                    DisplayName = FormatAntigravityModelName(m.ModelId),
+                    UsagePercent = used,
+                    UsageLabel = $"{used * 100:0}% used",
+                    ResetAtLabel = FormatResetLabel(m.ResetTime),
+                });
+            }
+            // Most-used first so a depleted Claude Sonnet/Opus row leads the panel.
+            rows.Sort((a, b) => b.UsagePercent.CompareTo(a.UsagePercent));
+            AntigravityModels = rows;
+        });
+    }
+
+    private static string FormatAntigravityModelName(string modelId)
+    {
+        if (string.IsNullOrEmpty(modelId)) return "(unknown)";
+        // gemini-2.5-flash → Gemini 2.5 Flash, gemini-3.1-flash-lite → Gemini 3.1 Flash Lite
+        var parts = modelId.Split('-');
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < parts.Length; i++)
+        {
+            if (i > 0) sb.Append(' ');
+            var p = parts[i];
+            if (p.Length == 0) continue;
+            sb.Append(char.ToUpperInvariant(p[0]));
+            if (p.Length > 1) sb.Append(p[1..]);
+        }
+        return sb.ToString();
+    }
+}
+
+/// <summary>Single row binding model for the Antigravity model quota list.</summary>
+public sealed class AntigravityModelRow
+{
+    public string ModelId { get; init; } = "";
+    public string DisplayName { get; init; } = "";
+    public double UsagePercent { get; init; }   // 0..1
+    public string UsageLabel { get; init; } = "";
+    public string ResetAtLabel { get; init; } = "";
 }

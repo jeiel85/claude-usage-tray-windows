@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>ClaudeUsageTray.Test.Antigravity</RootNamespace>
+    <AssemblyName>test-antigravity</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Only compile the bits the monitor needs — avoid pulling WPF/WindowsForms from the main proj. -->
+    <Compile Include="..\ClaudeUsageTray\Services\AntigravityUsageMonitor.cs" Link="AntigravityUsageMonitor.cs" />
+    <Compile Include="..\ClaudeUsageTray\Models\AntigravityUsage.cs"          Link="AntigravityUsage.cs" />
+  </ItemGroup>
+</Project>
