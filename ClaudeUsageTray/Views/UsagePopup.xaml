@@ -831,23 +831,25 @@
                                         <ItemsControl ItemsSource="{Binding AntigravityModels}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <Grid Margin="0,2,0,4">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*"/>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                        </Grid.ColumnDefinitions>
-                                                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                                            <Grid>
-                                                                <Grid.ColumnDefinitions>
-                                                                    <ColumnDefinition Width="*"/>
-                                                                    <ColumnDefinition Width="Auto"/>
-                                                                </Grid.ColumnDefinitions>
-                                                                <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Foreground="#E0E7FF" FontSize="10"/>
-                                                                <TextBlock Grid.Column="1" Text="{Binding UsageLabel}" Foreground="#94A3B8" FontSize="9" VerticalAlignment="Center"/>
-                                                            </Grid>
-                                                            <ProgressBar Value="{Binding UsagePercent}" Maximum="1" Height="4" Margin="0,2,0,0" Foreground="#818CF8" Background="#2A2F45" BorderThickness="0"/>
-                                                        </StackPanel>
-                                                        <TextBlock Grid.Column="1" Text="{Binding ResetAtLabel}" Foreground="#6B7280" FontSize="9" VerticalAlignment="Center"/>
+                                                    <Grid Margin="0,4,0,8">
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                        </Grid.RowDefinitions>
+                                                        <!-- 1st Row: Model Name & Usage Status -->
+                                                        <Grid Grid.Row="0">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Foreground="#F1F5F9" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Grid.Column="1" Text="{Binding UsageLabel}" Foreground="#A5B4FC" FontSize="10.5" FontWeight="Bold"/>
+                                                        </Grid>
+                                                        <!-- 2nd Row: Usage Progress Bar -->
+                                                        <ProgressBar Grid.Row="1" Value="{Binding UsagePercent}" Maximum="1" Height="4" Margin="0,5,0,3" Foreground="#818CF8" Background="#2A2F45" BorderThickness="0"/>
+                                                        <!-- 3rd Row: Reset Time Info -->
+                                                        <TextBlock Grid.Row="2" Text="{Binding ResetAtLabel}" Foreground="#6B7280" FontSize="9" HorizontalAlignment="Right"/>
                                                     </Grid>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>

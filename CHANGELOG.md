@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.31.4] - 2026-05-28
+
+<!-- ko -->
+### 개선
+- **Antigravity 활성 모델 리스트 프리미엄 3단 레이아웃 개편** — 모델명 텍스트(`DisplayName`)와 사용률 라벨(`UsageLabel`)이 가로 영역이 좁아 겹치거나 잘리던 문제를 해결하기 위해, 개별 아이템 템플릿을 **1행: 모델명 & 사용률, 2행: ProgressBar, 3행: 초기화 정보**의 3단 가로 확장 구조로 개편했습니다. 모델명이 100% 한눈에 노출되며, 말줄임표 안전 장치 탑재 및 우측 하단 은은한 초기화 정보 배치로 극상의 가독성과 프리미엄 심미성을 구축했습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Premium 3-row Layout for Antigravity Model Items** — Resolves text overlaps and clipped model names by transitioning individual item templates into a **3-tier layout: Row 1 for Model Name & Usage Label, Row 2 for ProgressBar, and Row 3 for Reset Time**. This layout ensures model names are fully visible with safe text trimming, delivering maximized legibility and a highly polished UI.
+<!-- /en -->
+
 ## [1.31.3] - 2026-05-28
 
 <!-- ko -->
