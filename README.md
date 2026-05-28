@@ -1,4 +1,4 @@
-﻿# Claude Usage Tray (Windows)
+# Claude Usage Tray (Windows)
 
 ![GitHub release](https://img.shields.io/github/v/release/jeiel85/claude-usage-tray-windows?style=flat-square&color=8B5CF6)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2B-0078D4?style=flat-square&logo=windows&logoColor=white)
@@ -40,6 +40,7 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode A
 - **변경 이력**: [CHANGELOG.md](CHANGELOG.md)
 
 ## 이슈
+- `개선` Antigravity 사용량 필터링 및 접기 기능 추가 (2026-05-28): Antigravity 모델 목록 중 사용률이 0% 초과인 모델만 노출하도록 필터링하여 불필요한 공백을 줄이고, 다른 공급자들과 마찬가지로 접었다 펼 수 있는 아코디언 접기 및 전체 % 노출을 지원하여 UI 일관성 개선.
 - `변경` ntfy 알림 우선순위 분배 (2026-05-23): 모든 알림이 우선순위 4(고정)로 발송되던 것을 알림 종류와 임계값에 따라 1~5 단계로 분산. 100% 소진은 urgent(5)로 알림음 반복, 50%는 low(2)로 조용히 표시, Rate Limit/Quota Reset은 low(2), 조기 소진은 high(4). 날씨 특보는 기존 우선순위 유지.
 - `개선` GitHub Pages/README/저장소 메타데이터 최신화 (#69, 2026-05-26): 최신 v1.30.6 기준으로 GitHub IO 랜딩 페이지, README 다운로드/기능 설명, GitHub 저장소 설명 및 토픽 태그를 점검하고 서로 다른 공개 정보(지원 공급자, .NET 런타임 필요 여부, 릴리즈 자산 크기)를 일관되게 정리.
 - `버그` 테스트 빌드 실패 및 코드 안정성 개선 (2026-05-23): xUnit1031 규칙 위반으로 인한 테스트 프로젝트 빌드 실패 수정, 트레이 아이콘 GDI+ Bitmap 누수 해결, SHA256 업데이트 검증 실패 시 엄격하게 예외 발생, 날씨 알림 처리 중 예외를 무단 삼키던 빈 catch 블록 제거, 루트 폴더 미사용 오류 덤프 파일 정리.

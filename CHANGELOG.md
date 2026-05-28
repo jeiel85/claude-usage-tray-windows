@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.31.1] - 2026-05-28
+
+<!-- ko -->
+### 개선
+- **Antigravity 모델 목록 필터링 및 아코디언 접기 기능 추가** — Antigravity 모델 목록 중 사용률이 0% 초과인 모델만 노출하도록 필터링하여 불필요한 공백을 줄이고, 다른 공급자들과 마찬가지로 접었다 펼 수 있는 아코디언 접기 및 브랜드 전체 사용 비율 % 노출을 지원하여 UI 가독성과 일관성을 극대화함.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Antigravity model list filtering and accordion collapse** — Filters out models with 0% usage to reduce layout clutter, and introduces interactive accordion folding and aggregate brand usage percentage just like other providers to maximize UI readability and consistency.
+<!-- /en -->
+
 ## [1.31.0] - 2026-05-28
 
 <!-- ko -->

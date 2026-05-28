@@ -127,6 +127,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private System.Collections.Generic.IReadOnlyList<AntigravityModelRow> _antigravityModels =
         System.Array.Empty<AntigravityModelRow>();
     [ObservableProperty] private bool _isAntigravityEnabled = true;
+    [ObservableProperty] private double _antigravityPercent = 0.0;
 
     // Weather (v1.29.0)
     [ObservableProperty] private bool _weatherEnabled;
@@ -307,6 +308,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _isCodexFocused = false;
     [ObservableProperty] private bool _isGeminiFocused = false;
     [ObservableProperty] private bool _isOpenCodeFocused = false;
+    [ObservableProperty] private bool _isAntigravityFocused = false;
 
     [ObservableProperty] private double _openCodePercent = 0;
     [ObservableProperty] private double _trayUsagePercent = 0;
@@ -530,6 +532,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         IsCodexFocused    = value == UsageProviderKind.Codex;
         IsGeminiFocused   = value == UsageProviderKind.GeminiCli;
         IsOpenCodeFocused = value == UsageProviderKind.OpenCode;
+        IsAntigravityFocused = value == UsageProviderKind.Antigravity;
     }
 
     /// <summary>
@@ -544,6 +547,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             UsageProviderKind.Codex     => IsCodexEnabled,
             UsageProviderKind.GeminiCli => IsGeminiEnabled,
             UsageProviderKind.OpenCode  => IsOpenCodeEnabled,
+            UsageProviderKind.Antigravity => IsAntigravityEnabled,
             _ => false
         };
 
@@ -562,6 +566,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         else if (IsCodexEnabled)    FocusedProvider = UsageProviderKind.Codex;
         else if (IsGeminiEnabled)   FocusedProvider = UsageProviderKind.GeminiCli;
         else if (IsOpenCodeEnabled) FocusedProvider = UsageProviderKind.OpenCode;
+        else if (IsAntigravityEnabled) FocusedProvider = UsageProviderKind.Antigravity;
         else                        FocusedProvider = UsageProviderKind.Claude; // 모두 비활성 시 최후 폴백
     }
 
@@ -2062,6 +2067,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
             AntigravityTierName = snap.TierName ?? "";
             AntigravityPaidTierName = snap.PaidTierName ?? "";
 
+            double totalUsed = 0;
+            int modelCount = 0;
             var rows = new System.Collections.Generic.List<AntigravityModelRow>(snap.Models.Count);
             foreach (var m in snap.Models)
             {
@@ -2072,6 +2079,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
                     continue;
 
                 double used = Math.Clamp(1.0 - m.RemainingFraction, 0.0, 1.0);
+                totalUsed += used;
+                modelCount++;
+
+                if (used <= 0) continue;
+
                 rows.Add(new AntigravityModelRow
                 {
                     ModelId = m.ModelId,
@@ -2084,6 +2096,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
             // Most-used first so a depleted Claude Sonnet/Opus row leads the panel.
             rows.Sort((a, b) => b.UsagePercent.CompareTo(a.UsagePercent));
             AntigravityModels = rows;
+
+            AntigravityPercent = modelCount > 0 ? totalUsed / modelCount : 0.0;
         });
     }
 
