@@ -1538,7 +1538,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             double tf = t / 100.0;
             if (prevPercent < tf && newPercent >= tf)
             {
-                _notifier.ShowUsageAlert(t, Loc.Usage, resetLabel, ntfyTopic, providerLabel);
+                _notifier.ShowUsageAlert(t, Loc.Usage, resetLabel, ntfyTopic, providerLabel, ThresholdToPriority(t));
             }
         }
     }
@@ -1672,7 +1672,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             double tf = t / 100.0;
             if (_prevShortPercent < tf && newPercent >= tf)
             {
-                _notifier.ShowUsageAlert(t, Loc.FiveHourWindow, resetLabel, ntfyTopic, "Claude");
+                _notifier.ShowUsageAlert(t, Loc.FiveHourWindow, resetLabel, ntfyTopic, "Claude", ThresholdToPriority(t));
             }
         }
 
@@ -1685,12 +1685,20 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 // 이전 값과 현재 값 비교 (초기값 0에서 첫 알림이 가지 않도록)
                 if (_prevExtraPercent < tf && ExtraUsagePercent >= tf)
                 {
-                    _notifier.ShowUsageAlert(t, Loc.ExtraUsageTitle, "", ntfyTopic, "Claude");
+                    _notifier.ShowUsageAlert(t, Loc.ExtraUsageTitle, "", ntfyTopic, "Claude", ThresholdToPriority(t));
                 }
             }
             _prevExtraPercent = ExtraUsagePercent;
         }
     }
+
+    private static int ThresholdToPriority(int threshold) => threshold switch
+    {
+        >= 100 => 5,  // urgent — 소진
+        >= 90  => 4,  // high — 임박
+        >= 75  => 3,  // default — 경고
+        _      => 2   // low — 참고
+    };
 
     private string FormatResetLabel(DateTimeOffset? resetAt, bool isEstimated = false)
     {

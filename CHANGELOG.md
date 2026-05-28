@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.30.7] - 2026-05-23
+
+<!-- ko -->
+### 변경
+- **ntfy 알림 우선순위 분배** — 모든 알림이 우선순위 4(고정)로 발송되던 것을 알림 종류와 임계값에 따라 1~5 단계로 분산. 100% 소진은 urgent(5)로 알림음 반복, 50%는 low(2)로 조용히 표시되며, Rate Limit과 Quota Reset은 low(2), 조기 소진은 high(4)로 설정. 날씨 특보는 기존 우선순위 유지.
+<!-- /ko -->
+
+<!-- en -->
+### Changed
+- **ntfy notification priority differentiation** — All notifications previously sent at fixed priority 4 are now differentiated by type and threshold across 1–5 levels. 100% exhaustion triggers urgent(5) with repeated sound, 50% is low(2) and collapsed, Rate Limit and Quota Reset are low(2), early exhaustion is high(4). Weather alerts retain their existing priority.
+<!-- /en -->
+
 ## [1.30.6] - 2026-05-23
 
 <!-- ko -->

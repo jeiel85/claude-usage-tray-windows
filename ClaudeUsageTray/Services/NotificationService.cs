@@ -15,21 +15,21 @@ public class NotificationService
         _getIcon = getNotifyIcon;
     }
 
-    public void ShowUsageAlert(int thresholdPercent, string windowLabel, string resetLabel, string ntfyTopic, string agent = "Claude")
+    public void ShowUsageAlert(int thresholdPercent, string windowLabel, string resetLabel, string ntfyTopic, string agent = "Claude", int priority = 3)
     {
         var title = Loc.NotificationTitle;
         var body  = Loc.NotificationBody(thresholdPercent, windowLabel, resetLabel, agent);
 
         ShowBalloon(title, body);
-        SendNtfy(ntfyTopic, title, body);
+        SendNtfy(ntfyTopic, title, body, priority);
     }
 
-    public void ShowTestAlert(string ntfyTopic, string agent = "Claude")
+    public void ShowTestAlert(string ntfyTopic, string agent = "Claude", int priority = 3)
     {
         var title = Loc.NotificationTitle;
         var body  = Loc.TestNotificationBody;
         ShowBalloon(title, body);
-        SendNtfy(ntfyTopic, title, body);
+        SendNtfy(ntfyTopic, title, body, priority);
     }
 
     public async Task<NotificationTestResult> ShowTestAlertAsync(string ntfyTopic, string agent = "Claude")
@@ -45,31 +45,31 @@ public class NotificationService
         return new NotificationTestResult(true, true, ntfyOk, ntfyOk ? null : Loc.NtfyTestSendFailed);
     }
 
-    public void ShowRateLimitAlert(string ntfyTopic)
+    public void ShowRateLimitAlert(string ntfyTopic, int priority = 2)
     {
         var title = Loc.RateLimitTitle;
         var body  = Loc.RateLimited;
 
         ShowBalloon(title, body);
-        SendNtfy(ntfyTopic, title, body);
+        SendNtfy(ntfyTopic, title, body, priority);
     }
 
-    public void ShowQuotaResetAlert(string ntfyTopic)
+    public void ShowQuotaResetAlert(string ntfyTopic, int priority = 2)
     {
         var title = Loc.QuotaResetTitle;
         var body  = Loc.QuotaResetBody;
 
         ShowBalloon(title, body);
-        SendNtfy(ntfyTopic, title, body);
+        SendNtfy(ntfyTopic, title, body, priority);
     }
 
-    public void ShowEarlyExhaustionAlert(string depletionTime, string resetTime, string ntfyTopic)
+    public void ShowEarlyExhaustionAlert(string depletionTime, string resetTime, string ntfyTopic, int priority = 4)
     {
         var title = Loc.EarlyExhaustionTitle;
         var body  = Loc.EarlyExhaustionBody(depletionTime, resetTime);
 
         ShowBalloon(title, body);
-        SendNtfy(ntfyTopic, title, body);
+        SendNtfy(ntfyTopic, title, body, priority);
     }
 
     public void ShowWeatherAlert(string title, string body, string ntfyTopic,
@@ -143,18 +143,18 @@ public class NotificationService
         }
     }
 
-    private static void SendNtfy(string topic, string title, string body)
+    private static void SendNtfy(string topic, string title, string body, int priority = 3)
     {
         if (string.IsNullOrWhiteSpace(topic)) return;
 
         // Fire-and-forget — don't block the UI
         _ = Task.Run(async () =>
         {
-            await SendNtfyAsync(topic, title, body);
+            await SendNtfyAsync(topic, title, body, priority);
         });
     }
 
-    private static async Task<bool> SendNtfyAsync(string topic, string title, string body)
+    private static async Task<bool> SendNtfyAsync(string topic, string title, string body, int priority = 3)
     {
         try
         {
@@ -168,7 +168,7 @@ public class NotificationService
                 topic = topic.Trim(),
                 title,
                 message = body,
-                priority = 4,
+                priority,
                 tags = new[] { "bell" }
             });
             var req = new HttpRequestMessage(HttpMethod.Post, "https://ntfy.sh/")
