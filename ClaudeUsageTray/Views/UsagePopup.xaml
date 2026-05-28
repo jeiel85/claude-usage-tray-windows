@@ -738,7 +738,7 @@
                     </StackPanel>
 
                     <!-- OpenCode Section -->
-                    <StackPanel Margin="0,0,0,0" Visibility="{Binding IsOpenCodeActive, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel Margin="0,0,0,8" Visibility="{Binding IsOpenCodeActive, Converter={StaticResource BoolToVisibility}}">
                         <!-- Compact clickable row -->
                         <Button Click="OpenCodeFocus_Click" Style="{StaticResource AgentRowBtn}">
                             <Grid>

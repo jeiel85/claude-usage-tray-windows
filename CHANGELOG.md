@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.31.5] - 2026-05-28
+
+<!-- ko -->
+### 개선
+- **API 할당량 에이전트 행 간격 일관성 확보** — OpenCode 섹션의 바텀 마진이 다른 에이전트 섹션(Claude, Codex, Antigravity)의 바텀 마진(`8px`)과 달리 `0px`로 되어 있던 간격 불일치를 수정하였습니다. OpenCode 섹션의 마진을 `0,0,0,8`로 통일함으로써 모든 에이전트 행이 시각적으로 대칭을 이루어 훨씬 균형 있고 정돈된 레이아웃을 구축했습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Consistent Vertical Spacing for Agent Rows** — Corrected a margin inconsistency where the OpenCode section's bottom margin was set to `0px` instead of `8px` like the other agent sections (Claude, Codex, Antigravity). Unifying this margin to `8px` ensures perfectly symmetrical spacing, yielding a more polished and visually balanced quota layout.
+<!-- /en -->
+
 ## [1.31.4] - 2026-05-28
 
 <!-- ko -->
