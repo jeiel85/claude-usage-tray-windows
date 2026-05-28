@@ -220,10 +220,15 @@
                 CornerRadius="16"
                 BorderBrush="{StaticResource BorderBrush}"
                 BorderThickness="1">
-            <StackPanel>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
                 <!-- Header -->
-                <Border Background="#1A1D2E" CornerRadius="16,16,0,0" Padding="16,14,16,14">
+                <Border Grid.Row="0" Background="#1A1D2E" CornerRadius="16,16,0,0" Padding="16,14,16,14">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -290,8 +295,12 @@
                     </Grid>
                 </Border>
 
-                <!-- Update banner -->
-                <Border Padding="12,8" Margin="16,8,16,0"
+                <!-- Scrollable Content -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel>
+
+                        <!-- Update banner -->
+                        <Border Padding="12,8" Margin="16,8,16,0"
                         Background="#1A2E1A" CornerRadius="8"
                         BorderBrush="#10B981" BorderThickness="1"
                         Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVisibility}}">
@@ -818,7 +827,7 @@
                                         <TextBlock Grid.Column="1" Text="{Binding AntigravityTierName}" Foreground="#818CF8" FontSize="10" VerticalAlignment="Center" Margin="8,0,0,0"/>
                                     </Grid>
                                     <!-- Per-model quota list (wrapped in ScrollViewer to prevent screen overflow) -->
-                                    <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <ScrollViewer MaxHeight="260" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                         <ItemsControl ItemsSource="{Binding AntigravityModels}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
@@ -852,9 +861,11 @@
                         </StackPanel>
                     </StackPanel>
                 </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
 
                 <!-- Footer -->
-                <Border Padding="16,12" Background="#1A1D2E" CornerRadius="0,0,16,16">
+                <Border Grid.Row="2" Padding="16,12" Background="#1A1D2E" CornerRadius="0,0,16,16">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -919,7 +930,7 @@
                         </StackPanel>
                     </Grid>
                 </Border>
-            </StackPanel>
+            </Grid>
         </Border>
     </Border>
 </Window>

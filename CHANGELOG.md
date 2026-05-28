@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.31.3] - 2026-05-28
+
+<!-- ko -->
+### 개선
+- **팝업 레이아웃의 근본적 스크롤 마이그레이션 (Grid + ScrollViewer)** — 여러 공급자를 활성화하거나 모델이 많을 때 화면 가용 영역(WorkArea)을 넘어 하단이 잘리는 현상을 구조적으로 해결하기 위해 팝업 전체 레이아웃을 **고정 헤더 + 스크롤 메인 + 고정 푸터**의 3단 Grid 아키텍처로 개편했습니다. 윈도우 최대 높이에 도달하면 얇고 미려한 다크 스크롤바가 자동 활성화되어 어떤 해상도에서도 화면 잘림 현상이 원천 차단됩니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Structural Scroll Migration (Grid + ScrollViewer)** — Redesigned the main popup structure into a 3-tier Grid layout featuring a **fixed header, scrollable main content, and fixed footer**. When the dynamic height hits the WorkArea's limit, a sleek dark main ScrollViewer automatically takes over, structurally preventing screen overflow and ensuring usability on all monitor resolutions.
+<!-- /en -->
+
 ## [1.31.2] - 2026-05-28
 
 <!-- ko -->

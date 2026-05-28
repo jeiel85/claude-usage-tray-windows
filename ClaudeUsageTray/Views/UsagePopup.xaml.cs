@@ -70,7 +70,7 @@ public partial class UsagePopup : Window, IDisposable
     /// </summary>
     private void ApplyMaxHeight()
     {
-        MaxHeight = SystemParameters.WorkArea.Height - 16;
+        MaxHeight = SystemParameters.WorkArea.Height - 24;
     }
 
     private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
