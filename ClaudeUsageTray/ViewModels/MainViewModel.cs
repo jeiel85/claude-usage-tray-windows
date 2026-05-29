@@ -9,7 +9,7 @@ using Timer = System.Timers.Timer;
 
 namespace ClaudeUsageTray.ViewModels;
 
-public partial class MainViewModel : ObservableObject, IDisposable
+    public partial class MainViewModel : ObservableObject, IDisposable
 {
     private readonly UsageApiService _api;
     private readonly CredentialService _credentials;
@@ -28,6 +28,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly Timer _countdownTimer;
     private readonly Timer _updateTimer;
     private int _secondsUntilRefresh = 0;
+
+    public AntigravityViewModel AntigravityVm { get; }
+    public WeatherViewModel WeatherVm { get; }
+    public OpenCodeViewModel OpenCodeVm { get; }
+    public GeminiViewModel GeminiVm { get; }
+    public CodexViewModel CodexVm { get; }
+    public ClaudeViewModel ClaudeVm { get; }
 
     // Tracks previous 5h usage to detect threshold crossings
     private double _prevShortPercent = -1;
@@ -155,7 +162,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _weatherTemperatureLabel = "";
     [ObservableProperty] private string _weatherConditionLabel = "";
     [ObservableProperty] private string _weatherIcon = "•";
-    private WeatherReport? _lastWeatherReport;
 
     public bool WeatherHasLocation => WeatherEnabled
         && WeatherLatitude.HasValue && WeatherLongitude.HasValue
@@ -395,6 +401,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _history = history;
         _weather = weather;
         _weatherAlert = weatherAlert;
+
+        AntigravityVm = new AntigravityViewModel(antigravity);
+        WeatherVm = new WeatherViewModel(weather, weatherAlert);
+        OpenCodeVm = new OpenCodeViewModel(openCode, history);
+        GeminiVm = new GeminiViewModel(geminiCli, history);
+        CodexVm = new CodexViewModel(codex, history);
+        ClaudeVm = new ClaudeViewModel(api, credentials, session, history);
 
         // 계정 전환 자동 감지: credentials 파일 변경 → 새로고침
         _credentials.CredentialsChanged += OnCredentialsChanged;
@@ -1338,6 +1351,24 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 UpdateOverallStatus();
             });
         }
+        finally
+        {
+            SyncClaudeVm();
+        }
+    }
+
+    private void SyncClaudeVm()
+    {
+        // Keep ClaudeVm in sync for future XAML migration
+        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+        {
+            ClaudeVm.ShortPercent = ClaudeShortPercent;
+            ClaudeVm.LongPercent = ClaudeLongPercent;
+            ClaudeVm.HasError = ClaudeHasError;
+            ClaudeVm.ErrorMessage = ClaudeErrorMessage;
+            ClaudeVm.ApiNote = ClaudeApiNote;
+            ClaudeVm.IsUsageEmpty = IsClaudeUsageEmpty;
+        });
     }
 
     // 403 + "currently not allowed" 가 처음 감지된 시각을 settings 에 보관해두고,
@@ -1414,209 +1445,87 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private async Task RefreshCodexInternalAsync()
     {
-        try
+        await CodexVm.RefreshAsync(
+            ShowAbsoluteResetTime,
+            NtfyTopicEffective,
+            NotificationsEnabled,
+            NotifyOnQuotaReset,
+            (threshold, windowLabel, resetLabel, topic) =>
+                _notifier.ShowUsageAlert(threshold, windowLabel, resetLabel, topic,
+                    UsageProviderKind.DisplayName(UsageProviderKind.Codex),
+                    ThresholdToPriority(threshold)),
+            () => _notifier.ShowQuotaResetAlert(NtfyTopicEffective));
+
+        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
-            var snapshot = await _codex.GetTodaySnapshotAsync();
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-            {
-                var newPercent = snapshot.ShortUsagePercent;
-                _rawCodexShortResetAt = snapshot.ShortResetAt;
-                _rawCodexShortResetEstimated = snapshot.IsShortResetEstimated;
-                CodexReset = FormatResetLabel(_rawCodexShortResetAt, _rawCodexShortResetEstimated);
-                CodexDataSource = snapshot.DataSource ?? "";
-                // "오늘 사용 기록 없음"은 정보성 메시지이므로 회색 placeholder만 표시 — 빨간 에러 중복 방지
-                var codexInformational = IsNoUsageInformational(snapshot.ErrorMessage, UsageProviderKind.Codex);
-                CodexHasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage) && !codexInformational;
-                CodexErrorMessage = codexInformational ? "" : (snapshot.ErrorMessage ?? "");
-                CodexSummary = Loc.UsageSummary(newPercent);
-
-                if (NotificationsEnabled && _prevCodexPercent >= 0)
-                {
-                    CheckProviderThresholds(UsageProviderKind.Codex, newPercent, CodexReset, NtfyTopicEffective);
-                }
-
-                CodexPercent = newPercent;
-                _prevCodexPercent = newPercent;
-
-                // v1.26.0: 보조 윈도우 (Anthropic 의 7d 와 동등한 위치)
-                CodexLongPercent   = snapshot.LongUsagePercent;
-                _rawCodexLongResetAt = snapshot.LongResetAt;
-                CodexLongReset     = FormatResetLabel(_rawCodexLongResetAt);
-                CodexLongSummary   = Loc.UsageSummary(snapshot.LongUsagePercent);
-                // 응답에 secondary가 있으면(% > 0 또는 reset이 채워짐) 노출
-                IsCodexLongVisible = snapshot.LongUsagePercent > 0 || snapshot.LongResetAt is not null;
-
-                // v1.26.0: PlanType 라벨링 — "ChatGPT Plus" 등으로 더 구체적
-                CodexPlanLabel = !string.IsNullOrWhiteSpace(snapshot.PlanType)
-                    ? $"ChatGPT {snapshot.PlanType}"
-                    : "ChatGPT plan";
-
-                // 오늘의 토큰 4타일 라벨 채우기
-                CodexInputLabel      = snapshot.TotalInputTokens      > 0 ? FormatTokenShort(snapshot.TotalInputTokens)      : "—";
-                CodexOutputLabel     = snapshot.TotalOutputTokens     > 0 ? FormatTokenShort(snapshot.TotalOutputTokens)     : "—";
-                CodexCacheReadLabel  = snapshot.TotalCacheReadTokens  > 0 ? FormatTokenShort(snapshot.TotalCacheReadTokens)  : "—";
-                CodexCacheWriteLabel = snapshot.TotalCacheWriteTokens > 0 ? FormatTokenShort(snapshot.TotalCacheWriteTokens) : "—";
-
-                // Codex 자체 scope에 오늘 일별 history 기록 (활성 scope와 무관)
-                _history.RecordToday(UsageProviderKind.Codex, null,
-                    snapshot.TotalInputTokens, snapshot.TotalOutputTokens,
-                    snapshot.TotalCacheReadTokens, snapshot.TotalCacheWriteTokens,
-                    snapshot.SessionCount);
-
-                // 전체 상태 갱신
-                UpdateOverallStatus();
-            });
-        }
-        catch (Exception ex)
-        {
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-            {
-                CodexHasError = true;
-                CodexErrorMessage = ex.Message;
-                UpdateOverallStatus();
-            });
-        }
+            CodexPercent = CodexVm.Percent;
+            _prevCodexPercent = CodexVm.Percent;
+            _rawCodexShortResetAt = CodexVm.RawShortResetAt;
+            _rawCodexShortResetEstimated = CodexVm.RawShortResetEstimated;
+            CodexReset = CodexVm.Reset;
+            CodexDataSource = CodexVm.DataSource;
+            CodexHasError = CodexVm.HasError;
+            CodexErrorMessage = CodexVm.ErrorMessage;
+            CodexSummary = CodexVm.Summary;
+            CodexLongPercent = CodexVm.LongPercent;
+            _rawCodexLongResetAt = CodexVm.RawLongResetAt;
+            CodexLongReset = CodexVm.LongReset;
+            CodexLongSummary = CodexVm.LongSummary;
+            IsCodexLongVisible = CodexVm.IsLongVisible;
+            CodexPlanLabel = CodexVm.PlanLabel;
+            CodexInputLabel = CodexVm.InputLabel;
+            CodexOutputLabel = CodexVm.OutputLabel;
+            CodexCacheReadLabel = CodexVm.CacheReadLabel;
+            CodexCacheWriteLabel = CodexVm.CacheWriteLabel;
+            IsCodexUsageEmpty = CodexVm.IsUsageEmpty;
+            UpdateOverallStatus();
+        });
     }
 
     private async Task RefreshGeminiCliInternalAsync()
     {
-        try
+        await GeminiVm.RefreshAsync();
+
+        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
-            var snapshot = _geminiCli.GetTodaySnapshot();
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-            {
-                var geminiInformational = IsNoUsageInformational(snapshot.ErrorMessage, UsageProviderKind.GeminiCli);
-                GeminiHasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage) && !geminiInformational;
-                GeminiErrorMessage = geminiInformational ? "" : (snapshot.ErrorMessage ?? "");
-                
-                _lastGeminiRequestCount = snapshot.RequestCount;
-                _lastGeminiOutputTokens = snapshot.TotalOutputTokens;
-
-                GeminiRequestsLabel = snapshot.RequestCount > 0
-                    ? Loc.CurrentLang == "ko" ? $"{snapshot.RequestCount}회" : $"{snapshot.RequestCount} req"
-                    : "—";
-                GeminiInputLabel = snapshot.TotalInputTokens > 0
-                    ? FormatTokenShort(snapshot.TotalInputTokens)
-                    : "—";
-                GeminiOutputTokensLabel = snapshot.TotalOutputTokens > 0
-                    ? FormatTokenShort(snapshot.TotalOutputTokens)
-                    : "—";
-                GeminiCacheReadLabel = snapshot.TotalCacheReadTokens > 0
-                    ? FormatTokenShort(snapshot.TotalCacheReadTokens)
-                    : "—";
-                GeminiCacheWriteLabel = "—"; // Gemini는 cache write 개념 없음
-                GeminiSummary = snapshot.HasData
-                    ? Loc.GeminiCliRequestSummary(snapshot.RequestCount, snapshot.TotalOutputTokens)
-                    : snapshot.ErrorMessage ?? "";
-
-                // Gemini 자체 scope의 최근 7일 최대치 대비 게이지 비율 계산
-                var max = _history.GetRecentMaxTotalTokens(UsageProviderKind.GeminiCli, null, 7);
-                var goal = Math.Max(10000, max);
-                var percent = Math.Clamp(snapshot.TotalOutputTokens / (double)goal, 0, 1);
-                GeminiPercent = percent;
-                _prevGeminiPercent = percent;
-
-                // Gemini 자체 scope에 오늘 일별 history 기록
-                _history.RecordToday(UsageProviderKind.GeminiCli, null,
-                    snapshot.TotalInputTokens, snapshot.TotalOutputTokens,
-                    snapshot.TotalCacheReadTokens, snapshot.TotalCacheWriteTokens,
-                    snapshot.SessionCount);
-
-                // 전체 상태 갱신
-                UpdateOverallStatus();
-            });
-        }
-        catch (Exception ex)
-        {
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-            {
-                GeminiHasError = true;
-                GeminiErrorMessage = ex.Message;
-                UpdateOverallStatus();
-            });
-        }
-    }
-
-    private void CheckProviderThresholds(string provider, double newPercent, string resetLabel, string ntfyTopic)
-    {
-        var settings = _settingsService.Load();
-        double prevPercent = provider switch
-        {
-            UsageProviderKind.Codex => _prevCodexPercent,
-            UsageProviderKind.GeminiCli => _prevGeminiPercent,
-            _ => -1
-        };
-
-        if (prevPercent < 0) return;
-
-        // 1. 할당량 초기화 감지
-        if (NotifyOnQuotaReset && prevPercent >= 1.0 && newPercent < 1.0)
-        {
-            _notifier.ShowQuotaResetAlert(ntfyTopic);
-        }
-
-        // 2. 임계값 알림
-        var providerLabel = UsageProviderKind.DisplayName(provider);
-        foreach (var t in settings.Thresholds.OrderBy(x => x))
-        {
-            double tf = t / 100.0;
-            if (prevPercent < tf && newPercent >= tf)
-            {
-                _notifier.ShowUsageAlert(t, Loc.Usage, resetLabel, ntfyTopic, providerLabel, ThresholdToPriority(t));
-            }
-        }
+            GeminiPercent = GeminiVm.Percent;
+            _prevGeminiPercent = GeminiVm.Percent;
+            GeminiHasError = GeminiVm.HasError;
+            GeminiErrorMessage = GeminiVm.ErrorMessage;
+            GeminiSummary = GeminiVm.Summary;
+            GeminiRequestsLabel = GeminiVm.RequestsLabel;
+            GeminiOutputTokensLabel = GeminiVm.OutputTokensLabel;
+            GeminiInputLabel = GeminiVm.InputLabel;
+            GeminiCacheReadLabel = GeminiVm.CacheReadLabel;
+            GeminiCacheWriteLabel = GeminiVm.CacheWriteLabel;
+            IsGeminiUsageEmpty = GeminiVm.IsUsageEmpty;
+            _lastGeminiRequestCount = GeminiVm.LastRequestCount;
+            _lastGeminiOutputTokens = GeminiVm.LastOutputTokens;
+            UpdateOverallStatus();
+        });
     }
 
     private async Task RefreshOpenCodeInternalAsync()
     {
-        try
+        await OpenCodeVm.RefreshAsync();
+
+        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
-            // OpenCode 자체 scope의 최근 7일 최대치 대비 게이지 비율 계산
-            var max = _history.GetRecentMaxTotalTokens(UsageProviderKind.OpenCode, null, 7);
-            var goal = Math.Max(10000, max);
-            var snapshot = _openCode.GetTodaySnapshot(goal);
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-            {
-                var openCodeInformational = IsNoUsageInformational(snapshot.ErrorMessage, UsageProviderKind.OpenCode);
-                OpenCodeHasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage) && !openCodeInformational;
-                OpenCodeErrorMessage = openCodeInformational ? "" : (snapshot.ErrorMessage ?? "");
-
-                _lastOpenCodeRequestCount = snapshot.RequestCount;
-                _lastOpenCodeInputTokens  = snapshot.TotalInputTokens;
-                _lastOpenCodeOutputTokens = snapshot.TotalOutputTokens;
-
-                OpenCodeRequestCountLabel = snapshot.RequestCount > 0
-                    ? Loc.CurrentLang == "ko" ? $"{snapshot.RequestCount}회" : $"{snapshot.RequestCount} req"
-                    : "—";
-                OpenCodeInputLabel      = snapshot.TotalInputTokens      > 0 ? FormatTokenShort(snapshot.TotalInputTokens)      : "—";
-                OpenCodeOutputLabel     = snapshot.TotalOutputTokens     > 0 ? FormatTokenShort(snapshot.TotalOutputTokens)     : "—";
-                OpenCodeCacheReadLabel  = snapshot.TotalCacheReadTokens  > 0 ? FormatTokenShort(snapshot.TotalCacheReadTokens)  : "—";
-                OpenCodeCacheWriteLabel = snapshot.TotalCacheWriteTokens > 0 ? FormatTokenShort(snapshot.TotalCacheWriteTokens) : "—";
-                OpenCodeSummary = snapshot.HasData
-                    ? Loc.CurrentLang == "ko"
-                        ? $"오늘 {snapshot.RequestCount}회 · 입력 {FormatTokenShort(snapshot.TotalInputTokens)} · 출력 {FormatTokenShort(snapshot.TotalOutputTokens)}"
-                        : $"Today {snapshot.RequestCount} req · in {FormatTokenShort(snapshot.TotalInputTokens)} · out {FormatTokenShort(snapshot.TotalOutputTokens)}"
-                    : snapshot.ErrorMessage ?? "";
-                OpenCodePercent = snapshot.ShortUsagePercent;
-
-                // OpenCode 자체 scope에 오늘 일별 history 기록
-                _history.RecordToday(UsageProviderKind.OpenCode, null,
-                    snapshot.TotalInputTokens, snapshot.TotalOutputTokens,
-                    snapshot.TotalCacheReadTokens, snapshot.TotalCacheWriteTokens,
-                    snapshot.SessionCount);
-
-                UpdateOverallStatus();
-            });
-        }
-        catch (Exception ex)
-        {
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-            {
-                OpenCodeHasError = true;
-                OpenCodeErrorMessage = ex.Message;
-                UpdateOverallStatus();
-            });
-        }
+            OpenCodeHasError = OpenCodeVm.HasError;
+            OpenCodeErrorMessage = OpenCodeVm.ErrorMessage;
+            OpenCodeSummary = OpenCodeVm.Summary;
+            OpenCodeInputLabel = OpenCodeVm.InputLabel;
+            OpenCodeOutputLabel = OpenCodeVm.OutputLabel;
+            OpenCodeRequestCountLabel = OpenCodeVm.RequestCountLabel;
+            OpenCodeCacheReadLabel = OpenCodeVm.CacheReadLabel;
+            OpenCodeCacheWriteLabel = OpenCodeVm.CacheWriteLabel;
+            OpenCodePercent = OpenCodeVm.Percent;
+            IsOpenCodeUsageEmpty = OpenCodeVm.IsUsageEmpty;
+            _lastOpenCodeRequestCount = OpenCodeVm.LastRequestCount;
+            _lastOpenCodeInputTokens = OpenCodeVm.LastInputTokens;
+            _lastOpenCodeOutputTokens = OpenCodeVm.LastOutputTokens;
+            UpdateOverallStatus();
+        });
     }
 
     // Manual triggers (optional, usually RefreshAsync is enough)
@@ -1716,34 +1625,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    private static int ThresholdToPriority(int threshold) => threshold switch
-    {
-        >= 100 => 5,  // urgent — 소진
-        >= 90  => 4,  // high — 임박
-        >= 75  => 3,  // default — 경고
-        _      => 2   // low — 참고
-    };
+    private static int ThresholdToPriority(int threshold) =>
+        UsageCalculator.ThresholdToPriority(threshold);
 
-    private string FormatResetLabel(DateTimeOffset? resetAt, bool isEstimated = false)
-    {
-        if (resetAt is null) return "";
-        var diff = resetAt.Value - DateTimeOffset.Now;
-        if (diff.TotalSeconds <= 0) return "";
-        string time;
-        if (diff.TotalMinutes < 10) time = $"{(int)diff.Minutes}m {diff.Seconds:D2}s";
-        else if (diff.TotalHours < 1) time = $"{(int)diff.TotalMinutes}m";
-        else if (diff.TotalDays < 1) time = $"{(int)diff.TotalHours}h {diff.Minutes}m";
-        else time = $"{(int)diff.TotalDays}d {diff.Hours}h";
-        var rel = isEstimated ? Loc.ResetsInEstimated(time) : Loc.ResetsIn(time);
-        if (!ShowAbsoluteResetTime) return rel;
-
-        // 절대 시각 병기: 같은 날이면 "HH:mm", 다른 날이면 "MM/dd HH:mm"
-        var local = resetAt.Value.ToLocalTime();
-        var stamp = local.Date == DateTimeOffset.Now.LocalDateTime.Date
-            ? local.ToString("HH:mm")
-            : local.ToString("MM/dd HH:mm");
-        return $"{rel} ({stamp})";
-    }
+    private string FormatResetLabel(DateTimeOffset? resetAt, bool isEstimated = false) =>
+        UsageCalculator.FormatResetLabel(resetAt, isEstimated, ShowAbsoluteResetTime, DateTimeOffset.Now);
 
     /// <summary>
     /// 10분 미만 남은 리셋 라벨을 1초마다 업데이트 (초 단위 카운트다운).
@@ -1821,80 +1707,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
         return Loc.ApiError(raw.Length > 200 ? raw[..200] + "…" : raw);
     }
 
-    private static string CalcDepletionLabel(Models.UsageWindow w)
-    {
-        if (w.ResetsAtParsed is null || w.UsagePercent <= 0.02 || w.UsagePercent >= 1.0) return "";
+    private static string CalcDepletionLabel(Models.UsageWindow w) =>
+        UsageCalculator.CalcDepletionLabel(w, DateTimeOffset.Now);
 
-        var windowStart = w.ResetsAtParsed.Value - TimeSpan.FromHours(5);
-        var elapsed = DateTimeOffset.Now - windowStart;
-        if (elapsed.TotalMinutes < 5) return "";
+    private static string CalcLongDepletionLabel(Models.UsageWindow w) =>
+        UsageCalculator.CalcLongDepletionLabel(w, DateTimeOffset.Now);
 
-        double ratePerHour = w.UsagePercent / elapsed.TotalHours;
-        if (ratePerHour <= 0) return "";
-
-        double hoursToFull = (1.0 - w.UsagePercent) / ratePerHour;
-        var remaining = w.ResetsAtParsed.Value - DateTimeOffset.Now;
-
-        // 윈도우 내에 소진되지 않으면 표시 불필요
-        if (hoursToFull >= remaining.TotalHours) return "";
-
-        var depletionAt = DateTimeOffset.Now.AddHours(hoursToFull).ToLocalTime();
-        return Loc.DepletionAt(depletionAt.ToString("HH:mm"));
-    }
-
-    private static string CalcLongDepletionLabel(Models.UsageWindow w)
-    {
-        if (w.ResetsAtParsed is null || w.UsagePercent <= 0.02 || w.UsagePercent >= 1.0) return "";
-
-        var windowStart = w.ResetsAtParsed.Value - TimeSpan.FromDays(7);
-        var elapsed = DateTimeOffset.Now - windowStart;
-        if (elapsed.TotalHours < 2) return ""; // 데이터 부족
-
-        double ratePerDay = w.UsagePercent / elapsed.TotalDays;
-        if (ratePerDay <= 0) return "";
-
-        double daysToFull = (1.0 - w.UsagePercent) / ratePerDay;
-        var remaining = w.ResetsAtParsed.Value - DateTimeOffset.Now;
-
-        // 윈도우 내에 소진되지 않으면 표시 불필요
-        if (daysToFull >= remaining.TotalDays) return "";
-
-        var depletionAt = DateTimeOffset.Now.AddDays(daysToFull).ToLocalTime();
-        var timeStr = daysToFull < 1
-            ? depletionAt.ToString("HH:mm")
-            : depletionAt.ToString("M/d HH:mm");
-        return Loc.DepletionAt(timeStr);
-    }
-
-    private static string FormatTokenShort(long tokens) =>
-        tokens >= 1_000_000 ? $"{tokens / 1_000_000.0:F1}M" :
-        tokens >= 1_000     ? $"{tokens / 1_000.0:F1}K" :
-        tokens.ToString();
-
-    // 회색 placeholder로 이미 표시되는 "오늘 사용 기록 없음" 류는 빨간 에러로 중복 표시하지 않는다
-    private static bool IsNoUsageInformational(string? message, string providerKey)
-    {
-        if (string.IsNullOrWhiteSpace(message)) return false;
-        return providerKey switch
-        {
-            UsageProviderKind.Codex     => message == Loc.CodexNoUsageToday,
-            UsageProviderKind.GeminiCli => message == Loc.GeminiCliNoUsageToday
-                                       || message == Loc.GeminiCliEstimateOnly,
-            UsageProviderKind.OpenCode  => message == Loc.OpenCodeNoUsageToday,
-            _ => false,
-        };
-    }
-
-    private static string CalcCostLabel(long input, long output, long cacheRead, long cacheWrite)
-    {
-        // Sonnet 3.5/3.7 API 가격 기준 참고값 (Claude Code는 구독제이므로 실제 과금 아님)
-        var cost = input * 3e-6
-                 + output * 15e-6
-                 + cacheRead * 0.3e-6
-                 + cacheWrite * 3.75e-6;
-        if (cost < 0.001) return "";
-        return Loc.CostEstimate(cost);
-    }
+    private static string CalcCostLabel(long input, long output, long cacheRead, long cacheWrite) =>
+        UsageCalculator.CalcCostLabel(input, output, cacheRead, cacheWrite);
 
     public NotificationSettings GetCurrentSettings()
     {
@@ -1903,81 +1723,41 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private async Task RefreshWeatherInternalAsync()
     {
-        if (!WeatherLatitude.HasValue || !WeatherLongitude.HasValue)
-            return;
-
         var interval = TimeSpan.FromMinutes(WeatherRefreshIntervalMinutes);
         if (DateTimeOffset.Now - _weatherLastRefresh < interval)
             return;
 
-        try
+        WeatherVm.Enabled = WeatherEnabled;
+        WeatherVm.ShowInTrayTooltip = WeatherShowInTrayTooltip;
+        WeatherVm.LocationMode = WeatherLocationMode;
+        WeatherVm.LocationName = WeatherLocationName;
+        WeatherVm.CountryCode = WeatherCountryCode;
+        WeatherVm.Latitude = WeatherLatitude;
+        WeatherVm.Longitude = WeatherLongitude;
+        WeatherVm.Timezone = WeatherTimezone;
+        WeatherVm.RefreshIntervalMinutes = WeatherRefreshIntervalMinutes;
+        WeatherVm.DailyForecastEnabled = WeatherDailyForecastEnabled;
+        WeatherVm.DailyForecastTime = WeatherDailyForecastTime;
+        WeatherVm.ConditionAlertsEnabled = WeatherConditionAlertsEnabled;
+        WeatherVm.RainProbabilityThreshold = WeatherRainProbabilityThreshold;
+        WeatherVm.HighTemperatureThresholdC = WeatherHighTemperatureThresholdC;
+        WeatherVm.LowTemperatureThresholdC = WeatherLowTemperatureThresholdC;
+        WeatherVm.WindSpeedThresholdKmh = WeatherWindSpeedThresholdKmh;
+        WeatherVm.OfficialAlertsEnabled = WeatherOfficialAlertsEnabled;
+
+        await WeatherVm.RefreshAsync();
+        _weatherLastRefresh = DateTimeOffset.Now;
+
+        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
-            var location = new Models.WeatherLocation(
-                WeatherLocationName, WeatherCountryCode, null,
-                WeatherLatitude.Value, WeatherLongitude.Value, WeatherTimezone);
-
-            var report = await _weather.GetForecastAsync(location);
-
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-            {
-                WeatherHasError = false;
-                WeatherErrorMessage = "";
-                _lastWeatherReport = report;
-
-                if (report.Current != null)
-                {
-                    var condLabel = GetWeatherConditionLabel(report.Current.ConditionKey);
-                    var tempLabel = $"{report.Current.TemperatureC:F0}°C";
-                    WeatherTemperatureLabel = tempLabel;
-                    WeatherConditionLabel = condLabel;
-                    WeatherIcon = GetWeatherIcon(report.Current.ConditionKey);
-                    WeatherStatusLabel = $"{tempLabel} {condLabel}";
-                    WeatherTooltipLabel = Loc.WeatherTooltipFormat(
-                        WeatherShortLocation, report.Current.TemperatureC, condLabel);
-                }
-                else
-                {
-                    WeatherTemperatureLabel = "";
-                    WeatherConditionLabel = Loc.WeatherCurrentUnavailable;
-                    WeatherIcon = "•";
-                    WeatherTooltipLabel = $"{WeatherShortLocation} {Loc.WeatherCurrentUnavailable}";
-                    WeatherStatusLabel = Loc.WeatherCurrentUnavailable;
-                }
-
-                WeatherHasError = report.Current == null;
-                if (WeatherHasError && string.IsNullOrEmpty(WeatherErrorMessage))
-                    WeatherErrorMessage = Loc.WeatherCurrentUnavailable;
-            });
-
-            _weatherLastRefresh = DateTimeOffset.Now;
-
-            if (report.Current != null)
-            {
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await _weatherAlert.ProcessAlertsAsync(report);
-                    }
-                    catch (Exception alertEx)
-                    {
-                        Debug.WriteLine($"Weather alert processing error: {alertEx.Message}");
-                    }
-                });
-            }
-        }
-        catch (Exception ex)
-        {
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-            {
-                WeatherHasError = true;
-                WeatherErrorMessage = ex.Message;
-                WeatherTooltipLabel = Loc.WeatherCurrentUnavailable;
-                WeatherTemperatureLabel = "";
-                WeatherConditionLabel = Loc.WeatherCurrentUnavailable;
-                WeatherIcon = "•";
-            });
-        }
+            WeatherStatusLabel = WeatherVm.StatusLabel;
+            WeatherTooltipLabel = WeatherVm.TooltipLabel;
+            WeatherHasError = WeatherVm.HasError;
+            WeatherErrorMessage = WeatherVm.ErrorMessage;
+            WeatherTemperatureLabel = WeatherVm.TemperatureLabel;
+            WeatherConditionLabel = WeatherVm.ConditionLabel;
+            WeatherIcon = WeatherVm.Icon;
+        });
     }
 
     // BMP-only (U+2600–U+26FF, U+2744): WPF can render these via Segoe UI Symbol.
@@ -2022,106 +1802,19 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private async Task RefreshAntigravityInternalAsync()
     {
-        if (!IsAntigravityEnabled)
-        {
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-            {
-                AntigravityHasData = false;
-                AntigravityHasError = false;
-                AntigravityErrorMessage = "";
-                AntigravityModels = System.Array.Empty<AntigravityModelRow>();
-            });
-            return;
-        }
-
-        AntigravitySnapshot snap;
-        try
-        {
-            snap = await _antigravity.GetSnapshotAsync();
-        }
-        catch (Exception ex)
-        {
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-            {
-                AntigravityHasData = false;
-                AntigravityHasError = true;
-                AntigravityErrorMessage = ex.Message;
-                AntigravityModels = System.Array.Empty<AntigravityModelRow>();
-            });
-            return;
-        }
+        AntigravityVm.IsEnabled = IsAntigravityEnabled;
+        await AntigravityVm.RefreshAsync();
 
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
-            if (!snap.HasData)
-            {
-                AntigravityHasData = false;
-                // 미설치/미로그인은 에러로 띄우지 않고 섹션을 그냥 숨김
-                bool isInformational =
-                    string.Equals(snap.ErrorMessage, "Antigravity not signed in", StringComparison.Ordinal)
-                    || string.Equals(snap.ErrorMessage, "no refresh_token in credstore", StringComparison.Ordinal)
-                    || string.Equals(snap.ErrorMessage, "Antigravity OAuth client not configured", StringComparison.Ordinal);
-                AntigravityHasError = !isInformational && !string.IsNullOrEmpty(snap.ErrorMessage);
-                AntigravityErrorMessage = AntigravityHasError ? (snap.ErrorMessage ?? "") : "";
-                AntigravityModels = System.Array.Empty<AntigravityModelRow>();
-                return;
-            }
-
-            AntigravityHasData = true;
-            AntigravityHasError = false;
-            AntigravityErrorMessage = "";
-            AntigravityTierName = snap.TierName ?? "";
-            AntigravityPaidTierName = snap.PaidTierName ?? "";
-
-            double totalUsed = 0;
-            int modelCount = 0;
-            var rows = new System.Collections.Generic.List<AntigravityModelRow>(snap.Models.Count);
-            foreach (var m in snap.Models)
-            {
-                // System buckets (chat_*, tab_*) have no resetTime and aren't user-facing — hide them.
-                if (m.ResetTime is null) continue;
-                if (m.ModelId.StartsWith("chat_", StringComparison.Ordinal) ||
-                    m.ModelId.StartsWith("tab_",  StringComparison.Ordinal))
-                    continue;
-
-                double used = Math.Clamp(1.0 - m.RemainingFraction, 0.0, 1.0);
-                totalUsed += used;
-                modelCount++;
-
-                if (used <= 0) continue;
-
-                rows.Add(new AntigravityModelRow
-                {
-                    ModelId = m.ModelId,
-                    DisplayName = FormatAntigravityModelName(m.ModelId),
-                    UsagePercent = used,
-                    UsageLabel = $"{used * 100:0}% used",
-                    ResetAtLabel = FormatResetLabel(m.ResetTime),
-                });
-            }
-            // Most-used first so a depleted Claude Sonnet/Opus row leads the panel.
-            rows.Sort((a, b) => b.UsagePercent.CompareTo(a.UsagePercent));
-            AntigravityModels = rows;
-
-            AntigravityPercent = modelCount > 0 ? totalUsed / modelCount : 0.0;
+            AntigravityHasData = AntigravityVm.HasData;
+            AntigravityHasError = AntigravityVm.HasError;
+            AntigravityErrorMessage = AntigravityVm.ErrorMessage;
+            AntigravityTierName = AntigravityVm.TierName;
+            AntigravityPaidTierName = AntigravityVm.PaidTierName;
+            AntigravityModels = AntigravityVm.Models;
+            AntigravityPercent = AntigravityVm.Percent;
         });
-    }
-
-    private static string FormatAntigravityModelName(string modelId)
-    {
-        if (string.IsNullOrEmpty(modelId)) return "(unknown)";
-        // gemini-2.5-flash → Gemini 2.5 Flash, gemini-3.1-flash-lite → Gemini 3.1 Flash Lite
-        var parts = modelId.Split('-');
-        var sb = new System.Text.StringBuilder();
-        for (int i = 0; i < parts.Length; i++)
-        {
-            if (i > 0) sb.Append(' ');
-            var p = parts[i];
-            if (p.Length == 0) continue;
-            sb.Append(char.ToUpperInvariant(p[0]));
-            if (p.Length > 1) sb.Append(p[1..]);
-        }
-        return sb.ToString();
     }
 }
 

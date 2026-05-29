@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.32.0] - 2026-05-29
+
+<!-- ko -->
+### 개선
+- **MainViewModel God Object 리팩토링** — 2,100+ 라인의 MainViewModel을 6개 공급자별 ViewModel(Claude, Codex, Gemini, OpenCode, Antigravity, Weather)로 분해하여 단일 책임 원칙(SRP)을 준수하고 유지보수성을 대폭 개선했습니다.
+- **계산 로직 분리** — `UsageCalculator` 클래스로 핵심 계산 로직(조기 소진 예측, 비용 산정, 리셋 시간 포맷 등)을 추출하여 단위 테스트 가능한 순수 함수로 분리했습니다.
+- **단위 테스트 강화** — 111개 단위 테스트 추가(UsageCalculator 31개, ViewModel 내부 로직 29개, 기존 51개 포함).
+- **통합 테스트 기반** — `MainViewModelIntegrationTests` 8개 통합 테스트 추가로 전체 VM 오케스트레이션 검증 기반 마련.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **MainViewModel God Object Refactoring** — Decomposed the 2,100+ line MainViewModel into 6 provider-specific ViewModels (Claude, Codex, Gemini, OpenCode, Antigravity, Weather), following the Single Responsibility Principle and greatly improving maintainability.
+- **Calculation Logic Extraction** — Extracted core calculation logic (depletion prediction, cost estimation, reset time formatting, etc.) into the `UsageCalculator` class as testable pure functions.
+- **Unit Test Coverage** — Added 111 unit tests (31 for UsageCalculator, 29 for ViewModel internals, plus 51 existing).
+- **Integration Test Foundation** — Added 8 integration tests (`MainViewModelIntegrationTests`) to validate full VM orchestration.
+<!-- /en -->
+
 ## [1.31.6] - 2026-05-29
 
 <!-- ko -->
