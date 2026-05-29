@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.31.6] - 2026-05-29
+
+<!-- ko -->
+### 개선
+- **조기 소진 예상 알림 반복 발송 방지** — 같은 5시간 주기 내에서 사용량이 줄어 예상 소진 시각이 늦춰져도 계속 푸시 알림이 반복되던 문제를 수정했습니다. 이제 예상 소진 시각이 **이전보다 당겨졌을 때만** 알림을 발송하며, 늦춰지거나 동일한 경우에는 알림을 보내지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Prevent Repeated Early-Exhaustion Alerts** — Fixed an issue where push notifications kept firing repeatedly within the same 5-hour cycle even as the estimated depletion time shifted later due to reduced usage. Now alerts are sent **only when the estimated depletion time moves earlier**; no notification is sent if the estimate stays the same or moves later.
+<!-- /en -->
+
 ## [1.31.5] - 2026-05-28
 
 <!-- ko -->

@@ -39,6 +39,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     // Tracks early exhaustion detection per reset cycle
     private string _prevShortDepletion = "";
     private DateTimeOffset? _lastNotifiedEarlyResetAt;
+    private DateTimeOffset? _lastNotifiedEarlyDepletionAt; // last estimated depletion time
 
     // Last known good API data (kept when rate-limited so UI doesn't reset to 0)
     private double _lastKnownShortPercent = 0;
@@ -1155,36 +1156,41 @@ public partial class MainViewModel : ObservableObject, IDisposable
                         ClaudeShortSummary = Loc.UsageSummary(newPercent);
                         ClaudeShortDepletion = CalcDepletionLabel(usage.FiveHour);
 
-                        // 조기 소진 푸시 알림: 이전에 없던 조기 소진이 감지되었거나 새 사이클이면 발송
+                        // 조기 소진 푸시 알림: 예상 소진 시각이 이전보다 당겨졌을 때만 발송
                         if (NotificationsEnabled && !string.IsNullOrEmpty(ClaudeShortDepletion))
                         {
                             var currentReset = usage.FiveHour.ResetsAtParsed;
-                            bool isNewCycle = _lastNotifiedEarlyResetAt != currentReset;
-                            bool isNewDetection = string.IsNullOrEmpty(_prevShortDepletion);
-
-                            if (isNewCycle || isNewDetection)
+                            if (currentReset.HasValue)
                             {
-                                // 예상 소진 시각 재계산 (원시값 필요)
-                                if (currentReset.HasValue)
+                                var windowStart = currentReset.Value - TimeSpan.FromHours(5);
+                                var elapsed = DateTimeOffset.Now - windowStart;
+                                if (elapsed.TotalMinutes >= 5)
                                 {
-                                    var windowStart = currentReset.Value - TimeSpan.FromHours(5);
-                                    var elapsed = DateTimeOffset.Now - windowStart;
-                                    if (elapsed.TotalMinutes >= 5)
+                                    double ratePerHour = usage.FiveHour.UsagePercent / elapsed.TotalHours;
+                                    if (ratePerHour > 0)
                                     {
-                                        double ratePerHour = usage.FiveHour.UsagePercent / elapsed.TotalHours;
-                                        if (ratePerHour > 0)
+                                        double hoursToFull = (1.0 - usage.FiveHour.UsagePercent) / ratePerHour;
+                                        var depletionAt = DateTimeOffset.Now.AddHours(hoursToFull).ToLocalTime();
+
+                                        bool isNewCycle = _lastNotifiedEarlyResetAt != currentReset;
+                                        if (isNewCycle || !_lastNotifiedEarlyDepletionAt.HasValue || depletionAt < _lastNotifiedEarlyDepletionAt.Value)
                                         {
-                                            double hoursToFull = (1.0 - usage.FiveHour.UsagePercent) / ratePerHour;
-                                            var depletionAt = DateTimeOffset.Now.AddHours(hoursToFull).ToLocalTime();
                                             _notifier.ShowEarlyExhaustionAlert(
                                                 depletionAt.ToString("HH:mm"),
                                                 FormatResetLabel(currentReset),
                                                 NtfyTopicEffective);
                                             _lastNotifiedEarlyResetAt = currentReset;
                                         }
+                                        // 조기 소진 예상이 늦춰졌더라도 기준 시각은 업데이트(다음 비교 기준)
+                                        _lastNotifiedEarlyDepletionAt = depletionAt;
                                     }
                                 }
                             }
+                        }
+                        else
+                        {
+                            // 조기 소진 예상이 사라졌으면 초기화
+                            _lastNotifiedEarlyDepletionAt = null;
                         }
                         _prevShortDepletion = ClaudeShortDepletion;
 
