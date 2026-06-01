@@ -870,6 +870,15 @@ public static class Loc
         _ => $"GitHub API error (HTTP {statusCode}) — try downloading from the Releases page"
     };
 
+    /// <summary>API 오류 발생 시 Releases 페이지 열기 제안 다이얼로그 본문.</summary>
+    public static string UpdateCheckApiErrorDialogPrompt => Lang switch
+    {
+        "ko" => "버전 확인이 불가능합니다.\n\nReleases 페이지에서 직접 최신 버전을 다운로드할 수 있습니다.\n지금 Releases 페이지를 열겠습니까?",
+        "zh" => "无法检查版本更新。\n\n您可以在 Releases 页面直接下载最新版本。\n是否立即打开 Releases 页面？",
+        "ja" => "バージョン確認ができません。\n\nReleases ページから直接最新バージョンをダウンロードできます。\n今すぐ Releases ページを開きますか？",
+        _ => "Unable to check for updates.\n\nYou can download the latest version directly from the Releases page.\nOpen the Releases page now?"
+    };
+
     /// <summary>"Releases 페이지 열기" 액션 버튼 라벨.</summary>
     public static string OpenReleasesPage => Lang switch
     {

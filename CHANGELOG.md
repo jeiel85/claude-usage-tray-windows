@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.32.2] - 2026-06-01
+
+<!-- ko -->
+### 개선
+- **업데이트 체크 실패 시 Releases 페이지 안내** — GitHub API 오류(RateLimit, Timeout, API Error)로 버전 확인이 불가능할 때, Releases 페이지에서 직접 다운로드할 수 있도록 MessageBox로 열람 여부를 묻는 UX를 추가했습니다. 네트워크 오류는 제외(웹페이지도 못 열기 때문).
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Releases page prompt on update check failure** — When version check fails due to GitHub API errors (RateLimit, Timeout, API Error), a MessageBox now asks whether to open the Releases page for manual download. Network errors are excluded (the web page wouldn't load either).
+<!-- /en -->
+
 ## [1.32.1] - 2026-06-01
 
 <!-- ko -->

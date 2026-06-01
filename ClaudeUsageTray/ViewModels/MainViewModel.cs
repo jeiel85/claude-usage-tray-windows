@@ -709,7 +709,6 @@ namespace ClaudeUsageTray.ViewModels;
         }
         catch (UpdateCheckException uex)
         {
-            // 카테고리별 안내문구 분기 — 사용자가 원인과 다음 액션을 즉시 알 수 있도록
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
             {
                 UpdateCheckLabel = uex.Kind switch
@@ -720,9 +719,29 @@ namespace ClaudeUsageTray.ViewModels;
                     UpdateCheckErrorKind.ApiError  => Loc.UpdateCheckApiError(uex.StatusCode ?? 0),
                     _ => Loc.UpdateCheckFailed
                 };
-                // 긴 안내일 수 있으니 표시 시간 5초로 연장
-                await Task.Delay(5000);
-                UpdateCheckLabel = "";
+
+                if (uex.Kind is UpdateCheckErrorKind.RateLimit
+                               or UpdateCheckErrorKind.Timeout
+                               or UpdateCheckErrorKind.ApiError)
+                {
+                    var choice = System.Windows.MessageBox.Show(
+                        Loc.UpdateCheckApiErrorDialogPrompt,
+                        Loc.UpdateCheckFailed,
+                        System.Windows.MessageBoxButton.YesNo,
+                        System.Windows.MessageBoxImage.Question);
+
+                    if (choice == System.Windows.MessageBoxResult.Yes)
+                    {
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                            UpdateService.ReleasePage) { UseShellExecute = true });
+                        UpdateCheckLabel = "";
+                    }
+                }
+                else
+                {
+                    await Task.Delay(5000);
+                    UpdateCheckLabel = "";
+                }
             });
             return;
         }
