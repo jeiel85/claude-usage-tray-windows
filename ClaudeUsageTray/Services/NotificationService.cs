@@ -8,6 +8,7 @@ namespace ClaudeUsageTray.Services;
 public class NotificationService
 {
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(AppConstants.PushTimeoutSeconds) };
+    private static readonly string MachineName = Environment.MachineName;
     private readonly Func<NotifyIcon?> _getIcon;
 
     public NotificationService(Func<NotifyIcon?> getNotifyIcon)
@@ -97,6 +98,7 @@ public class NotificationService
     {
         try
         {
+            message = message + "\n" + "— " + MachineName;
             if (await IsRecentDuplicateAsync(topic, title, message)) return true;
 
             var payloadObj = new Dictionary<string, object?>
@@ -158,6 +160,7 @@ public class NotificationService
     {
         try
         {
+            body = body + "\n" + "— " + MachineName;
             // 여러 PC에서 동일 토픽 사용 시 중복 발송 방지: 최근 3분 내 동일 알림 확인
             if (await IsRecentDuplicateAsync(topic, title, body)) return true;
 

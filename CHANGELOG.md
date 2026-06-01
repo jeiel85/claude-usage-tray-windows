@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.32.1] - 2026-06-01
+
+<!-- ko -->
+### 개선
+- **ntfy 푸시 메시지에 PC 이름 표시** — 모든 ntfy 푸시 알림 본문 하단에 발송 PC 이름(`Environment.MachineName`)을 자동으로 추가하여 여러 PC에서 동일 토픽을 사용할 때 어느 PC의 알림인지 식별할 수 있습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **PC name in ntfy push messages** — Automatically appends the sending PC name (`Environment.MachineName`) to the body of every ntfy push notification, so users can identify which PC sent the alert when using the same topic across multiple machines.
+<!-- /en -->
+
 ## [1.32.0] - 2026-05-29
 
 <!-- ko -->

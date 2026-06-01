@@ -40,6 +40,7 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode A
 - **변경 이력**: [CHANGELOG.md](CHANGELOG.md)
 
 ## 이슈
+- `개선` ntfy 푸시 메시지에 PC 이름 추가 (2026-06-01): 모든 ntfy 푸시 알림 본문 하단에 발송 PC의 이름을 자동으로 표시하여 여러 PC에서 동일 토픽을 사용할 때 어느 PC에서 보낸 알림인지 식별 가능.
 - `개선` MainViewModel God Object 리팩토링 (2026-05-29): 2000+ 라인의 MainViewModel을 각 공급자별 ViewModel(ClaudeViewModel, CodexViewModel, GeminiViewModel, OpenCodeViewModel, AntigravityViewModel, WeatherViewModel)로 분리하여 단일 책임 원칙(SRP) 준수 및 유지보수성 개선. 리팩토링 전 핵심 로직에 대한 단위 테스트 추가.
 - `개선` Antigravity 모델 다수 노출 시 화면 잘림 방지 (2026-05-28): 사용률이 0% 초과인 활성 모델이 다수 존재할 때 메인 사용량 팝업 창이 너무 길어져 화면 경계 밖으로 잘리는 문제를 해결하기 위해 모델 목록을 MaxHeight="180" 제한이 적용된 ScrollViewer로 래핑하여 스크롤 제공.
 - `개선` Antigravity 사용량 필터링 및 접기 기능 추가 (2026-05-28): Antigravity 모델 목록 중 사용률이 0% 초과인 모델만 노출하도록 필터링하여 불필요한 공백을 줄이고, 다른 공급자들과 마찬가지로 접었다 펼 수 있는 아코디언 접기 및 전체 % 노출을 지원하여 UI 일관성 개선.
