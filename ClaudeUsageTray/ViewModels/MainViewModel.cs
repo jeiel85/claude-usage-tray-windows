@@ -45,8 +45,7 @@ namespace ClaudeUsageTray.ViewModels;
 
     // Tracks early exhaustion detection per reset cycle
     private string _prevShortDepletion = "";
-    private DateTimeOffset? _lastNotifiedEarlyResetAt;
-    private DateTimeOffset? _lastNotifiedEarlyDepletionAt; // last estimated depletion time
+    private DateTimeOffset? _lastNotifiedEarlyDepletionAt;
 
     // Last known good API data (kept when rate-limited so UI doesn't reset to 0)
     private double _lastKnownShortPercent = 0;
@@ -1204,14 +1203,12 @@ namespace ClaudeUsageTray.ViewModels;
                                         double hoursToFull = (1.0 - usage.FiveHour.UsagePercent) / ratePerHour;
                                         var depletionAt = DateTimeOffset.Now.AddHours(hoursToFull).ToLocalTime();
 
-                                        bool isNewCycle = _lastNotifiedEarlyResetAt != currentReset;
-                                        if (isNewCycle || !_lastNotifiedEarlyDepletionAt.HasValue || depletionAt < _lastNotifiedEarlyDepletionAt.Value)
+                                        if (!_lastNotifiedEarlyDepletionAt.HasValue || depletionAt < _lastNotifiedEarlyDepletionAt.Value)
                                         {
                                             _notifier.ShowEarlyExhaustionAlert(
                                                 depletionAt.ToString("HH:mm"),
                                                 FormatResetLabel(currentReset),
                                                 NtfyTopicEffective);
-                                            _lastNotifiedEarlyResetAt = currentReset;
                                         }
                                         // 조기 소진 예상이 늦춰졌더라도 기준 시각은 업데이트(다음 비교 기준)
                                         _lastNotifiedEarlyDepletionAt = depletionAt;

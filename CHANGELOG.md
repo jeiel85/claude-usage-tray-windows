@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.32.3] - 2026-06-02
+
+<!-- ko -->
+### 수정
+- **조기 소진 알림 오발송 수정** — 소진 속도가 빨라졌을 때만 푸시 알림을 받도록 했으나, 새 5시간 주기 시작 시 속도 변화와 무관하게 알림이 발송되던 버그를 수정했습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Fixed early exhaustion false notification** — Push notifications were intended to fire only when the usage rate accelerated, but a bug caused them to fire on every new 5-hour cycle start regardless of rate change. Removed the unconditional new-cycle trigger.
+<!-- /en -->
+
 ## [1.32.2] - 2026-06-01
 
 <!-- ko -->
