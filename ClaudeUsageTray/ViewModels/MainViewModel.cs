@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ClaudeUsageTray.Models;
 using ClaudeUsageTray.Services;
+using ClaudeUsageTray.Views;
 using Timer = System.Timers.Timer;
 
 namespace ClaudeUsageTray.ViewModels;
@@ -723,13 +724,13 @@ namespace ClaudeUsageTray.ViewModels;
                                or UpdateCheckErrorKind.Timeout
                                or UpdateCheckErrorKind.ApiError)
                 {
-                    var choice = System.Windows.MessageBox.Show(
-                        Loc.UpdateCheckApiErrorDialogPrompt,
+                    var choice = DarkMessageBox.Show(
                         Loc.UpdateCheckFailed,
-                        System.Windows.MessageBoxButton.YesNo,
-                        System.Windows.MessageBoxImage.Question);
+                        Loc.UpdateCheckApiErrorDialogPrompt,
+                        Loc.OpenReleasesPage,
+                        Loc.Later);
 
-                    if (choice == System.Windows.MessageBoxResult.Yes)
+                    if (choice == DarkMessageBoxResult.Confirm)
                     {
                         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
                             UpdateService.ReleasePage) { UseShellExecute = true });

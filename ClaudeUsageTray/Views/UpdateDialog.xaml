@@ -99,6 +99,11 @@
                 <!-- Footer / Action Area -->
                 <Border Grid.Row="2" Background="#141622" CornerRadius="0,0,16,16" Padding="20,15">
                     <Grid>
+                        <!-- Error Message (shown by ShowError) -->
+                        <TextBlock x:Name="ErrorText" Foreground="{StaticResource DangerBrush}" 
+                                   FontSize="12" TextWrapping="Wrap" Margin="0,0,0,10"
+                                   Visibility="Collapsed" HorizontalAlignment="Center"/>
+
                         <!-- Normal State -->
                         <Grid x:Name="ActionPanel">
                             <Grid.ColumnDefinitions>

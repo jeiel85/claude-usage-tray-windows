@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.32.4] - 2026-06-04
+
+<!-- ko -->
+### 수정
+- **날씨 ntfy 알림 클릭 URL 404 수정** — meteoblue URL 구조 변경으로 `/widget/interactive/` 경로가 404를 반환하여 `/week/` 경로로 변경했습니다.
+### 개선
+- **테마 적용 다이얼로그로 교체** — 업데이트 체크 실패 시 표시되던 기본 Windows MessageBox를 앱 테마를 따르는 `DarkMessageBox`로 교체했습니다.
+- **업데이트 오류 인라인 표시** — 업데이트 다운로드 실패 시 별도 MessageBox 대신 UpdateDialog 내부에 에러 메시지를 표시하도록 변경했습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Fixed weather ntfy click URL 404** — Meteoblue URL structure changed, causing `/widget/interactive/` paths to return 404; changed to `/week/` path.
+### Improved
+- **Themed dialog for update prompts** — Replaced the default Windows MessageBox with a `DarkMessageBox` that matches the app's theme for update check failure prompts.
+- **Inline update error display** — Update download errors are now shown inline within the UpdateDialog instead of a separate MessageBox.
+<!-- /en -->
+
 ## [1.32.3] - 2026-06-02
 
 <!-- ko -->

@@ -217,7 +217,7 @@ public class WeatherAlertService
     {
         var lat = loc.Latitude.ToString(CultureInfo.InvariantCulture);
         var lon = loc.Longitude.ToString(CultureInfo.InvariantCulture);
-        return $"https://www.meteoblue.com/en/weather/widget/interactive/{lat}N{lon}E12";
+        return $"https://www.meteoblue.com/en/weather/week/{lat}N{lon}E12";
     }
 
     private static bool IsSignificantPrecip(int wmoCode) =>

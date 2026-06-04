@@ -41,6 +41,16 @@ git fetch origin && git pull origin master && git status
 - 이는 사용자가 수동 빌드 없이 GitHub Actions를 통해 즉시 최신 버전을 내려받을 수 있도록 하기 위함이다.
 - 태그 생성 전 `csproj`의 버전과 `CHANGELOG.md`가 최신화되었는지 재확인한다.
 
+### 6. 작업 완료 후 자동 릴리즈 사이클
+- **모든 코드 수정(버그 수정, 기능 추가, 개선) 완료 후 다음 작업을 자동으로 수행한다:**
+  1. `dotnet build`로 빌드 검증 (0 warning, 0 error 필수)
+  2. 버전 bump (`csproj` `<Version>` 및 `<AssemblyVersion>` +1)
+  3. `CHANGELOG.md` 최상단에 신규 버전 섹션 추가 (변경 내역 요약, ko/en 이중 언어)
+  4. 커밋 → 태그(`v{x.y.z}`) → `git push origin master && git push origin v{x.y.z}`
+  5. GitHub Release 생성 확인 (`gh release view v{x.y.z}` — exe 자산 첨부 여부까지 검증)
+- **사용자가 "새 버전 만들기" 같은 명시적 요청을 하지 않아도 위 사이클을 자동 실행한다.**
+- 단, 사용자가 "아직 릴리즈 하지 마" 또는 "커밋만 해" 등 명시적으로 보류 의사를 밝힌 경우에는 릴리즈를 생성하지 않는다.
+
 ---
 
 ## 🧠 판단 및 의사결정 원칙

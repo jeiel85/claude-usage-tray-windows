@@ -126,7 +126,8 @@ public partial class UpdateDialog : Window
         {
             ActionPanel.Visibility = Visibility.Visible;
             ProgressPanel.Visibility = Visibility.Collapsed;
-            System.Windows.MessageBox.Show(message, "업데이트 오류", MessageBoxButton.OK, MessageBoxImage.Error);
+            ErrorText.Text = message;
+            ErrorText.Visibility = Visibility.Visible;
         });
     }
 
