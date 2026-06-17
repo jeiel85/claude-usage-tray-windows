@@ -1671,9 +1671,7 @@ namespace ClaudeUsageTray.ViewModels;
 
     private static string ParseFriendlyError(string raw)
     {
-        if (raw.Contains("429") || raw.Contains("rate_limit"))
-            return Loc.RateLimited;
-#if DEBUG
+        var msgText = raw;
         try
         {
             var start = raw.IndexOf('{');
@@ -1681,17 +1679,22 @@ namespace ClaudeUsageTray.ViewModels;
             {
                 var json = raw[start..];
                 using var doc = JsonDocument.Parse(json);
-                if (doc.RootElement.TryGetProperty("error", out var err) &&
-                    err.TryGetProperty("message", out var msg))
+                if (doc.RootElement.TryGetProperty("error", out var err))
                 {
-                    var msgText = msg.GetString() ?? raw;
-                    return Loc.ApiError(msgText.Length > 200 ? msgText[..200] + "…" : msgText);
+                    if (err.TryGetProperty("message", out var msg))
+                        msgText = msg.GetString() ?? raw;
+                    // 특정 에러 타입을 감지하여 사용자 친화적 메시지로 전환
+                    var errorType = err.TryGetProperty("type", out var t) ? t.GetString() : null;
+                    if (errorType == "permission_error" || msgText?.Contains("does not support") == true)
+                        return Loc.ApiPermissionDenied;
                 }
             }
         }
         catch { }
-#endif
-        return Loc.ApiError(raw.Length > 200 ? raw[..200] + "…" : raw);
+        if (raw.Contains("429") || raw.Contains("rate_limit"))
+            return Loc.RateLimited;
+        var display = msgText ?? raw;
+        return Loc.ApiError(display.Length > 200 ? display[..200] + "…" : display);
     }
 
     private static string CalcDepletionLabel(Models.UsageWindow w) =>

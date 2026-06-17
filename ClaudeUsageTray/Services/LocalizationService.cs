@@ -1207,6 +1207,14 @@ public static class Loc
         _ => $"API error: {msg}"
     };
 
+    public static string ApiPermissionDenied => Lang switch
+    {
+        "ko" => "API 접근 권한이 없거나 요청을 처리할 수 없습니다. (잠시 후 자동 재시도)",
+        "zh" => "无 API 访问权限或无法处理请求。（稍后将自动重试）",
+        "ja" => "API アクセス権限がないか、リクエストを処理できません。（しばらくして自動再試行）",
+        _ => "No API permission or unable to process request. (Auto-retry shortly)"
+    };
+
     public static string UpdateHashMismatch => Lang switch
     {
         "ko" => "다운로드된 파일이 손상되었거나 변조되었습니다. 다시 시도하거나 개발자에게 보고하세요.",

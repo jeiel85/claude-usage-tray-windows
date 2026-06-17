@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.33.1] - 2026-06-17
+
+<!-- ko -->
+### 수정
+- **예상치 못한 API 에러 메시지(raw 응답 본문)가 팝업에 그대로 노출되는 문제 수정** — "Cannot read image.png (this model does not support image input)" 같은 현상이 일시적인 API 게이트웨이 오류로 인해 발생할 수 있음을 식별하여, `ParseFriendlyError`가 `error.type`을 기준으로 permission_error/모델 비호환 오류를 자동 감지하고 사용자 친화적 메시지로 대체합니다. JSON 에러 본문 파싱을 Release 빌드에서도 수행하도록 개선했습니다.
+### 개선
+- **`ApiPermissionDenied` 다국어 문자열 추가** — 권한/모델 비호환 API 오류 발생 시 표시할 공통 메시지 (ko/zh/ja/en).
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Raw API error body exposed in popup for unexpected errors** — Detected a class of transient API gateway errors (e.g., "Cannot read image.png (this model does not support image input)") that leaked into `ClaudeVm.ErrorMessage`. `ParseFriendlyError` now inspects `error.type` to detect permission_error / model-capability errors and substitutes a user-friendly message. JSON error-body parsing is now enabled in Release builds too.
+### Improved
+- **Added `ApiPermissionDenied` localized string** — Common message shown for permission/model-capability API errors (ko/zh/ja/en).
+<!-- /en -->
+
 ## [1.33.0] - 2026-06-17
 
 <!-- ko -->
