@@ -65,19 +65,7 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private bool _hasError = false;
     [ObservableProperty] private string _errorMessage = "";
 
-    // Claude Usage (5h/7d)
-    [ObservableProperty] private double _claudeShortPercent = 0;
-    [ObservableProperty] private string _claudeShortReset = "";
-    [ObservableProperty] private double _claudeLongPercent = 0;
-    [ObservableProperty] private string _claudeLongReset = "";
-    [ObservableProperty] private string _claudeShortSummary = "";
-    [ObservableProperty] private string _claudeLongSummary = "";
-    [ObservableProperty] private string _claudeShortDepletion = "";
-    [ObservableProperty] private string _claudeLongDepletion = "";
-    [ObservableProperty] private bool _claudeHasError = false;
-    [ObservableProperty] private string _claudeErrorMessage = "";
-    // 쿨다운(API 일시 제한) 안내: 에러가 아니라 재시도 시점만 부드럽게 표시
-    [ObservableProperty] private string _claudeApiNote = "";
+    // Claude usage → ClaudeVm (ShortPercent, LongPercent, HasError, etc.)
 
     // Codex Usage
     [ObservableProperty] private double _codexPercent = 0;
@@ -320,19 +308,16 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private double _openCodePercent = 0;
     [ObservableProperty] private double _trayUsagePercent = 0;
 
-    // Visibility control
-    [ObservableProperty] private bool _isClaudeActive = true;
+    // Visibility control (IsClaudeActive → ClaudeVm.IsActive)
     [ObservableProperty] private bool _isCodexActive = false;
     [ObservableProperty] private bool _isGeminiActive = false;
     [ObservableProperty] private bool _isOpenCodeActive = false;
-    [ObservableProperty] private bool _isClaudeUsageEmpty = true;
+    // IsClaudeUsageEmpty → ClaudeVm.IsUsageEmpty
     [ObservableProperty] private bool _isCodexUsageEmpty = true;
     [ObservableProperty] private bool _isGeminiUsageEmpty = true;
     [ObservableProperty] private bool _isOpenCodeUsageEmpty = true;
 
-    // Claude 구독 상태 — credentials의 subscriptionType 기준으로 paid plan 여부 판단
-    [ObservableProperty] private bool _isClaudeSubscribed = false;
-
+    // IsClaudeSubscribed → ClaudeVm.IsSubscribed
     private string _updateDownloadUrl = "";
     private string _updateSha256Url = "";
     public string CurrentVersionLabel => $"v{UpdateService.CurrentVersion.ToString(3)}";
@@ -621,7 +606,7 @@ namespace ClaudeUsageTray.ViewModels;
     private void UpdateClaudeSubscription()
     {
         var subType = _credentials.GetSubscriptionType();
-        IsClaudeSubscribed = !string.IsNullOrEmpty(subType)
+        ClaudeVm.IsSubscribed = !string.IsNullOrEmpty(subType)
             && !string.Equals(subType, "free", StringComparison.OrdinalIgnoreCase);
     }
 
@@ -977,7 +962,7 @@ namespace ClaudeUsageTray.ViewModels;
                 // 공통 정보 업데이트
                 UpdateOverallStatus();
                 
-                LastUpdatedLabel = (ClaudeHasError || CodexHasError || GeminiHasError || OpenCodeHasError)
+                LastUpdatedLabel = (ClaudeVm.HasError || CodexHasError || GeminiHasError || OpenCodeHasError)
                     ? $"⚠ {DateTime.Now:HH:mm:ss}"
                     : Loc.UpdatedAt(DateTime.Now.ToString("HH:mm:ss"));
                 IsLoading = false;
@@ -1011,12 +996,12 @@ namespace ClaudeUsageTray.ViewModels;
         var settings = _settingsService.Load();
         var hideInactive = settings.HideInactiveProviders;
 
-        IsClaudeActive = IsClaudeEnabled && (!hideInactive || TodayInputTokens + TodayOutputTokens > 0 || ClaudeShortPercent > 0 || ClaudeHasError);
+        ClaudeVm.IsActive = IsClaudeEnabled && (!hideInactive || TodayInputTokens + TodayOutputTokens > 0 || ClaudeVm.ShortPercent > 0 || ClaudeVm.HasError);
         IsCodexActive = IsCodexEnabled && (!hideInactive || CodexPercent > 0 || CodexHasError);
         IsGeminiActive = IsGeminiEnabled && (!hideInactive || _lastGeminiRequestCount > 0 || GeminiHasError);
         IsOpenCodeActive = IsOpenCodeEnabled && (!hideInactive || _lastOpenCodeRequestCount > 0 || OpenCodeHasError);
 
-        IsClaudeUsageEmpty = TodayInputTokens + TodayOutputTokens == 0;
+        ClaudeVm.IsUsageEmpty = TodayInputTokens + TodayOutputTokens == 0;
         IsCodexUsageEmpty = CodexPercent == 0;
         IsGeminiUsageEmpty = _lastGeminiRequestCount == 0;
         IsOpenCodeUsageEmpty = _lastOpenCodeRequestCount == 0;
@@ -1057,11 +1042,11 @@ namespace ClaudeUsageTray.ViewModels;
         // 3. 트레이 표시 비율 계산
         TrayUsagePercent = EffectiveTrayProvider switch
         {
-            UsageProviderKind.Claude => ClaudeShortPercent,
+            UsageProviderKind.Claude => ClaudeVm.ShortPercent,
             UsageProviderKind.Codex => CodexPercent,
             UsageProviderKind.GeminiCli => GeminiPercent,
             UsageProviderKind.OpenCode => OpenCodePercent,
-            _ => ClaudeShortPercent
+            _ => ClaudeVm.ShortPercent
         };
 
         // 제미나이/오픈코드 등 고정 할당량이 없는 경우 최근 7일 최대치 대비 비율로 보정 (트레이 전용)
@@ -1084,12 +1069,12 @@ namespace ClaudeUsageTray.ViewModels;
             }
         }
 
-        if (ClaudeHasError && CodexHasError && GeminiHasError && OpenCodeHasError)
+        if (ClaudeVm.HasError && CodexHasError && GeminiHasError && OpenCodeHasError)
         {
             StatusText = "All Providers Error";
             HasError = true;
         }
-        else if (ClaudeHasError || CodexHasError || GeminiHasError || OpenCodeHasError)
+        else if (ClaudeVm.HasError || CodexHasError || GeminiHasError || OpenCodeHasError)
         {
             StatusText = "Partial Error";
             HasError = false;
@@ -1106,7 +1091,7 @@ namespace ClaudeUsageTray.ViewModels;
                 UsageProviderKind.Codex     => Loc.TrayStatusCodex(CodexPercent, CodexDataSource),
                 UsageProviderKind.GeminiCli => Loc.TrayStatusGemini(_lastGeminiRequestCount, _lastGeminiOutputTokens),
                 UsageProviderKind.OpenCode  => Loc.TrayStatusOpenCode(_lastOpenCodeRequestCount, _lastOpenCodeInputTokens, _lastOpenCodeOutputTokens),
-                _ => Loc.TrayStatusClaude(ClaudeShortPercent)
+                _ => Loc.TrayStatusClaude(ClaudeVm.ShortPercent)
             };
         }
     }
@@ -1168,9 +1153,9 @@ namespace ClaudeUsageTray.ViewModels;
 
                 if (usage?.FiveHour != null || usage?.SevenDay != null)
                 {
-                    ClaudeHasError = false;
-                    ClaudeErrorMessage = "";
-                    ClaudeApiNote = "";
+                    ClaudeVm.HasError = false;
+                    ClaudeVm.ErrorMessage = "";
+                    ClaudeVm.ApiNote = "";
                     // OAuth-not-allowed 가 해소된 첫 성공 → 첫감지 시각 클리어
                     ClearOAuthNotAllowedFirstSeenIfNeeded();
 
@@ -1184,12 +1169,12 @@ namespace ClaudeUsageTray.ViewModels;
                     {
                         var newPercent = usage.FiveHour.UsagePercent;
                         _rawClaudeShortResetAt = usage.FiveHour.ResetsAtParsed;
-                        ClaudeShortReset = FormatResetLabel(_rawClaudeShortResetAt);
-                        ClaudeShortSummary = Loc.UsageSummary(newPercent);
-                        ClaudeShortDepletion = CalcDepletionLabel(usage.FiveHour);
+                        ClaudeVm.ShortReset = FormatResetLabel(_rawClaudeShortResetAt);
+                        ClaudeVm.ShortSummary = Loc.UsageSummary(newPercent);
+                        ClaudeVm.ShortDepletion = CalcDepletionLabel(usage.FiveHour);
 
                         // 조기 소진 푸시 알림: 예상 소진 시각이 이전보다 당겨졌을 때만 발송
-                        if (NotificationsEnabled && !string.IsNullOrEmpty(ClaudeShortDepletion))
+                        if (NotificationsEnabled && !string.IsNullOrEmpty(ClaudeVm.ShortDepletion))
                         {
                             var currentReset = usage.FiveHour.ResetsAtParsed;
                             if (currentReset.HasValue)
@@ -1222,35 +1207,35 @@ namespace ClaudeUsageTray.ViewModels;
                             // 조기 소진 예상이 사라졌으면 초기화
                             _lastNotifiedEarlyDepletionAt = null;
                         }
-                        _prevShortDepletion = ClaudeShortDepletion;
+                        _prevShortDepletion = ClaudeVm.ShortDepletion;
 
                         if (NotificationsEnabled && _prevShortPercent >= 0)
                         {
-                            CheckThresholds(newPercent, ClaudeShortReset, NtfyTopicEffective);
+                            CheckThresholds(newPercent, ClaudeVm.ShortReset, NtfyTopicEffective);
                         }
 
-                        ClaudeShortPercent = newPercent;
+                        ClaudeVm.ShortPercent = newPercent;
                         _prevShortPercent = newPercent;
                         _lastKnownShortPercent = newPercent;
-                        _lastKnownShortReset = ClaudeShortReset;
+                        _lastKnownShortReset = ClaudeVm.ShortReset;
                         
                         // Compatibility for legacy bindings if any
                         ShortUsagePercent = newPercent;
-                        ShortResetLabel = ClaudeShortReset;
+                        ShortResetLabel = ClaudeVm.ShortReset;
                     }
 
                     if (usage.SevenDay != null)
                     {
-                        ClaudeLongPercent    = usage.SevenDay.UsagePercent;
+                        ClaudeVm.LongPercent    = usage.SevenDay.UsagePercent;
                         _rawClaudeLongResetAt = usage.SevenDay.ResetsAtParsed;
-                        ClaudeLongReset      = FormatResetLabel(_rawClaudeLongResetAt);
-                        ClaudeLongSummary    = Loc.UsageSummary(ClaudeLongPercent);
-                        ClaudeLongDepletion  = CalcLongDepletionLabel(usage.SevenDay);
-                        _lastKnownLongPercent = ClaudeLongPercent;
-                        _lastKnownLongReset = ClaudeLongReset;
+                        ClaudeVm.LongReset      = FormatResetLabel(_rawClaudeLongResetAt);
+                        ClaudeVm.LongSummary    = Loc.UsageSummary(ClaudeVm.LongPercent);
+                        ClaudeVm.LongDepletion  = CalcLongDepletionLabel(usage.SevenDay);
+                        _lastKnownLongPercent = ClaudeVm.LongPercent;
+                        _lastKnownLongReset = ClaudeVm.LongReset;
                         
-                        LongUsagePercent = ClaudeLongPercent;
-                        LongResetLabel = ClaudeLongReset;
+                        LongUsagePercent = ClaudeVm.LongPercent;
+                        LongResetLabel = ClaudeVm.LongReset;
                     }
 
                     if (usage.SevenDayOpus != null)
@@ -1285,29 +1270,29 @@ namespace ClaudeUsageTray.ViewModels;
                         ExtraUsageEnabled = false;
                     }
 
-                    if (ExtraUsageEnabled && ClaudeShortPercent >= 1.0)
+                    if (ExtraUsageEnabled && ClaudeVm.ShortPercent >= 1.0)
                     {
                         IsExtraOnlyMode = true;
                         StatusText = Loc.ExtraUsageExhausted;
                     }
-                    else if (ClaudeShortPercent < 0.5)
+                    else if (ClaudeVm.ShortPercent < 0.5)
                     {
                         IsExtraOnlyMode = false;
-                        StatusText = $"{ClaudeShortPercent:P0} used";
+                        StatusText = $"{ClaudeVm.ShortPercent:P0} used";
                     }
                     else if (!IsExtraOnlyMode)
                     {
-                        StatusText = $"{ClaudeShortPercent:P0} used";
+                        StatusText = $"{ClaudeVm.ShortPercent:P0} used";
                     }
                 }
                 else if (skipApi || _api.LastError != null)
                 {
-                    ClaudeShortPercent = _lastKnownShortPercent;
-                    ClaudeShortReset   = _lastKnownShortReset;
-                    ClaudeShortSummary = Loc.UsageSummary(_lastKnownShortPercent);
-                    ClaudeLongPercent  = _lastKnownLongPercent;
-                    ClaudeLongReset    = _lastKnownLongReset;
-                    ClaudeLongSummary  = Loc.UsageSummary(_lastKnownLongPercent);
+                    ClaudeVm.ShortPercent = _lastKnownShortPercent;
+                    ClaudeVm.ShortReset   = _lastKnownShortReset;
+                    ClaudeVm.ShortSummary = Loc.UsageSummary(_lastKnownShortPercent);
+                    ClaudeVm.LongPercent  = _lastKnownLongPercent;
+                    ClaudeVm.LongReset    = _lastKnownLongReset;
+                    ClaudeVm.LongSummary  = Loc.UsageSummary(_lastKnownLongPercent);
 
                     // 403 permission_error: 두 가지 케이스로 세분
                     //   (a) "currently not allowed for this organization" — 신규 계정 검증/조직 OAuth 미활성 (일시적, 24h내 자동 해소 가능성)
@@ -1324,34 +1309,34 @@ namespace ClaudeUsageTray.ViewModels;
 
                     if (isPermissionDenied)
                     {
-                        ClaudeHasError = false;
-                        ClaudeErrorMessage = "";
+                        ClaudeVm.HasError = false;
+                        ClaudeVm.ErrorMessage = "";
                         if (isOAuthNotAllowed)
                         {
-                            ClaudeApiNote = ResolveOAuthNotAllowedNote();
+                            ClaudeVm.ApiNote = ResolveOAuthNotAllowedNote();
                         }
                         else
                         {
                             // 다른 종류의 permission_error → OAuth-not-allowed 추적 상태가 있다면 정리
                             ClearOAuthNotAllowedFirstSeenIfNeeded();
-                            ClaudeApiNote = Loc.ApiPermissionDeniedNote;
+                            ClaudeVm.ApiNote = Loc.ApiPermissionDeniedNote;
                         }
                     }
                     else if (isCooldown)
                     {
                         // 일시 제한은 에러 아닌 안내로만 — 빨간 박스 대신 회색 톤 자동 재시도 안내
-                        ClaudeHasError = false;
-                        ClaudeErrorMessage = "";
-                        ClaudeApiNote = Loc.ApiCooldownNote(_apiRetryAfter.ToLocalTime().ToString("HH:mm"));
+                        ClaudeVm.HasError = false;
+                        ClaudeVm.ErrorMessage = "";
+                        ClaudeVm.ApiNote = Loc.ApiCooldownNote(_apiRetryAfter.ToLocalTime().ToString("HH:mm"));
                         // 쿨다운은 OAuth-not-allowed 와 무관 — 추적 상태 유지(클리어하지 않음)
                     }
                     else
                     {
-                        ClaudeHasError = true;
-                        ClaudeErrorMessage = _api.LastError != null
+                        ClaudeVm.HasError = true;
+                        ClaudeVm.ErrorMessage = _api.LastError != null
                             ? ParseFriendlyError(_api.LastError)
                             : Loc.RateLimited;
-                        ClaudeApiNote = "";
+                        ClaudeVm.ApiNote = "";
                         // 다른 종류의 에러로 전이 → 추적 상태 정리
                         ClearOAuthNotAllowedFirstSeenIfNeeded();
                     }
@@ -1362,30 +1347,15 @@ namespace ClaudeUsageTray.ViewModels;
         {
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                ClaudeHasError = true;
-                ClaudeErrorMessage = ex.Message;
-                ClaudeApiNote = "";
+                ClaudeVm.HasError = true;
+                ClaudeVm.ErrorMessage = ex.Message;
+                ClaudeVm.ApiNote = "";
                 UpdateOverallStatus();
             });
         }
         finally
         {
-            SyncClaudeVm();
         }
-    }
-
-    private void SyncClaudeVm()
-    {
-        // Keep ClaudeVm in sync for future XAML migration
-        System.Windows.Application.Current.Dispatcher.Invoke(() =>
-        {
-            ClaudeVm.ShortPercent = ClaudeShortPercent;
-            ClaudeVm.LongPercent = ClaudeLongPercent;
-            ClaudeVm.HasError = ClaudeHasError;
-            ClaudeVm.ErrorMessage = ClaudeErrorMessage;
-            ClaudeVm.ApiNote = ClaudeApiNote;
-            ClaudeVm.IsUsageEmpty = IsClaudeUsageEmpty;
-        });
     }
 
     // 403 + "currently not allowed" 가 처음 감지된 시각을 settings 에 보관해두고,
@@ -1576,8 +1546,8 @@ namespace ClaudeUsageTray.ViewModels;
             LongUsagePercent = snapshot.LongUsagePercent;
             ShortResetLabel = FormatResetLabel(snapshot.ShortResetAt);
             LongResetLabel = FormatResetLabel(snapshot.LongResetAt);
-            ClaudeShortSummary = Loc.UsageSummary(snapshot.ShortUsagePercent);
-            ClaudeLongSummary = Loc.UsageSummary(snapshot.LongUsagePercent);
+            ClaudeVm.ShortSummary = Loc.UsageSummary(snapshot.ShortUsagePercent);
+            ClaudeVm.LongSummary = Loc.UsageSummary(snapshot.LongUsagePercent);
             ShortDepletionLabel = snapshot.ShortResetAt is null ? "" : "";
             LongDepletionLabel = snapshot.LongResetAt is null ? "" : "";
 
@@ -1657,10 +1627,10 @@ namespace ClaudeUsageTray.ViewModels;
         var now = DateTimeOffset.Now;
 
         if (_rawClaudeShortResetAt.HasValue && (_rawClaudeShortResetAt.Value - now).TotalMinutes < 10)
-            ClaudeShortReset = FormatResetLabel(_rawClaudeShortResetAt);
+            ClaudeVm.ShortReset = FormatResetLabel(_rawClaudeShortResetAt);
 
         if (_rawClaudeLongResetAt.HasValue && (_rawClaudeLongResetAt.Value - now).TotalMinutes < 10)
-            ClaudeLongReset = FormatResetLabel(_rawClaudeLongResetAt);
+            ClaudeVm.LongReset = FormatResetLabel(_rawClaudeLongResetAt);
 
         if (_rawCodexShortResetAt.HasValue && (_rawCodexShortResetAt.Value - now).TotalMinutes < 10)
             CodexReset = FormatResetLabel(_rawCodexShortResetAt, _rawCodexShortResetEstimated);
@@ -1675,8 +1645,8 @@ namespace ClaudeUsageTray.ViewModels;
     /// </summary>
     partial void OnShowAbsoluteResetTimeChanged(bool value)
     {
-        ClaudeShortReset = FormatResetLabel(_rawClaudeShortResetAt);
-        ClaudeLongReset  = FormatResetLabel(_rawClaudeLongResetAt);
+        ClaudeVm.ShortReset = FormatResetLabel(_rawClaudeShortResetAt);
+        ClaudeVm.LongReset  = FormatResetLabel(_rawClaudeLongResetAt);
         CodexReset       = FormatResetLabel(_rawCodexShortResetAt, _rawCodexShortResetEstimated);
         CodexLongReset   = FormatResetLabel(_rawCodexLongResetAt);
     }

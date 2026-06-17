@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.33.0] - 2026-06-17
+
+<!-- ko -->
+### 개선
+- **MainViewModel→ClaudeViewModel 완전 위임** — MainViewModel에 남아있던 Claude 관련 [ObservableProperty] 14개를 제거하고 ClaudeViewModel으로 완전 이관. SyncClaudeVm() 브릿지(53줄) 삭제, XAML 바인딩을 ClaudeVm.*로 변경. Claude 데이터의 단일 소유자가 ClaudeViewModel로 확정됨.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Full delegation from MainViewModel to ClaudeViewModel** — Removed 14 Claude-related [ObservableProperty] from MainViewModel, fully delegating to ClaudeViewModel. Deleted SyncClaudeVm() bridge (53 lines), changed XAML bindings to ClaudeVm.* prefix. ClaudeViewModel is now the single source of truth for Claude data.
+<!-- /en -->
+
 ## [1.32.5] - 2026-06-17
 
 <!-- ko -->

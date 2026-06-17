@@ -128,26 +128,13 @@ public partial class App : Application
 
     private void OnVmStatusPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {
-        if (args.PropertyName is nameof(MainViewModel.ClaudeShortPercent)
-                              or nameof(MainViewModel.ClaudeLongPercent)
-                              or nameof(MainViewModel.CodexPercent)
-                              or nameof(MainViewModel.GeminiRequestsLabel)
-                              or nameof(MainViewModel.GeminiOutputTokensLabel)
-                              or nameof(MainViewModel.OpenCodeRequestCountLabel)
-                              or nameof(MainViewModel.OpenCodeInputLabel)
-                              or nameof(MainViewModel.OpenCodeOutputLabel)
-                              or nameof(MainViewModel.ClaudeHasError)
-                              or nameof(MainViewModel.CodexHasError)
-                              or nameof(MainViewModel.GeminiHasError)
-                              or nameof(MainViewModel.OpenCodeHasError)
-                              or nameof(MainViewModel.IsLoading)
-                              or nameof(MainViewModel.NextRefreshLabel))
+        if (sender is MainViewModel or ClaudeViewModel)
         {
             Dispatcher.Invoke(() =>
             {
                 if (_vm is null || _claudeStatusItem is null) return;
 
-                if (_vm.IsLoading && _vm.ClaudeShortPercent == 0 && _vm.CodexPercent == 0)
+                if (_vm.IsLoading && _vm.ClaudeVm.ShortPercent == 0 && _vm.CodexPercent == 0)
                 {
                     _claudeStatusItem.Text   = "Claude: Loading...";
                     _codexStatusItem!.Text   = "Codex: Loading...";
@@ -157,8 +144,8 @@ public partial class App : Application
                 else
                 {
                     // Claude Status
-                    if (_vm.ClaudeHasError) _claudeStatusItem.Text = $"Claude: {Loc.Unavailable}";
-                    else _claudeStatusItem.Text = $"Claude: {_vm.ClaudeShortPercent:P0} (5h) / {_vm.ClaudeLongPercent:P0} (7d)";
+                    if (_vm.ClaudeVm.HasError) _claudeStatusItem.Text = $"Claude: {Loc.Unavailable}";
+                    else _claudeStatusItem.Text = $"Claude: {_vm.ClaudeVm.ShortPercent:P0} (5h) / {_vm.ClaudeVm.LongPercent:P0} (7d)";
 
                     // Codex Status
                     if (_vm.CodexHasError) _codexStatusItem!.Text = $"Codex: {Loc.Unavailable}";
@@ -184,23 +171,7 @@ public partial class App : Application
 
     private void OnVmIconPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {
-        if (args.PropertyName is nameof(MainViewModel.TrayUsagePercent)
-                              or nameof(MainViewModel.TrayDisplayMode)
-                              or nameof(MainViewModel.EffectiveTrayProvider)
-                              or nameof(MainViewModel.ClaudeHasError)
-                              or nameof(MainViewModel.CodexHasError)
-                              or nameof(MainViewModel.GeminiHasError)
-                              or nameof(MainViewModel.OpenCodeHasError)
-                              or nameof(MainViewModel.HasError)
-                              or nameof(MainViewModel.HideInactiveProviders)
-                              or nameof(MainViewModel.GeminiOutputTokensLabel)
-                              or nameof(MainViewModel.OpenCodeOutputLabel)
-                              or nameof(MainViewModel.ClaudeShortPercent)
-                              or nameof(MainViewModel.CodexPercent)
-                              or nameof(MainViewModel.LblAppTitle)
-                              or nameof(MainViewModel.WeatherTooltipLabel)
-                              or nameof(MainViewModel.WeatherShowInTrayTooltip)
-                              or nameof(MainViewModel.WeatherHasError))
+        if (sender is MainViewModel or ClaudeViewModel)
         {
             Dispatcher.Invoke(() =>
             {
@@ -212,7 +183,7 @@ public partial class App : Application
                 // Determine if the current active provider has an error
                 bool currentHasError = _vm.EffectiveTrayProvider switch
                 {
-                    UsageProviderKind.Claude => _vm.ClaudeHasError,
+                    UsageProviderKind.Claude => _vm.ClaudeVm.HasError,
                     UsageProviderKind.Codex => _vm.CodexHasError,
                     UsageProviderKind.GeminiCli => _vm.GeminiHasError,
                     UsageProviderKind.OpenCode => _vm.OpenCodeHasError,
@@ -230,10 +201,10 @@ public partial class App : Application
                 var parts = new System.Collections.Generic.List<string>();
                 string currentKind = _vm.EffectiveTrayProvider;
 
-                if (!(hide && _vm.ClaudeHasError))
+                if (!(hide && _vm.ClaudeVm.HasError))
                 {
                     string mark = currentKind == UsageProviderKind.Claude ? "*" : "";
-                    parts.Add($"{mark}Claude {(_vm.ClaudeHasError ? "—" : $"{_vm.ClaudeShortPercent:P0}")}");
+                    parts.Add($"{mark}Claude {(_vm.ClaudeVm.HasError ? "—" : $"{_vm.ClaudeVm.ShortPercent:P0}")}");
                 }
                 if (!(hide && _vm.CodexHasError))
                 {
@@ -349,6 +320,8 @@ public partial class App : Application
         {
             _vm.PropertyChanged -= OnVmStatusPropertyChanged;
             _vm.PropertyChanged -= OnVmIconPropertyChanged;
+            _vm.ClaudeVm.PropertyChanged -= OnVmStatusPropertyChanged;
+            _vm.ClaudeVm.PropertyChanged -= OnVmIconPropertyChanged;
         }
 
         _vm?.Dispose();

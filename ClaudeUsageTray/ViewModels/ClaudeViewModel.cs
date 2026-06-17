@@ -56,6 +56,7 @@ public partial class ClaudeViewModel : ObservableObject
 
     public double PrevShortPercent => _prevShortPercent;
     public double PrevExtraPercent => _prevExtraPercent;
+    public string HistoryChartTitle => Loc.HistoryTitleFor("Claude");
     public string? RawApiResponse { get; private set; }
 
     public ClaudeViewModel(UsageApiService api, CredentialService credentials, SessionMonitor session, HistoryService history)
