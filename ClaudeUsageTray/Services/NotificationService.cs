@@ -64,13 +64,13 @@ public class NotificationService
         SendNtfy(ntfyTopic, title, body, priority);
     }
 
-    public void ShowEarlyExhaustionAlert(string depletionTime, string resetTime, string ntfyTopic, int priority = 4)
+    public void ShowEarlyExhaustionAlert(string depletionTime, string resetTime, string ntfyTopic, int priority = 2)
     {
         var title = Loc.EarlyExhaustionTitle;
         var body  = Loc.EarlyExhaustionBody(depletionTime, resetTime);
 
         ShowBalloon(title, body);
-        SendNtfy(ntfyTopic, title, body, priority);
+        SendNtfy(ntfyTopic, title, body, priority, []);
     }
 
     public void ShowWeatherAlert(string title, string body, string ntfyTopic,
@@ -145,18 +145,18 @@ public class NotificationService
         }
     }
 
-    private static void SendNtfy(string topic, string title, string body, int priority = 3)
+    private static void SendNtfy(string topic, string title, string body, int priority = 3, string[]? tags = null)
     {
         if (string.IsNullOrWhiteSpace(topic)) return;
 
         // Fire-and-forget — don't block the UI
         _ = Task.Run(async () =>
         {
-            await SendNtfyAsync(topic, title, body, priority);
+            await SendNtfyAsync(topic, title, body, priority, tags);
         });
     }
 
-    private static async Task<bool> SendNtfyAsync(string topic, string title, string body, int priority = 3)
+    private static async Task<bool> SendNtfyAsync(string topic, string title, string body, int priority = 3, string[]? tags = null)
     {
         try
         {
@@ -172,7 +172,7 @@ public class NotificationService
                 title,
                 message = body,
                 priority,
-                tags = new[] { "bell" }
+                tags = tags ?? new[] { "bell" }
             });
             var req = new HttpRequestMessage(HttpMethod.Post, "https://ntfy.sh/")
             {

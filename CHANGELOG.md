@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.32.5] - 2026-06-17
+
+<!-- ko -->
+### 변경
+- **조기소진 푸시 알림 우선순위 하향** — 열심히 타이핑 중일 때 핸드폰이 계속 울리지 않도록 진동/소리 없는 조용한 알림(priority 2, low)로 변경했습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Changed
+- **Lowered early exhaustion push notification priority** — Changed to silent notification (priority 2, low) with no vibration/sound so the phone doesn't keep buzzing during active typing.
+<!-- /en -->
+
 ## [1.32.4] - 2026-06-04
 
 <!-- ko -->
