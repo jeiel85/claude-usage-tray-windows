@@ -40,6 +40,7 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode A
 - **변경 이력**: [CHANGELOG.md](CHANGELOG.md)
 
 ## 이슈
+- `버그` 업데이트 모달 팝업(UpdateDialog)이 표시되지 않고 배너만 노출되는 문제 수정 (2026-06-17): UpdateDialog.Show() → ShowDialog() 전환으로 모달 보장, Owner 지정으로 Z-order 문제 해결, 예외 처리 추가로 배너 fallback 확보. #73
 - `개선` MainViewModel→ClaudeViewModel 완전 위임 및 Sync 브릿지 제거 (2026-06-17): MainViewModel에 남아있던 Claude 관련 [ObservableProperty] 11개를 제거하고 ClaudeViewModel으로 완전 이관. SyncClaudeVm() 브릿지(53줄) 삭제, XAML 바인딩을 ClaudeVm.*로 변경. 이로써 Claude 데이터의 단일 소유자가 ClaudeViewModel로 확정됨.
 - `개선` ntfy 푸시 메시지에 PC 이름 추가 (2026-06-01): 모든 ntfy 푸시 알림 본문 하단에 발송 PC의 이름을 자동으로 표시하여 여러 PC에서 동일 토픽을 사용할 때 어느 PC에서 보낸 알림인지 식별 가능.
 - `개선` MainViewModel God Object 리팩토링 (2026-05-29): 2000+ 라인의 MainViewModel을 각 공급자별 ViewModel(ClaudeViewModel, CodexViewModel, GeminiViewModel, OpenCodeViewModel, AntigravityViewModel, WeatherViewModel)로 분리하여 단일 책임 원칙(SRP) 준수 및 유지보수성 개선. 리팩토링 전 핵심 로직에 대한 단위 테스트 추가.

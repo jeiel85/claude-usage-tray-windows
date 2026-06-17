@@ -808,43 +808,57 @@ namespace ClaudeUsageTray.ViewModels;
 
     private void ShowUpdateDialog(string version, string notes)
     {
-        var dialog = new Views.UpdateDialog(
-            $"v{version}",
-            notes,
-            onSkip: () => SkipVersion(version));
-
-        dialog.OnUpdateRequested += () =>
+        try
         {
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    IsUpdating = true;
-                    var tempPath = await _updater.DownloadAndPrepareUpdateAsync(
-                        _updateDownloadUrl, _updateSha256Url,
-                        (pc, status) =>
-                        {
-                            dialog.UpdateProgress(pc, status);
-                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                            {
-                                UpdateProgress = pc;
-                                UpdateStatusText = status;
-                            });
-                        });
+            var dialog = new Views.UpdateDialog(
+                $"v{version}",
+                notes,
+                onSkip: () => SkipVersion(version));
 
-                    dialog.UpdateProgress(100, "Restarting...");
-                    await Task.Delay(500);
-                    _updater.ApplyPreparedUpdate(tempPath);
-                }
-                catch (Exception ex)
+            dialog.OnUpdateRequested += () =>
+            {
+                _ = Task.Run(async () =>
                 {
-                    IsUpdating = false;
-                    dialog.ShowError(ex.Message);
-                }
-            });
-        };
-        dialog.Show();
-        dialog.Activate();
+                    try
+                    {
+                        IsUpdating = true;
+                        var tempPath = await _updater.DownloadAndPrepareUpdateAsync(
+                            _updateDownloadUrl, _updateSha256Url,
+                            (pc, status) =>
+                            {
+                                dialog.UpdateProgress(pc, status);
+                                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    UpdateProgress = pc;
+                                    UpdateStatusText = status;
+                                });
+                            });
+
+                        dialog.UpdateProgress(100, "Restarting...");
+                        await Task.Delay(500);
+                        _updater.ApplyPreparedUpdate(tempPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        IsUpdating = false;
+                        dialog.ShowError(ex.Message);
+                    }
+                });
+            };
+
+            // 소유 창 지정 — UsagePopup 위에 항상 표시되도록 보장
+            var activeWindow = System.Windows.Application.Current.Windows.OfType<System.Windows.Window>()
+                .FirstOrDefault(w => w.IsVisible && w != dialog && w.Topmost);
+            if (activeWindow is not null)
+                dialog.Owner = activeWindow;
+
+            dialog.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            // 다이얼로그 표시 실패 — 배너가 fallback으로 동작
+            System.Diagnostics.Debug.WriteLine($"[UpdateDialog] show error: {ex.Message}");
+        }
     }
 
     [RelayCommand]

@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.33.2] - 2026-06-17
+
+<!-- ko -->
+### 수정
+- **업데이트 모달 팝업(UpdateDialog)이 표시되지 않고 배너만 노출되는 문제 수정** — `ShowUpdateDialog()`에서 `dialog.Show()` + `Activate()` 대신 `ShowDialog()`로 전환하여 모달 동작을 보장하고, 현재 표시 중인 Topmost Window를 Owner로 지정하여 Z-order 충돌을 해결했습니다. 다이얼로그 생성/표시 실패 시에도 앱이 크래시되지 않고 배너가 fallback으로 동작합니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Update modal popup (UpdateDialog) not shown — only banner appeared** — Changed `ShowUpdateDialog()` from `dialog.Show()` + `Activate()` to `ShowDialog()` to guarantee modal behavior, and set the active Topmost Window as Owner to resolve Z-order conflicts. Added error handling so the app doesn't crash on dialog show failure — the banner serves as a graceful fallback.
+<!-- /en -->
+
 ## [1.33.1] - 2026-06-17
 
 <!-- ko -->
