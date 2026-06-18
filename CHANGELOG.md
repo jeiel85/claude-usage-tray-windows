@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.33.3] - 2026-06-18
+
+<!-- ko -->
+### 수정
+- **트레이 아이콘 갱신 중 GDI+ 예외로 전역 오류창이 표시되는 문제 수정** — `Bitmap.GetHicon()`으로 생성한 네이티브 HICON을 `Icon.Clone()` 후 `DestroyIcon()`으로 즉시 해제해 GDI 리소스 누수를 막았습니다. 아이콘 재그리기가 일시적으로 실패하더라도 기존 아이콘을 유지하고 앱이 크래시되지 않도록 보호했습니다. #74
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Global error dialog shown after a GDI+ tray icon redraw failure** — Native HICON handles created by `Bitmap.GetHicon()` are now cloned and immediately released with `DestroyIcon()` to prevent GDI resource leaks. If tray icon redraw fails transiently, the app keeps the previous icon instead of crashing. #74
+<!-- /en -->
+
 ## [1.33.2] - 2026-06-17
 
 <!-- ko -->

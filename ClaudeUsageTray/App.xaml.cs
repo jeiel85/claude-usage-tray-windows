@@ -1,4 +1,6 @@
 using System.Drawing;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Forms;
 using ClaudeUsageTray.Models;
@@ -23,6 +25,9 @@ public partial class App : Application
     private ToolStripMenuItem? _geminiStatusItem;
     private ToolStripMenuItem? _openCodeStatusItem;
     private ToolStripMenuItem? _nextRefreshItem;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool DestroyIcon(IntPtr hIcon);
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -190,8 +195,19 @@ public partial class App : Application
                     _ => false
                 };
 
-                _trayIcon.Icon = currentHasError ? DrawTrayIcon(-1) : DrawTrayIcon(_vm.TrayUsagePercent);
-                oldIcon?.Dispose();
+                Icon? newIcon = null;
+                try
+                {
+                    newIcon = currentHasError ? DrawTrayIcon(-1) : DrawTrayIcon(_vm.TrayUsagePercent);
+                    _trayIcon.Icon = newIcon;
+                    oldIcon?.Dispose();
+                    newIcon = null;
+                }
+                catch (ExternalException ex)
+                {
+                    newIcon?.Dispose();
+                    Debug.WriteLine($"[TrayIcon] draw error: {ex.Message}");
+                }
 
                 // Multi-provider summary in tooltip — respects HideInactiveProviders
                 bool hide = _vm.HideInactiveProviders;
@@ -297,11 +313,15 @@ public partial class App : Application
         }
 
         var hIcon = bmp.GetHicon();
-        var icon = Icon.FromHandle(hIcon);
-        // GDI+ 리소스 보호: Bitmap은 using에서 Dispose되지만, GetHicon으로 만든 Icon은
-        // 명시적으로 DestroyIcon이 호출되지 않으면 GDI 리소스가 leak됨
-        // Icon.FromHandle은 내부적으로 HICON을 소유하므로, Icon.Dispose() 호출 시 자동 정리됨
-        return icon;
+        try
+        {
+            using var icon = Icon.FromHandle(hIcon);
+            return (Icon)icon.Clone();
+        }
+        finally
+        {
+            DestroyIcon(hIcon);
+        }
     }
 
     private static void ShowCrashDialog(Exception ex)
