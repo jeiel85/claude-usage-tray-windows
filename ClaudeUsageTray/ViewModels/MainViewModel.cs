@@ -320,6 +320,9 @@ namespace ClaudeUsageTray.ViewModels;
     // IsClaudeSubscribed → ClaudeVm.IsSubscribed
     private string _updateDownloadUrl = "";
     private string _updateSha256Url = "";
+    private string _updateVersion = "";
+    private string _updateReleaseNotes = "";
+    private bool _isUpdateDialogOpen = false;
     public string CurrentVersionLabel => $"v{UpdateService.CurrentVersion.ToString(3)}";
 
     public string? RawApiResponse { get; private set; }
@@ -684,6 +687,7 @@ namespace ClaudeUsageTray.ViewModels;
     public async Task ManualCheckForUpdateAsync()
     {
         if (IsUpdating) return;
+        if (UpdateAvailable && TryShowCachedUpdateDialog()) return;
 
         UpdateCheckLabel = Loc.CheckingUpdate;
 
@@ -755,7 +759,7 @@ namespace ClaudeUsageTray.ViewModels;
             }
 
             var info = result;
-            var versionStr = info.version.ToString(3);
+            var versionStr = StoreAvailableUpdate(info);
             UpdateCheckLabel = "";
 
             var settings = _settingsService.Load();
@@ -765,12 +769,10 @@ namespace ClaudeUsageTray.ViewModels;
                 _settingsService.Save(settings);
             }
 
-            _updateDownloadUrl = info.downloadUrl;
-            _updateSha256Url = info.sha256Url;
             UpdateLabel = Loc.UpdateAvailable($"v{versionStr}");
             UpdateAvailable = true;
 
-            ShowUpdateDialog(versionStr, info.releaseNotes);
+            ShowUpdateDialog(versionStr, _updateReleaseNotes);
         });
     }
 
@@ -790,26 +792,45 @@ namespace ClaudeUsageTray.ViewModels;
         if (result is null) return;
 
         var info = result;
-        var versionStr = info.version.ToString(3);
+        var versionStr = StoreAvailableUpdate(info);
 
         var settings = _settingsService.Load();
         if (settings.SkippedVersion == versionStr) return;
-
-        _updateDownloadUrl = info.downloadUrl;
-        _updateSha256Url = info.sha256Url;
 
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
             UpdateLabel = Loc.UpdateAvailable($"v{versionStr}");
             UpdateAvailable = true;
-            ShowUpdateDialog(versionStr, info.releaseNotes);
+            ShowUpdateDialog(versionStr, _updateReleaseNotes);
         });
+    }
+
+    private string StoreAvailableUpdate(UpdateService.UpdateInfo info)
+    {
+        var versionStr = info.version.ToString(3);
+        _updateVersion = versionStr;
+        _updateReleaseNotes = info.releaseNotes;
+        _updateDownloadUrl = info.downloadUrl;
+        _updateSha256Url = info.sha256Url;
+        return versionStr;
+    }
+
+    private bool TryShowCachedUpdateDialog()
+    {
+        if (string.IsNullOrWhiteSpace(_updateVersion) || string.IsNullOrWhiteSpace(_updateDownloadUrl))
+            return false;
+
+        ShowUpdateDialog(_updateVersion, _updateReleaseNotes);
+        return true;
     }
 
     private void ShowUpdateDialog(string version, string notes)
     {
+        if (_isUpdateDialogOpen) return;
+
         try
         {
+            _isUpdateDialogOpen = true;
             var dialog = new Views.UpdateDialog(
                 $"v{version}",
                 notes,
@@ -859,13 +880,18 @@ namespace ClaudeUsageTray.ViewModels;
             // 다이얼로그 표시 실패 — 배너가 fallback으로 동작
             System.Diagnostics.Debug.WriteLine($"[UpdateDialog] show error: {ex.Message}");
         }
+        finally
+        {
+            _isUpdateDialogOpen = false;
+        }
     }
 
     [RelayCommand]
     public void StartUpdate()
     {
-        // This is called from the banner. Since we want to show release notes, 
-        // we'll just re-trigger the check which will show the dialog.
+        if (IsUpdating) return;
+        if (TryShowCachedUpdateDialog()) return;
+
         _ = ManualCheckForUpdateAsync();
     }
 

@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.33.5] - 2026-06-19
+
+<!-- ko -->
+### 수정
+- **버전 클릭 업데이트 모달 동작 복구** — 왼쪽 하단 버전 텍스트 또는 업데이트 배너 클릭 시 이미 확인된 업데이트 정보를 재사용해 `UpdateDialog` 모달을 바로 열도록 했습니다. 배너 클릭이 GitHub 재조회에 의존하던 흐름을 분리하고, 모달 중복 표시를 방지해 다운로드 진행 경로를 안정화했습니다. #76
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Restored version-click update modal behavior** — Clicking the bottom-left version text or the update banner now reuses the already detected update info and opens the `UpdateDialog` modal directly. The banner no longer depends on a second GitHub check, and duplicate update dialogs are prevented for a steadier download flow. #76
+<!-- /en -->
+
 ## [1.33.4] - 2026-06-19
 
 <!-- ko -->
