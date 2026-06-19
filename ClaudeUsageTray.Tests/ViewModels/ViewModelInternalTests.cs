@@ -1,4 +1,5 @@
 using ClaudeUsageTray.ViewModels;
+using ClaudeUsageTray.Services;
 using Xunit;
 
 namespace ClaudeUsageTray.Tests.ViewModels;
@@ -77,7 +78,7 @@ public class ClaudeViewModelTests
     {
         var result = ClaudeViewModel.ParseFriendlyError(raw);
         if (isRateLimit)
-            Assert.Contains("제한", result);
+            Assert.Equal(Loc.RateLimited, result);
         else
             Assert.DoesNotContain("429", result);
     }
