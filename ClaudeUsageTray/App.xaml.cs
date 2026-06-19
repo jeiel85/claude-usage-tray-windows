@@ -127,131 +127,179 @@ public partial class App : Application
 
         // Subscribe to PropertyChanged for tray icon updates
         _vm.PropertyChanged += OnVmIconPropertyChanged;
+        _vm.ClaudeVm.PropertyChanged += OnVmStatusPropertyChanged;
+        _vm.ClaudeVm.PropertyChanged += OnVmIconPropertyChanged;
 
         await _vm.StartAsync();
     }
 
     private void OnVmStatusPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {
-        if (sender is MainViewModel or ClaudeViewModel)
+        if (!ShouldUpdateStatusMenu(sender, args.PropertyName))
+            return;
+
+        Dispatcher.Invoke(() =>
         {
-            Dispatcher.Invoke(() =>
+            if (_vm is null || _claudeStatusItem is null) return;
+
+            if (_vm.IsLoading && _vm.ClaudeVm.ShortPercent == 0 && _vm.CodexPercent == 0)
             {
-                if (_vm is null || _claudeStatusItem is null) return;
+                _claudeStatusItem.Text   = "Claude: Loading...";
+                _codexStatusItem!.Text   = "Codex: Loading...";
+                _geminiStatusItem!.Text  = "Gemini: Loading...";
+                _openCodeStatusItem!.Text = "OpenCode: Loading...";
+            }
+            else
+            {
+                // Claude Status
+                if (_vm.ClaudeVm.HasError) _claudeStatusItem.Text = $"Claude: {Loc.Unavailable}";
+                else _claudeStatusItem.Text = $"Claude: {_vm.ClaudeVm.ShortPercent:P0} (5h) / {_vm.ClaudeVm.LongPercent:P0} (7d)";
 
-                if (_vm.IsLoading && _vm.ClaudeVm.ShortPercent == 0 && _vm.CodexPercent == 0)
-                {
-                    _claudeStatusItem.Text   = "Claude: Loading...";
-                    _codexStatusItem!.Text   = "Codex: Loading...";
-                    _geminiStatusItem!.Text  = "Gemini: Loading...";
-                    _openCodeStatusItem!.Text = "OpenCode: Loading...";
-                }
-                else
-                {
-                    // Claude Status
-                    if (_vm.ClaudeVm.HasError) _claudeStatusItem.Text = $"Claude: {Loc.Unavailable}";
-                    else _claudeStatusItem.Text = $"Claude: {_vm.ClaudeVm.ShortPercent:P0} (5h) / {_vm.ClaudeVm.LongPercent:P0} (7d)";
+                // Codex Status
+                if (_vm.CodexHasError) _codexStatusItem!.Text = $"Codex: {Loc.Unavailable}";
+                else _codexStatusItem!.Text = $"Codex: {_vm.CodexPercent:P0}";
 
-                    // Codex Status
-                    if (_vm.CodexHasError) _codexStatusItem!.Text = $"Codex: {Loc.Unavailable}";
-                    else _codexStatusItem!.Text = $"Codex: {_vm.CodexPercent:P0}";
+                // Gemini Status (token-based, no %)
+                if (_vm.GeminiHasError) _geminiStatusItem!.Text = $"Gemini: {Loc.Unavailable}";
+                else if (_vm.GeminiRequestsLabel == "—" || string.IsNullOrEmpty(_vm.GeminiRequestsLabel))
+                    _geminiStatusItem!.Text = "Gemini: —";
+                else _geminiStatusItem!.Text = $"Gemini: {_vm.GeminiRequestsLabel} · {_vm.GeminiOutputTokensLabel}";
 
-                    // Gemini Status (token-based, no %)
-                    if (_vm.GeminiHasError) _geminiStatusItem!.Text = $"Gemini: {Loc.Unavailable}";
-                    else if (_vm.GeminiRequestsLabel == "—" || string.IsNullOrEmpty(_vm.GeminiRequestsLabel))
-                        _geminiStatusItem!.Text = "Gemini: —";
-                    else _geminiStatusItem!.Text = $"Gemini: {_vm.GeminiRequestsLabel} · {_vm.GeminiOutputTokensLabel}";
+                // OpenCode Status (token-based)
+                if (_vm.OpenCodeHasError) _openCodeStatusItem!.Text = $"OpenCode: {Loc.Unavailable}";
+                else if (_vm.OpenCodeRequestCountLabel == "—" || string.IsNullOrEmpty(_vm.OpenCodeRequestCountLabel))
+                    _openCodeStatusItem!.Text = "OpenCode: —";
+                else _openCodeStatusItem!.Text = $"OpenCode: {_vm.OpenCodeRequestCountLabel} · in {_vm.OpenCodeInputLabel} · out {_vm.OpenCodeOutputLabel}";
+            }
 
-                    // OpenCode Status (token-based)
-                    if (_vm.OpenCodeHasError) _openCodeStatusItem!.Text = $"OpenCode: {Loc.Unavailable}";
-                    else if (_vm.OpenCodeRequestCountLabel == "—" || string.IsNullOrEmpty(_vm.OpenCodeRequestCountLabel))
-                        _openCodeStatusItem!.Text = "OpenCode: —";
-                    else _openCodeStatusItem!.Text = $"OpenCode: {_vm.OpenCodeRequestCountLabel} · in {_vm.OpenCodeInputLabel} · out {_vm.OpenCodeOutputLabel}";
-                }
-
-                _nextRefreshItem!.Text = $"Next: {_vm.NextRefreshLabel}";
-            });
-        }
+            _nextRefreshItem!.Text = $"Next: {_vm.NextRefreshLabel}";
+        });
     }
 
     private void OnVmIconPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {
-        if (sender is MainViewModel or ClaudeViewModel)
+        if (!ShouldUpdateTrayIcon(sender, args.PropertyName))
+            return;
+
+        Dispatcher.Invoke(() =>
         {
-            Dispatcher.Invoke(() =>
+            if (_vm is null || _trayIcon is null) return;
+
+            // Tray gauge reflects the selected or auto-prioritized provider
+            var oldIcon = _trayIcon.Icon;
+
+            // Determine if the current active provider has an error
+            bool currentHasError = _vm.EffectiveTrayProvider switch
             {
-                if (_vm is null || _trayIcon is null) return;
+                UsageProviderKind.Claude => _vm.ClaudeVm.HasError,
+                UsageProviderKind.Codex => _vm.CodexHasError,
+                UsageProviderKind.GeminiCli => _vm.GeminiHasError,
+                UsageProviderKind.OpenCode => _vm.OpenCodeHasError,
+                _ => false
+            };
 
-                // Tray gauge reflects the selected or auto-prioritized provider
-                var oldIcon = _trayIcon.Icon;
-                
-                // Determine if the current active provider has an error
-                bool currentHasError = _vm.EffectiveTrayProvider switch
-                {
-                    UsageProviderKind.Claude => _vm.ClaudeVm.HasError,
-                    UsageProviderKind.Codex => _vm.CodexHasError,
-                    UsageProviderKind.GeminiCli => _vm.GeminiHasError,
-                    UsageProviderKind.OpenCode => _vm.OpenCodeHasError,
-                    _ => false
-                };
+            Icon? newIcon = null;
+            try
+            {
+                newIcon = currentHasError ? DrawTrayIcon(-1) : DrawTrayIcon(_vm.TrayUsagePercent);
+                _trayIcon.Icon = newIcon;
+                oldIcon?.Dispose();
+                newIcon = null;
+            }
+            catch (ExternalException ex)
+            {
+                newIcon?.Dispose();
+                Debug.WriteLine($"[TrayIcon] draw error: {ex.Message}");
+            }
 
-                Icon? newIcon = null;
-                try
-                {
-                    newIcon = currentHasError ? DrawTrayIcon(-1) : DrawTrayIcon(_vm.TrayUsagePercent);
-                    _trayIcon.Icon = newIcon;
-                    oldIcon?.Dispose();
-                    newIcon = null;
-                }
-                catch (ExternalException ex)
-                {
-                    newIcon?.Dispose();
-                    Debug.WriteLine($"[TrayIcon] draw error: {ex.Message}");
-                }
+            // Multi-provider summary in tooltip — respects HideInactiveProviders
+            bool hide = _vm.HideInactiveProviders;
+            bool geminiEmpty   = _vm.GeminiOutputTokensLabel is "—" or "" or null;
+            bool openCodeEmpty = _vm.OpenCodeOutputLabel    is "—" or "" or null;
 
-                // Multi-provider summary in tooltip — respects HideInactiveProviders
-                bool hide = _vm.HideInactiveProviders;
-                bool geminiEmpty   = _vm.GeminiOutputTokensLabel is "—" or "" or null;
-                bool openCodeEmpty = _vm.OpenCodeOutputLabel    is "—" or "" or null;
+            var parts = new System.Collections.Generic.List<string>();
+            string currentKind = _vm.EffectiveTrayProvider;
 
-                var parts = new System.Collections.Generic.List<string>();
-                string currentKind = _vm.EffectiveTrayProvider;
+            if (!(hide && _vm.ClaudeVm.HasError))
+            {
+                string mark = currentKind == UsageProviderKind.Claude ? "*" : "";
+                parts.Add($"{mark}Claude {(_vm.ClaudeVm.HasError ? "—" : $"{_vm.ClaudeVm.ShortPercent:P0}")}");
+            }
+            if (!(hide && _vm.CodexHasError))
+            {
+                string mark = currentKind == UsageProviderKind.Codex ? "*" : "";
+                parts.Add($"{mark}Codex {(_vm.CodexHasError ? "—" : $"{_vm.CodexPercent:P0}")}");
+            }
+            if (!(hide && (_vm.GeminiHasError || geminiEmpty)))
+            {
+                string mark = currentKind == UsageProviderKind.GeminiCli ? "*" : "";
+                parts.Add($"{mark}Gemini {(_vm.GeminiHasError ? "—" : (geminiEmpty ? "-" : _vm.GeminiOutputTokensLabel))}");
+            }
+            if (!(hide && (_vm.OpenCodeHasError || openCodeEmpty)))
+            {
+                string mark = currentKind == UsageProviderKind.OpenCode ? "*" : "";
+                parts.Add($"{mark}OC {(_vm.OpenCodeHasError ? "—" : (openCodeEmpty ? "-" : _vm.OpenCodeOutputLabel))}");
+            }
 
-                if (!(hide && _vm.ClaudeVm.HasError))
-                {
-                    string mark = currentKind == UsageProviderKind.Claude ? "*" : "";
-                    parts.Add($"{mark}Claude {(_vm.ClaudeVm.HasError ? "—" : $"{_vm.ClaudeVm.ShortPercent:P0}")}");
-                }
-                if (!(hide && _vm.CodexHasError))
-                {
-                    string mark = currentKind == UsageProviderKind.Codex ? "*" : "";
-                    parts.Add($"{mark}Codex {(_vm.CodexHasError ? "—" : $"{_vm.CodexPercent:P0}")}");
-                }
-                if (!(hide && (_vm.GeminiHasError || geminiEmpty)))
-                {
-                    string mark = currentKind == UsageProviderKind.GeminiCli ? "*" : "";
-                    parts.Add($"{mark}Gemini {(_vm.GeminiHasError ? "—" : (geminiEmpty ? "-" : _vm.GeminiOutputTokensLabel))}");
-                }
-                if (!(hide && (_vm.OpenCodeHasError || openCodeEmpty)))
-                {
-                    string mark = currentKind == UsageProviderKind.OpenCode ? "*" : "";
-                    parts.Add($"{mark}OC {(_vm.OpenCodeHasError ? "—" : (openCodeEmpty ? "-" : _vm.OpenCodeOutputLabel))}");
-                }
+            string body = parts.Count == 0 ? "—" : string.Join(" · ", parts);
+            string tooltip = $"{Loc.AgentUsageTitle}\n{body}";
 
-                string body = parts.Count == 0 ? "—" : string.Join(" · ", parts);
-                string tooltip = $"{Loc.AgentUsageTitle}\n{body}";
+            // Weather line (v1.29.0) — uses short location to keep within NotifyIcon 127-char budget
+            if (_vm.WeatherShowInTrayTooltip && !string.IsNullOrEmpty(_vm.WeatherTooltipLabel))
+            {
+                tooltip += $"\n📍 {_vm.WeatherTooltipLabel}";
+            }
 
-                // Weather line (v1.29.0) — uses short location to keep within NotifyIcon 127-char budget
-                if (_vm.WeatherShowInTrayTooltip && !string.IsNullOrEmpty(_vm.WeatherTooltipLabel))
-                {
-                    tooltip += $"\n📍 {_vm.WeatherTooltipLabel}";
-                }
-
-                // NotifyIcon szTip supports 128 chars on Vista+; cap at 127 to leave room for null terminator.
-                _trayIcon.Text = tooltip.Length > 127 ? tooltip[..127] : tooltip;
-            });
-        }
+            // NotifyIcon szTip supports 128 chars on Vista+; cap at 127 to leave room for null terminator.
+            _trayIcon.Text = tooltip.Length > 127 ? tooltip[..127] : tooltip;
+        });
     }
+
+    private static bool ShouldUpdateStatusMenu(object? sender, string? propertyName) =>
+        sender switch
+        {
+            MainViewModel => string.IsNullOrEmpty(propertyName) || propertyName is
+                nameof(MainViewModel.CodexPercent) or
+                nameof(MainViewModel.GeminiRequestsLabel) or
+                nameof(MainViewModel.GeminiOutputTokensLabel) or
+                nameof(MainViewModel.OpenCodeRequestCountLabel) or
+                nameof(MainViewModel.OpenCodeInputLabel) or
+                nameof(MainViewModel.OpenCodeOutputLabel) or
+                nameof(MainViewModel.CodexHasError) or
+                nameof(MainViewModel.GeminiHasError) or
+                nameof(MainViewModel.OpenCodeHasError) or
+                nameof(MainViewModel.IsLoading) or
+                nameof(MainViewModel.NextRefreshLabel),
+            ClaudeViewModel => propertyName is
+                nameof(ClaudeViewModel.ShortPercent) or
+                nameof(ClaudeViewModel.LongPercent) or
+                nameof(ClaudeViewModel.HasError),
+            _ => false
+        };
+
+    private static bool ShouldUpdateTrayIcon(object? sender, string? propertyName) =>
+        sender switch
+        {
+            MainViewModel => string.IsNullOrEmpty(propertyName) || propertyName is
+                nameof(MainViewModel.TrayUsagePercent) or
+                nameof(MainViewModel.TrayDisplayMode) or
+                nameof(MainViewModel.EffectiveTrayProvider) or
+                nameof(MainViewModel.CodexHasError) or
+                nameof(MainViewModel.GeminiHasError) or
+                nameof(MainViewModel.OpenCodeHasError) or
+                nameof(MainViewModel.HasError) or
+                nameof(MainViewModel.HideInactiveProviders) or
+                nameof(MainViewModel.GeminiOutputTokensLabel) or
+                nameof(MainViewModel.OpenCodeOutputLabel) or
+                nameof(MainViewModel.LblAppTitle) or
+                nameof(MainViewModel.WeatherTooltipLabel) or
+                nameof(MainViewModel.WeatherShowInTrayTooltip) or
+                nameof(MainViewModel.WeatherHasError),
+            ClaudeViewModel => propertyName is
+                nameof(ClaudeViewModel.ShortPercent) or
+                nameof(ClaudeViewModel.HasError),
+            _ => false
+        };
 
     private void OnTrayClick(object? sender, MouseEventArgs e)
     {

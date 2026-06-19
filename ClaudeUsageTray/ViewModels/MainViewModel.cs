@@ -1266,32 +1266,32 @@ namespace ClaudeUsageTray.ViewModels;
 
                     if (usage.ExtraUsage is { IsEnabled: true } eu)
                     {
-                        ExtraUsageEnabled = true;
-                        ExtraHasLimit     = eu.MonthlyLimit.HasValue;
-                        ExtraUsagePercent = eu.MonthlyLimit.HasValue
+                        var extraHasLimit = eu.MonthlyLimit.HasValue;
+                        var extraUsagePercent = eu.MonthlyLimit.HasValue
                             ? Math.Min(1.0, (eu.Utilization ?? 0) / 100.0)
                             : 0;
-                        ExtraCreditsLabel = (eu.UsedCredits.HasValue && eu.MonthlyLimit.HasValue)
+                        var extraCreditsLabel = (eu.UsedCredits.HasValue && eu.MonthlyLimit.HasValue)
                             ? Loc.ExtraCredits(eu.UsedCredits.Value, eu.MonthlyLimit.Value)
                             : eu.UsedCredits.HasValue
                                 ? Loc.ExtraCreditsUsedOnly(eu.UsedCredits.Value)
                                 : "";
+                        SetClaudeExtraUsage(true, extraHasLimit, extraUsagePercent, extraCreditsLabel);
 
                         if (_prevExtraPercent < 0) _prevExtraPercent = ExtraUsagePercent;
                     }
                     else
                     {
-                        ExtraUsageEnabled = false;
+                        SetClaudeExtraUsage(false);
                     }
 
                     if (ExtraUsageEnabled && ClaudeVm.ShortPercent >= 1.0)
                     {
-                        IsExtraOnlyMode = true;
+                        SetClaudeExtraOnlyMode(true);
                         StatusText = Loc.ExtraUsageExhausted;
                     }
                     else if (ClaudeVm.ShortPercent < 0.5)
                     {
-                        IsExtraOnlyMode = false;
+                        SetClaudeExtraOnlyMode(false);
                         StatusText = $"{ClaudeVm.ShortPercent:P0} used";
                     }
                     else if (!IsExtraOnlyMode)
@@ -1565,10 +1565,8 @@ namespace ClaudeUsageTray.ViewModels;
             ShortDepletionLabel = snapshot.ShortResetAt is null ? "" : "";
             LongDepletionLabel = snapshot.LongResetAt is null ? "" : "";
 
-            ExtraUsageEnabled = false;
-            ExtraHasLimit = false;
-            ExtraCreditsLabel = "";
-            IsExtraOnlyMode = false;
+            SetClaudeExtraUsage(false);
+            SetClaudeExtraOnlyMode(false);
             HasRateLimitHit = false;
             RateLimitInfo = "";
 
@@ -1624,6 +1622,25 @@ namespace ClaudeUsageTray.ViewModels;
             }
             _prevExtraPercent = ExtraUsagePercent;
         }
+    }
+
+    private void SetClaudeExtraUsage(bool enabled, bool hasLimit = false, double usagePercent = 0, string creditsLabel = "")
+    {
+        ExtraUsageEnabled = enabled;
+        ExtraHasLimit = enabled && hasLimit;
+        ExtraUsagePercent = enabled ? usagePercent : 0;
+        ExtraCreditsLabel = enabled ? creditsLabel : "";
+
+        ClaudeVm.ExtraUsageEnabled = ExtraUsageEnabled;
+        ClaudeVm.ExtraHasLimit = ExtraHasLimit;
+        ClaudeVm.ExtraUsagePercent = ExtraUsagePercent;
+        ClaudeVm.ExtraCreditsLabel = ExtraCreditsLabel;
+    }
+
+    private void SetClaudeExtraOnlyMode(bool enabled)
+    {
+        IsExtraOnlyMode = enabled;
+        ClaudeVm.IsExtraOnlyMode = enabled;
     }
 
     private static int ThresholdToPriority(int threshold) =>

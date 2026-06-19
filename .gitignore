@@ -1,6 +1,7 @@
 # Build output
 bin/
 obj/
+TestResults/
 *.user
 .vs/
 

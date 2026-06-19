@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.33.4] - 2026-06-19
+
+<!-- ko -->
+### 수정
+- **안정성 회귀 복구** — v1.33.0 이후 느슨해진 `PropertyChanged` 처리로 트레이 아이콘이 무관한 상태 변경에도 과도하게 재생성되던 문제를 수정했습니다. `ClaudeViewModel` 구독을 복구하고 상태 메뉴/아이콘 갱신 대상을 필요한 속성으로 제한했습니다. #75
+- **Extra Usage 표시 복구** — 화면은 `ClaudeVm.*` 바인딩을 사용하지만 실제 갱신은 `MainViewModel` 필드에만 쓰이던 불일치를 정리해 Extra Credits/Extra Usage 표시가 다시 동기화되도록 했습니다. #75
+- **WPF 통합 테스트 hang 수정** — 테스트 전용 STA Dispatcher 호스트를 추가해 `RefreshAsync_SetsLastUpdatedLabel` 테스트가 메시지 펌프 없이 멈추지 않도록 했고, 릴리즈 워크플로에 `dotnet test` 게이트를 추가했습니다. #75
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Stability regression recovery** — Restored focused `PropertyChanged` handling after v1.33.0 so unrelated state changes no longer redraw the tray icon excessively. `ClaudeViewModel` subscriptions are restored and menu/icon refreshes are limited to relevant properties. #75
+- **Extra Usage display restored** — Fixed the mismatch where the UI read `ClaudeVm.*` bindings while live refresh still wrote only to `MainViewModel` fields, keeping Extra Credits/Extra Usage synchronized again. #75
+- **WPF integration test hang fixed** — Added a dedicated STA Dispatcher host for WPF tests so `RefreshAsync_SetsLastUpdatedLabel` no longer hangs without a message pump, and added a `dotnet test` gate to the release workflow. #75
+<!-- /en -->
+
 ## [1.33.3] - 2026-06-18
 
 <!-- ko -->

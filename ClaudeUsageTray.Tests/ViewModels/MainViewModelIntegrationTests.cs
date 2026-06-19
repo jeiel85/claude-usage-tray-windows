@@ -35,47 +35,90 @@ public class MainViewModelIntegrationTests
     }
 
     [Fact]
-    public void MainViewModel_ConstructsSuccessfully()
+    public async Task MainViewModel_ConstructsSuccessfully()
     {
-        var vm = CreateViewModel();
-        Assert.NotNull(vm);
-        Assert.NotNull(vm.AntigravityVm);
-        Assert.NotNull(vm.WeatherVm);
-        Assert.NotNull(vm.OpenCodeVm);
-        Assert.NotNull(vm.GeminiVm);
-        Assert.NotNull(vm.CodexVm);
-        Assert.NotNull(vm.ClaudeVm);
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            try
+            {
+                Assert.NotNull(vm);
+                Assert.NotNull(vm.AntigravityVm);
+                Assert.NotNull(vm.WeatherVm);
+                Assert.NotNull(vm.OpenCodeVm);
+                Assert.NotNull(vm.GeminiVm);
+                Assert.NotNull(vm.CodexVm);
+                Assert.NotNull(vm.ClaudeVm);
+            }
+            finally
+            {
+                vm.Dispose();
+            }
+        });
     }
 
     [Fact]
     public async Task RefreshAsync_CompletesWithoutException()
     {
-        var vm = CreateViewModel();
-        var exception = await Record.ExceptionAsync(() => vm.RefreshAsync());
-        Assert.Null(exception);
+        await WpfTestHost.RunAsync(async () =>
+        {
+            var vm = CreateViewModel();
+            try
+            {
+                var exception = await Record.ExceptionAsync(() => vm.RefreshAsync());
+                Assert.Null(exception);
+            }
+            finally
+            {
+                vm.Dispose();
+            }
+        });
     }
 
     [Fact]
     public async Task RefreshAsync_SetsLastUpdatedLabel()
     {
-        var vm = CreateViewModel();
-        await vm.RefreshAsync();
-        Assert.False(string.IsNullOrWhiteSpace(vm.LastUpdatedLabel));
+        await WpfTestHost.RunAsync(async () =>
+        {
+            var vm = CreateViewModel();
+            try
+            {
+                await vm.RefreshAsync();
+                Assert.False(string.IsNullOrWhiteSpace(vm.LastUpdatedLabel));
+            }
+            finally
+            {
+                vm.Dispose();
+            }
+        });
     }
 
     [Fact]
-    public void SaveSettings_DoesNotThrow()
+    public async Task SaveSettings_DoesNotThrow()
     {
-        var vm = CreateViewModel();
-        var exception = Record.Exception(() => vm.SaveSettingsCommand.Execute(null));
-        Assert.Null(exception);
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            try
+            {
+                var exception = Record.Exception(() => vm.SaveSettingsCommand.Execute(null));
+                Assert.Null(exception);
+            }
+            finally
+            {
+                vm.Dispose();
+            }
+        });
     }
 
     [Fact]
-    public void Dispose_DoesNotThrow()
+    public async Task Dispose_DoesNotThrow()
     {
-        var vm = CreateViewModel();
-        var exception = Record.Exception(() => vm.Dispose());
-        Assert.Null(exception);
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            var exception = Record.Exception(() => vm.Dispose());
+            Assert.Null(exception);
+        });
     }
 }
