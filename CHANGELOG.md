@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.33.6] - 2026-06-19
+
+<!-- ko -->
+### 수정
+- **업데이트 배너 문구 정리** — 상단 업데이트 배너에서 다시 표시되던 "클릭하여 설치" 안내를 제거했습니다. 배너 클릭 및 왼쪽 하단 버전 클릭 동작은 유지하며, 4개 언어 문구가 간결한 업데이트 알림만 표시하도록 회귀 방지 테스트를 추가했습니다. #77
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Cleaned up the update banner copy** — Removed the reintroduced "click to install" prompt from the top update banner. The banner and bottom-left version click behavior are unchanged, and a regression test now keeps all four localized update messages concise. #77
+<!-- /en -->
+
 ## [1.33.5] - 2026-06-19
 
 <!-- ko -->
