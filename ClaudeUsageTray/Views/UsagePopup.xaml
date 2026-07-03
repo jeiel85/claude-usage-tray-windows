@@ -299,29 +299,8 @@
                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel>
 
-                        <!-- Update banner -->
-                        <Border Padding="12,8" Margin="16,8,16,0"
-                        Background="#1A2E1A" CornerRadius="8"
-                        BorderBrush="#10B981" BorderThickness="1"
-                        Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVisibility}}">
-                    <Grid>
-                        <StackPanel Orientation="Horizontal" Cursor="Hand"
-                                    Visibility="{Binding IsUpdating, Converter={StaticResource BoolToVisibilityInverse}}">
-                            <StackPanel.InputBindings>
-                                <MouseBinding MouseAction="LeftClick" Command="{Binding StartUpdateCommand}"/>
-                            </StackPanel.InputBindings>
-                            <TextBlock Text="↑ " Foreground="#10B981" FontSize="11" FontWeight="Bold"/>
-                            <TextBlock Text="{Binding UpdateLabel}" Foreground="#6EE7B7" FontSize="10"/>
-                        </StackPanel>
-                        <StackPanel Visibility="{Binding IsUpdating, Converter={StaticResource BoolToVisibility}}">
-                            <Grid>
-                                <TextBlock Text="{Binding UpdateStatusText}" Foreground="#6EE7B7" FontSize="9"/>
-                                <TextBlock Text="{Binding UpdateProgress, StringFormat={}{0}%}" Foreground="#10B981" FontSize="9" HorizontalAlignment="Right"/>
-                            </Grid>
-                            <ProgressBar Value="{Binding UpdateProgress}" Maximum="100" Height="3" Margin="0,4,0,0"/>
-                        </StackPanel>
-                    </Grid>
-                </Border>
+                        <!-- Update banner removed (v1.33.8): 업데이트는 좌하단 버전 클릭 → 모달로만 안내한다.
+                             다운로드 진행률은 UpdateDialog 자체에 표시된다. -->
 
                 <!-- Error panel — 메시지가 비어 있으면 숨겨서 빈 박스가 보이지 않도록 함 (Windows 10 렌더링 대응) -->
                 <Border Padding="12,8" Margin="16,4"

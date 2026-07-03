@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.33.8] - 2026-07-03
+
+<!-- ko -->
+### 수정
+- **업데이트 모달이 열리지 않던 문제 수정 + 상단 배너 제거** — 상단 초록색 "새 버전 업데이트" 배너를 제거하고, 업데이트는 좌하단 버전 클릭 → 모달로만 안내하도록 단순화했습니다. 모달이 뜨지 않던 근본 원인도 수정했습니다: `UpdateDialog` 를 (항상 숨는) `Topmost` 팝업의 `Owner` 로 지정하던 탓에, 팝업이 포커스를 잃고 숨는 순간 소유된 모달까지 함께 숨겨져 `ShowDialog()` 가 무한 대기하고 이후 클릭이 전부 무반응이 되던 문제였습니다. 이제 모달은 Owner 없이 `Topmost` + 화면 중앙으로 독립 표시되며, 백그라운드 업데이트 확인은 UI 를 가로채지 않고 캐시만 갱신합니다. 모달 표시 실패 시 원인을 조용히 삼키지 않고 버전 옆에 노출합니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Fixed the update modal not opening + removed the top banner** — Removed the green "new version" banner at the top; updates now surface only via the bottom-left version click → modal. Also fixed the underlying reason the modal never appeared: the `UpdateDialog` was set as the `Owner` of the always-`Topmost` popup, so the instant the popup lost focus and hid itself, the owned modal was hidden with it — leaving `ShowDialog()` blocked forever and every later click unresponsive. The modal is now shown ownerless as a `Topmost`, screen-centered window, and background update checks only refresh the cache instead of hijacking the UI. Modal display failures are surfaced next to the version instead of being silently swallowed.
+<!-- /en -->
+
 ## [1.33.7] - 2026-07-03
 
 <!-- ko -->

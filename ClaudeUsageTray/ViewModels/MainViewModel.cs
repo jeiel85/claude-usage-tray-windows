@@ -797,11 +797,13 @@ namespace ClaudeUsageTray.ViewModels;
         var settings = _settingsService.Load();
         if (settings.SkippedVersion == versionStr) return;
 
+        // 배너도 자동 모달도 띄우지 않는다 (v1.33.8): 캐시만 갱신해 두고, 사용자가 좌하단 버전을
+        // 클릭하면 ManualCheckForUpdateAsync 의 캐시 경로가 즉시 모달을 연다. 백그라운드 체크가
+        // 갑자기 UI 를 가로채지 않도록 한다.
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
             UpdateLabel = Loc.UpdateAvailable($"v{versionStr}");
             UpdateAvailable = true;
-            ShowUpdateDialog(versionStr, _updateReleaseNotes);
         });
     }
 
@@ -867,18 +869,20 @@ namespace ClaudeUsageTray.ViewModels;
                 });
             };
 
-            // 소유 창 지정 — UsagePopup 위에 항상 표시되도록 보장
-            var activeWindow = System.Windows.Application.Current.Windows.OfType<System.Windows.Window>()
-                .FirstOrDefault(w => w.IsVisible && w != dialog && w.Topmost);
-            if (activeWindow is not null)
-                dialog.Owner = activeWindow;
-
+            // Owner 를 지정하지 않는다 (v1.33.8 회귀 수정):
+            // UsagePopup 은 Topmost + Deactivated 시 스스로 Hide 되는데, 이 모달을 팝업의
+            // Owner 로 지정하면 팝업이 숨는 순간 "소유된" 모달까지 함께 숨겨진다. 그러면 모달은
+            // 보이지 않는데 ShowDialog() 는 계속 블로킹되어 _isUpdateDialogOpen 이 영구 고착되고,
+            // 이후 버전 클릭이 전부 무반응이 된다. UpdateDialog 는 Topmost=True + CenterScreen 이라
+            // Owner 없이도 항상 화면 최상단 중앙에 독립적으로 표시된다.
             dialog.ShowDialog();
         }
         catch (Exception ex)
         {
-            // 다이얼로그 표시 실패 — 배너가 fallback으로 동작
+            // 모달 표시 실패 — 조용히 삼키지 말고 버전 옆에 원인을 노출한다.
             System.Diagnostics.Debug.WriteLine($"[UpdateDialog] show error: {ex.Message}");
+            var detail = ex.Message.Length > 80 ? ex.Message[..80] + "…" : ex.Message;
+            UpdateCheckLabel = $"{Loc.UpdateCheckFailed}: {detail}";
         }
         finally
         {

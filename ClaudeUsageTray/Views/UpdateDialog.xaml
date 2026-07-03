@@ -18,6 +18,10 @@
         <SolidColorBrush x:Key="TextPrimary" Color="#F1F5F9"/>
         <SolidColorBrush x:Key="TextSecondary" Color="#8B92B3"/>
         <SolidColorBrush x:Key="SuccessBrush" Color="#10B981"/>
+        <!-- v1.33.8: ErrorText(x:Name)의 {StaticResource DangerBrush} 참조 대상.
+             이 키가 없어서 InitializeComponent() 가 XamlParseException 을 던졌고 —
+             모달이 생성조차 되지 못해 업데이트가 열리지 않던 근본 원인이었다. -->
+        <SolidColorBrush x:Key="DangerBrush" Color="#EF4444"/>
     </Window.Resources>
 
     <Border Margin="15">
