@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.33.7] - 2026-07-03
+
+<!-- ko -->
+### 수정
+- **"No access token found" 오류 안내 개선** — 액세스 토큰을 찾지 못했을 때 막연한 원문 대신, 터미널에서 Claude Code에 로그인(`claude` → `/login`)한 뒤 앱을 재시작하라는 구체적 안내를 4개 언어로 표시하도록 했습니다. 내부 sentinel 문자열을 상수화(`UsageApiService.NoTokenError`)해 매직 스트링을 제거하고, 사용자가 원문을 보지 않도록 회귀 방지 테스트를 추가했습니다. 새 PC/데스크톱 앱만 사용해 CLI 로그인 이력이 없어 `claudeAiOauth` 블록이 없던 환경에서 원인을 즉시 파악할 수 있습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Clearer "No access token found" guidance** — When no access token is available, the tray now shows an actionable, localized message (in all four languages) telling you to log in to Claude Code in a terminal (`claude` → `/login`) and restart the app, instead of the raw internal string. The internal sentinel is now a constant (`UsageApiService.NoTokenError`) to remove the magic string, with a regression test ensuring the raw text is never surfaced. This makes the cause obvious on new-PC / desktop-app-only setups that never ran the CLI login and therefore lacked the `claudeAiOauth` block.
+<!-- /en -->
+
 ## [1.33.6] - 2026-06-19
 
 <!-- ko -->

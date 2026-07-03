@@ -562,12 +562,15 @@ public static class Loc
     };
 
     // Errors
+    // 액세스 토큰 파일(.credentials.json 의 claudeAiOauth)이 없어 usage API 호출 전에 실패한 경우.
+    // 데스크톱 앱만 쓰거나 새 PC라 CLI 로그인을 한 적 없는 환경에서 발생 — 재로그인이 유일한 해결책이라
+    // 막연한 에러 대신 구체적 조치(터미널에서 claude 로그인)를 안내한다.
     public static string NoToken => Lang switch
     {
-        "ko" => "인증 토큰 없음. Claude Code 로그인 필요",
-        "zh" => "无访问令牌，请登录 Claude Code",
-        "ja" => "アクセストークンがありません。Claude Code にログインしてください",
-        _ => "No access token. Please log in to Claude Code"
+        "ko" => "액세스 토큰이 없습니다 — 터미널에서 Claude Code에 로그인(claude → /login)한 뒤 앱을 다시 시작하세요",
+        "zh" => "未找到访问令牌 — 请在终端登录 Claude Code(claude → /login)后重启本应用",
+        "ja" => "アクセストークンがありません — ターミナルで Claude Code にログイン(claude → /login)してからアプリを再起動してください",
+        _ => "No access token — log in to Claude Code in a terminal (claude → /login), then restart the app"
     };
 
     public static string RateLimited => Lang switch

@@ -276,9 +276,12 @@ public partial class ClaudeViewModel : ObservableObject
                     else
                     {
                         HasError = true;
-                        ErrorMessage = _api.LastError != null
-                            ? ParseFriendlyError(_api.LastError)
-                            : Loc.RateLimited;
+                        // 토큰 자체가 없어 네트워크 호출 전에 실패한 경우 — 막연한 원문 대신 로그인 안내로.
+                        ErrorMessage = _api.LastError == UsageApiService.NoTokenError
+                            ? Loc.NoToken
+                            : _api.LastError != null
+                                ? ParseFriendlyError(_api.LastError)
+                                : Loc.RateLimited;
                         ApiNote = "";
                     }
                 }

@@ -7,6 +7,13 @@ namespace ClaudeUsageTray.Services;
 
 public class UsageApiService
 {
+    /// <summary>
+    /// Sentinel <see cref="LastError"/> value set when no OAuth access token could be resolved
+    /// (i.e. before any network call). ViewModels compare against this to surface an actionable
+    /// login hint instead of the raw string. Non-localized on purpose — it's an internal marker.
+    /// </summary>
+    public const string NoTokenError = "No access token found";
+
     private const string UsageEndpoint = "https://api.anthropic.com/api/oauth/usage";
     private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(AppConstants.ApiTimeoutSeconds) };
     private readonly CredentialService _credentials;
@@ -25,7 +32,7 @@ public class UsageApiService
         var token = await _credentials.GetValidAccessTokenAsync();
         if (token is null)
         {
-            LastError = "No access token found";
+            LastError = NoTokenError;
             return null;
         }
 

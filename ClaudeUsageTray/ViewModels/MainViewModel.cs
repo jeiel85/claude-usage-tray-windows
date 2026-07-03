@@ -1373,9 +1373,12 @@ namespace ClaudeUsageTray.ViewModels;
                     else
                     {
                         ClaudeVm.HasError = true;
-                        ClaudeVm.ErrorMessage = _api.LastError != null
-                            ? ParseFriendlyError(_api.LastError)
-                            : Loc.RateLimited;
+                        // 토큰 자체가 없어 네트워크 호출 전에 실패한 경우 — 막연한 원문 대신 로그인 안내로.
+                        ClaudeVm.ErrorMessage = _api.LastError == UsageApiService.NoTokenError
+                            ? Loc.NoToken
+                            : _api.LastError != null
+                                ? ParseFriendlyError(_api.LastError)
+                                : Loc.RateLimited;
                         ClaudeVm.ApiNote = "";
                         // 다른 종류의 에러로 전이 → 추적 상태 정리
                         ClearOAuthNotAllowedFirstSeenIfNeeded();

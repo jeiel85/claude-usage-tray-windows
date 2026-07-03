@@ -1,7 +1,7 @@
-# "No access token found" 오류 분석 (진행중)
+# "No access token found" 오류 분석 (해결)
 
-작성일: 2026-07-01
-상태: 원인 규명 완료 / 수정 방향 미결정
+작성일: 2026-07-01 (갱신: 2026-07-03)
+상태: 원인 규명 완료 / 코드 수정 반영 / 사용자 조치 안내
 
 ## 증상
 - 트레이 앱 Claude 섹션에 `API 오류: No access token found` 표시
@@ -39,10 +39,29 @@
   - 최신 Claude Code가 로그인 토큰을 평문 `.credentials.json`에서 OS 보안 저장소로 이전했거나,
     MCP OAuth 기록 과정에서 파일을 덮어써 `claudeAiOauth`가 유실되는 케이스로 추정
 
-## 다음 단계 (미결)
-1. `claude` 재로그인(`/login`) 후 `~/.claude/.credentials.json`에 `claudeAiOauth`가 다시 생기는지 확인
-   - 생기면 → 앱 정상화, 단순 유실이었음
-2. 재로그인해도 `claudeAiOauth`가 안 돌아오면 → Claude Code가 토큰을 다른 저장소로 이전한 것
-   - 앱이 새 저장 위치(예: Windows 자격증명 관리자 / DPAPI)를 읽도록 `CredentialService` 수정 필요
-   - 이 경우가 "그 GitHub 이슈"의 본질일 가능성 높음
-3. 사용자에게 "flagged 이슈"가 (a) 계정 정지 (b) 자격증명 저장 변경 중 무엇인지 확인 필요
+## 최종 결론 (2026-07-03, 새 PC에서 재확인)
+새 PC엔 애초에 **CLI 로그인을 한 적이 없어** `claudeAiOauth` 블록이 파일에 쓰인 적이 없다.
+데스크톱 앱만 사용 → 계정 토큰은 앱 자체 저장소에 있고 `.credentials.json`엔 `mcpOAuth`만 기록됨.
+Windows 자격증명 관리자에도 Claude 항목 없음. 순수 로컬 자격증명 누락 (계정 정상, flagged 아님).
+
+### 검토했으나 폐기한 수정안: `CLAUDE_CODE_OAUTH_TOKEN` 환경변수 폴백
+`claude setup-token` 토큰은 **inference 전용 스코프**라 usage API가 요구하는 `user:profile` 스코프가 없다.
+→ 토큰이 있어도 `GET /api/oauth/usage`가 `403 permission_error: OAuth token does not meet scope requirement user:profile`.
+Claude Code 자체 `/usage` 도 이 토큰으론 실패. 따라서 환경변수 폴백은 **무효** → 채택하지 않음.
+
+## 반영한 코드 수정 (UX 개선)
+막연한 원문 `No access token found` 대신 구체적 로그인 안내를 표시하도록 변경:
+- `UsageApiService.cs`: 내부 sentinel 상수 `NoTokenError` 도입 (매직 스트링 제거)
+- `LocalizationService.cs`: 죽어있던 `Loc.NoToken` 을 실행 가능한 안내문으로 개선 (ko/zh/ja/en)
+- `MainViewModel.cs` / `ClaudeViewModel.cs`: no-token 분기에서 `Loc.NoToken` 라우팅
+- `LocalizationServiceTests.cs`: 사용자가 원문 sentinel 을 보지 않고 언어별 안내가 나오는지 검증
+- 주의: 이 저장소엔 .NET **SDK 미설치**(런타임만) 라 로컬 빌드/테스트 미실행 — 수기 검토로 컴파일 정합성만 확인.
+
+## 사용자 조치 (실제 해결 = 토큰 재생성)
+토큰이 물리적으로 없으므로 코드만으론 해결 불가. CLI 로그인으로 `claudeAiOauth`(=`user:profile` 스코프 포함)를 파일에 다시 써야 한다:
+1. `npm install -g @anthropic-ai/claude-code`
+2. `claude` 실행 → `/login` → 브라우저 OAuth 완료
+3. 확인: `Get-Content "$env:USERPROFILE\.claude\.credentials.json" | ConvertFrom-Json | Select claudeAiOauth`
+4. 트레이 앱 완전 종료 후 재실행
+- 만약 3에서 `claudeAiOauth`가 안 생기면 → 현재 Windows CLI가 토큰을 OS 자격증명 저장소에 저장한 것.
+  이 경우 `CredentialService`가 Windows 자격증명 관리자를 읽도록 확장하는 후속 작업 필요 (AntigravityUsageMonitor 의 CredRead 패턴 재사용).
