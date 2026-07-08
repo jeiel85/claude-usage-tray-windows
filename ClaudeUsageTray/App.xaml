@@ -7,6 +7,7 @@
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
         <conv:InverseBooleanToVisibilityConverter x:Key="BoolToVisibilityInverse"/>
         <conv:StringToVisibilityConverter x:Key="StringToVisibility"/>
+        <conv:PercentToStarGridLengthConverter x:Key="PercentToStar"/>
 
         <!-- ============== 전역 다크 ScrollBar (얇은 핵심선만 노출) ============== -->
         <Style x:Key="DarkScrollBarThumb" TargetType="Thumb">

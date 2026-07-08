@@ -309,6 +309,23 @@ public static class Loc
         _ => $"{Math.Clamp(usedPercent, 0, 1):P0} used · {(1.0 - Math.Clamp(usedPercent, 0, 1)):P0} remaining"
     };
 
+    // 시간 진행률 마커 툴팁 — 시간 경과 vs 사용량을 나란히 보여주고, 색(주황=초과)과 일치하는 페이스 판정을 덧붙인다.
+    public static string PaceTip(double timePercent, double usagePercent)
+    {
+        double t = Math.Clamp(timePercent, 0, 1);
+        double u = Math.Clamp(usagePercent, 0, 1);
+        int diffPts = (int)Math.Round(Math.Abs(u - t) * 100);
+        bool ahead = u - t > 0.005;
+        bool behind = t - u > 0.005;
+        return Lang switch
+        {
+            "ko" => $"시간 {t:P0} 경과 · 사용 {u:P0}" + (ahead ? $" · {diffPts}%p 빠름" : behind ? $" · {diffPts}%p 여유" : " · 적정 페이스"),
+            "zh" => $"时间 {t:P0} · 已用 {u:P0}" + (ahead ? $" · 快 {diffPts}%p" : behind ? $" · 慢 {diffPts}%p" : " · 节奏适中"),
+            "ja" => $"経過 {t:P0} · 使用 {u:P0}" + (ahead ? $" · {diffPts}%p 速い" : behind ? $" · {diffPts}%p 余裕" : " · 適正ペース"),
+            _ => $"Time {t:P0} · Used {u:P0}" + (ahead ? $" · {diffPts}pp ahead" : behind ? $" · {diffPts}pp behind" : " · on pace")
+        };
+    }
+
     public static string UpdatedAt(string time) => Lang switch
     {
         "ko" => $"업데이트 {time}",

@@ -28,6 +28,15 @@ public partial class ClaudeViewModel : ObservableObject
     [ObservableProperty] private string _shortReset = "";
     [ObservableProperty] private double _longPercent = 0;
     [ObservableProperty] private string _longReset = "";
+
+    // 시간 진행률(윈도우 경과 비율, 0~1) — 사용량 막대와 비교해 페이스를 육안으로 드러낸다.
+    // *UsageCapped = min(사용량, 시간) — 보라 레이어 폭. 사용량이 시간을 앞지른 만큼만 주황으로 노출된다.
+    [ObservableProperty] private double _shortTimePercent = 0;
+    [ObservableProperty] private double _shortUsageCapped = 0;
+    [ObservableProperty] private double _longTimePercent = 0;
+    [ObservableProperty] private double _longUsageCapped = 0;
+    [ObservableProperty] private string _shortPaceTip = "";
+    [ObservableProperty] private string _longPaceTip = "";
     [ObservableProperty] private string _shortSummary = "";
     [ObservableProperty] private string _longSummary = "";
     [ObservableProperty] private string _shortDepletion = "";

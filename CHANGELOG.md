@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.34.0] - 2026-07-08
+
+<!-- ko -->
+### 추가
+- **5시간·7일 사용량 막대에 시간 진행률 마커 오버레이 추가** — 사용량 막대 위에 현재 시각이 윈도우의 어디쯤인지를 흰 세로선(마커)으로 표시하고, 사용 속도가 시간 경과를 앞지른 구간만 주황으로 칠해 "지금 페이스가 빠른지 여유로운지"를 육안으로 바로 알 수 있게 했습니다. 시간 진행률은 리셋 시각에서 역산(경과 = 1 − 남은시간 / 윈도우 길이)하며 기존 1초 카운트다운 타이머에 얹어 부드럽게 갱신됩니다. 마커에 마우스를 올리면 `시간 31% 경과 · 사용 41% · 10%p 빠름`처럼 시간 경과 대비 사용량 페이스 요약(4개 언어)이 표시됩니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Time-progress marker overlay on the 5-hour and 7-day usage bars** — A white vertical marker now shows where the current moment sits within each window, and only the portion where usage has outpaced elapsed time is filled amber — so you can tell at a glance whether you're burning fast or have room to spare. Time progress is derived from the reset time (elapsed = 1 − remaining / window length) and updates smoothly on the existing 1-second countdown timer. Hovering the marker shows a pace summary in all four languages, e.g. `Time 31% · Used 41% · 10pp ahead`.
+<!-- /en -->
+
 ## [1.33.8] - 2026-07-03
 
 <!-- ko -->

@@ -56,6 +56,61 @@
             </Setter>
         </Style>
 
+        <!-- 페이스 오버레이 · 바닥 레이어: 사용량 전체를 주황으로. 위에 보라 레이어가 시간 이내 사용분을
+             덮으므로, 시간 마커를 앞지른 초과분만 최종적으로 주황으로 남는다. -->
+        <Style x:Key="PaceOverBarStyle" TargetType="ProgressBar">
+            <Setter Property="Height" Value="4"/>
+            <Setter Property="Background" Value="#2D2F45"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid>
+                            <Border Background="{TemplateBinding Background}" CornerRadius="2"/>
+                            <Border x:Name="PART_Track" CornerRadius="2"/>
+                            <Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="2" Background="#F59E0B"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Value" Value="0">
+                                <Setter TargetName="PART_Indicator" Property="Visibility" Value="Collapsed"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 페이스 오버레이 · 상단 레이어: 시간 이내 사용분(=min(사용량,시간))을 보라로 덮는다.
+             트랙은 투명이라 아래 주황 레이어를 가리지 않는다. -->
+        <Style x:Key="PaceUsageBarStyle" TargetType="ProgressBar">
+            <Setter Property="Height" Value="4"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid>
+                            <Border Background="{TemplateBinding Background}" CornerRadius="2"/>
+                            <Border x:Name="PART_Track" CornerRadius="2"/>
+                            <Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="2">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="#8B5CF6" Offset="0"/>
+                                        <GradientStop Color="#6366F1" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Value" Value="0">
+                                <Setter TargetName="PART_Indicator" Property="Visibility" Value="Collapsed"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Codex 바 (초록) -->
         <Style x:Key="CodexBarStyle" TargetType="ProgressBar">
             <Setter Property="Height" Value="4"/>
@@ -373,7 +428,7 @@
                                 <Grid.RowDefinitions>
                                     <RowDefinition/>
                                     <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="6"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 <Grid Grid.Row="0">
                                     <Grid.ColumnDefinitions>
@@ -387,7 +442,19 @@
                                     </StackPanel>
                                 </Grid>
                                 <TextBlock Grid.Row="1" Text="{Binding ClaudeVm.ShortDepletion}" Foreground="#F59E0B" FontSize="10" Margin="0,2,0,0" Visibility="{Binding ClaudeVm.ShortDepletion, Converter={StaticResource StringToVisibility}}"/>
-                                <ProgressBar Grid.Row="2" Value="{Binding ClaudeVm.ShortPercent}" Maximum="1" Style="{StaticResource UsageBarStyle}" Margin="0,4,0,0"/>
+                                <!-- 페이스 마커 오버레이: 주황(사용 전체) → 보라(시간 이내) → 시간 마커 세로선 순으로 겹친다 -->
+                                <Grid Grid.Row="2" Height="8" Margin="0,4,0,0"
+                                      ToolTip="{Binding ClaudeVm.ShortPaceTip}">
+                                    <ProgressBar Value="{Binding ClaudeVm.ShortPercent}" Maximum="1" Style="{StaticResource PaceOverBarStyle}" VerticalAlignment="Center"/>
+                                    <ProgressBar Value="{Binding ClaudeVm.ShortUsageCapped}" Maximum="1" Style="{StaticResource PaceUsageBarStyle}" VerticalAlignment="Center"/>
+                                    <Grid VerticalAlignment="Center" Height="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="{Binding ClaudeVm.ShortTimePercent, Converter={StaticResource PercentToStar}}"/>
+                                            <ColumnDefinition Width="{Binding ClaudeVm.ShortTimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"/>
+                                    </Grid>
+                                </Grid>
                             </Grid>
                             <TextBlock Text="{Binding ClaudeVm.ShortSummary}" Foreground="#8B92B3" FontSize="10" Margin="0,3,0,10"/>
 
@@ -408,7 +475,19 @@
                                         <TextBlock Text="{Binding ClaudeVm.LongReset}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0"/>
                                     </StackPanel>
                                 </Grid>
-                                <ProgressBar Grid.Row="2" Value="{Binding ClaudeVm.LongPercent}" Maximum="1" Style="{StaticResource UsageBarStyle}" Margin="0,4,0,0"/>
+                                <!-- 페이스 마커 오버레이 (7일) — 5시간과 동일 구조 -->
+                                <Grid Grid.Row="2" Height="8" Margin="0,4,0,0"
+                                      ToolTip="{Binding ClaudeVm.LongPaceTip}">
+                                    <ProgressBar Value="{Binding ClaudeVm.LongPercent}" Maximum="1" Style="{StaticResource PaceOverBarStyle}" VerticalAlignment="Center"/>
+                                    <ProgressBar Value="{Binding ClaudeVm.LongUsageCapped}" Maximum="1" Style="{StaticResource PaceUsageBarStyle}" VerticalAlignment="Center"/>
+                                    <Grid VerticalAlignment="Center" Height="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="{Binding ClaudeVm.LongTimePercent, Converter={StaticResource PercentToStar}}"/>
+                                            <ColumnDefinition Width="{Binding ClaudeVm.LongTimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"/>
+                                    </Grid>
+                                </Grid>
                             </Grid>
                             <TextBlock Text="{Binding ClaudeVm.LongSummary}" Foreground="#8B92B3" FontSize="10" Margin="0,3,0,0"/>
 

@@ -1388,6 +1388,9 @@ namespace ClaudeUsageTray.ViewModels;
                         ClearOAuthNotAllowedFirstSeenIfNeeded();
                     }
                 }
+
+                // 사용량·리셋 시각 반영 직후 시간 진행률(마커/초과 폭)을 함께 갱신 — 성공·캐시 폴백 모두 커버
+                RecomputeClaudeTimeProgress(DateTimeOffset.Now);
             });
         }
         catch (Exception ex)
@@ -1701,6 +1704,31 @@ namespace ClaudeUsageTray.ViewModels;
 
         if (_rawCodexLongResetAt.HasValue && (_rawCodexLongResetAt.Value - now).TotalMinutes < 10)
             CodexLongReset = FormatResetLabel(_rawCodexLongResetAt);
+
+        // 시간 진행률은 리셋 시각만 있으면 매 순간 계산 가능 — 매초 갱신해 막대가 부드럽게 흐르게 한다.
+        RecomputeClaudeTimeProgress(now);
+    }
+
+    /// <summary>
+    /// Claude 5시간/7일 윈도우의 "시간 진행률"을 리셋 시각으로부터 역산한다.
+    /// 윈도우 시작 = 리셋 - 윈도우 길이(5h / 7d) 이므로, 경과 비율 = 1 - 남은시간/윈도우길이.
+    /// UsageCapped = min(사용량, 시간) 은 보라 레이어 폭 — 사용량이 시간을 앞지른 만큼만 주황으로 노출된다.
+    /// </summary>
+    private void RecomputeClaudeTimeProgress(DateTimeOffset now)
+    {
+        ClaudeVm.ShortTimePercent = TimeProgress(_rawClaudeShortResetAt, TimeSpan.FromHours(5), now);
+        ClaudeVm.ShortUsageCapped = Math.Min(ClaudeVm.ShortPercent, ClaudeVm.ShortTimePercent);
+        ClaudeVm.ShortPaceTip     = Loc.PaceTip(ClaudeVm.ShortTimePercent, ClaudeVm.ShortPercent);
+        ClaudeVm.LongTimePercent  = TimeProgress(_rawClaudeLongResetAt, TimeSpan.FromDays(7), now);
+        ClaudeVm.LongUsageCapped  = Math.Min(ClaudeVm.LongPercent, ClaudeVm.LongTimePercent);
+        ClaudeVm.LongPaceTip      = Loc.PaceTip(ClaudeVm.LongTimePercent, ClaudeVm.LongPercent);
+    }
+
+    private static double TimeProgress(DateTimeOffset? resetAt, TimeSpan window, DateTimeOffset now)
+    {
+        if (resetAt is null || window.TotalSeconds <= 0) return 0;
+        double elapsedRatio = 1.0 - (resetAt.Value - now).TotalSeconds / window.TotalSeconds;
+        return Math.Clamp(elapsedRatio, 0, 1);
     }
 
     /// <summary>
