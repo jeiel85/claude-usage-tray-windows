@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.34.1] - 2026-07-08
+
+<!-- ko -->
+### 수정
+- **시간 진행률 마커 — 윈도우 초반 과장 완화** — 리셋 직후처럼 경과 시간이 아주 짧을 때(5시간 윈도우 5분 미만, 7일 윈도우 2시간 미만) 사용량이 시간을 크게 앞지른 것처럼 막대가 대부분 주황으로 보이던 문제를 완화했습니다. 이 구간에서는 소진 예측과 동일한 하한을 적용해 페이스 판정(초과색·빠름/여유 문구)을 유보하고, 툴팁에 "페이스 측정 중"으로 표시합니다. 함께 Claude 뷰모델의 미사용 새로고침 로직(중복 죽은 코드)을 제거해 내부를 정리했습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Time-progress marker — less exaggeration early in the window** — When very little time has elapsed (under 5 min in the 5-hour window, under 2 h in the 7-day window), the bar no longer looks mostly amber as if usage had raced far ahead of elapsed time. In that range it applies the same lower bound as the depletion estimate, holding off the pace verdict (amber overflow / ahead-behind wording) and showing "measuring pace" in the tooltip. Also removed the unused refresh logic in the Claude view model (dead duplicate) as cleanup.
+<!-- /en -->
+
 ## [1.34.0] - 2026-07-08
 
 <!-- ko -->

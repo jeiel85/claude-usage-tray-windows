@@ -395,7 +395,7 @@ namespace ClaudeUsageTray.ViewModels;
         OpenCodeVm = new OpenCodeViewModel(openCode, history);
         GeminiVm = new GeminiViewModel(geminiCli, history);
         CodexVm = new CodexViewModel(codex, history);
-        ClaudeVm = new ClaudeViewModel(api, credentials, session, history);
+        ClaudeVm = new ClaudeViewModel();
 
         // 계정 전환 자동 감지: credentials 파일 변경 → 새로고침
         _credentials.CredentialsChanged += OnCredentialsChanged;
@@ -1716,13 +1716,24 @@ namespace ClaudeUsageTray.ViewModels;
     /// </summary>
     private void RecomputeClaudeTimeProgress(DateTimeOffset now)
     {
-        ClaudeVm.ShortTimePercent = TimeProgress(_rawClaudeShortResetAt, TimeSpan.FromHours(5), now);
-        ClaudeVm.ShortUsageCapped = Math.Min(ClaudeVm.ShortPercent, ClaudeVm.ShortTimePercent);
-        ClaudeVm.ShortPaceTip     = Loc.PaceTip(ClaudeVm.ShortTimePercent, ClaudeVm.ShortPercent);
-        ClaudeVm.LongTimePercent  = TimeProgress(_rawClaudeLongResetAt, TimeSpan.FromDays(7), now);
-        ClaudeVm.LongUsageCapped  = Math.Min(ClaudeVm.LongPercent, ClaudeVm.LongTimePercent);
-        ClaudeVm.LongPaceTip      = Loc.PaceTip(ClaudeVm.LongTimePercent, ClaudeVm.LongPercent);
+        // 소진 예측과 동일한 하한(5h→5분, 7d→2시간)으로 윈도우 초반에는 페이스 판정을 유보한다.
+        // 리셋 직후 1~2분 사용이 "거의 전부 초과(주황)"로 과장돼 보이는 것을 막는다(settled=false → 초과색·문구 억제).
+        var shortTime = TimeProgress(_rawClaudeShortResetAt, TimeSpan.FromHours(5), now);
+        bool shortSettled = IsPaceSettled(shortTime, TimeSpan.FromHours(5), TimeSpan.FromMinutes(5));
+        ClaudeVm.ShortTimePercent = shortTime;
+        ClaudeVm.ShortUsageCapped = shortSettled ? Math.Min(ClaudeVm.ShortPercent, shortTime) : ClaudeVm.ShortPercent;
+        ClaudeVm.ShortPaceTip     = Loc.PaceTip(shortTime, ClaudeVm.ShortPercent, shortSettled);
+
+        var longTime = TimeProgress(_rawClaudeLongResetAt, TimeSpan.FromDays(7), now);
+        bool longSettled = IsPaceSettled(longTime, TimeSpan.FromDays(7), TimeSpan.FromHours(2));
+        ClaudeVm.LongTimePercent = longTime;
+        ClaudeVm.LongUsageCapped = longSettled ? Math.Min(ClaudeVm.LongPercent, longTime) : ClaudeVm.LongPercent;
+        ClaudeVm.LongPaceTip     = Loc.PaceTip(longTime, ClaudeVm.LongPercent, longSettled);
     }
+
+    // 경과 시간이 최소 기준 이상이어야 페이스(초과색/빠름·여유)를 신뢰할 수 있다고 본다.
+    private static bool IsPaceSettled(double timeProgress, TimeSpan window, TimeSpan minElapsed)
+        => timeProgress * window.TotalSeconds >= minElapsed.TotalSeconds;
 
     private static double TimeProgress(DateTimeOffset? resetAt, TimeSpan window, DateTimeOffset now)
     {
@@ -1761,7 +1772,7 @@ namespace ClaudeUsageTray.ViewModels;
         OnPropertyChanged(nameof(WeatherPopupLabel));
     }
 
-    private static string ParseFriendlyError(string raw)
+    internal static string ParseFriendlyError(string raw)
     {
         var msgText = raw;
         try

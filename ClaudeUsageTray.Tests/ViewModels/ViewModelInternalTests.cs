@@ -76,7 +76,8 @@ public class ClaudeViewModelTests
     [InlineData("Something went wrong", false)]
     public void ParseFriendlyError_DetectsRateLimit(string raw, bool isRateLimit)
     {
-        var result = ClaudeViewModel.ParseFriendlyError(raw);
+        // ParseFriendlyError 는 실제로 MainViewModel 에 있다. 죽은 ClaudeViewModel 중복본은 하드닝에서 제거됨.
+        var result = MainViewModel.ParseFriendlyError(raw);
         if (isRateLimit)
             Assert.Equal(Loc.RateLimited, result);
         else

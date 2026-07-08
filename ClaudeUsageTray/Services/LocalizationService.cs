@@ -310,10 +310,21 @@ public static class Loc
     };
 
     // 시간 진행률 마커 툴팁 — 시간 경과 vs 사용량을 나란히 보여주고, 색(주황=초과)과 일치하는 페이스 판정을 덧붙인다.
-    public static string PaceTip(double timePercent, double usagePercent)
+    // settled=false(윈도우 초반, 통계적으로 무의미한 구간)면 빠름/여유 판정을 유보하고 "측정 중"으로 표시한다.
+    public static string PaceTip(double timePercent, double usagePercent, bool settled = true)
     {
         double t = Math.Clamp(timePercent, 0, 1);
         double u = Math.Clamp(usagePercent, 0, 1);
+        if (!settled)
+        {
+            return Lang switch
+            {
+                "ko" => $"시간 {t:P0} 경과 · 사용 {u:P0} · 페이스 측정 중",
+                "zh" => $"时间 {t:P0} · 已用 {u:P0} · 计算节奏中",
+                "ja" => $"経過 {t:P0} · 使用 {u:P0} · ペース測定中",
+                _ => $"Time {t:P0} · Used {u:P0} · measuring pace"
+            };
+        }
         int diffPts = (int)Math.Round(Math.Abs(u - t) * 100);
         bool ahead = u - t > 0.005;
         bool behind = t - u > 0.005;
