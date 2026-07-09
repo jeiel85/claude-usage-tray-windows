@@ -26,12 +26,13 @@ public class MainViewModelIntegrationTests
         var notifier = new NotificationService(() => null);
         var updater = new UpdateService();
         var history = new HistoryService();
+        var usageSync = new UsageSyncService();
         var weather = new WeatherService();
         var weatherAlert = new WeatherAlertService(
             weather, notifier, () => new NotificationSettings(), Array.Empty<IWeatherWarningProvider>());
 
         return new MainViewModel(apiService, credService, sessionMonitor, codexMonitor, geminiCliMonitor,
-            openCodeMonitor, antigravityMonitor, notifier, settingsService, updater, history, weather, weatherAlert);
+            openCodeMonitor, antigravityMonitor, notifier, settingsService, updater, history, usageSync, weather, weatherAlert);
     }
 
     [Fact]

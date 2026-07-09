@@ -8,6 +8,7 @@ using ClaudeUsageTray.ViewModels;
 using ClaudeUsageTray.Services;
 using ClaudeUsageTray.Models;
 using Windows.Devices.Geolocation;
+using Forms = System.Windows.Forms;
 
 namespace ClaudeUsageTray.Views;
 
@@ -134,6 +135,12 @@ public partial class SettingsWindow : Window, IDisposable
         LblDisclaimer.Text                  = _vm.DisclaimerText;
         LblPollingInterval.Text             = Loc.PollingInterval;
         LblLanguageSection.Text             = Loc.LanguageSection;
+        LblUsageSyncTitle.Text              = Loc.UsageSyncTitle;
+        ChkUsageSyncEnabled.Content         = Loc.UsageSyncEnabled;
+        LblUsageSyncDescription.Text        = Loc.UsageSyncDescription;
+        LblUsageSyncFolder.Text             = Loc.UsageSyncFolder;
+        BtnUsageSyncBrowse.Content          = Loc.UsageSyncBrowse;
+        UpdateUsageSyncStatusLabel();
         LangItemSystem.Content              = Loc.LanguageSystem;
         LblTrayDisplayMode.Text             = Loc.TrayDisplayMode;
         ChkHideInactive.Content             = Loc.HideInactiveProviders;
@@ -248,6 +255,9 @@ public partial class SettingsWindow : Window, IDisposable
         TxtNtfyTopic.Text               = _vm.NtfyTopic;
         ChkNtfySendFromThisPc.IsChecked = _vm.NtfySendFromThisPc;
         ChkStartWithWindows.IsChecked   = IsStartupEnabled();
+        ChkUsageSyncEnabled.IsChecked    = _vm.UsageSyncEnabled;
+        TxtUsageSyncFolder.Text          = _vm.UsageSyncFolderPath;
+        UpdateUsageSyncStatusLabel();
         SliderPolling.Value = _vm.PollingIntervalMinutes > 0 ? _vm.PollingIntervalMinutes : 2;
         UpdatePollingLabel((int)SliderPolling.Value);
         UpdateTrayAutoHelp();
@@ -322,10 +332,13 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.Threshold90           = Chk90.IsChecked == true;
         _vm.Threshold100          = Chk100.IsChecked == true;
         _vm.NtfySendFromThisPc    = ChkNtfySendFromThisPc.IsChecked == true;
+        _vm.UsageSyncEnabled      = ChkUsageSyncEnabled.IsChecked == true;
+        _vm.UsageSyncFolderPath   = TxtUsageSyncFolder.Text.Trim();
 
         if (CmbTrayDisplayMode.SelectedItem is ComboBoxItem modeItem)
             _vm.TrayDisplayMode = modeItem.Tag?.ToString() ?? UsageProviderKind.Auto;
 
+        UpdateUsageSyncStatusLabel();
         UpdateTrayAutoHelp();
         _vm.HideInactiveProviders = ChkHideInactive.IsChecked == true;
 
@@ -344,6 +357,53 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.WeatherOfficialAlertsEnabled  = ChkWeatherOfficialAlerts.IsChecked == true;
 
         UpdateTrayModeAvailability();
+        _vm.SaveSettingsCommand.Execute(null);
+        FlashSavedIndicator();
+        _ = _vm.RefreshAsync();
+    }
+
+    private void UpdateUsageSyncStatusLabel()
+    {
+        _vm.RefreshUsageSyncStatus();
+        LblUsageSyncStatus.Text = _vm.UsageSyncStatusLabel;
+    }
+
+    private void BtnUsageSyncBrowse_Click(object sender, RoutedEventArgs e)
+    {
+        using var dialog = new Forms.FolderBrowserDialog
+        {
+            Description = Loc.UsageSyncBrowseDialogTitle,
+            SelectedPath = TxtUsageSyncFolder.Text.Trim(),
+            UseDescriptionForTitle = true,
+        };
+
+        if (dialog.ShowDialog() != Forms.DialogResult.OK)
+            return;
+
+        TxtUsageSyncFolder.Text = dialog.SelectedPath;
+        Setting_Changed(sender, e);
+    }
+
+    private void TxtUsageSyncFolder_LostFocus(object sender, RoutedEventArgs e)
+    {
+        SaveUsageSyncFolderFromText();
+    }
+
+    private void TxtUsageSyncFolder_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != System.Windows.Input.Key.Enter)
+            return;
+
+        SaveUsageSyncFolderFromText();
+        e.Handled = true;
+    }
+
+    private void SaveUsageSyncFolderFromText()
+    {
+        if (_isLoadingValues) return;
+
+        _vm.UsageSyncFolderPath = TxtUsageSyncFolder.Text.Trim();
+        UpdateUsageSyncStatusLabel();
         _vm.SaveSettingsCommand.Execute(null);
         FlashSavedIndicator();
         _ = _vm.RefreshAsync();
@@ -618,6 +678,8 @@ public partial class SettingsWindow : Window, IDisposable
             _vm.IsOpenCodeEnabled     = true;
             _vm.NtfySendFromThisPc    = true;
             _vm.NtfyTopic             = preservedNtfyTopic; // 사용자 토픽 보존
+            _vm.UsageSyncEnabled      = false;
+            _vm.UsageSyncFolderPath   = "";
 
             // UI 동기화
             ChkEnabled.IsChecked        = _vm.NotificationsEnabled;
@@ -635,8 +697,11 @@ public partial class SettingsWindow : Window, IDisposable
             ChkVisibleGemini.IsChecked  = _vm.IsGeminiEnabled;
             ChkVisibleOpenCode.IsChecked= _vm.IsOpenCodeEnabled;
             ChkNtfySendFromThisPc.IsChecked = _vm.NtfySendFromThisPc;
+            ChkUsageSyncEnabled.IsChecked = _vm.UsageSyncEnabled;
+            TxtUsageSyncFolder.Text       = _vm.UsageSyncFolderPath;
             CmbTrayDisplayMode.SelectedItem = TrayItemAuto;
 
+            UpdateUsageSyncStatusLabel();
             UpdateTrayModeAvailability();
             UpdateTrayAutoHelp();
         }

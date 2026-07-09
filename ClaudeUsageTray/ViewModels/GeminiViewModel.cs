@@ -27,6 +27,7 @@ public partial class GeminiViewModel : ObservableObject
 
     public int LastRequestCount => _lastRequestCount;
     public long LastOutputTokens => _lastOutputTokens;
+    public ProviderUsageSnapshot LastSnapshot { get; private set; } = new();
 
     public GeminiViewModel(GeminiCliUsageMonitor monitor, HistoryService history)
     {
@@ -39,6 +40,7 @@ public partial class GeminiViewModel : ObservableObject
         try
         {
             var snapshot = _monitor.GetTodaySnapshot();
+            LastSnapshot = snapshot;
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 var informational = UsageCalculator.IsNoUsageInformational(snapshot.ErrorMessage, UsageProviderKind.GeminiCli);
@@ -80,6 +82,7 @@ public partial class GeminiViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            LastSnapshot = new ProviderUsageSnapshot { ErrorMessage = ex.Message };
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 HasError = true;

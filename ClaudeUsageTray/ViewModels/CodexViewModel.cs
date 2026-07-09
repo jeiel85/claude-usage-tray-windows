@@ -36,6 +36,7 @@ public partial class CodexViewModel : ObservableObject
     public DateTimeOffset? RawShortResetAt => _rawShortResetAt;
     public bool RawShortResetEstimated => _rawShortResetEstimated;
     public DateTimeOffset? RawLongResetAt => _rawLongResetAt;
+    public ProviderUsageSnapshot LastSnapshot { get; private set; } = new();
 
     public CodexViewModel(CodexUsageMonitor monitor, HistoryService history)
     {
@@ -48,6 +49,7 @@ public partial class CodexViewModel : ObservableObject
         try
         {
             var snapshot = await _monitor.GetTodaySnapshotAsync();
+            LastSnapshot = snapshot;
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 var newPercent = snapshot.ShortUsagePercent;
@@ -106,6 +108,7 @@ public partial class CodexViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            LastSnapshot = new ProviderUsageSnapshot { ErrorMessage = ex.Message };
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 HasError = true;

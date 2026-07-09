@@ -23,6 +23,7 @@ namespace ClaudeUsageTray.ViewModels;
     private readonly SettingsService _settingsService;
     private readonly UpdateService _updater;
     private readonly HistoryService _history;
+    private readonly UsageSyncService _usageSync;
     private readonly WeatherService _weather;
     private readonly WeatherAlertService _weatherAlert;
     private readonly Timer _timer;
@@ -237,6 +238,11 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private bool _ntfySendFromThisPc = true;
     [ObservableProperty] private bool _startWithWindows;
     [ObservableProperty] private int _pollingIntervalMinutes;
+    [ObservableProperty] private bool _usageSyncEnabled;
+    [ObservableProperty] private string _usageSyncFolderPath = "";
+    [ObservableProperty] private int _usageSyncApiSnapshotTtlMinutes = UsageSyncService.DefaultApiSnapshotTtlMinutes;
+    [ObservableProperty] private int _usageSyncLocalSnapshotTtlHours = UsageSyncService.DefaultLocalSnapshotTtlHours;
+    [ObservableProperty] private string _usageSyncStatusLabel = Loc.UsageSyncDisabled;
 
     // v1.27.0 표시 옵션 토글
     [ObservableProperty] private bool _showCodexPlanBadge = true;
@@ -374,6 +380,7 @@ namespace ClaudeUsageTray.ViewModels;
                          OpenCodeUsageMonitor openCode, AntigravityUsageMonitor antigravity,
                          NotificationService notifier, SettingsService settingsService,
                          UpdateService updater, HistoryService history,
+                         UsageSyncService usageSync,
                          WeatherService weather, WeatherAlertService weatherAlert)
     {
         _api = api;
@@ -387,6 +394,7 @@ namespace ClaudeUsageTray.ViewModels;
         _settingsService = settingsService;
         _updater = updater;
         _history = history;
+        _usageSync = usageSync;
         _weather = weather;
         _weatherAlert = weatherAlert;
 
@@ -465,6 +473,11 @@ namespace ClaudeUsageTray.ViewModels;
         NtfySendFromThisPc  = s.NtfySendFromThisPc;
         StartWithWindows    = s.StartWithWindows;
         PollingIntervalMinutes = s.PollingIntervalMinutes;
+        UsageSyncEnabled = s.UsageSyncEnabled;
+        UsageSyncFolderPath = s.UsageSyncFolderPath ?? "";
+        UsageSyncApiSnapshotTtlMinutes = Math.Max(1, s.UsageSyncApiSnapshotTtlMinutes);
+        UsageSyncLocalSnapshotTtlHours = Math.Max(1, s.UsageSyncLocalSnapshotTtlHours);
+        RefreshUsageSyncStatus();
         TrayDisplayMode = UsageProviderKind.IsValid(s.TrayDisplayMode) ? s.TrayDisplayMode : UsageProviderKind.Auto;
         HideInactiveProviders = s.HideInactiveProviders;
 
@@ -602,6 +615,29 @@ namespace ClaudeUsageTray.ViewModels;
         _timer.Interval = interval;
     }
 
+    public void RefreshUsageSyncStatus()
+    {
+        if (!UsageSyncEnabled)
+        {
+            UsageSyncStatusLabel = Loc.UsageSyncDisabled;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(UsageSyncFolderPath))
+        {
+            UsageSyncStatusLabel = Loc.UsageSyncFolderRequired;
+            return;
+        }
+
+        UsageSyncStatusLabel = System.IO.Directory.Exists(UsageSyncFolderPath)
+            ? Loc.UsageSyncReady
+            : Loc.UsageSyncFolderWillBeCreated;
+    }
+
+    partial void OnUsageSyncEnabledChanged(bool value) => RefreshUsageSyncStatus();
+
+    partial void OnUsageSyncFolderPathChanged(string value) => RefreshUsageSyncStatus();
+
     /// <summary>
     /// Reads subscriptionType from local credentials and determines if Claude is a paid plan.
     /// Paid plans (pro, max, team, etc.) should always show the Claude section even at 0% usage.
@@ -644,6 +680,10 @@ namespace ClaudeUsageTray.ViewModels;
             StartWithWindows = StartWithWindows,
             SkippedVersion = existing.SkippedVersion,
             PollingIntervalMinutes = PollingIntervalMinutes,
+            UsageSyncEnabled = UsageSyncEnabled,
+            UsageSyncFolderPath = UsageSyncFolderPath.Trim(),
+            UsageSyncApiSnapshotTtlMinutes = Math.Max(1, UsageSyncApiSnapshotTtlMinutes),
+            UsageSyncLocalSnapshotTtlHours = Math.Max(1, UsageSyncLocalSnapshotTtlHours),
             TrayDisplayMode = TrayDisplayMode,
             HideInactiveProviders = HideInactiveProviders,
             VisibleProviders = visibleProviders,
@@ -1140,6 +1180,258 @@ namespace ClaudeUsageTray.ViewModels;
         }
     }
 
+    private bool IsUsageSyncReady =>
+        UsageSyncEnabled && !string.IsNullOrWhiteSpace(UsageSyncFolderPath);
+
+    private TimeSpan UsageSyncApiTtl =>
+        TimeSpan.FromMinutes(Math.Clamp(UsageSyncApiSnapshotTtlMinutes, 1, 60));
+
+    private TimeSpan UsageSyncLocalTtl =>
+        TimeSpan.FromHours(Math.Clamp(UsageSyncLocalSnapshotTtlHours, 1, 168));
+
+    private UsageSyncSnapshot? TrySyncClaudeUsage(
+        string? accountKey,
+        UsageResponse? usage,
+        SessionStats sessionStats,
+        string errorKind,
+        out UsageSyncMergedLocalTotals? mergedTotals)
+    {
+        mergedTotals = null;
+        if (!IsUsageSyncReady)
+            return null;
+
+        try
+        {
+            var snapshot = _usageSync.CreateSnapshot(
+                UsageProviderKind.Claude,
+                accountKey,
+                CreateClaudeQuotaSnapshot(usage),
+                CreateLocalTotals(sessionStats),
+                errorKind);
+            _usageSync.WriteSnapshot(UsageSyncFolderPath, snapshot);
+
+            var today = DateOnly.FromDateTime(DateTime.Now);
+            var read = _usageSync.ReadSnapshots(UsageSyncFolderPath, UsageProviderKind.Claude, accountKey, today);
+            mergedTotals = _usageSync.MergeLocalTotals(read.Snapshots, UsageSyncLocalTtl);
+            UsageSyncStatusLabel = Loc.UsageSyncReady;
+            return _usageSync.SelectNewestQuotaSnapshot(read.Snapshots, UsageSyncApiTtl);
+        }
+        catch (Exception ex)
+        {
+            UsageSyncStatusLabel = Loc.UsageSyncFailed(ex.Message);
+#if DEBUG
+            Debug.WriteLine($"[MainViewModel] Claude usage sync failed: {ex}");
+#endif
+            return null;
+        }
+    }
+
+    private UsageSyncMergedLocalTotals? TrySyncProviderSnapshot(
+        string provider,
+        ProviderUsageSnapshot snapshot)
+    {
+        if (!IsUsageSyncReady)
+            return null;
+
+        try
+        {
+            var localSnapshot = _usageSync.CreateSnapshot(
+                provider,
+                null,
+                CreateProviderQuotaSnapshot(snapshot),
+                CreateLocalTotals(snapshot),
+                ClassifyProviderError(snapshot.ErrorMessage));
+            _usageSync.WriteSnapshot(UsageSyncFolderPath, localSnapshot);
+
+            var today = DateOnly.FromDateTime(DateTime.Now);
+            var read = _usageSync.ReadSnapshots(UsageSyncFolderPath, provider, null, today);
+            UsageSyncStatusLabel = Loc.UsageSyncReady;
+            return _usageSync.MergeLocalTotals(read.Snapshots, UsageSyncLocalTtl);
+        }
+        catch (Exception ex)
+        {
+            UsageSyncStatusLabel = Loc.UsageSyncFailed(ex.Message);
+#if DEBUG
+            Debug.WriteLine($"[MainViewModel] {provider} usage sync failed: {ex}");
+#endif
+            return null;
+        }
+    }
+
+    private UsageSyncQuotaSnapshot? CreateClaudeQuotaSnapshot(UsageResponse? usage)
+    {
+        if (usage?.FiveHour is null && usage?.SevenDay is null)
+            return null;
+
+        var extra = usage.ExtraUsage;
+        var extraHasLimit = extra?.MonthlyLimit.HasValue == true;
+        var extraUsagePercent = extraHasLimit
+            ? Math.Min(1.0, (extra?.Utilization ?? 0) / 100.0)
+            : (double?)null;
+        var extraCreditsLabel = extra is { UsedCredits: not null, MonthlyLimit: not null }
+            ? Loc.ExtraCredits(extra.UsedCredits.Value, extra.MonthlyLimit.Value)
+            : extra?.UsedCredits is double usedCredits
+                ? Loc.ExtraCreditsUsedOnly(usedCredits)
+                : "";
+
+        return new UsageSyncQuotaSnapshot
+        {
+            HasData = usage.FiveHour is not null || usage.SevenDay is not null,
+            ShortUsagePercent = usage.FiveHour?.UsagePercent ?? 0,
+            ShortResetAt = usage.FiveHour?.ResetsAtParsed,
+            LongUsagePercent = usage.SevenDay?.UsagePercent ?? 0,
+            LongResetAt = usage.SevenDay?.ResetsAtParsed,
+            ExtraUsageEnabled = extra?.IsEnabled == true,
+            ExtraHasLimit = extra?.IsEnabled == true && extraHasLimit,
+            ExtraUsagePercent = extraUsagePercent,
+            ExtraCreditsLabel = extra?.IsEnabled == true ? extraCreditsLabel : "",
+        };
+    }
+
+    private static UsageSyncQuotaSnapshot? CreateProviderQuotaSnapshot(ProviderUsageSnapshot snapshot)
+    {
+        var hasQuota =
+            snapshot.ShortUsagePercent > 0 ||
+            snapshot.LongUsagePercent > 0 ||
+            snapshot.ShortResetAt is not null ||
+            snapshot.LongResetAt is not null ||
+            !string.IsNullOrWhiteSpace(snapshot.PlanType);
+
+        if (!hasQuota)
+            return null;
+
+        return new UsageSyncQuotaSnapshot
+        {
+            HasData = true,
+            ShortUsagePercent = snapshot.ShortUsagePercent,
+            ShortResetAt = snapshot.ShortResetAt,
+            IsShortResetEstimated = snapshot.IsShortResetEstimated,
+            LongUsagePercent = snapshot.LongUsagePercent,
+            LongResetAt = snapshot.LongResetAt,
+            PlanType = snapshot.PlanType ?? "",
+        };
+    }
+
+    private static UsageSyncLocalTotals CreateLocalTotals(SessionStats stats) =>
+        new()
+        {
+            InputTokens = stats.TotalInputTokens,
+            OutputTokens = stats.TotalOutputTokens,
+            CacheReadTokens = stats.TotalCacheReadTokens,
+            CacheWriteTokens = stats.TotalCacheWriteTokens,
+            SessionCount = stats.SessionCount,
+            HourlyTokens = CopyHourlyTokens(stats.HourlyTokens),
+        };
+
+    private static UsageSyncLocalTotals CreateLocalTotals(ProviderUsageSnapshot snapshot) =>
+        new()
+        {
+            InputTokens = snapshot.TotalInputTokens,
+            OutputTokens = snapshot.TotalOutputTokens,
+            CacheReadTokens = snapshot.TotalCacheReadTokens,
+            CacheWriteTokens = snapshot.TotalCacheWriteTokens,
+            SessionCount = snapshot.SessionCount,
+            RequestCount = snapshot.RequestCount,
+            HourlyTokens = CopyHourlyTokens(snapshot.HourlyTokens),
+        };
+
+    private static long[] CopyHourlyTokens(long[] source)
+    {
+        var copy = new long[24];
+        for (var i = 0; i < copy.Length && i < source.Length; i++)
+        {
+            copy[i] = source[i];
+        }
+
+        return copy;
+    }
+
+    private void ApplySyncedClaudeQuota(UsageSyncSnapshot snapshot)
+    {
+        if (snapshot.Quota is not { HasData: true } quota)
+            return;
+
+        ClaudeVm.HasError = false;
+        ClaudeVm.ErrorMessage = "";
+
+        ClaudeVm.ShortPercent = quota.ShortUsagePercent;
+        _rawClaudeShortResetAt = quota.ShortResetAt;
+        ClaudeVm.ShortReset = FormatResetLabel(quota.ShortResetAt, quota.IsShortResetEstimated);
+        ClaudeVm.ShortSummary = Loc.UsageSummary(quota.ShortUsagePercent);
+        ClaudeVm.ShortDepletion = "";
+        ShortUsagePercent = quota.ShortUsagePercent;
+        ShortResetLabel = ClaudeVm.ShortReset;
+        _lastKnownShortPercent = quota.ShortUsagePercent;
+        _lastKnownShortReset = ClaudeVm.ShortReset;
+
+        ClaudeVm.LongPercent = quota.LongUsagePercent;
+        _rawClaudeLongResetAt = quota.LongResetAt;
+        ClaudeVm.LongReset = FormatResetLabel(quota.LongResetAt);
+        ClaudeVm.LongSummary = Loc.UsageSummary(quota.LongUsagePercent);
+        ClaudeVm.LongDepletion = "";
+        LongUsagePercent = quota.LongUsagePercent;
+        LongResetLabel = ClaudeVm.LongReset;
+        _lastKnownLongPercent = quota.LongUsagePercent;
+        _lastKnownLongReset = ClaudeVm.LongReset;
+
+        SetClaudeExtraUsage(
+            quota.ExtraUsageEnabled,
+            quota.ExtraHasLimit,
+            quota.ExtraUsagePercent ?? 0,
+            quota.ExtraCreditsLabel);
+        SetClaudeExtraOnlyMode(ExtraUsageEnabled && ClaudeVm.ShortPercent >= 1.0);
+
+        var quotaObservedAt = quota.ObservedAtUtc ?? snapshot.ObservedAtUtc;
+        ClaudeVm.ApiNote = Loc.UsageSyncQuotaFromDevice(
+            snapshot.DeviceName,
+            quotaObservedAt.ToLocalTime().ToString("HH:mm"));
+        StatusText = $"{ClaudeVm.ShortPercent:P0} used";
+    }
+
+    private static string ClassifyClaudeApiError(string? error)
+    {
+        if (string.IsNullOrWhiteSpace(error))
+            return "";
+        if (error == UsageApiService.NoTokenError)
+            return "missing_token";
+        if (error.Contains("429", StringComparison.OrdinalIgnoreCase))
+            return "rate_limit";
+        if (error.Contains("403", StringComparison.OrdinalIgnoreCase))
+            return "permission";
+        return "api_error";
+    }
+
+    private static string ClassifyProviderError(string? error)
+    {
+        if (string.IsNullOrWhiteSpace(error))
+            return "";
+        if (UsageCalculator.IsNoUsageInformational(error, UsageProviderKind.Codex) ||
+            UsageCalculator.IsNoUsageInformational(error, UsageProviderKind.GeminiCli) ||
+            UsageCalculator.IsNoUsageInformational(error, UsageProviderKind.OpenCode))
+            return "no_usage";
+        return "source_error";
+    }
+
+    private static string TokenOrDash(long tokens) =>
+        tokens > 0 ? UsageCalculator.FormatTokenShort(tokens) : "—";
+
+    private static string RequestCountOrDash(int count) =>
+        count > 0
+            ? Loc.CurrentLang == "ko" ? $"{count}회" : $"{count} req"
+            : "—";
+
+    private static string WithSyncNote(string text, UsageSyncMergedLocalTotals? merged)
+    {
+        if (merged is not { DeviceCount: > 1 })
+            return text;
+
+        var note = Loc.UsageSyncMergedDevices(merged.DeviceCount);
+        return string.IsNullOrWhiteSpace(text) ? note : $"{text} · {note}";
+    }
+
+    private static bool HasMergedDeviceTotals(UsageSyncMergedLocalTotals? merged) =>
+        merged is { DeviceCount: > 1, HasData: true };
+
     private async Task RefreshClaudeAsync()
     {
         // FileSystemWatcher 미감지 폴백: 정기 새로고침마다 orgUuid 변경 여부 확인
@@ -1164,27 +1456,41 @@ namespace ClaudeUsageTray.ViewModels;
                     _apiRetryAfter = DateTimeOffset.UtcNow.AddSeconds(_api.LastRetryAfterSeconds);
             }
             var sessionStats = _session.ScanTodayUsage();
+            var syncErrorKind = skipApi ? "api_skipped" : ClassifyClaudeApiError(_api.LastError);
+            var syncedClaudeQuota = TrySyncClaudeUsage(
+                currentOrgUuid,
+                usage,
+                sessionStats,
+                syncErrorKind,
+                out var mergedClaudeTotals);
+            var hasMergedClaudeTotals = HasMergedDeviceTotals(mergedClaudeTotals);
+            var displayInputTokens = hasMergedClaudeTotals ? mergedClaudeTotals!.InputTokens : sessionStats.TotalInputTokens;
+            var displayOutputTokens = hasMergedClaudeTotals ? mergedClaudeTotals!.OutputTokens : sessionStats.TotalOutputTokens;
+            var displayCacheReadTokens = hasMergedClaudeTotals ? mergedClaudeTotals!.CacheReadTokens : sessionStats.TotalCacheReadTokens;
+            var displayCacheWriteTokens = hasMergedClaudeTotals ? mergedClaudeTotals!.CacheWriteTokens : sessionStats.TotalCacheWriteTokens;
+            var displaySessionCount = hasMergedClaudeTotals ? mergedClaudeTotals!.SessionCount : sessionStats.SessionCount;
+            var displayHourlyTokens = hasMergedClaudeTotals ? mergedClaudeTotals!.HourlyTokens : sessionStats.HourlyTokens;
 
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                TodayInputTokens  = sessionStats.TotalInputTokens;
-                TodayOutputTokens = sessionStats.TotalOutputTokens;
-                TodayCacheRead    = sessionStats.TotalCacheReadTokens;
-                TodayCacheWrite   = sessionStats.TotalCacheWriteTokens;
-                SessionsLabel     = Loc.Sessions(sessionStats.SessionCount);
+                TodayInputTokens  = displayInputTokens;
+                TodayOutputTokens = displayOutputTokens;
+                TodayCacheRead    = displayCacheReadTokens;
+                TodayCacheWrite   = displayCacheWriteTokens;
+                SessionsLabel     = Loc.Sessions(displaySessionCount);
 
-                _history.RecordToday(sessionStats.TotalInputTokens, sessionStats.TotalOutputTokens,
-                    sessionStats.TotalCacheReadTokens, sessionStats.TotalCacheWriteTokens,
-                    sessionStats.SessionCount);
+                _history.RecordToday(displayInputTokens, displayOutputTokens,
+                    displayCacheReadTokens, displayCacheWriteTokens,
+                    displaySessionCount);
                 
                 // 히스토리와 시간대별 차트는 항상 Claude 기준
                 HistoryData = _history.GetLast(7);
-                HourlyTokens = sessionStats.HourlyTokens;
+                HourlyTokens = displayHourlyTokens;
 
-                TodayCostLabel = CalcCostLabel(sessionStats.TotalInputTokens,
-                    sessionStats.TotalOutputTokens,
-                    sessionStats.TotalCacheReadTokens,
-                    sessionStats.TotalCacheWriteTokens);
+                TodayCostLabel = CalcCostLabel(displayInputTokens,
+                    displayOutputTokens,
+                    displayCacheReadTokens,
+                    displayCacheWriteTokens);
                 HasRateLimitHit   = sessionStats.HasRateLimitHit;
                 RateLimitInfo     = sessionStats.RateLimitResetTime ?? "";
 
@@ -1328,6 +1634,13 @@ namespace ClaudeUsageTray.ViewModels;
                     {
                         StatusText = $"{ClaudeVm.ShortPercent:P0} used";
                     }
+
+                    ClaudeVm.ApiNote = WithSyncNote(ClaudeVm.ApiNote, mergedClaudeTotals);
+                }
+                else if (syncedClaudeQuota?.Quota is { HasData: true })
+                {
+                    ApplySyncedClaudeQuota(syncedClaudeQuota);
+                    ClaudeVm.ApiNote = WithSyncNote(ClaudeVm.ApiNote, mergedClaudeTotals);
                 }
                 else if (skipApi || _api.LastError != null)
                 {
@@ -1493,6 +1806,8 @@ namespace ClaudeUsageTray.ViewModels;
                     ThresholdToPriority(threshold)),
             () => _notifier.ShowQuotaResetAlert(NtfyTopicEffective));
 
+        var mergedTotals = TrySyncProviderSnapshot(UsageProviderKind.Codex, CodexVm.LastSnapshot);
+
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
             CodexPercent = CodexVm.Percent;
@@ -1515,6 +1830,18 @@ namespace ClaudeUsageTray.ViewModels;
             CodexCacheReadLabel = CodexVm.CacheReadLabel;
             CodexCacheWriteLabel = CodexVm.CacheWriteLabel;
             IsCodexUsageEmpty = CodexVm.IsUsageEmpty;
+            CodexNote = WithSyncNote(Loc.ProviderCodexNote, mergedTotals);
+
+            if (HasMergedDeviceTotals(mergedTotals))
+            {
+                CodexInputLabel = TokenOrDash(mergedTotals!.InputTokens);
+                CodexOutputLabel = TokenOrDash(mergedTotals.OutputTokens);
+                CodexCacheReadLabel = TokenOrDash(mergedTotals.CacheReadTokens);
+                CodexCacheWriteLabel = TokenOrDash(mergedTotals.CacheWriteTokens);
+                CodexDataSource = WithSyncNote(CodexDataSource, mergedTotals);
+                IsCodexUsageEmpty = false;
+            }
+
             UpdateOverallStatus();
         });
     }
@@ -1522,6 +1849,8 @@ namespace ClaudeUsageTray.ViewModels;
     private async Task RefreshGeminiCliInternalAsync()
     {
         await GeminiVm.RefreshAsync();
+
+        var mergedTotals = TrySyncProviderSnapshot(UsageProviderKind.GeminiCli, GeminiVm.LastSnapshot);
 
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
@@ -1538,6 +1867,21 @@ namespace ClaudeUsageTray.ViewModels;
             IsGeminiUsageEmpty = GeminiVm.IsUsageEmpty;
             _lastGeminiRequestCount = GeminiVm.LastRequestCount;
             _lastGeminiOutputTokens = GeminiVm.LastOutputTokens;
+            GeminiNote = WithSyncNote(Loc.ProviderGeminiCliNote, mergedTotals);
+
+            if (HasMergedDeviceTotals(mergedTotals))
+            {
+                GeminiRequestsLabel = RequestCountOrDash(mergedTotals!.RequestCount);
+                GeminiInputLabel = TokenOrDash(mergedTotals.InputTokens);
+                GeminiOutputTokensLabel = TokenOrDash(mergedTotals.OutputTokens);
+                GeminiCacheReadLabel = TokenOrDash(mergedTotals.CacheReadTokens);
+                GeminiCacheWriteLabel = TokenOrDash(mergedTotals.CacheWriteTokens);
+                GeminiSummary = Loc.GeminiCliRequestSummary(mergedTotals.RequestCount, mergedTotals.OutputTokens);
+                IsGeminiUsageEmpty = false;
+                _lastGeminiRequestCount = mergedTotals.RequestCount;
+                _lastGeminiOutputTokens = mergedTotals.OutputTokens;
+            }
+
             UpdateOverallStatus();
         });
     }
@@ -1545,6 +1889,8 @@ namespace ClaudeUsageTray.ViewModels;
     private async Task RefreshOpenCodeInternalAsync()
     {
         await OpenCodeVm.RefreshAsync();
+
+        var mergedTotals = TrySyncProviderSnapshot(UsageProviderKind.OpenCode, OpenCodeVm.LastSnapshot);
 
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
@@ -1561,6 +1907,24 @@ namespace ClaudeUsageTray.ViewModels;
             _lastOpenCodeRequestCount = OpenCodeVm.LastRequestCount;
             _lastOpenCodeInputTokens = OpenCodeVm.LastInputTokens;
             _lastOpenCodeOutputTokens = OpenCodeVm.LastOutputTokens;
+            OpenCodeNote = WithSyncNote(Loc.ProviderOpenCodeNote, mergedTotals);
+
+            if (HasMergedDeviceTotals(mergedTotals))
+            {
+                OpenCodeRequestCountLabel = RequestCountOrDash(mergedTotals!.RequestCount);
+                OpenCodeInputLabel = TokenOrDash(mergedTotals.InputTokens);
+                OpenCodeOutputLabel = TokenOrDash(mergedTotals.OutputTokens);
+                OpenCodeCacheReadLabel = TokenOrDash(mergedTotals.CacheReadTokens);
+                OpenCodeCacheWriteLabel = TokenOrDash(mergedTotals.CacheWriteTokens);
+                OpenCodeSummary = Loc.CurrentLang == "ko"
+                    ? $"오늘 {mergedTotals.RequestCount}회 · 입력 {UsageCalculator.FormatTokenShort(mergedTotals.InputTokens)} · 출력 {UsageCalculator.FormatTokenShort(mergedTotals.OutputTokens)}"
+                    : $"Today {mergedTotals.RequestCount} req · in {UsageCalculator.FormatTokenShort(mergedTotals.InputTokens)} · out {UsageCalculator.FormatTokenShort(mergedTotals.OutputTokens)}";
+                IsOpenCodeUsageEmpty = false;
+                _lastOpenCodeRequestCount = mergedTotals.RequestCount;
+                _lastOpenCodeInputTokens = mergedTotals.InputTokens;
+                _lastOpenCodeOutputTokens = mergedTotals.OutputTokens;
+            }
+
             UpdateOverallStatus();
         });
     }
@@ -1811,7 +2175,12 @@ namespace ClaudeUsageTray.ViewModels;
 
     public NotificationSettings GetCurrentSettings()
     {
-        return _settingsService.Load();
+        var settings = _settingsService.Load();
+        settings.UsageSyncEnabled = UsageSyncEnabled;
+        settings.UsageSyncFolderPath = UsageSyncFolderPath.Trim();
+        settings.UsageSyncApiSnapshotTtlMinutes = Math.Max(1, UsageSyncApiSnapshotTtlMinutes);
+        settings.UsageSyncLocalSnapshotTtlHours = Math.Max(1, UsageSyncLocalSnapshotTtlHours);
+        return settings;
     }
 
     private async Task RefreshWeatherInternalAsync()

@@ -1312,6 +1312,110 @@ public static class Loc
         _ => "Enter a number greater than 0"
     };
 
+    public static string UsageSyncTitle => Lang switch
+    {
+        "ko" => "다중 PC 동기화",
+        "zh" => "多设备同步",
+        "ja" => "複数PC同期",
+        _ => "Multi-PC Sync"
+    };
+
+    public static string UsageSyncEnabled => Lang switch
+    {
+        "ko" => "공유 폴더로 사용량 동기화",
+        "zh" => "通过共享文件夹同步用量",
+        "ja" => "共有フォルダーで使用量を同期",
+        _ => "Sync usage through a shared folder"
+    };
+
+    public static string UsageSyncDescription => Lang switch
+    {
+        "ko" => "각 PC가 민감정보 없는 일일 스냅샷만 저장하고, 화면에는 장치별 사용량 합산과 최신 할당량을 표시합니다.",
+        "zh" => "每台设备只保存不含敏感信息的每日快照，并在界面中合并显示各设备用量和最新配额。",
+        "ja" => "各PCは機密情報を含まない日次スナップショットだけを保存し、画面では端末別使用量の合算と最新の上限を表示します。",
+        _ => "Each PC stores only non-sensitive daily snapshots and shows merged device usage with the newest quota."
+    };
+
+    public static string UsageSyncFolder => Lang switch
+    {
+        "ko" => "공유 폴더",
+        "zh" => "共享文件夹",
+        "ja" => "共有フォルダー",
+        _ => "Shared folder"
+    };
+
+    public static string UsageSyncBrowse => Lang switch
+    {
+        "ko" => "찾기",
+        "zh" => "浏览",
+        "ja" => "参照",
+        _ => "Browse"
+    };
+
+    public static string UsageSyncDisabled => Lang switch
+    {
+        "ko" => "동기화 꺼짐",
+        "zh" => "同步已关闭",
+        "ja" => "同期はオフです",
+        _ => "Sync off"
+    };
+
+    public static string UsageSyncFolderRequired => Lang switch
+    {
+        "ko" => "켜려면 공유 폴더를 선택하세요.",
+        "zh" => "启用前请选择共享文件夹。",
+        "ja" => "有効にするには共有フォルダーを選択してください。",
+        _ => "Choose a shared folder to turn sync on."
+    };
+
+    public static string UsageSyncReady => Lang switch
+    {
+        "ko" => "동기화 준비됨",
+        "zh" => "同步已就绪",
+        "ja" => "同期準備完了",
+        _ => "Sync ready"
+    };
+
+    public static string UsageSyncFolderWillBeCreated => Lang switch
+    {
+        "ko" => "다음 갱신 때 폴더를 만들고 스냅샷을 저장합니다.",
+        "zh" => "下次刷新时会创建文件夹并保存快照。",
+        "ja" => "次回更新時にフォルダーを作成してスナップショットを保存します。",
+        _ => "The folder will be created and written on the next refresh."
+    };
+
+    public static string UsageSyncBrowseDialogTitle => Lang switch
+    {
+        "ko" => "사용량 동기화 폴더 선택",
+        "zh" => "选择用量同步文件夹",
+        "ja" => "使用量同期フォルダーを選択",
+        _ => "Choose usage sync folder"
+    };
+
+    public static string UsageSyncFailed(string message) => Lang switch
+    {
+        "ko" => $"동기화 실패: {message}",
+        "zh" => $"同步失败: {message}",
+        "ja" => $"同期失敗: {message}",
+        _ => $"Sync failed: {message}"
+    };
+
+    public static string UsageSyncMergedDevices(int count) => Lang switch
+    {
+        "ko" => $"{count}대 PC 합산",
+        "zh" => $"已合并 {count} 台设备",
+        "ja" => $"{count}台のPCを合算",
+        _ => $"Merged from {count} PCs"
+    };
+
+    public static string UsageSyncQuotaFromDevice(string deviceName, string observedAt) => Lang switch
+    {
+        "ko" => $"{deviceName}의 {observedAt} 스냅샷으로 표시 중",
+        "zh" => $"正在显示 {deviceName} 于 {observedAt} 的快照",
+        "ja" => $"{deviceName} の {observedAt} スナップショットを表示中",
+        _ => $"Showing {deviceName} snapshot from {observedAt}"
+    };
+
     // ===== 날씨 (v1.29.0) =====
     public static string WeatherTab => Lang switch
     {

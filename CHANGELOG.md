@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.34.3] - 2026-07-09
+
+<!-- ko -->
+### 추가
+- **멀티 PC 사용량 스냅샷 동기화 추가** — 설정의 `다중 PC 동기화`에서 공유 폴더를 지정하면 각 PC가 민감정보 없는 일일 표시용 스냅샷만 저장하고, 오늘 사용량은 장치별 최신 스냅샷을 합산해 표시합니다. Claude API가 한 PC에서 실패하거나 쿨다운 중이어도 다른 PC의 신선한 quota 스냅샷을 읽어 5시간/7일 사용량 표시를 유지합니다. 원본 로그, OAuth 토큰, 자격증명은 동기화하지 않으며 계정 식별자는 해시로만 저장합니다. #78
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Added multi-PC usage snapshot sync** — A new `Multi-PC Sync` settings section lets you choose a shared folder. Each PC writes only non-sensitive daily display snapshots, and today's local usage is shown by merging the latest snapshot per device. If the Claude API fails or is in cooldown on one PC, the tray can still show a fresh quota snapshot from another PC for the 5-hour/7-day windows. Raw logs, OAuth tokens, and credentials are never synced, and account identity is stored only as a hash. #78
+<!-- /en -->
+
 ## [1.34.2] - 2026-07-09
 
 <!-- ko -->

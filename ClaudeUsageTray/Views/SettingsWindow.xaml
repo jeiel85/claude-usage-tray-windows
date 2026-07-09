@@ -449,6 +449,22 @@
                                     <Slider x:Name="SliderPolling" Grid.Column="1" Minimum="1" Maximum="10" Value="2" TickFrequency="1" IsSnapToTickEnabled="True" Margin="8,0" ValueChanged="SliderPolling_ValueChanged"/>
                                     <TextBlock Grid.Column="2" Text="10" Foreground="#5A5F7A" FontSize="10" VerticalAlignment="Center"/>
                                 </Grid>
+
+                                <Border Height="1" Background="#2D2F45" Margin="0,10,0,8"/>
+
+                                <TextBlock x:Name="LblUsageSyncTitle" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
+                                <CheckBox x:Name="ChkUsageSyncEnabled" Style="{StaticResource CheckStyle}" Margin="0,0,0,4" Click="Setting_Changed"/>
+                                <TextBlock x:Name="LblUsageSyncDescription" Foreground="#5A5F7A" FontSize="10" TextWrapping="Wrap" Margin="2,0,0,8"/>
+                                <TextBlock x:Name="LblUsageSyncFolder" Foreground="#C4C9E0" FontSize="12" Margin="0,0,0,4"/>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="TxtUsageSyncFolder" Grid.Column="0" Style="{StaticResource DarkTextBox}" Padding="10,7" LostFocus="TxtUsageSyncFolder_LostFocus" KeyDown="TxtUsageSyncFolder_KeyDown"/>
+                                    <Button x:Name="BtnUsageSyncBrowse" Grid.Column="1" Style="{StaticResource LinkBtn}" Margin="8,0,0,0" Click="BtnUsageSyncBrowse_Click"/>
+                                </Grid>
+                                <TextBlock x:Name="LblUsageSyncStatus" Foreground="#7C83A4" FontSize="10" TextWrapping="Wrap" Margin="2,0,0,0"/>
                             </StackPanel>
                         </Border>
                     </TabItem>

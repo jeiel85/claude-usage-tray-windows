@@ -28,6 +28,7 @@ public partial class OpenCodeViewModel : ObservableObject
     public int LastRequestCount => _lastRequestCount;
     public long LastInputTokens => _lastInputTokens;
     public long LastOutputTokens => _lastOutputTokens;
+    public ProviderUsageSnapshot LastSnapshot { get; private set; } = new();
 
     public OpenCodeViewModel(OpenCodeUsageMonitor monitor, HistoryService history)
     {
@@ -42,6 +43,7 @@ public partial class OpenCodeViewModel : ObservableObject
             var max = _history.GetRecentMaxTotalTokens(UsageProviderKind.OpenCode, null, 7);
             var goal = Math.Max(10000, max);
             var snapshot = _monitor.GetTodaySnapshot(goal);
+            LastSnapshot = snapshot;
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 var informational = UsageCalculator.IsNoUsageInformational(snapshot.ErrorMessage, UsageProviderKind.OpenCode);
@@ -75,6 +77,7 @@ public partial class OpenCodeViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            LastSnapshot = new ProviderUsageSnapshot { ErrorMessage = ex.Message };
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 HasError = true;

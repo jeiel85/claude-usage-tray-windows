@@ -75,6 +75,7 @@ public partial class App : Application
         var notifier = new NotificationService(() => _trayIcon);
         var updater = new UpdateService();
         var history = new HistoryService();
+        var usageSync = new UsageSyncService();
 
         var weather = new Services.WeatherService();
         var nwsProvider = new Services.WeatherWarnings.NwsWeatherWarningProvider();
@@ -83,7 +84,7 @@ public partial class App : Application
             [nwsProvider]);
 
         _vm = new MainViewModel(apiService, credService, sessionMonitor, codexMonitor, geminiCliMonitor,
-            openCodeMonitor, antigravityMonitor, notifier, settingsService, updater, history, weather, weatherAlert);
+            openCodeMonitor, antigravityMonitor, notifier, settingsService, updater, history, usageSync, weather, weatherAlert);
         _popup = new UsagePopup(_vm);
 
         _trayIcon = new NotifyIcon
