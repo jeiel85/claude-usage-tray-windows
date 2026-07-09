@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.34.2] - 2026-07-09
+
+<!-- ko -->
+### 수정
+- **7일·추가 크레딧 사용량 막대 두께 정상화** — 7일 윈도우 막대와 추가 크레딧(Extra Usage) 막대가 5시간 막대보다 얇게 잘려 보이던 문제를 수정했습니다. 막대를 담는 행이 고정 높이(6px)로 묶여 있어, 8px로 그려지는 시간 마커 오버레이(7일)와 4px 막대+여백(추가 크레딧)이 아래쪽에서 잘린 것이 원인입니다. 두 행을 5시간 막대와 동일하게 `Auto` 높이로 바꿔 같은 두께로 표시되도록 했습니다. v1.34.0에서 시간 마커 오버레이를 추가할 때 5시간 행만 갱신되고 7일 행에 예전 고정 높이가 남아 있던 회귀입니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Normalized the 7-day and extra-credit usage bar thickness** — Fixed the 7-day window bar and the extra-credit (Extra Usage) bar rendering thinner (clipped) than the 5-hour bar. The row hosting each bar was pinned to a fixed 6px height, clipping the 8px time-marker overlay (7-day) and the 4px bar-plus-margin (extra credit) at the bottom. Both rows now use `Auto` height like the 5-hour bar, so they render at the same thickness. This was a regression from v1.34.0, where adding the time-marker overlay updated only the 5-hour row and left the old fixed height on the 7-day row.
+<!-- /en -->
+
 ## [1.34.1] - 2026-07-08
 
 <!-- ko -->
