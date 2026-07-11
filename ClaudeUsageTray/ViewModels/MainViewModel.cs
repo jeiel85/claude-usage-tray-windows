@@ -81,6 +81,8 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private string _codexLongReset = "";
     [ObservableProperty] private string _codexLongSummary = "";
     [ObservableProperty] private bool _isCodexLongVisible = false;   // secondary 응답이 있을 때만 노출
+    [ObservableProperty] private double _codexShortTimePercent = 0;
+    [ObservableProperty] private double _codexLongTimePercent = 0;
     // v1.26.0: PlanType 라벨 — 응답에 PlanType 있으면 "ChatGPT Plus" 식으로, 없으면 "ChatGPT plan"
     [ObservableProperty] private string _codexPlanLabel = "ChatGPT plan";
     // 오늘의 토큰 4타일 (Input / Output / CacheRead / CacheWrite — Codex는 cache write 개념 없어 "—")
@@ -1824,6 +1826,7 @@ namespace ClaudeUsageTray.ViewModels;
             CodexLongReset = CodexVm.LongReset;
             CodexLongSummary = CodexVm.LongSummary;
             IsCodexLongVisible = CodexVm.IsLongVisible;
+            RecomputeCodexTimeProgress(DateTimeOffset.Now);
             CodexPlanLabel = CodexVm.PlanLabel;
             CodexInputLabel = CodexVm.InputLabel;
             CodexOutputLabel = CodexVm.OutputLabel;
@@ -2071,6 +2074,7 @@ namespace ClaudeUsageTray.ViewModels;
 
         // 시간 진행률은 리셋 시각만 있으면 매 순간 계산 가능 — 매초 갱신해 막대가 부드럽게 흐르게 한다.
         RecomputeClaudeTimeProgress(now);
+        RecomputeCodexTimeProgress(now);
     }
 
     /// <summary>
@@ -2093,6 +2097,12 @@ namespace ClaudeUsageTray.ViewModels;
         ClaudeVm.LongTimePercent = longTime;
         ClaudeVm.LongUsageCapped = longSettled ? Math.Min(ClaudeVm.LongPercent, longTime) : ClaudeVm.LongPercent;
         ClaudeVm.LongPaceTip     = Loc.PaceTip(longTime, ClaudeVm.LongPercent, longSettled);
+    }
+
+    private void RecomputeCodexTimeProgress(DateTimeOffset now)
+    {
+        CodexShortTimePercent = TimeProgress(_rawCodexShortResetAt, TimeSpan.FromHours(5), now);
+        CodexLongTimePercent = TimeProgress(_rawCodexLongResetAt, TimeSpan.FromDays(7), now);
     }
 
     // 경과 시간이 최소 기준 이상이어야 페이스(초과색/빠름·여유)를 신뢰할 수 있다고 본다.

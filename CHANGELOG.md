@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.34.4] - 2026-07-11
+
+<!-- ko -->
+### 개선
+- **Claude 외 Codex 사용량 게이지에 시간선 오버레이 추가** — Claude에만 있던 시간선 마커를 Codex의 단기/장기 사용량 막대에도 적용해, 현재 시점을 진행 막대 위에서 바로 확인할 수 있게 했습니다. Codex도 Claude와 같은 5시간/7일 리셋 구조를 쓰므로 동일한 시간선 표현을 공유합니다. #79
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Added a time-marker overlay to the Codex usage gauges** — The time marker that previously existed only on Claude is now shown on Codex's short/long usage bars too, so the current moment is visible directly on the progress bars. Codex uses the same 5-hour/7-day reset structure as Claude, so it now shares the same time-line treatment. #79
+<!-- /en -->
+
 ## [1.34.3] - 2026-07-09
 
 <!-- ko -->
