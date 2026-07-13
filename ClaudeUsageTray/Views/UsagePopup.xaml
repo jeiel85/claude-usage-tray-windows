@@ -322,38 +322,74 @@
                             </StackPanel>
                         </StackPanel>
 
-                        <!-- Refresh button -->
-                        <Button Grid.Column="1" x:Name="RefreshBtn"
-                                Width="28" Height="28"
-                                Cursor="Hand"
-                                ToolTip="{Binding LblRefresh}"
-                                Click="RefreshBtn_Click">
-                            <Button.Style>
-                                <Style TargetType="Button">
-                                    <Setter Property="Background" Value="Transparent"/>
-                                    <Setter Property="BorderThickness" Value="0"/>
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="Button">
-                                                <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="6">
-                                                    <TextBlock x:Name="Icon" Text="↻" Foreground="#5A5F7A" FontSize="14"
-                                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                </Border>
-                                                <ControlTemplate.Triggers>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="Bd" Property="Background" Value="#2D2F45"/>
-                                                        <Setter TargetName="Icon" Property="Foreground" Value="#A78BFA"/>
-                                                    </Trigger>
-                                                    <Trigger Property="IsPressed" Value="True">
-                                                        <Setter TargetName="Icon" Property="Foreground" Value="#8B5CF6"/>
-                                                    </Trigger>
-                                                </ControlTemplate.Triggers>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </Button.Style>
-                        </Button>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- Refresh button -->
+                            <Button x:Name="RefreshBtn"
+                                    Width="28" Height="28"
+                                    Cursor="Hand"
+                                    ToolTip="{Binding LblRefresh}"
+                                    Click="RefreshBtn_Click">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="BorderThickness" Value="0"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="6">
+                                                        <TextBlock x:Name="Icon" Text="↻" Foreground="#5A5F7A" FontSize="14"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="Bd" Property="Background" Value="#2D2F45"/>
+                                                            <Setter TargetName="Icon" Property="Foreground" Value="#A78BFA"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsPressed" Value="True">
+                                                            <Setter TargetName="Icon" Property="Foreground" Value="#8B5CF6"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+
+                            <!-- Settings button -->
+                            <Button x:Name="HeaderSettingsBtn"
+                                    Width="28" Height="28"
+                                    Cursor="Hand"
+                                    Margin="8,0,0,0"
+                                    ToolTip="{Binding LblSettings}"
+                                    Click="SettingsBtn_Click">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="BorderThickness" Value="0"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="6">
+                                                        <TextBlock x:Name="Icon" Text="⚙" Foreground="#5A5F7A" FontSize="14"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="Bd" Property="Background" Value="#2D2F45"/>
+                                                            <Setter TargetName="Icon" Property="Foreground" Value="#A78BFA"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsPressed" Value="True">
+                                                            <Setter TargetName="Icon" Property="Foreground" Value="#8B5CF6"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </StackPanel>
                     </Grid>
                 </Border>
 
@@ -373,8 +409,20 @@
                 </Border>
 
                 <!-- Weather Section (v1.29.0) -->
-                <StackPanel Margin="16,14,16,0"
-                            Visibility="{Binding WeatherHasLocation, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel x:Name="WeatherSection" Margin="16,14,16,0">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding WeatherHasLocation}" Value="False">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding KeepPopupAboveTaskbar}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
                     <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblWeatherSection}" Margin="0,0,0,12"/>
                     <Border Style="{StaticResource StatBox}" Padding="12,10">
                         <Grid>
@@ -553,61 +601,73 @@
                                        Visibility="{Binding ClaudeVm.ApiNote, Converter={StaticResource StringToVisibility}}"/>
 
                             <!-- History Chart (Claude 기준) -->
-                            <Border Height="1" Background="#2D2F45" Margin="0,14,0,12"/>
-                            <Grid Margin="0,0,0,10">
-                                <TextBlock x:Name="ChartTitleLabel" Text="{Binding ClaudeVm.HistoryChartTitle}" Style="{StaticResource SectionLabel}"/>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                    <Border CornerRadius="4" BorderBrush="#2D2F45" BorderThickness="1">
-                                        <StackPanel Orientation="Horizontal">
-                                            <Button x:Name="Toggle7DayBtn" Click="Toggle7DayBtn_Click" Padding="6,2" BorderThickness="0">
-                                                <Button.Style>
-                                                    <Style TargetType="Button">
-                                                        <Setter Property="Background" Value="#2D2F45"/>
-                                                        <Setter Property="Template">
-                                                            <Setter.Value>
-                                                                <ControlTemplate TargetType="Button">
-                                                                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="3" Padding="{TemplateBinding Padding}">
-                                                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                                    </Border>
-                                                                    <ControlTemplate.Triggers>
-                                                                        <Trigger Property="IsMouseOver" Value="True">
-                                                                            <Setter TargetName="Bd" Property="Background" Value="#3D4060"/>
-                                                                        </Trigger>
-                                                                    </ControlTemplate.Triggers>
-                                                                </ControlTemplate>
-                                                            </Setter.Value>
-                                                        </Setter>
-                                                    </Style>
-                                                </Button.Style>
-                                                <TextBlock x:Name="Toggle7DayText" FontSize="10" Foreground="#F1F5F9"/>
-                                            </Button>
-                                            <Button x:Name="ToggleHourlyBtn" Click="ToggleHourlyBtn_Click" Padding="6,2" BorderThickness="0">
-                                                <Button.Style>
-                                                    <Style TargetType="Button">
-                                                        <Setter Property="Background" Value="Transparent"/>
-                                                        <Setter Property="Template">
-                                                            <Setter.Value>
-                                                                <ControlTemplate TargetType="Button">
-                                                                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="3" Padding="{TemplateBinding Padding}">
-                                                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                                    </Border>
-                                                                    <ControlTemplate.Triggers>
-                                                                        <Trigger Property="IsMouseOver" Value="True">
-                                                                            <Setter TargetName="Bd" Property="Background" Value="#1E2035"/>
-                                                                        </Trigger>
-                                                                    </ControlTemplate.Triggers>
-                                                                </ControlTemplate>
-                                                            </Setter.Value>
-                                                        </Setter>
-                                                    </Style>
-                                                </Button.Style>
-                                                <TextBlock x:Name="ToggleHourlyText" FontSize="10" Foreground="#8B92B3"/>
-                                            </Button>
-                                        </StackPanel>
-                                    </Border>
-                                </StackPanel>
-                            </Grid>
-                            <Canvas x:Name="HistoryCanvas" Height="60" Background="Transparent" ClipToBounds="True" SizeChanged="HistoryCanvas_SizeChanged"/>
+                            <StackPanel x:Name="ClaudeHistorySection" Margin="0,14,0,0">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding KeepPopupAboveTaskbar}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <Border Height="1" Background="#2D2F45" Margin="0,0,0,12"/>
+                                <Grid Margin="0,0,0,10">
+                                    <TextBlock x:Name="ChartTitleLabel" Text="{Binding ClaudeVm.HistoryChartTitle}" Style="{StaticResource SectionLabel}"/>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <Border CornerRadius="4" BorderBrush="#2D2F45" BorderThickness="1">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button x:Name="Toggle7DayBtn" Click="Toggle7DayBtn_Click" Padding="6,2" BorderThickness="0">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button">
+                                                            <Setter Property="Background" Value="#2D2F45"/>
+                                                            <Setter Property="Template">
+                                                                <Setter.Value>
+                                                                    <ControlTemplate TargetType="Button">
+                                                                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="3" Padding="{TemplateBinding Padding}">
+                                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                        </Border>
+                                                                        <ControlTemplate.Triggers>
+                                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                                <Setter TargetName="Bd" Property="Background" Value="#3D4060"/>
+                                                                            </Trigger>
+                                                                        </ControlTemplate.Triggers>
+                                                                    </ControlTemplate>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                        </Style>
+                                                    </Button.Style>
+                                                    <TextBlock x:Name="Toggle7DayText" FontSize="10" Foreground="#F1F5F9"/>
+                                                </Button>
+                                                <Button x:Name="ToggleHourlyBtn" Click="ToggleHourlyBtn_Click" Padding="6,2" BorderThickness="0">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                            <Setter Property="Template">
+                                                                <Setter.Value>
+                                                                    <ControlTemplate TargetType="Button">
+                                                                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="3" Padding="{TemplateBinding Padding}">
+                                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                        </Border>
+                                                                        <ControlTemplate.Triggers>
+                                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                                <Setter TargetName="Bd" Property="Background" Value="#1E2035"/>
+                                                                            </Trigger>
+                                                                        </ControlTemplate.Triggers>
+                                                                    </ControlTemplate>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                        </Style>
+                                                    </Button.Style>
+                                                    <TextBlock x:Name="ToggleHourlyText" FontSize="10" Foreground="#8B92B3"/>
+                                                </Button>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </Grid>
+                                <Canvas x:Name="HistoryCanvas" Height="60" Background="Transparent" ClipToBounds="True" SizeChanged="HistoryCanvas_SizeChanged"/>
+                            </StackPanel>
 
                             <!-- Today's Stats (Claude 세션 기준) -->
                             <Border Height="1" Background="#2D2F45" Margin="0,14,0,14"/>
@@ -950,7 +1010,17 @@
                 </ScrollViewer>
 
                 <!-- Footer -->
-                <Border Grid.Row="2" Padding="16,12" Background="#1A1D2E" CornerRadius="0,0,16,16">
+                <Border x:Name="PopupFooter" Grid.Row="2" Padding="16,12" Background="#1A1D2E" CornerRadius="0,0,16,16">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding KeepPopupAboveTaskbar}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>

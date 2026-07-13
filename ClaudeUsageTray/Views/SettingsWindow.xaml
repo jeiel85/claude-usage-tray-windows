@@ -501,6 +501,40 @@
                                 <TextBlock x:Name="LblShowAbsoluteResetTimeHint" Foreground="#5A5F7A" FontSize="10" Margin="2,0,0,0" TextWrapping="Wrap"/>
                                 <CheckBox x:Name="ChkKeepPopupAboveTaskbar" Style="{StaticResource CheckStyle}" Margin="0,6,0,2" Click="Setting_Changed"/>
                                 <TextBlock x:Name="LblKeepPopupAboveTaskbarHint" Foreground="#5A5F7A" FontSize="10" Margin="2,0,0,0" TextWrapping="Wrap"/>
+
+                                <Border Height="1" Background="#2D2F45" Margin="0,10,0,8"/>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="LblUsagePanelOpacity" Style="{StaticResource SectionLabel}" Margin="0,0,0,0"/>
+                                    <TextBlock x:Name="TxtUsagePanelOpacityValue"
+                                               Grid.Column="1"
+                                               Foreground="#8B92B3"
+                                               FontSize="10"
+                                               VerticalAlignment="Bottom"
+                                               Text="{Binding ElementName=SliderUsagePanelOpacity, Path=Value, StringFormat={}{0:P0}}"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,4" IsEnabled="{Binding IsChecked, ElementName=ChkKeepPopupAboveTaskbar}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="50%" Foreground="#5A5F7A" FontSize="10" VerticalAlignment="Center"/>
+                                    <Slider x:Name="SliderUsagePanelOpacity"
+                                            Grid.Column="1"
+                                            Minimum="0.5"
+                                            Maximum="1"
+                                            Value="0.94"
+                                            TickFrequency="0.05"
+                                            IsSnapToTickEnabled="True"
+                                            Margin="8,0"
+                                            ValueChanged="SliderUsagePanelOpacity_ValueChanged"/>
+                                    <TextBlock Grid.Column="2" Text="100%" Foreground="#5A5F7A" FontSize="10" VerticalAlignment="Center"/>
+                                </Grid>
+                                <TextBlock x:Name="LblUsagePanelOpacityHint" Foreground="#5A5F7A" FontSize="10" Margin="2,0,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Border>
                     </TabItem>

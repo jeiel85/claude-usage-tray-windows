@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.34.7] - 2026-07-13
+
+<!-- ko -->
+### 개선
+- **사용량 전용 미니 패널과 투명도 설정 추가** — 팝업에서 날씨, 히스토리 차트, 푸터를 덜어낸 반투명 미니 패널 모드를 추가하고, 미니 패널 투명도는 설정에서 50%~100% 범위로 조절할 수 있게 했습니다. #82
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Added a usage-only mini panel and opacity control** — The popup now has a translucent mini panel mode that strips out weather, history charts, and the footer, and the mini panel opacity can be adjusted from 50% to 100% in settings. #82
+<!-- /en -->
+
 ## [1.34.6] - 2026-07-13
 
 <!-- ko -->

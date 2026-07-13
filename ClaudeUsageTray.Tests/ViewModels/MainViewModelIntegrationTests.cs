@@ -96,7 +96,7 @@ public class MainViewModelIntegrationTests
     }
 
     [Fact]
-    public async Task UsagePopup_StickyMode_UpdatesOpacity()
+    public async Task UsagePopup_MiniMode_UpdatesOpacityAndCollapsesChrome()
     {
         await WpfTestHost.RunAsync(() =>
         {
@@ -104,15 +104,23 @@ public class MainViewModelIntegrationTests
             try
             {
                 vm.KeepPopupAboveTaskbar = true;
+                vm.UsagePanelOpacity = 0.82;
                 using var popup = new UsagePopup(vm);
 
                 popup.ShowNearTray();
 
-                Assert.Equal(0.95, popup.Opacity, 2);
+                Assert.Equal(0.82, popup.Opacity, 2);
+
+                var historySection = Assert.IsType<System.Windows.Controls.StackPanel>(popup.FindName("ClaudeHistorySection"));
+                var footerSection = Assert.IsType<System.Windows.Controls.Border>(popup.FindName("PopupFooter"));
+                Assert.Equal(System.Windows.Visibility.Collapsed, historySection.Visibility);
+                Assert.Equal(System.Windows.Visibility.Collapsed, footerSection.Visibility);
 
                 vm.KeepPopupAboveTaskbar = false;
 
                 Assert.Equal(1.0, popup.Opacity, 2);
+                Assert.Equal(System.Windows.Visibility.Visible, historySection.Visibility);
+                Assert.Equal(System.Windows.Visibility.Visible, footerSection.Visibility);
 
                 popup.Hide();
             }

@@ -62,6 +62,7 @@ public class NotificationSettings
     public bool ShowAbsoluteResetTime { get; set; } = false;
 
     public bool KeepPopupAboveTaskbar { get; set; } = false;
+    public double UsagePanelOpacity { get; set; } = 0.94;
 
     public bool UsageSyncEnabled { get; set; } = false;
     public string UsageSyncFolderPath { get; set; } = "";

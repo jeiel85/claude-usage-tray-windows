@@ -250,6 +250,7 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private bool _showCodexPlanBadge = true;
     [ObservableProperty] private bool _showAbsoluteResetTime = false;
     [ObservableProperty] private bool _keepPopupAboveTaskbar = false;
+    [ObservableProperty] private double _usagePanelOpacity = 0.94;
 
     // 절대 시각 토글 시 재포맷 위해 raw DateTimeOffset 보관 — API 재호출 없이 즉시 라벨 갱신
     private DateTimeOffset? _rawClaudeShortResetAt;
@@ -351,6 +352,7 @@ namespace ClaudeUsageTray.ViewModels;
     public string LblTokens          => Loc.Tokens;
     public string LblHistory         => Loc.HistoryTitle;
     public string LblRefresh         => Loc.Refresh;
+    public string LblSettings        => Loc.Settings;
     public string LblQuit            => Loc.Quit;
     public string LblRefreshing      => Loc.Refreshing;
     public string LblNotifications   => Loc.Notifications;
@@ -498,6 +500,7 @@ namespace ClaudeUsageTray.ViewModels;
         ShowCodexPlanBadge   = s.ShowCodexPlanBadge;
         ShowAbsoluteResetTime = s.ShowAbsoluteResetTime;
         KeepPopupAboveTaskbar = s.KeepPopupAboveTaskbar;
+        UsagePanelOpacity = Math.Clamp(s.UsagePanelOpacity <= 0 ? 0.94 : s.UsagePanelOpacity, 0.5, 1.0);
 
         // 현재 로그인된 계정의 orgUuid로 히스토리 경로 초기화
         ApplySelectedProviderScope();
@@ -695,6 +698,7 @@ namespace ClaudeUsageTray.ViewModels;
             ShowCodexPlanBadge = ShowCodexPlanBadge,
             ShowAbsoluteResetTime = ShowAbsoluteResetTime,
             KeepPopupAboveTaskbar = KeepPopupAboveTaskbar,
+            UsagePanelOpacity = UsagePanelOpacity,
             // 추적 필드 보존 — settings 저장 시 매번 잃지 않도록
             OAuthNotAllowedFirstSeenUtc = existing.OAuthNotAllowedFirstSeenUtc,
 
@@ -2194,6 +2198,7 @@ namespace ClaudeUsageTray.ViewModels;
         settings.UsageSyncApiSnapshotTtlMinutes = Math.Max(1, UsageSyncApiSnapshotTtlMinutes);
         settings.UsageSyncLocalSnapshotTtlHours = Math.Max(1, UsageSyncLocalSnapshotTtlHours);
         settings.KeepPopupAboveTaskbar = KeepPopupAboveTaskbar;
+        settings.UsagePanelOpacity = UsagePanelOpacity;
         return settings;
     }
 

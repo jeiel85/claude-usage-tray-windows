@@ -268,6 +268,14 @@ public static class Loc
         _ => "Refresh"
     };
 
+    public static string Settings => Lang switch
+    {
+        "ko" => "설정",
+        "zh" => "设置",
+        "ja" => "設定",
+        _ => "Settings"
+    };
+
     public static string Quit => Lang switch
     {
         "ko" => "종료",
@@ -574,18 +582,34 @@ public static class Loc
 
     public static string KeepPopupAboveTaskbar => Lang switch
     {
-        "ko" => "작업표시줄 위에 팝업 고정",
-        "zh" => "将弹窗固定在任务栏上方",
-        "ja" => "ポップアップをタスクバー上に固定",
-        _ => "Keep popup above the taskbar"
+        "ko" => "사용량 미니 패널 유지",
+        "zh" => "保持用量迷你面板",
+        "ja" => "使用量ミニパネルを維持",
+        _ => "Keep the usage mini panel open"
     };
 
     public static string KeepPopupAboveTaskbarHint => Lang switch
     {
-        "ko" => "포커스를 잃어도 닫히지 않고 살짝 투명하게 유지",
-        "zh" => "失去焦点也不会关闭，并保持轻微透明",
-        "ja" => "フォーカスを失っても閉じず、少し透過した状態を保つ",
-        _ => "Stays open when focus is lost and remains slightly translucent"
+        "ko" => "포커스를 잃어도 닫히지 않고, 작업 표시줄 위에 사용량만 보여주는 반투명 패널로 유지합니다.",
+        "zh" => "即使失去焦点也不会关闭，并保持在任务栏上方作为仅显示用量的半透明面板。",
+        "ja" => "フォーカスを失っても閉じず、タスクバー上で使用量だけを表示する半透明パネルとして維持します。",
+        _ => "Keeps the popup open and turns it into a slightly translucent usage-only mini panel above the taskbar."
+    };
+
+    public static string UsagePanelOpacity => Lang switch
+    {
+        "ko" => "미니 패널 투명도",
+        "zh" => "迷你面板透明度",
+        "ja" => "ミニパネルの透過率",
+        _ => "Mini panel opacity"
+    };
+
+    public static string UsagePanelOpacityHint => Lang switch
+    {
+        "ko" => "값이 낮을수록 더 투명합니다.",
+        "zh" => "数值越低越透明。",
+        "ja" => "値が低いほど透過します。",
+        _ => "Lower values make it more transparent."
     };
 
     public static string ThresholdsLabel => Lang switch

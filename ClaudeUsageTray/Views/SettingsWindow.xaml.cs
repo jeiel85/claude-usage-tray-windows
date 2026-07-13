@@ -157,6 +157,8 @@ public partial class SettingsWindow : Window, IDisposable
         LblShowAbsoluteResetTimeHint.Text   = Loc.ShowAbsoluteResetTimeHint;
         ChkKeepPopupAboveTaskbar.Content    = Loc.KeepPopupAboveTaskbar;
         LblKeepPopupAboveTaskbarHint.Text   = Loc.KeepPopupAboveTaskbarHint;
+        LblUsagePanelOpacity.Text           = Loc.UsagePanelOpacity;
+        LblUsagePanelOpacityHint.Text       = Loc.UsagePanelOpacityHint;
         TrayItemAuto.Content                = Loc.CurrentLang switch
         {
             "ko" => "자동",
@@ -299,6 +301,7 @@ public partial class SettingsWindow : Window, IDisposable
         ChkShowCodexPlanBadge.IsChecked    = _vm.ShowCodexPlanBadge;
         ChkShowAbsoluteResetTime.IsChecked = _vm.ShowAbsoluteResetTime;
         ChkKeepPopupAboveTaskbar.IsChecked = _vm.KeepPopupAboveTaskbar;
+        SliderUsagePanelOpacity.Value      = _vm.UsagePanelOpacity > 0 ? Math.Clamp(_vm.UsagePanelOpacity, 0.5, 1.0) : 0.94;
 
         // Weather
         ChkWeatherEnabled.IsChecked          = _vm.WeatherEnabled;
@@ -353,6 +356,7 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.ShowCodexPlanBadge    = ChkShowCodexPlanBadge.IsChecked == true;
         _vm.ShowAbsoluteResetTime = ChkShowAbsoluteResetTime.IsChecked == true;
         _vm.KeepPopupAboveTaskbar = ChkKeepPopupAboveTaskbar.IsChecked == true;
+        _vm.UsagePanelOpacity     = Math.Clamp(SliderUsagePanelOpacity.Value, 0.5, 1.0);
 
         _vm.WeatherEnabled              = ChkWeatherEnabled.IsChecked == true;
         _vm.WeatherShowInTrayTooltip    = ChkWeatherShowInTray.IsChecked == true;
@@ -681,6 +685,7 @@ public partial class SettingsWindow : Window, IDisposable
             _vm.IsGeminiEnabled       = true;
             _vm.IsOpenCodeEnabled     = true;
             _vm.KeepPopupAboveTaskbar = false;
+            _vm.UsagePanelOpacity     = 0.94;
             _vm.NtfySendFromThisPc    = true;
             _vm.NtfyTopic             = preservedNtfyTopic; // 사용자 토픽 보존
             _vm.UsageSyncEnabled      = false;
@@ -702,6 +707,7 @@ public partial class SettingsWindow : Window, IDisposable
             ChkVisibleGemini.IsChecked  = _vm.IsGeminiEnabled;
             ChkVisibleOpenCode.IsChecked= _vm.IsOpenCodeEnabled;
             ChkKeepPopupAboveTaskbar.IsChecked = _vm.KeepPopupAboveTaskbar;
+            SliderUsagePanelOpacity.Value = _vm.UsagePanelOpacity;
             ChkNtfySendFromThisPc.IsChecked = _vm.NtfySendFromThisPc;
             ChkUsageSyncEnabled.IsChecked = _vm.UsageSyncEnabled;
             TxtUsageSyncFolder.Text       = _vm.UsageSyncFolderPath;
@@ -719,6 +725,14 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.SaveSettingsCommand.Execute(null);
         FlashSavedIndicator();
         _ = _vm.RefreshAsync();
+    }
+
+    private void SliderUsagePanelOpacity_ValueChanged(object sender, System.Windows.RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_isLoadingValues) return;
+
+        _vm.UsagePanelOpacity = Math.Clamp(SliderUsagePanelOpacity.Value, 0.5, 1.0);
+        _vm.SaveSettingsCommand.Execute(null);
     }
 
     public void Dispose()

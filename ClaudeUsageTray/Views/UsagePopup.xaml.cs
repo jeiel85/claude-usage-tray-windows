@@ -17,8 +17,6 @@ namespace ClaudeUsageTray.Views;
 
 public partial class UsagePopup : Window, IDisposable
 {
-    private const double StickyPopupOpacity = 0.95;
-
     private readonly MainViewModel _vm;
     private SettingsWindow? _settingsWindow;
     private bool _showHourly = false;
@@ -78,7 +76,7 @@ public partial class UsagePopup : Window, IDisposable
 
     private void ApplyPopupMode()
     {
-        Opacity = _vm.KeepPopupAboveTaskbar ? StickyPopupOpacity : 1.0;
+        Opacity = _vm.KeepPopupAboveTaskbar ? _vm.UsagePanelOpacity : 1.0;
     }
 
     private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -89,7 +87,7 @@ public partial class UsagePopup : Window, IDisposable
             return;
         }
 
-        if (e.PropertyName == nameof(MainViewModel.KeepPopupAboveTaskbar))
+        if (e.PropertyName is nameof(MainViewModel.KeepPopupAboveTaskbar) or nameof(MainViewModel.UsagePanelOpacity))
             Dispatcher.Invoke(ApplyPopupMode);
     }
 
