@@ -111,11 +111,16 @@ public class MainViewModelIntegrationTests
 
                 Assert.Equal(0.82, popup.Opacity, 2);
 
+                var shell = Assert.IsType<System.Windows.Controls.Border>(popup.FindName("PopupShell"));
+                var frame = Assert.IsType<System.Windows.Controls.Border>(popup.FindName("PopupFrame"));
                 var headerSection = Assert.IsType<System.Windows.Controls.Border>(popup.FindName("PopupHeader"));
                 var miniSection = Assert.IsType<System.Windows.Controls.StackPanel>(popup.FindName("MiniUsageContent"));
                 var fullSection = Assert.IsType<System.Windows.Controls.ScrollViewer>(popup.FindName("FullUsageContent"));
                 var historySection = Assert.IsType<System.Windows.Controls.StackPanel>(popup.FindName("ClaudeHistorySection"));
                 var footerSection = Assert.IsType<System.Windows.Controls.Border>(popup.FindName("PopupFooter"));
+                Assert.Equal(new System.Windows.Thickness(0), shell.Margin);
+                Assert.Null(shell.Effect);
+                Assert.Equal(new System.Windows.Thickness(0), frame.BorderThickness);
                 Assert.Equal(System.Windows.Visibility.Collapsed, headerSection.Visibility);
                 Assert.Equal(System.Windows.Visibility.Visible, miniSection.Visibility);
                 Assert.Equal(System.Windows.Visibility.Collapsed, fullSection.Visibility);
@@ -125,6 +130,9 @@ public class MainViewModelIntegrationTests
                 vm.KeepPopupAboveTaskbar = false;
 
                 Assert.Equal(1.0, popup.Opacity, 2);
+                Assert.Equal(new System.Windows.Thickness(8), shell.Margin);
+                Assert.NotNull(shell.Effect);
+                Assert.Equal(new System.Windows.Thickness(1), frame.BorderThickness);
                 Assert.Equal(System.Windows.Visibility.Visible, headerSection.Visibility);
                 Assert.Equal(System.Windows.Visibility.Collapsed, miniSection.Visibility);
                 Assert.Equal(System.Windows.Visibility.Visible, fullSection.Visibility);

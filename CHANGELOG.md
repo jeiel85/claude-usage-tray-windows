@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.34.9] - 2026-07-13
+
+<!-- ko -->
+### 개선
+- **고정 사용량 미니 스트립을 더 평평하게 다듬고 가장자리 스냅을 추가** — 고정 사용량 모드에서 바깥 카드 테두리와 그림자를 제거하고, 에이전트 이름·게이지·퍼센트만 남긴 얇은 스트립으로 정리했습니다. 드래그하면 화면 가장자리에 자석처럼 붙고, 투명도 설정은 그대로 유지됩니다. #85
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Flattened the pinned usage strip and added edge snapping** — The pinned usage mode now drops the outer card frame and shadow, leaving only the agent name, gauge, and percentage in a thin strip. Dragging now snaps the strip to the nearest screen edge, and the opacity setting still applies. #85
+<!-- /en -->
+
 ## [1.34.8] - 2026-07-13
 
 <!-- ko -->

@@ -5,8 +5,8 @@ using System.Windows.Input;
 using System.Windows.Shapes;
 using ClaudeUsageTray.Services;
 using ClaudeUsageTray.ViewModels;
+using Forms = System.Windows.Forms;
 using WColor  = System.Windows.Media.Color;
-using WColors = System.Windows.Media.Colors;
 using WPoint  = System.Windows.Point;
 using WRect   = System.Windows.Shapes.Rectangle;
 using LGBB    = System.Windows.Media.LinearGradientBrush;
@@ -30,7 +30,20 @@ public partial class UsagePopup : Window, IDisposable
         DataContext = vm;
 
         Deactivated += (_, _) => { if (!_settingsOpen && !_vm.KeepPopupAboveTaskbar) Hide(); };
-        MouseLeftButtonDown += (_, e) => { if (!e.Handled) DragMove(); };
+        MouseLeftButtonDown += (_, e) =>
+        {
+            if (e.Handled) return;
+
+            try
+            {
+                DragMove();
+            }
+            finally
+            {
+                if (_vm.KeepPopupAboveTaskbar)
+                    SnapToWorkingAreaEdges();
+            }
+        };
         PreviewKeyDown += OnPreviewKeyDown;
 
         // v1.26.0: 컨텐츠 크기 변경(focus 토글) 시 우하단 앵커 자동 유지 — 작업표시줄 침범 방지
@@ -53,7 +66,11 @@ public partial class UsagePopup : Window, IDisposable
     private void OnSizeChangedKeepAnchor(object sender, SizeChangedEventArgs e)
     {
         if (!IsLoaded || !IsVisible) return;
-        AnchorToTrayCorner();
+
+        if (_vm.KeepPopupAboveTaskbar)
+            SnapToWorkingAreaEdges();
+        else
+            AnchorToTrayCorner();
     }
 
     /// <summary>
@@ -64,6 +81,39 @@ public partial class UsagePopup : Window, IDisposable
         var workArea = SystemParameters.WorkArea;
         Left = workArea.Right - Width - 8;
         Top  = Math.Max(workArea.Top, workArea.Bottom - ActualHeight - 8);
+    }
+
+    private void SnapToWorkingAreaEdges()
+    {
+        if (ActualWidth <= 0 || ActualHeight <= 0)
+            return;
+
+        var workArea = GetCurrentWorkingArea();
+        var minLeft = workArea.Left;
+        var minTop = workArea.Top;
+        var maxLeft = Math.Max(minLeft, workArea.Right - ActualWidth);
+        var maxTop = Math.Max(minTop, workArea.Bottom - ActualHeight);
+
+        Left = SnapCoordinate(Left, minLeft, maxLeft);
+        Top = SnapCoordinate(Top, minTop, maxTop);
+    }
+
+    private static double SnapCoordinate(double value, double min, double max)
+    {
+        const double snapDistance = 16;
+
+        if (Math.Abs(value - min) <= snapDistance) return min;
+        if (Math.Abs(value - max) <= snapDistance) return max;
+        return Math.Min(Math.Max(value, min), max);
+    }
+
+    private System.Drawing.Rectangle GetCurrentWorkingArea()
+    {
+        var center = new System.Drawing.Point(
+            (int)Math.Round(Left + ActualWidth / 2),
+            (int)Math.Round(Top + ActualHeight / 2));
+
+        return Forms.Screen.FromPoint(center).WorkingArea;
     }
 
     /// <summary>
