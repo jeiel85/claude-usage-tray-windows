@@ -111,7 +111,7 @@
             </Setter>
         </Style>
 
-        <!-- Codex 바 (초록) -->
+        <!-- Codex 바 (초록 그라디언트) -->
         <Style x:Key="CodexBarStyle" TargetType="ProgressBar">
             <Setter Property="Height" Value="4"/>
             <Setter Property="Background" Value="#2D2F45"/>
@@ -122,7 +122,14 @@
                         <Grid>
                             <Border Background="{TemplateBinding Background}" CornerRadius="2"/>
                             <Border x:Name="PART_Track" CornerRadius="2"/>
-                            <Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="2" Background="#10B981"/>
+                            <Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="2">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="#6EE7B7" Offset="0"/>
+                                        <GradientStop Color="#10B981" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="Value" Value="0">

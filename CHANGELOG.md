@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.34.5] - 2026-07-13
+
+<!-- ko -->
+### 개선
+- **Codex 사용량 게이지에 그라데이션 적용** — Codex의 단기/장기 사용량 막대를 Claude와 같은 톤의 그라데이션으로 바꿔, 다중 에이전트 팝업에서 색감이 덜 평면적으로 보이도록 정리했습니다. 기능 동작은 그대로고 시각 스타일만 개선했습니다. #80
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Added gradient styling to the Codex usage gauges** — The Codex short/long usage bars now use a Claude-like gradient so the multi-agent popup feels more visually consistent and less flat. Behavior is unchanged; this is a visual-only refinement. #80
+<!-- /en -->
+
 ## [1.34.4] - 2026-07-11
 
 <!-- ko -->
