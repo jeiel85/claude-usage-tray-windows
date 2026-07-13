@@ -20,8 +20,9 @@ public partial class SettingsWindow : Window, IDisposable
 
     public SettingsWindow(MainViewModel vm)
     {
-        InitializeComponent();
         _vm = vm;
+        _isLoadingValues = true;
+        InitializeComponent();
 
         MouseLeftButtonDown += (_, e) => DragMove();
         Deactivated += (_, _) => Hide();
@@ -731,7 +732,7 @@ public partial class SettingsWindow : Window, IDisposable
     {
         if (_isLoadingValues) return;
 
-        _vm.UsagePanelOpacity = Math.Clamp(SliderUsagePanelOpacity.Value, 0.5, 1.0);
+        _vm.UsagePanelOpacity = Math.Clamp(e.NewValue, 0.5, 1.0);
         _vm.SaveSettingsCommand.Execute(null);
     }
 

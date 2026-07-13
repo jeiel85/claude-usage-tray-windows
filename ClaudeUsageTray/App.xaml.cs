@@ -118,6 +118,11 @@ public partial class App : Application
         contextMenu.Items.Add(refreshItem);
         contextMenu.Items.Add(new ToolStripSeparator());
 
+        var settingsItem = new ToolStripMenuItem(Loc.Settings);
+        settingsItem.Click += (_, _) => _popup?.ShowSettingsWindow();
+        contextMenu.Items.Add(settingsItem);
+        contextMenu.Items.Add(new ToolStripSeparator());
+
         var quitItem = new ToolStripMenuItem("Quit");
         quitItem.Click += (_, _) => Shutdown();
         contextMenu.Items.Add(quitItem);

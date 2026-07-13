@@ -349,20 +349,21 @@ public partial class UsagePopup : Window, IDisposable
 
     private void SettingsBtn_Click(object sender, RoutedEventArgs e)
     {
-        if (_settingsWindow == null)
-        {
-            _settingsWindow = new SettingsWindow(_vm);
-            _settingsWindow.IsVisibleChanged += (_, ev) =>
-            {
-                if (!(bool)ev.NewValue)
-                {
-                    _settingsOpen = false;
-                    ShowNearTray();
-                }
-            };
-        }
+        ToggleSettingsWindow();
+    }
 
-        if (_settingsWindow.IsVisible)
+    public void ShowSettingsWindow()
+    {
+        EnsureSettingsWindow();
+        _settingsOpen = true;
+        _settingsWindow!.ShowNearTray();
+    }
+
+    private void ToggleSettingsWindow()
+    {
+        EnsureSettingsWindow();
+
+        if (_settingsWindow!.IsVisible)
         {
             _settingsOpen = false;
             _settingsWindow.Hide();
@@ -372,6 +373,22 @@ public partial class UsagePopup : Window, IDisposable
             _settingsOpen = true;
             _settingsWindow.ShowNearTray();
         }
+    }
+
+    private void EnsureSettingsWindow()
+    {
+        if (_settingsWindow != null)
+            return;
+
+        _settingsWindow = new SettingsWindow(_vm);
+        _settingsWindow.IsVisibleChanged += (_, ev) =>
+        {
+            if (!(bool)ev.NewValue)
+            {
+                _settingsOpen = false;
+                ShowNearTray();
+            }
+        };
     }
 
     private void QuitBtn_Click(object sender, RoutedEventArgs e) =>

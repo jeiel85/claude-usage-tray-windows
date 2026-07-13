@@ -210,6 +210,36 @@
             </Setter>
         </Style>
 
+        <!-- Antigravity 바 (인디고) -->
+        <Style x:Key="AntigravityBarStyle" TargetType="ProgressBar">
+            <Setter Property="Height" Value="4"/>
+            <Setter Property="Background" Value="#2D2F45"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid>
+                            <Border Background="{TemplateBinding Background}" CornerRadius="2"/>
+                            <Border x:Name="PART_Track" CornerRadius="2"/>
+                            <Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="2">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="#A5B4FC" Offset="0"/>
+                                        <GradientStop Color="#818CF8" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Value" Value="0">
+                                <Setter TargetName="PART_Indicator" Property="Visibility" Value="Collapsed"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="SectionLabel" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="Bold"/>
@@ -290,7 +320,17 @@
                 </Grid.RowDefinitions>
 
                 <!-- Header -->
-                <Border Grid.Row="0" Background="#1A1D2E" CornerRadius="16,16,0,0" Padding="16,14,16,14">
+                <Border x:Name="PopupHeader" Grid.Row="0" Background="#1A1D2E" CornerRadius="16,16,0,0" Padding="16,14,16,14">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding KeepPopupAboveTaskbar}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -393,9 +433,105 @@
                     </Grid>
                 </Border>
 
-                <!-- Scrollable Content -->
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel>
+                <!-- Content -->
+                <Grid Grid.Row="1">
+                    <StackPanel x:Name="MiniUsageContent" Margin="16,12,16,12">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding KeepPopupAboveTaskbar}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+
+                        <Border Style="{StaticResource StatBox}" Padding="10,7" Margin="0,0,0,6"
+                                Visibility="{Binding ClaudeVm.IsActive, Converter={StaticResource BoolToVisibility}}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="92"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Claude" Foreground="#A78BFA" FontSize="11" FontWeight="SemiBold"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                <ProgressBar Grid.Column="1" Value="{Binding ClaudeVm.ShortPercent}" Maximum="1"
+                                             Style="{StaticResource UsageBarStyle}" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+
+                        <Border Style="{StaticResource StatBox}" Padding="10,7" Margin="0,0,0,6"
+                                Visibility="{Binding IsCodexActive, Converter={StaticResource BoolToVisibility}}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="92"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Codex" Foreground="#6EE7B7" FontSize="11" FontWeight="SemiBold"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                <ProgressBar Grid.Column="1" Value="{Binding CodexPercent}" Maximum="1"
+                                             Style="{StaticResource CodexBarStyle}" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+
+                        <Border Style="{StaticResource StatBox}" Padding="10,7" Margin="0,0,0,6"
+                                Visibility="{Binding IsGeminiActive, Converter={StaticResource BoolToVisibility}}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="92"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Gemini CLI" Foreground="#60A5FA" FontSize="11" FontWeight="SemiBold"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                <ProgressBar Grid.Column="1" Value="{Binding GeminiPercent}" Maximum="1"
+                                             Style="{StaticResource GeminiBarStyle}" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+
+                        <Border Style="{StaticResource StatBox}" Padding="10,7" Margin="0,0,0,6"
+                                Visibility="{Binding IsOpenCodeActive, Converter={StaticResource BoolToVisibility}}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="92"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="OpenCode" Foreground="#FB923C" FontSize="11" FontWeight="SemiBold"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                <ProgressBar Grid.Column="1" Value="{Binding OpenCodePercent}" Maximum="1"
+                                             Style="{StaticResource OpenCodeBarStyle}" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+
+                        <Border Style="{StaticResource StatBox}" Padding="10,7"
+                                Visibility="{Binding AntigravityHasData, Converter={StaticResource BoolToVisibility}}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="92"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Antigravity" Foreground="#A5B4FC" FontSize="11" FontWeight="SemiBold"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                <ProgressBar Grid.Column="1" Value="{Binding AntigravityPercent}" Maximum="1"
+                                             Style="{StaticResource AntigravityBarStyle}" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+
+                    <ScrollViewer x:Name="FullUsageContent"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <ScrollViewer.Style>
+                            <Style TargetType="ScrollViewer">
+                                <Setter Property="Visibility" Value="Visible"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding KeepPopupAboveTaskbar}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ScrollViewer.Style>
+                        <StackPanel>
 
                         <!-- Update banner removed (v1.33.8): 업데이트는 좌하단 버전 클릭 → 모달로만 안내한다.
                              다운로드 진행률은 UpdateDialog 자체에 표시된다. -->
@@ -1007,7 +1143,8 @@
                     </StackPanel>
                 </StackPanel>
                     </StackPanel>
-                </ScrollViewer>
+                    </ScrollViewer>
+                </Grid>
 
                 <!-- Footer -->
                 <Border x:Name="PopupFooter" Grid.Row="2" Padding="16,12" Background="#1A1D2E" CornerRadius="0,0,16,16">

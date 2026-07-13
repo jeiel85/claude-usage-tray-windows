@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.34.8] - 2026-07-13
+
+<!-- ko -->
+### 수정
+- **설정창 투명도 슬라이더 초기화 예외 수정** — 미니 패널 투명도 슬라이더가 XAML 초기화 중 값을 밀어 넣으면서 `SettingsWindow` 생성 시 `NullReferenceException` 이 나던 회귀를 수정했습니다. 슬라이더는 이제 초기화가 끝난 뒤에만 저장 로직을 타며, 설정 창이 예외 없이 열립니다. #83
+
+### 개선
+- **고정 사용량 미니 스트립을 더 납작하게 정리** — 고정된 팝업 모드를 위아래로 길게 쌓지 않고, 시계 위에 얹히는 낮은 스트립 형태로 다시 다듬었습니다. 이제 헤더와 푸터는 접히고, 에이전트 이름과 게이지만 보이며 설정은 트레이 메뉴에서 열 수 있습니다. 투명도 설정은 그대로 유지됩니다. #84
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Fixed the settings-window opacity slider initialization crash** — The mini panel opacity slider was triggering a `NullReferenceException` while the XAML was still initializing. The slider now waits until initialization finishes before saving, so the settings window opens normally again. #83
+
+### Improved
+- **Refined the pinned usage view into a flatter mini strip** — The pinned popup mode no longer stacks into a tall panel. It now appears as a low strip above the taskbar clock with only agent names and gauges visible. The header and footer collapse, Settings moved to the tray menu, and opacity control remains available. #84
+<!-- /en -->
+
 ## [1.34.7] - 2026-07-13
 
 <!-- ko -->

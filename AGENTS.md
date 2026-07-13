@@ -40,10 +40,11 @@ git fetch origin && git pull origin master && git status
 - 주요 기능 추가나 버그 수정이 완료되어 `master` 브랜치에 푸시된 경우, **반드시 즉시 버전을 올리고(bump) 태그를 생성하여 푸시**한다.
 - 이는 사용자가 수동 빌드 없이 GitHub Actions를 통해 즉시 최신 버전을 내려받을 수 있도록 하기 위함이다.
 - 태그 생성 전 `csproj`의 버전과 `CHANGELOG.md`가 최신화되었는지 재확인한다.
+- 릴리즈 태그/푸시 전에 가능한 경우 로컬에서 실제 실행 검증을 먼저 수행한다. 이 규칙은 CI 릴리즈 확인을 대체하지 않으며, 로컬 빌드나 실행이 환경상 불가한 경우에만 예외적으로 생략할 수 있고 그 사유를 기록한다.
 
 ### 6. 작업 완료 후 자동 릴리즈 사이클
 - **모든 코드 수정(버그 수정, 기능 추가, 개선) 완료 후 다음 작업을 자동으로 수행한다:**
-  1. `dotnet build`로 빌드 검증 (0 warning, 0 error 필수)
+  1. `dotnet build`로 빌드 검증 (0 warning, 0 error 필수). 가능한 경우 실제 앱 실행으로 릴리즈 경로를 먼저 검증한다. 로컬 빌드/실행이 환경상 불가한 경우에만 이 단계는 예외적으로 건너뛸 수 있으며, 그 사유를 기록한다.
   2. 버전 bump (`csproj` `<Version>` 및 `<AssemblyVersion>` +1)
   3. `CHANGELOG.md` 최상단에 신규 버전 섹션 추가 (변경 내역 요약, ko/en 이중 언어)
   4. 커밋 → 태그(`v{x.y.z}`) → `git push origin master && git push origin v{x.y.z}`

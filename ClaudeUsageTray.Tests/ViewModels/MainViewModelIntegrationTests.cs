@@ -111,18 +111,49 @@ public class MainViewModelIntegrationTests
 
                 Assert.Equal(0.82, popup.Opacity, 2);
 
+                var headerSection = Assert.IsType<System.Windows.Controls.Border>(popup.FindName("PopupHeader"));
+                var miniSection = Assert.IsType<System.Windows.Controls.StackPanel>(popup.FindName("MiniUsageContent"));
+                var fullSection = Assert.IsType<System.Windows.Controls.ScrollViewer>(popup.FindName("FullUsageContent"));
                 var historySection = Assert.IsType<System.Windows.Controls.StackPanel>(popup.FindName("ClaudeHistorySection"));
                 var footerSection = Assert.IsType<System.Windows.Controls.Border>(popup.FindName("PopupFooter"));
+                Assert.Equal(System.Windows.Visibility.Collapsed, headerSection.Visibility);
+                Assert.Equal(System.Windows.Visibility.Visible, miniSection.Visibility);
+                Assert.Equal(System.Windows.Visibility.Collapsed, fullSection.Visibility);
                 Assert.Equal(System.Windows.Visibility.Collapsed, historySection.Visibility);
                 Assert.Equal(System.Windows.Visibility.Collapsed, footerSection.Visibility);
 
                 vm.KeepPopupAboveTaskbar = false;
 
                 Assert.Equal(1.0, popup.Opacity, 2);
+                Assert.Equal(System.Windows.Visibility.Visible, headerSection.Visibility);
+                Assert.Equal(System.Windows.Visibility.Collapsed, miniSection.Visibility);
+                Assert.Equal(System.Windows.Visibility.Visible, fullSection.Visibility);
                 Assert.Equal(System.Windows.Visibility.Visible, historySection.Visibility);
                 Assert.Equal(System.Windows.Visibility.Visible, footerSection.Visibility);
 
                 popup.Hide();
+            }
+            finally
+            {
+                vm.Dispose();
+            }
+        });
+    }
+
+    [Fact]
+    public async Task SettingsWindow_ConstructsWithoutOpacitySliderException()
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            try
+            {
+                vm.KeepPopupAboveTaskbar = true;
+                vm.UsagePanelOpacity = 0.82;
+
+                var exception = Record.Exception(() => new SettingsWindow(vm));
+
+                Assert.Null(exception);
             }
             finally
             {
