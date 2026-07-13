@@ -155,6 +155,8 @@ public partial class SettingsWindow : Window, IDisposable
         ChkShowCodexPlanBadge.Content       = Loc.ShowCodexPlanBadge;
         ChkShowAbsoluteResetTime.Content    = Loc.ShowAbsoluteResetTime;
         LblShowAbsoluteResetTimeHint.Text   = Loc.ShowAbsoluteResetTimeHint;
+        ChkKeepPopupAboveTaskbar.Content    = Loc.KeepPopupAboveTaskbar;
+        LblKeepPopupAboveTaskbarHint.Text   = Loc.KeepPopupAboveTaskbarHint;
         TrayItemAuto.Content                = Loc.CurrentLang switch
         {
             "ko" => "자동",
@@ -296,6 +298,7 @@ public partial class SettingsWindow : Window, IDisposable
 
         ChkShowCodexPlanBadge.IsChecked    = _vm.ShowCodexPlanBadge;
         ChkShowAbsoluteResetTime.IsChecked = _vm.ShowAbsoluteResetTime;
+        ChkKeepPopupAboveTaskbar.IsChecked = _vm.KeepPopupAboveTaskbar;
 
         // Weather
         ChkWeatherEnabled.IsChecked          = _vm.WeatherEnabled;
@@ -349,6 +352,7 @@ public partial class SettingsWindow : Window, IDisposable
 
         _vm.ShowCodexPlanBadge    = ChkShowCodexPlanBadge.IsChecked == true;
         _vm.ShowAbsoluteResetTime = ChkShowAbsoluteResetTime.IsChecked == true;
+        _vm.KeepPopupAboveTaskbar = ChkKeepPopupAboveTaskbar.IsChecked == true;
 
         _vm.WeatherEnabled              = ChkWeatherEnabled.IsChecked == true;
         _vm.WeatherShowInTrayTooltip    = ChkWeatherShowInTray.IsChecked == true;
@@ -676,6 +680,7 @@ public partial class SettingsWindow : Window, IDisposable
             _vm.IsCodexEnabled        = true;
             _vm.IsGeminiEnabled       = true;
             _vm.IsOpenCodeEnabled     = true;
+            _vm.KeepPopupAboveTaskbar = false;
             _vm.NtfySendFromThisPc    = true;
             _vm.NtfyTopic             = preservedNtfyTopic; // 사용자 토픽 보존
             _vm.UsageSyncEnabled      = false;
@@ -696,6 +701,7 @@ public partial class SettingsWindow : Window, IDisposable
             ChkVisibleCodex.IsChecked   = _vm.IsCodexEnabled;
             ChkVisibleGemini.IsChecked  = _vm.IsGeminiEnabled;
             ChkVisibleOpenCode.IsChecked= _vm.IsOpenCodeEnabled;
+            ChkKeepPopupAboveTaskbar.IsChecked = _vm.KeepPopupAboveTaskbar;
             ChkNtfySendFromThisPc.IsChecked = _vm.NtfySendFromThisPc;
             ChkUsageSyncEnabled.IsChecked = _vm.UsageSyncEnabled;
             TxtUsageSyncFolder.Text       = _vm.UsageSyncFolderPath;

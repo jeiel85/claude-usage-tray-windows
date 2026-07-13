@@ -17,6 +17,8 @@ namespace ClaudeUsageTray.Views;
 
 public partial class UsagePopup : Window, IDisposable
 {
+    private const double StickyPopupOpacity = 0.95;
+
     private readonly MainViewModel _vm;
     private SettingsWindow? _settingsWindow;
     private bool _showHourly = false;
@@ -29,7 +31,7 @@ public partial class UsagePopup : Window, IDisposable
         _vm = vm;
         DataContext = vm;
 
-        Deactivated += (_, _) => { if (!_settingsOpen) Hide(); };
+        Deactivated += (_, _) => { if (!_settingsOpen && !_vm.KeepPopupAboveTaskbar) Hide(); };
         MouseLeftButtonDown += (_, e) => { if (!e.Handled) DragMove(); };
         PreviewKeyDown += OnPreviewKeyDown;
 
@@ -40,6 +42,7 @@ public partial class UsagePopup : Window, IDisposable
         Loaded += (_, _) =>
         {
             ApplyMaxHeight();
+            ApplyPopupMode();
             RefreshChart();
         };
         UpdateToggleStyle();
@@ -73,10 +76,21 @@ public partial class UsagePopup : Window, IDisposable
         MaxHeight = SystemParameters.WorkArea.Height - 24;
     }
 
+    private void ApplyPopupMode()
+    {
+        Opacity = _vm.KeepPopupAboveTaskbar ? StickyPopupOpacity : 1.0;
+    }
+
     private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(MainViewModel.HistoryData) or nameof(MainViewModel.HourlyTokens))
+        {
             Dispatcher.Invoke(RefreshChart);
+            return;
+        }
+
+        if (e.PropertyName == nameof(MainViewModel.KeepPopupAboveTaskbar))
+            Dispatcher.Invoke(ApplyPopupMode);
     }
 
     public void Dispose()
@@ -389,6 +403,7 @@ public partial class UsagePopup : Window, IDisposable
     public void ShowNearTray()
     {
         ApplyMaxHeight();
+        ApplyPopupMode();
 
         // 작은 화면(work area 높이 ≤ 800px)에서는 Claude 상세를 펼치면 팝업이 찌그러지므로
         // 모든 섹션을 접은 상태로 연다. 사용자가 원하는 공급자를 직접 클릭하여 펼칠 수 있다.

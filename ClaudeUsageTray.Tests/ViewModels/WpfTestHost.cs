@@ -33,7 +33,10 @@ internal static class WpfTestHost
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(dispatcher));
 
             if (Application.Current is null)
-                new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+            {
+                var app = new ClaudeUsageTray.App { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+                app.InitializeComponent();
+            }
 
             tcs.SetResult(dispatcher);
             Dispatcher.Run();

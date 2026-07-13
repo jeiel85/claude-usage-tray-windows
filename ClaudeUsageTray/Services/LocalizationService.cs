@@ -572,6 +572,22 @@ public static class Loc
         _ => "e.g. \"resets in 1h 23m (18:30)\""
     };
 
+    public static string KeepPopupAboveTaskbar => Lang switch
+    {
+        "ko" => "작업표시줄 위에 팝업 고정",
+        "zh" => "将弹窗固定在任务栏上方",
+        "ja" => "ポップアップをタスクバー上に固定",
+        _ => "Keep popup above the taskbar"
+    };
+
+    public static string KeepPopupAboveTaskbarHint => Lang switch
+    {
+        "ko" => "포커스를 잃어도 닫히지 않고 살짝 투명하게 유지",
+        "zh" => "失去焦点也不会关闭，并保持轻微透明",
+        "ja" => "フォーカスを失っても閉じず、少し透過した状態を保つ",
+        _ => "Stays open when focus is lost and remains slightly translucent"
+    };
+
     public static string ThresholdsLabel => Lang switch
     {
         "ko" => "5시간 윈도우 임계값",

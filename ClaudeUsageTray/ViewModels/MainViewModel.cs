@@ -249,6 +249,7 @@ namespace ClaudeUsageTray.ViewModels;
     // v1.27.0 표시 옵션 토글
     [ObservableProperty] private bool _showCodexPlanBadge = true;
     [ObservableProperty] private bool _showAbsoluteResetTime = false;
+    [ObservableProperty] private bool _keepPopupAboveTaskbar = false;
 
     // 절대 시각 토글 시 재포맷 위해 raw DateTimeOffset 보관 — API 재호출 없이 즉시 라벨 갱신
     private DateTimeOffset? _rawClaudeShortResetAt;
@@ -496,6 +497,7 @@ namespace ClaudeUsageTray.ViewModels;
         // v1.27.0 표시 옵션
         ShowCodexPlanBadge   = s.ShowCodexPlanBadge;
         ShowAbsoluteResetTime = s.ShowAbsoluteResetTime;
+        KeepPopupAboveTaskbar = s.KeepPopupAboveTaskbar;
 
         // 현재 로그인된 계정의 orgUuid로 히스토리 경로 초기화
         ApplySelectedProviderScope();
@@ -692,6 +694,7 @@ namespace ClaudeUsageTray.ViewModels;
             FocusedProvider = FocusedProvider,
             ShowCodexPlanBadge = ShowCodexPlanBadge,
             ShowAbsoluteResetTime = ShowAbsoluteResetTime,
+            KeepPopupAboveTaskbar = KeepPopupAboveTaskbar,
             // 추적 필드 보존 — settings 저장 시 매번 잃지 않도록
             OAuthNotAllowedFirstSeenUtc = existing.OAuthNotAllowedFirstSeenUtc,
 
@@ -2190,6 +2193,7 @@ namespace ClaudeUsageTray.ViewModels;
         settings.UsageSyncFolderPath = UsageSyncFolderPath.Trim();
         settings.UsageSyncApiSnapshotTtlMinutes = Math.Max(1, UsageSyncApiSnapshotTtlMinutes);
         settings.UsageSyncLocalSnapshotTtlHours = Math.Max(1, UsageSyncLocalSnapshotTtlHours);
+        settings.KeepPopupAboveTaskbar = KeepPopupAboveTaskbar;
         return settings;
     }
 

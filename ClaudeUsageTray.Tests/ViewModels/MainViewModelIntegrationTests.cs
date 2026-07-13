@@ -2,6 +2,7 @@ using ClaudeUsageTray.Models;
 using ClaudeUsageTray.Services;
 using ClaudeUsageTray.Services.WeatherWarnings;
 using ClaudeUsageTray.ViewModels;
+using ClaudeUsageTray.Views;
 using Xunit;
 
 namespace ClaudeUsageTray.Tests.ViewModels;
@@ -86,6 +87,34 @@ public class MainViewModelIntegrationTests
             {
                 await vm.RefreshAsync();
                 Assert.False(string.IsNullOrWhiteSpace(vm.LastUpdatedLabel));
+            }
+            finally
+            {
+                vm.Dispose();
+            }
+        });
+    }
+
+    [Fact]
+    public async Task UsagePopup_StickyMode_UpdatesOpacity()
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            try
+            {
+                vm.KeepPopupAboveTaskbar = true;
+                using var popup = new UsagePopup(vm);
+
+                popup.ShowNearTray();
+
+                Assert.Equal(0.95, popup.Opacity, 2);
+
+                vm.KeepPopupAboveTaskbar = false;
+
+                Assert.Equal(1.0, popup.Opacity, 2);
+
+                popup.Hide();
             }
             finally
             {

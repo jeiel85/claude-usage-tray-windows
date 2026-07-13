@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.34.6] - 2026-07-13
+
+<!-- ko -->
+### 개선
+- **작업표시줄 위 팝업 고정 옵션 추가** — 포커스를 잃어도 닫히지 않는 반투명 팝업 모드를 설정에서 켜고 끌 수 있게 했습니다. 기본 트레이 클릭/자동 숨김 동작은 그대로 유지됩니다. #81
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Added an optional sticky popup mode above the taskbar** — You can now turn on a slightly translucent popup mode that stays open even after focus is lost. The default tray-click-and-hide behavior remains unchanged. #81
+<!-- /en -->
+
 ## [1.34.5] - 2026-07-13
 
 <!-- ko -->

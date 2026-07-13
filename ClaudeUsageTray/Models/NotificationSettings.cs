@@ -61,6 +61,8 @@ public class NotificationSettings
     // 리셋 라벨에 절대 시각을 병기할지 ("1h 23m 후 리셋 (18:30)")
     public bool ShowAbsoluteResetTime { get; set; } = false;
 
+    public bool KeepPopupAboveTaskbar { get; set; } = false;
+
     public bool UsageSyncEnabled { get; set; } = false;
     public string UsageSyncFolderPath { get; set; } = "";
     public int UsageSyncApiSnapshotTtlMinutes { get; set; } = 5;
