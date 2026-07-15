@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.34.12] - 2026-07-15
+
+<!-- ko -->
+### 개선
+- **릴리스 빌드 워크플로우를 Node 24 런타임으로 갱신** — GitHub Actions의 Node 20 지원 종료 경고를 제거하기 위해 릴리스 자동화에 쓰는 액션(checkout·setup-dotnet·upload/download-artifact·gh-release)을 Node 24 버전으로 올렸습니다. 앱 동작에는 변화가 없습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Updated the release workflow to Node 24 runtimes** — Bumped the GitHub Actions used by release automation (checkout, setup-dotnet, upload/download-artifact, gh-release) to their Node 24 versions to clear the Node 20 deprecation warnings. No change to app behavior.
+<!-- /en -->
+
 ## [1.34.11] - 2026-07-15
 
 <!-- ko -->
