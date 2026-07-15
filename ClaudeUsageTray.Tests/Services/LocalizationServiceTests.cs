@@ -57,4 +57,44 @@ public class LocalizationServiceTests
             Loc.SetLanguage(originalLang);
         }
     }
+
+    // window_minutes 를 창 길이에 맞는 라벨로 변환한다(주간/5시간/일 단위).
+    [Theory]
+    [InlineData(10080, "ko", "주간 윈도우")]
+    [InlineData(10080, "en", "Weekly window")]
+    [InlineData(10080, "ja", "週間ウィンドウ")]
+    [InlineData(300, "ko", "5시간 윈도우")]
+    [InlineData(300, "en", "5-hour window")]
+    [InlineData(1440, "ko", "1일 윈도우")]
+    [InlineData(20160, "ko", "2주 윈도우")]
+    public void CodexWindowLabel_FormatsByWindowLength(int minutes, string lang, string expected)
+    {
+        var originalLang = Loc.CurrentLang;
+        try
+        {
+            Loc.SetLanguage(lang);
+            Assert.Equal(expected, Loc.CodexWindowLabel(minutes));
+        }
+        finally
+        {
+            Loc.SetLanguage(originalLang);
+        }
+    }
+
+    // 창 길이를 모르면(null/0) 기존 "단기 윈도우"로 폴백한다.
+    [Fact]
+    public void CodexWindowLabel_FallsBackWhenUnknown()
+    {
+        var originalLang = Loc.CurrentLang;
+        try
+        {
+            Loc.SetLanguage("ko");
+            Assert.Equal(Loc.ShortWindow, Loc.CodexWindowLabel(null));
+            Assert.Equal(Loc.ShortWindow, Loc.CodexWindowLabel(0));
+        }
+        finally
+        {
+            Loc.SetLanguage(originalLang);
+        }
+    }
 }

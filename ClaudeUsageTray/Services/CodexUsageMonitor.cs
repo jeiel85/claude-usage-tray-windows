@@ -67,12 +67,8 @@ public class CodexUsageMonitor
             {
                 HasData = true,
                 DataSource = "Direct API",
-                ShortUsagePercent = ReadPercent(rateLimitsEl, "primary"),
-                LongUsagePercent = ReadPercent(rateLimitsEl, "secondary"),
-                ShortResetAt = ReadReset(rateLimitsEl, "primary"),
-                LongResetAt = ReadReset(rateLimitsEl, "secondary"),
-                PlanType = rateLimitsEl.TryGetProperty("plan_type", out var planEl) ? planEl.GetString() : null
             };
+            ApplyRateLimits(rateLimitsEl, snapshot);
             snapshot.IsSubscriptionActive = snapshot.PlanType is "Plus" or "Team" or "Enterprise";
 
             return snapshot;
@@ -170,14 +166,7 @@ public class CodexUsageMonitor
                 if (payloadEl.TryGetProperty("rate_limits", out var rateLimitsEl) && ts > latestRateTs)
                 {
                     latestRateTs = ts;
-                    snapshot.ShortUsagePercent = ReadPercent(rateLimitsEl, "primary");
-                    snapshot.LongUsagePercent = ReadPercent(rateLimitsEl, "secondary");
-                    snapshot.ShortResetAt = ReadReset(rateLimitsEl, "primary");
-                    snapshot.IsShortResetEstimated = false;
-                    snapshot.LongResetAt = ReadReset(rateLimitsEl, "secondary");
-                    snapshot.PlanType = rateLimitsEl.TryGetProperty("plan_type", out var planEl)
-                        ? planEl.GetString()
-                        : snapshot.PlanType;
+                    ApplyRateLimits(rateLimitsEl, snapshot);
                 }
 
                 if (!TryReadTotals(payloadEl, out var totals))
@@ -206,10 +195,12 @@ public class CodexUsageMonitor
         if (fileHadTodayActivity)
             snapshot.SessionCount++;
 
-        // 로그에 resets_at이 없으면 금번 초기화 전 첫 활동 시간 + 5시간으로 폴백
-        if (snapshot.ShortResetAt is null && firstTodayActivityTs.HasValue)
+        // 로그에 resets_at이 없으면 금번 초기화 전 첫 활동 시간 + 창 길이로 폴백(창 길이를 알 때만).
+        // 창 길이를 모르면 임의 추정 대신 표시하지 않는다(예전 5시간 하드코딩은 주간 창에 맞지 않았음).
+        if (snapshot.ShortResetAt is null && firstTodayActivityTs.HasValue &&
+            snapshot.ShortWindowMinutes is int shortWindowMinutes && shortWindowMinutes > 0)
         {
-            snapshot.ShortResetAt = firstTodayActivityTs.Value.AddHours(5);
+            snapshot.ShortResetAt = firstTodayActivityTs.Value.AddMinutes(shortWindowMinutes);
             snapshot.IsShortResetEstimated = true;
         }
     }
@@ -231,31 +222,69 @@ public class CodexUsageMonitor
         return true;
     }
 
-    private static double ReadPercent(JsonElement rateLimitsEl, string windowName)
+    // rate_limits의 primary/secondary 창을 window_minutes 오름차순으로 정렬해
+    // 짧은 창을 Short 슬롯, 긴 창을 Long 슬롯에 배치한다. 백엔드가 슬롯에 담는 창
+    // 길이를 바꿔도(예: primary가 5시간→주간) 라벨/위치가 어긋나지 않는다.
+    private static void ApplyRateLimits(JsonElement rateLimitsEl, ProviderUsageSnapshot snapshot)
     {
-        // 백엔드가 창(primary/secondary)을 JSON null로 내려보내면 windowEl.ValueKind == Null 이 되고,
-        // 이 상태에서 TryGetProperty/GetDouble 을 호출하면 InvalidOperationException 이 발생한다.
-        // 창이 객체이고 used_percent 가 숫자일 때만 읽는다.
-        if (!rateLimitsEl.TryGetProperty(windowName, out var windowEl) ||
-            windowEl.ValueKind != JsonValueKind.Object ||
-            !windowEl.TryGetProperty("used_percent", out var percentEl) ||
-            percentEl.ValueKind != JsonValueKind.Number)
-            return 0;
+        var windows = new List<RateWindow>(2);
+        if (ReadWindow(rateLimitsEl, "primary") is { } primary) windows.Add(primary);
+        if (ReadWindow(rateLimitsEl, "secondary") is { } secondary) windows.Add(secondary);
 
-        return Math.Clamp(percentEl.GetDouble() / 100.0, 0, 1);
+        // window_minutes 오름차순(길이를 모르는 창은 뒤로)
+        windows.Sort((a, b) => (a.WindowMinutes ?? int.MaxValue).CompareTo(b.WindowMinutes ?? int.MaxValue));
+
+        snapshot.ShortUsagePercent = 0;
+        snapshot.ShortResetAt = null;
+        snapshot.ShortWindowMinutes = null;
+        snapshot.IsShortResetEstimated = false;
+        snapshot.LongUsagePercent = 0;
+        snapshot.LongResetAt = null;
+        snapshot.LongWindowMinutes = null;
+
+        if (windows.Count > 0)
+        {
+            snapshot.ShortUsagePercent = windows[0].Percent;
+            snapshot.ShortResetAt = windows[0].ResetAt;
+            snapshot.ShortWindowMinutes = windows[0].WindowMinutes;
+        }
+        if (windows.Count > 1)
+        {
+            snapshot.LongUsagePercent = windows[1].Percent;
+            snapshot.LongResetAt = windows[1].ResetAt;
+            snapshot.LongWindowMinutes = windows[1].WindowMinutes;
+        }
+
+        if (rateLimitsEl.TryGetProperty("plan_type", out var planEl) && planEl.ValueKind == JsonValueKind.String)
+            snapshot.PlanType = planEl.GetString();
     }
 
-    private static DateTimeOffset? ReadReset(JsonElement rateLimitsEl, string windowName)
+    // 창(primary/secondary)이 객체가 아니면(JSON null 포함) null 반환.
+    private static RateWindow? ReadWindow(JsonElement rateLimitsEl, string windowName)
     {
         if (!rateLimitsEl.TryGetProperty(windowName, out var windowEl) ||
-            windowEl.ValueKind != JsonValueKind.Object ||
-            !windowEl.TryGetProperty("resets_at", out var resetEl))
+            windowEl.ValueKind != JsonValueKind.Object)
             return null;
 
-        return resetEl.TryGetInt64(out var epoch)
+        double percent = windowEl.TryGetProperty("used_percent", out var percentEl) &&
+                         percentEl.ValueKind == JsonValueKind.Number
+            ? Math.Clamp(percentEl.GetDouble() / 100.0, 0, 1)
+            : 0;
+
+        DateTimeOffset? resetAt = windowEl.TryGetProperty("resets_at", out var resetEl) &&
+                                  resetEl.TryGetInt64(out var epoch)
             ? DateTimeOffset.FromUnixTimeSeconds(epoch)
             : null;
+
+        int? windowMinutes = windowEl.TryGetProperty("window_minutes", out var wmEl) &&
+                             wmEl.TryGetInt32(out var wm) && wm > 0
+            ? wm
+            : null;
+
+        return new RateWindow(percent, resetAt, windowMinutes);
     }
+
+    private readonly record struct RateWindow(double Percent, DateTimeOffset? ResetAt, int? WindowMinutes);
 
     // TryGetInt64 는 숫자가 아니면(null 등) 예외 대신 false 를 반환하므로 GetInt64 보다 안전하다.
     private static long ReadLong(JsonElement el, string name) =>

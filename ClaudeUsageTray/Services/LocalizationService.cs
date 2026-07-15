@@ -186,6 +186,46 @@ public static class Loc
         _ => "Long window"
     };
 
+    // window_minutes 를 사람이 읽는 창 라벨로 변환한다(예: 10080→"주간 윈도우", 300→"5시간 윈도우").
+    // 창 길이를 모르면 기존 "단기 윈도우"로 폴백한다.
+    public static string CodexWindowLabel(int? windowMinutes)
+    {
+        if (windowMinutes is not int m || m <= 0)
+            return ShortWindow;
+
+        if (m % 10080 == 0)
+        {
+            int weeks = m / 10080;
+            return Lang switch
+            {
+                "ko" => weeks == 1 ? "주간 윈도우" : $"{weeks}주 윈도우",
+                "zh" => weeks == 1 ? "每周窗口" : $"{weeks}周窗口",
+                "ja" => weeks == 1 ? "週間ウィンドウ" : $"{weeks}週間ウィンドウ",
+                _ => weeks == 1 ? "Weekly window" : $"{weeks}-week window"
+            };
+        }
+        if (m % 1440 == 0)
+        {
+            int days = m / 1440;
+            return Lang switch
+            {
+                "ko" => $"{days}일 윈도우",
+                "zh" => $"{days}天窗口",
+                "ja" => $"{days}日ウィンドウ",
+                _ => $"{days}-day window"
+            };
+        }
+
+        int hours = Math.Max(1, m / 60);
+        return Lang switch
+        {
+            "ko" => $"{hours}시간 윈도우",
+            "zh" => $"{hours}小时窗口",
+            "ja" => $"{hours}時間ウィンドウ",
+            _ => $"{hours}-hour window"
+        };
+    }
+
     // Token labels
     public static string Input => Lang switch
     {

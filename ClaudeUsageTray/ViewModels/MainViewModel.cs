@@ -85,6 +85,8 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private double _codexLongTimePercent = 0;
     // v1.26.0: PlanType 라벨 — 응답에 PlanType 있으면 "ChatGPT Plus" 식으로, 없으면 "ChatGPT plan"
     [ObservableProperty] private string _codexPlanLabel = "ChatGPT plan";
+    [ObservableProperty] private string _codexShortWindowLabel = Loc.ShortWindow;
+    [ObservableProperty] private string _codexLongWindowLabel = Loc.LongWindow;
     // 오늘의 토큰 4타일 (Input / Output / CacheRead / CacheWrite — Codex는 cache write 개념 없어 "—")
     [ObservableProperty] private string _codexInputLabel = "—";
     [ObservableProperty] private string _codexOutputLabel = "—";
@@ -348,8 +350,6 @@ namespace ClaudeUsageTray.ViewModels;
     public string LblTodayTokens     => Loc.TodayTokens;
     public string LblFiveHour        => Loc.FiveHourWindow;
     public string LblSevenDay        => Loc.SevenDayWindow;
-    public string LblShortWindow     => Loc.ShortWindow;
-    public string LblLongWindow      => Loc.LongWindow;
     public string LblInput           => Loc.Input;
     public string LblOutput          => Loc.Output;
     public string LblCacheRead       => Loc.CacheRead;
@@ -1843,6 +1843,8 @@ namespace ClaudeUsageTray.ViewModels;
             IsCodexLongVisible = CodexVm.IsLongVisible;
             RecomputeCodexTimeProgress(DateTimeOffset.Now);
             CodexPlanLabel = CodexVm.PlanLabel;
+            CodexShortWindowLabel = CodexVm.ShortWindowLabel;
+            CodexLongWindowLabel = CodexVm.LongWindowLabel;
             CodexInputLabel = CodexVm.InputLabel;
             CodexOutputLabel = CodexVm.OutputLabel;
             CodexCacheReadLabel = CodexVm.CacheReadLabel;

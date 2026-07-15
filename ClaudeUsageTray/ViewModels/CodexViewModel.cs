@@ -25,6 +25,8 @@ public partial class CodexViewModel : ObservableObject
     [ObservableProperty] private string _longSummary = "";
     [ObservableProperty] private bool _isLongVisible = false;
     [ObservableProperty] private string _planLabel = "ChatGPT plan";
+    [ObservableProperty] private string _shortWindowLabel = Loc.ShortWindow;
+    [ObservableProperty] private string _longWindowLabel = Loc.LongWindow;
     [ObservableProperty] private string _inputLabel = "—";
     [ObservableProperty] private string _outputLabel = "—";
     [ObservableProperty] private string _cacheReadLabel = "—";
@@ -87,7 +89,11 @@ public partial class CodexViewModel : ObservableObject
                 _rawLongResetAt = snapshot.LongResetAt;
                 LongReset     = UsageCalculator.FormatResetLabel(_rawLongResetAt, false, showAbsoluteResetTime, DateTimeOffset.Now);
                 LongSummary   = Loc.UsageSummary(snapshot.LongUsagePercent);
-                IsLongVisible = snapshot.LongUsagePercent > 0 || snapshot.LongResetAt is not null;
+                // 창 라벨은 window_minutes 로 결정(주간/5시간 등). 창 길이를 모르면 폴백.
+                ShortWindowLabel = Loc.CodexWindowLabel(snapshot.ShortWindowMinutes);
+                LongWindowLabel  = Loc.CodexWindowLabel(snapshot.LongWindowMinutes);
+                // 장기(둘째) 창은 실제로 두 번째 창이 존재할 때만 노출.
+                IsLongVisible = snapshot.LongWindowMinutes is not null || snapshot.LongUsagePercent > 0 || snapshot.LongResetAt is not null;
 
                 PlanLabel = !string.IsNullOrWhiteSpace(snapshot.PlanType)
                     ? $"ChatGPT {snapshot.PlanType}"

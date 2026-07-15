@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.34.11] - 2026-07-15
+
+<!-- ko -->
+### 수정
+- **Codex 사용량 창 라벨이 실제 기간과 어긋나던 문제 수정** — ChatGPT가 rate_limits 구조를 바꿔 주간(7일) 창을 `primary`로 내려보내면서, 트레이가 이를 "단기 윈도우"로 잘못 표시하던 문제를 고쳤습니다. 이제 `window_minutes`를 읽어 창 길이에 맞는 라벨("주간 윈도우"·"5시간 윈도우" 등)을 표시하고, 여러 창이 오면 짧은 창부터 순서대로 배치합니다. 창이 하나뿐이면 두 번째 게이지는 숨깁니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Fixed Codex usage window labels not matching the actual period** — After ChatGPT changed its rate_limits to send the weekly (7-day) window as `primary`, the tray mislabeled it as "Short window". The tray now reads `window_minutes` and shows a length-accurate label ("Weekly window", "5-hour window", etc.), ordering multiple windows shortest-first and hiding the second gauge when only one window is present.
+<!-- /en -->
+
 ## [1.34.10] - 2026-07-15
 
 <!-- ko -->

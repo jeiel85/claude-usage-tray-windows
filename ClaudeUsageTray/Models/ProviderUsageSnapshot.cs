@@ -11,9 +11,11 @@ public class ProviderUsageSnapshot
     public double ShortUsagePercent { get; set; }
     public DateTimeOffset? ShortResetAt { get; set; }
     public bool IsShortResetEstimated { get; set; }
+    public int? ShortWindowMinutes { get; set; }
 
     public double LongUsagePercent { get; set; }
     public DateTimeOffset? LongResetAt { get; set; }
+    public int? LongWindowMinutes { get; set; }
 
     public string? PlanType { get; set; } // e.g. "Pro", "Plus", "Free"
     public bool IsSubscriptionActive { get; set; } = true;
