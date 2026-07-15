@@ -324,6 +324,11 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private bool _isOpenCodeActive = false;
     // IsClaudeUsageEmpty → ClaudeVm.IsUsageEmpty
     [ObservableProperty] private bool _isCodexUsageEmpty = true;
+    [ObservableProperty] private bool _isCodexLoading = true;
+
+    // Codex 토큰 4타일을 표시할지 판단하는 실제 기준(로컬 또는 동기화된 다른 기기 토큰 유무).
+    // UpdateOverallStatus 가 IsCodexUsageEmpty 를 재계산할 때 이 값을 참조한다.
+    private bool _codexHasTokenData;
     [ObservableProperty] private bool _isGeminiUsageEmpty = true;
     [ObservableProperty] private bool _isOpenCodeUsageEmpty = true;
 
@@ -368,7 +373,7 @@ namespace ClaudeUsageTray.ViewModels;
     public string LblExtraCredits    => Loc.ExtraCreditsLabel;
     public string LblCheckUpdate     => Loc.CheckUpdate;
     public string LblClaudeNoUsage   => Loc.ClaudeNoUsageToday;
-    public string LblCodexNoUsage    => Loc.CodexNoUsageToday;
+    public string LblCodexNoUsage    => IsCodexLoading ? Loc.CodexLoading : Loc.CodexNoUsageToday;
     public string LblGeminiNoUsage   => Loc.GeminiCliNoUsageToday;
     public string LblOpenCodeNoUsage => Loc.OpenCodeNoUsageToday;
     public string LblVisibleProviders => Loc.VisibleProviders;
@@ -644,6 +649,9 @@ namespace ClaudeUsageTray.ViewModels;
     partial void OnUsageSyncEnabledChanged(bool value) => RefreshUsageSyncStatus();
 
     partial void OnUsageSyncFolderPathChanged(string value) => RefreshUsageSyncStatus();
+
+    // 로딩 상태가 바뀌면 placeholder 문구(조회 중 ↔ 오늘 사용 없음)를 다시 계산한다.
+    partial void OnIsCodexLoadingChanged(bool value) => OnPropertyChanged(nameof(LblCodexNoUsage));
 
     /// <summary>
     /// Reads subscriptionType from local credentials and determines if Claude is a paid plan.
@@ -1095,7 +1103,7 @@ namespace ClaudeUsageTray.ViewModels;
         IsOpenCodeActive = IsOpenCodeEnabled && (!hideInactive || _lastOpenCodeRequestCount > 0 || OpenCodeHasError);
 
         ClaudeVm.IsUsageEmpty = TodayInputTokens + TodayOutputTokens == 0;
-        IsCodexUsageEmpty = CodexPercent == 0;
+        IsCodexUsageEmpty = !_codexHasTokenData;
         IsGeminiUsageEmpty = _lastGeminiRequestCount == 0;
         IsOpenCodeUsageEmpty = _lastOpenCodeRequestCount == 0;
 
@@ -1839,7 +1847,9 @@ namespace ClaudeUsageTray.ViewModels;
             CodexOutputLabel = CodexVm.OutputLabel;
             CodexCacheReadLabel = CodexVm.CacheReadLabel;
             CodexCacheWriteLabel = CodexVm.CacheWriteLabel;
-            IsCodexUsageEmpty = CodexVm.IsUsageEmpty;
+
+            // 토큰 4타일 표시 여부는 퍼센트가 아니라 실제 토큰 데이터 유무로 판단한다(Claude 와 동일 기준).
+            var codexHasTokenData = CodexVm.LastSnapshot.HasData;
             CodexNote = WithSyncNote(Loc.ProviderCodexNote, mergedTotals);
 
             if (HasMergedDeviceTotals(mergedTotals))
@@ -1849,8 +1859,12 @@ namespace ClaudeUsageTray.ViewModels;
                 CodexCacheReadLabel = TokenOrDash(mergedTotals.CacheReadTokens);
                 CodexCacheWriteLabel = TokenOrDash(mergedTotals.CacheWriteTokens);
                 CodexDataSource = WithSyncNote(CodexDataSource, mergedTotals);
-                IsCodexUsageEmpty = false;
+                codexHasTokenData = true;
             }
+
+            _codexHasTokenData = codexHasTokenData;
+            IsCodexUsageEmpty = !codexHasTokenData;
+            IsCodexLoading = false;
 
             UpdateOverallStatus();
         });

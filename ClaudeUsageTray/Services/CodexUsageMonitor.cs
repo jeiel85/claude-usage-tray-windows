@@ -98,10 +98,13 @@ public class CodexUsageMonitor
         }
     }
 
-    public ProviderUsageSnapshot GetTodaySnapshot()
+    public ProviderUsageSnapshot GetTodaySnapshot() => GetTodaySnapshot(SessionsPath);
+
+    // sessionsPath 를 주입받는 오버로드 — 단위 테스트에서 임시 로그 폴더를 지정하기 위한 것.
+    public ProviderUsageSnapshot GetTodaySnapshot(string sessionsPath)
     {
         var snapshot = new ProviderUsageSnapshot();
-        if (!Directory.Exists(SessionsPath))
+        if (!Directory.Exists(sessionsPath))
         {
             snapshot.ErrorMessage = Loc.CodexSourceNotFound;
             return snapshot;
@@ -109,7 +112,7 @@ public class CodexUsageMonitor
 
         var today = DateTime.Now.Date;
         var latestRateTs = DateTimeOffset.MinValue;
-        var files = Directory.GetFiles(SessionsPath, "rollout-*.jsonl", SearchOption.AllDirectories);
+        var files = Directory.GetFiles(sessionsPath, "rollout-*.jsonl", SearchOption.AllDirectories);
 
         foreach (var file in files)
         {
@@ -230,8 +233,13 @@ public class CodexUsageMonitor
 
     private static double ReadPercent(JsonElement rateLimitsEl, string windowName)
     {
+        // 백엔드가 창(primary/secondary)을 JSON null로 내려보내면 windowEl.ValueKind == Null 이 되고,
+        // 이 상태에서 TryGetProperty/GetDouble 을 호출하면 InvalidOperationException 이 발생한다.
+        // 창이 객체이고 used_percent 가 숫자일 때만 읽는다.
         if (!rateLimitsEl.TryGetProperty(windowName, out var windowEl) ||
-            !windowEl.TryGetProperty("used_percent", out var percentEl))
+            windowEl.ValueKind != JsonValueKind.Object ||
+            !windowEl.TryGetProperty("used_percent", out var percentEl) ||
+            percentEl.ValueKind != JsonValueKind.Number)
             return 0;
 
         return Math.Clamp(percentEl.GetDouble() / 100.0, 0, 1);
@@ -240,6 +248,7 @@ public class CodexUsageMonitor
     private static DateTimeOffset? ReadReset(JsonElement rateLimitsEl, string windowName)
     {
         if (!rateLimitsEl.TryGetProperty(windowName, out var windowEl) ||
+            windowEl.ValueKind != JsonValueKind.Object ||
             !windowEl.TryGetProperty("resets_at", out var resetEl))
             return null;
 
@@ -248,8 +257,9 @@ public class CodexUsageMonitor
             : null;
     }
 
+    // TryGetInt64 는 숫자가 아니면(null 등) 예외 대신 false 를 반환하므로 GetInt64 보다 안전하다.
     private static long ReadLong(JsonElement el, string name) =>
-        el.TryGetProperty(name, out var valueEl) ? valueEl.GetInt64() : 0;
+        el.TryGetProperty(name, out var valueEl) && valueEl.TryGetInt64(out var value) ? value : 0;
 
     private readonly record struct UsageTotals(
         long InputTokens,

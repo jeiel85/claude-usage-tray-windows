@@ -1101,6 +1101,14 @@ public static class Loc
         _ => "No Codex usage has been recorded today yet."
     };
 
+    public static string CodexLoading => Lang switch
+    {
+        "ko" => "Codex 세션 데이터를 불러오는 중…",
+        "zh" => "正在加载 Codex 会话数据…",
+        "ja" => "Codex セッションデータを読み込み中…",
+        _ => "Loading Codex session data…"
+    };
+
     public static string ClaudeNoUsageToday => Lang switch
     {
         "ko" => "오늘 사용 기록이 아직 없습니다.",
