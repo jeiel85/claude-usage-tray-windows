@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.34.10] - 2026-07-15
+
+<!-- ko -->
+### 수정
+- **Codex 토큰 집계가 "—"로 멈추던 문제 수정** — ChatGPT 사용량 응답에서 장기 윈도우(`rate_limits.secondary`)가 `null`로 바뀌면서 로컬 세션 로그 파싱이 예외로 중단돼, 입력·출력·캐시 토큰이 모두 "—"로 표시되던 버그를 고쳤습니다. null 윈도우를 안전하게 처리하도록 파서를 보강해 토큰 집계가 정상 복구됩니다.
+
+### 개선
+- **Codex 사용량 조회 상태 표시 추가** — 토큰 데이터를 아직 불러오는 중이면 "불러오는 중", 오늘 사용 기록이 없으면 "오늘 사용 없음"으로 구분해 안내하고, 데이터가 없을 때 "—" 타일 4개 대신 안내 문구를 표시합니다. 토큰 4타일 노출 기준도 퍼센트가 아닌 실제 토큰 유무로 통일했습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Fixed Codex token totals getting stuck at "—"** — When ChatGPT's usage response began returning the long window (`rate_limits.secondary`) as `null`, the local session-log parser threw and skipped every token line, showing input/output/cache tokens as "—". The parser now handles the null window safely and token totals are restored.
+
+### Improved
+- **Added Codex usage loading / empty states** — The token area now shows "Loading…" while data is still being read and "No usage today" when there is none, instead of a row of four "—" tiles. Tile visibility is now driven by actual token data rather than the usage percentage.
+<!-- /en -->
+
 ## [1.34.9] - 2026-07-13
 
 <!-- ko -->
