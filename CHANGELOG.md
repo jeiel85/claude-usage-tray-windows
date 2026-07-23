@@ -3,6 +3,26 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.35.1] - 2026-07-23
+
+<!-- ko -->
+### 수정
+- **업데이트 교체에 실패하면 앱이 사라지던 문제** — 교체 스크립트가 기존 실행 파일을 먼저 삭제한 뒤 새 파일을 옮기는 구조여서, 삭제만 성공하고 이동이 실패하면(파일 잠금·권한 문제 등) 앱이 통째로 없어졌습니다. 이제 기존 파일을 백업으로 물러 두고 교체하며, 실패하면 원래 버전을 제자리로 되돌려 다시 실행합니다.
+- **업데이트 실행기를 시작하지 못해도 앱이 종료되던 문제** — 교체 스크립트를 띄우지도 못한 상태에서 앱을 종료해 아무것도 남지 않던 동작을 고쳐, 오류를 알리고 앱을 그대로 유지합니다.
+
+### 개선
+- 교체 스크립트가 종료할 프로세스 이름을 대상 실행 파일에서 유도하도록 정리해, 다른 이름으로 설치된 경우에도 올바르게 동작합니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The app could disappear when the update swap failed** — The swap script deleted the existing executable before moving the new one into place, so a successful delete followed by a failed move (file lock, permissions) left no app at all. It now moves the original aside as a backup and, on any failure, restores it and relaunches the previous version.
+- **The app no longer exits when the installer fails to start** — It used to shut down even when the swap script never launched, leaving nothing running. It now surfaces the error and keeps running.
+
+### Improved
+- The swap script derives the process name to stop from the target executable instead of hardcoding it.
+<!-- /en -->
+
 ## [1.35.0] - 2026-07-23
 
 <!-- ko -->
