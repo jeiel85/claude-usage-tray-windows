@@ -237,32 +237,66 @@ public class UpdateService
     }
 
     /// <summary>
-    /// Launches a highly robust PowerShell script to swap the current EXE with the prepared one.
-    /// Handles process termination, force-kill, path encoding, and retries.
+    /// exe 교체 스크립트를 생성한다.
+    /// <para>
+    /// 핵심 불변식: <b>어떤 실패 경로에서도 실행 파일이 사라지면 안 된다.</b> 이전 구현은 원본을
+    /// <c>Remove-Item</c> 으로 지운 뒤 새 파일을 옮겼기 때문에, 삭제만 성공하고 이동이 실패하면
+    /// (파일 잠금·권한·디스크 문제) 앱이 통째로 사라졌다. 그래서 원본은 지우지 않고 <c>.bak</c> 로
+    /// 물러 두었다가, 교체가 끝까지 성공했을 때만 폐기하고 실패하면 되돌린 뒤 다시 실행한다.
+    /// </para>
+    /// 문자열 생성을 분리해 둔 이유는 테스트에서 실제 PowerShell 로 돌려 롤백을 검증하기 위해서다.
     /// </summary>
-    public void ApplyPreparedUpdate(string preparedExePath)
+    internal static string BuildSwapScript(string oldExe, string newExe, string logPath, string ps1Path)
     {
-        var currentExe = Process.GetCurrentProcess().MainModule?.FileName
-            ?? Environment.ProcessPath
-            ?? Path.Combine(AppContext.BaseDirectory, "ClaudeUsageTray.exe");
-
         // Escape single quotes for PowerShell string literal
         string Esc(string? s) => (s ?? "").Replace("'", "''");
 
-        var ps1Path = Path.Combine(Path.GetTempPath(), $"claude_swap_{Guid.NewGuid():N}.ps1");
-        var logPath = Path.Combine(Path.GetTempPath(), "claude_update_debug.log");
+        // 프로세스 이름은 교체 대상 exe 에서 유도한다 — 이름을 하드코딩하면 테스트에서 실제 앱을 죽인다.
+        var processName = Path.GetFileNameWithoutExtension(oldExe);
 
         // Robust PowerShell script (using regular verbatim string to avoid C# interpolation conflicts)
-        var psCommand = @"
+        return @"
 $ErrorActionPreference = 'Stop'
 $log = '{LOG_PATH}'
 ""Update started at $(Get-Date)"" | Out-File -LiteralPath $log
 
-$oldExe = '{OLD_EXE}'
-$newExe = '{NEW_EXE}'
+$oldExe  = '{OLD_EXE}'
+$newExe  = '{NEW_EXE}'
+$backup  = ""$oldExe.bak""
+$procName = '{PROC_NAME}'
 
 function Log($msg) {
     ""$(Get-Date -Format 'HH:mm:ss') - $msg"" | Out-File -LiteralPath $log -Append
+}
+
+# 교체에 실패했으면 물러 둔 원본을 제자리로 돌린다. 이걸 못 하면 앱이 사라진 상태로 남는다.
+function Restore-Original {
+    if ((Test-Path -LiteralPath $backup) -and -not (Test-Path -LiteralPath $oldExe)) {
+        try {
+            Move-Item -LiteralPath $backup -Destination $oldExe -Force -ErrorAction Stop
+            Log ""Rolled back to the original executable.""
+        } catch {
+            Log ""ROLLBACK FAILED: $($_.Exception.Message). Original kept at $backup""
+        }
+    }
+}
+
+# 이미 떠 있으면(=강제 종료 실패) 중복 실행하지 않는다 — 단일 인스턴스 경고창이 뜬다.
+function Start-App {
+    if (Get-Process -Name $procName -ErrorAction SilentlyContinue) {
+        Log ""Already running; skipping start.""
+        return
+    }
+    if (-not (Test-Path -LiteralPath $oldExe)) {
+        Log ""START SKIPPED: $oldExe is missing.""
+        return
+    }
+    try {
+        Start-Process -FilePath $oldExe
+        Log ""Started $oldExe""
+    } catch {
+        Log ""START FAILED: $($_.Exception.Message)""
+    }
 }
 
 try {
@@ -270,28 +304,29 @@ try {
     Log ""Waiting for process to exit...""
     $timeout = 20
     while ($timeout -gt 0) {
-        $p = Get-Process -Name 'ClaudeUsageTray' -ErrorAction SilentlyContinue
+        $p = Get-Process -Name $procName -ErrorAction SilentlyContinue
         if (-not $p) { break }
         Start-Sleep -Seconds 1
         $timeout--
     }
 
     # 2. Force kill if still running
-    $p = Get-Process -Name 'ClaudeUsageTray' -ErrorAction SilentlyContinue
+    $p = Get-Process -Name $procName -ErrorAction SilentlyContinue
     if ($p) {
         Log ""Process still running. Force killing...""
-        Stop-Process -Name 'ClaudeUsageTray' -Force -ErrorAction SilentlyContinue
+        Stop-Process -Name $procName -Force -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 2
     }
 
-    # 3. Retry loop for Move-Item (Handling lingering locks)
+    # 3. 원본을 .bak 으로 물러 둔 뒤 교체한다 (잠금이 풀리기를 기다리며 재시도)
     Log ""Replacing executable...""
     $retry = 5
     $success = $false
     while ($retry -gt 0) {
         try {
+            Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
             if (Test-Path -LiteralPath $oldExe) {
-                Remove-Item -LiteralPath $oldExe -Force -ErrorAction Stop
+                Move-Item -LiteralPath $oldExe -Destination $backup -Force -ErrorAction Stop
             }
             Move-Item -LiteralPath $newExe -Destination $oldExe -Force -ErrorAction Stop
             $success = $true
@@ -299,6 +334,7 @@ try {
             break
         } catch {
             Log ""Move failed: $($_.Exception.Message). Retrying ($retry)...""
+            Restore-Original
             $retry--
             Start-Sleep -Seconds 2
         }
@@ -307,12 +343,19 @@ try {
     if (-not $success) { throw ""Failed to replace executable after retries."" }
 
     # 4. Restart
+    Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
     Log ""Starting new version...""
-    Start-Process -FilePath $oldExe
+    Start-App
     Log ""Update complete.""
 }
 catch {
     Log ""CRITICAL ERROR: $($_.Exception.Message)""
+
+    # 실패 경로: 원본을 되돌리고 그대로 다시 띄운다. 업데이트를 못 했을지언정 앱은 남아야 한다.
+    Restore-Original
+    Remove-Item -LiteralPath $newExe -Force -ErrorAction SilentlyContinue
+    Start-App
+    Log ""Rolled back; the previous version is running.""
 }
 finally {
     # Self cleanup
@@ -320,9 +363,26 @@ finally {
 }
 "
         .Replace("{LOG_PATH}", Esc(logPath))
-        .Replace("{OLD_EXE}", Esc(currentExe))
-        .Replace("{NEW_EXE}", Esc(preparedExePath))
+        .Replace("{OLD_EXE}", Esc(oldExe))
+        .Replace("{NEW_EXE}", Esc(newExe))
+        .Replace("{PROC_NAME}", Esc(processName))
         .Replace("{PS1_PATH}", Esc(ps1Path));
+    }
+
+    /// <summary>
+    /// Launches a highly robust PowerShell script to swap the current EXE with the prepared one.
+    /// Handles process termination, force-kill, path encoding, retries, and rollback on failure.
+    /// </summary>
+    public void ApplyPreparedUpdate(string preparedExePath)
+    {
+        var currentExe = Process.GetCurrentProcess().MainModule?.FileName
+            ?? Environment.ProcessPath
+            ?? Path.Combine(AppContext.BaseDirectory, "ClaudeUsageTray.exe");
+
+        var ps1Path = Path.Combine(Path.GetTempPath(), $"claude_swap_{Guid.NewGuid():N}.ps1");
+        var logPath = Path.Combine(Path.GetTempPath(), "claude_update_debug.log");
+
+        var psCommand = BuildSwapScript(currentExe, preparedExePath, logPath, ps1Path);
 
         try
         {
@@ -339,11 +399,13 @@ finally {
         }
         catch (Exception ex)
         {
-            // If even PS fails to start, we're in trouble, but log it
-            File.AppendAllText(logPath, $"Failed to launch PowerShell: {ex.Message}");
+            // 스왑 스크립트를 띄우지도 못했으면 종료하지 않는다 — 종료해 봐야 업데이트는 안 되고 앱만 사라진다.
+            // 호출부(UpdateDialog)가 이 예외를 받아 오류를 표시하고 앱은 그대로 남는다.
+            File.AppendAllText(logPath, $"Failed to launch PowerShell: {ex.Message}{Environment.NewLine}");
+            throw new InvalidOperationException("Failed to launch the update installer", ex);
         }
 
-        // Final shutdown
+        // Final shutdown — 여기부터는 스왑 스크립트가 이 프로세스의 종료를 기다리고 있다.
         System.Windows.Application.Current.Dispatcher.Invoke(() =>
             System.Windows.Application.Current.Shutdown());
     }
