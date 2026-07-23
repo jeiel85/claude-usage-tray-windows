@@ -1017,6 +1017,48 @@ public static class Loc
         _ => $"Auto-updating in {seconds}s"
     };
 
+    // ===== 자동 업데이트 설정 (설정창 · 일반 탭) =====
+    public static string AutoUpdateSection => Lang switch
+    {
+        "ko" => "자동 업데이트",
+        "zh" => "自动更新",
+        "ja" => "自動アップデート",
+        _ => "Automatic updates"
+    };
+
+    public static string AutoUpdateEnabledLabel => Lang switch
+    {
+        "ko" => "새 버전을 자동으로 설치",
+        "zh" => "自动安装新版本",
+        "ja" => "新しいバージョンを自動でインストール",
+        _ => "Install new versions automatically"
+    };
+
+    public static string AutoUpdateHelp => Lang switch
+    {
+        "ko" => "업데이트 창이 뜬 뒤 대기 시간이 지나면 자동으로 설치하고 앱을 다시 시작합니다. 그 전에 건너뛰기나 닫기를 누르면 취소됩니다.",
+        "zh" => "更新窗口出现后，等待时间结束即自动安装并重启应用。在此之前点击跳过或关闭即可取消。",
+        "ja" => "アップデート画面が表示されてから待機時間が過ぎると自動でインストールし、アプリを再起動します。それまでにスキップまたは閉じるを押せば中止されます。",
+        _ => "Once the update window appears, the app installs and restarts itself when the wait time runs out. Press skip or close before then to cancel."
+    };
+
+    public static string AutoUpdateCountdownSettingLabel => Lang switch
+    {
+        "ko" => "자동 설치까지 대기",
+        "zh" => "自动安装等待时间",
+        "ja" => "自動インストールまでの待機時間",
+        _ => "Wait before installing"
+    };
+
+    /// <summary>대기 시간 슬라이더의 현재 값 표시.</summary>
+    public static string SecondsValue(int seconds) => Lang switch
+    {
+        "ko" => $"{seconds}초",
+        "zh" => $"{seconds} 秒",
+        "ja" => $"{seconds} 秒",
+        _ => $"{seconds}s"
+    };
+
     /// <summary>
     /// 릴리스에 SHA256 자산이 없어 무결성 검증이 불가능한 경우 — 무인 설치를 하지 않는다.
     /// </summary>

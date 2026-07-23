@@ -49,7 +49,17 @@ public class UpdateVerificationTests
     [Fact]
     public void AutoUpdatePlan_DisablesCountdown_WhenChecksumIsMissing()
     {
-        var (seconds, notice) = MainViewModel.ResolveAutoUpdatePlan(canVerify: false, autoRetryExhausted: false);
+        var (seconds, notice) = Plan(canVerify: false);
+
+        Assert.Equal(0, seconds);
+        Assert.NotNull(notice);
+    }
+
+    // 자동 설치를 꺼 두었더라도 검증 불가 사실은 알려야 한다 — 직접 실행할지 판단하는 데 필요하다.
+    [Fact]
+    public void AutoUpdatePlan_StillWarnsAboutMissingChecksum_WhenAutoUpdateIsOff()
+    {
+        var (seconds, notice) = Plan(canVerify: false, autoUpdateEnabled: false);
 
         Assert.Equal(0, seconds);
         Assert.NotNull(notice);
@@ -58,18 +68,44 @@ public class UpdateVerificationTests
     [Fact]
     public void AutoUpdatePlan_DisablesCountdown_WhenPreviousAutoAttemptFailed()
     {
-        var (seconds, notice) = MainViewModel.ResolveAutoUpdatePlan(canVerify: true, autoRetryExhausted: true);
+        var (seconds, notice) = Plan(autoRetryExhausted: true);
 
         Assert.Equal(0, seconds);
         Assert.NotNull(notice);
     }
 
+    // 사용자가 끈 경우엔 조용히 수동 모드로 — 본인이 고른 동작이라 경고를 띄우지 않는다.
     [Fact]
-    public void AutoUpdatePlan_AllowsCountdown_WhenVerifiableAndNotRetried()
+    public void AutoUpdatePlan_DisablesCountdownSilently_WhenUserTurnedAutoUpdateOff()
     {
-        var (seconds, notice) = MainViewModel.ResolveAutoUpdatePlan(canVerify: true, autoRetryExhausted: false);
+        var (seconds, notice) = Plan(autoUpdateEnabled: false);
 
-        Assert.True(seconds > 0);
+        Assert.Equal(0, seconds);
         Assert.Null(notice);
     }
+
+    [Fact]
+    public void AutoUpdatePlan_UsesConfiguredCountdown_WhenEverythingIsFine()
+    {
+        var (seconds, notice) = Plan(countdownSeconds: 25);
+
+        Assert.Equal(25, seconds);
+        Assert.Null(notice);
+    }
+
+    [Theory]
+    [InlineData(0, 60)]      // 미설정(구버전 설정 파일) → 기본값
+    [InlineData(-5, 60)]     // 잘못된 값 → 기본값
+    [InlineData(3, 10)]      // 하한 미만 → 하한
+    [InlineData(9999, 300)]  // 상한 초과 → 상한
+    [InlineData(45, 45)]     // 범위 내 → 그대로
+    public void AutoUpdateCountdown_IsClampedToUsableRange(int stored, int expected)
+    {
+        Assert.Equal(expected, MainViewModel.ClampAutoUpdateCountdown(stored));
+    }
+
+    private static (int seconds, string? notice) Plan(
+        bool canVerify = true, bool autoRetryExhausted = false,
+        bool autoUpdateEnabled = true, int countdownSeconds = 60) =>
+        MainViewModel.ResolveAutoUpdatePlan(canVerify, autoRetryExhausted, autoUpdateEnabled, countdownSeconds);
 }

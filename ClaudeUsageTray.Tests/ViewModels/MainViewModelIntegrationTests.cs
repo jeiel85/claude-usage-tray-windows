@@ -198,4 +198,91 @@ public class MainViewModelIntegrationTests
             Assert.Null(exception);
         });
     }
+
+    // 설정창은 SizeToContent="Height" + MaxHeight 라, 내용이 상한을 넘으면 스크롤이 없는 한
+    // 마지막 항목이 조용히 잘린다. 항목을 추가할 때 "들어가거나, 최소한 스크롤은 되거나" 를 보장한다.
+    [Fact]
+    public async Task SettingsWindow_GeneralTabContentStaysReachable()
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            SettingsWindow? window = null;
+            try
+            {
+                window = new SettingsWindow(vm);
+                window.Left = -10000;   // 테스트 중 화면에 뜨지 않도록
+                window.Show();
+                window.UpdateLayout();
+
+                var content = (System.Windows.FrameworkElement)window.Content;
+                // 상한에 눌린 ActualHeight 가 아니라 "원래 필요한" 높이를 잰다.
+                content.Measure(new System.Windows.Size(window.Width, double.PositiveInfinity));
+                var required = content.DesiredSize.Height;
+
+                var scroller = FindChild<System.Windows.Controls.ScrollViewer>(window);
+                bool fitsOutright = required <= window.MaxHeight;
+                bool scrollable   = scroller is { ViewportHeight: > 0 };
+
+                Assert.True(fitsOutright || scrollable,
+                    $"설정창이 {required:F0}px 를 필요로 하는데 상한은 {window.MaxHeight:F0}px 이고 스크롤도 없다 — 항목이 잘린다.");
+
+                // 스크롤로 해결한 경우, 넘치는 만큼 실제로 스크롤할 수 있어야 한다.
+                if (!fitsOutright)
+                    Assert.True(scroller!.ScrollableHeight > 0,
+                        "내용이 넘치는데 스크롤 가능한 높이가 0 이다 — 넘친 부분에 닿을 수 없다.");
+            }
+            finally
+            {
+                window?.Close();
+                vm.Dispose();
+            }
+        });
+    }
+
+    // 자동 설치를 끄면 대기 시간 슬라이더는 의미가 없으므로 함께 비활성화된다.
+    // (ElementName 바인딩은 깨져도 예외 없이 조용히 false 로 남으므로 실제 상태로 확인한다.)
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task SettingsWindow_CountdownSlider_FollowsAutoUpdateToggle(bool enabled)
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            SettingsWindow? window = null;
+            try
+            {
+                vm.AutoUpdateEnabled = enabled;
+                vm.AutoUpdateCountdownSeconds = 45;
+
+                window = new SettingsWindow(vm);
+                window.Left = -10000;
+                window.Show();
+                window.UpdateLayout();
+
+                Assert.Equal(enabled, window.ChkAutoUpdateEnabled.IsChecked);
+                Assert.Equal(45, (int)window.SliderAutoUpdateCountdown.Value);
+                Assert.Equal(enabled, window.SliderAutoUpdateCountdown.IsEnabled);
+            }
+            finally
+            {
+                window?.Close();
+                vm.Dispose();
+            }
+        });
+    }
+
+    private static T? FindChild<T>(System.Windows.DependencyObject root) where T : System.Windows.DependencyObject
+    {
+        int count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < count; i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+            if (child is T match) return match;
+            var nested = FindChild<T>(child);
+            if (nested != null) return nested;
+        }
+        return null;
+    }
 }

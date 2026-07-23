@@ -135,6 +135,11 @@ public partial class SettingsWindow : Window, IDisposable
         LblNtfySendFromThisPcHint.Text     = Loc.NtfySendFromThisPcHint;
         LblDisclaimer.Text                  = _vm.DisclaimerText;
         LblPollingInterval.Text             = Loc.PollingInterval;
+        LblAutoUpdateSection.Text           = Loc.AutoUpdateSection;
+        ChkAutoUpdateEnabled.Content        = Loc.AutoUpdateEnabledLabel;
+        LblAutoUpdateHelp.Text              = Loc.AutoUpdateHelp;
+        LblAutoUpdateCountdown.Text         = Loc.AutoUpdateCountdownSettingLabel;
+        UpdateAutoUpdateCountdownLabel((int)SliderAutoUpdateCountdown.Value);
         LblLanguageSection.Text             = Loc.LanguageSection;
         LblUsageSyncTitle.Text              = Loc.UsageSyncTitle;
         ChkUsageSyncEnabled.Content         = Loc.UsageSyncEnabled;
@@ -265,6 +270,9 @@ public partial class SettingsWindow : Window, IDisposable
         UpdateUsageSyncStatusLabel();
         SliderPolling.Value = _vm.PollingIntervalMinutes > 0 ? _vm.PollingIntervalMinutes : 2;
         UpdatePollingLabel((int)SliderPolling.Value);
+        ChkAutoUpdateEnabled.IsChecked   = _vm.AutoUpdateEnabled;
+        SliderAutoUpdateCountdown.Value  = _vm.AutoUpdateCountdownSeconds;
+        UpdateAutoUpdateCountdownLabel(_vm.AutoUpdateCountdownSeconds);
         UpdateTrayAutoHelp();
 
         // Load Tray Display Mode
@@ -327,6 +335,12 @@ public partial class SettingsWindow : Window, IDisposable
         TxtPollingValue.Text = minutes == 1 ? "1 min" : $"{minutes} min";
     }
 
+    private void UpdateAutoUpdateCountdownLabel(int seconds)
+    {
+        if (TxtAutoUpdateCountdownValue == null) return;
+        TxtAutoUpdateCountdownValue.Text = Loc.SecondsValue(seconds);
+    }
+
     private void Setting_Changed(object sender, RoutedEventArgs e)
     {
         if (_isLoadingValues) return;
@@ -339,6 +353,7 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.Threshold90           = Chk90.IsChecked == true;
         _vm.Threshold100          = Chk100.IsChecked == true;
         _vm.NtfySendFromThisPc    = ChkNtfySendFromThisPc.IsChecked == true;
+        _vm.AutoUpdateEnabled     = ChkAutoUpdateEnabled.IsChecked == true;
         _vm.UsageSyncEnabled      = ChkUsageSyncEnabled.IsChecked == true;
         _vm.UsageSyncFolderPath   = TxtUsageSyncFolder.Text.Trim();
 
@@ -559,6 +574,17 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.ApplyPollingInterval();
     }
 
+    private void SliderAutoUpdateCountdown_ValueChanged(object sender, System.Windows.RoutedPropertyChangedEventArgs<double> e)
+    {
+        // XAML 로딩 중에는 _vm 이 아직 없을 수 있다 (v1.33.x 투명도 슬라이더 회귀와 같은 경로).
+        if (_vm == null || _isLoadingValues) return;
+
+        int seconds = (int)SliderAutoUpdateCountdown.Value;
+        UpdateAutoUpdateCountdownLabel(seconds);
+        _vm.AutoUpdateCountdownSeconds = seconds;
+        _vm.SaveSettingsCommand.Execute(null);
+    }
+
     private void UpdateTrayAutoHelp()
     {
         if (LblTrayAutoHelp == null) return;
@@ -691,6 +717,8 @@ public partial class SettingsWindow : Window, IDisposable
             _vm.NtfyTopic             = preservedNtfyTopic; // 사용자 토픽 보존
             _vm.UsageSyncEnabled      = false;
             _vm.UsageSyncFolderPath   = "";
+            _vm.AutoUpdateEnabled     = true;
+            _vm.AutoUpdateCountdownSeconds = AppConstants.DefaultAutoUpdateCountdownSeconds;
 
             // UI 동기화
             ChkEnabled.IsChecked        = _vm.NotificationsEnabled;
@@ -712,6 +740,9 @@ public partial class SettingsWindow : Window, IDisposable
             ChkNtfySendFromThisPc.IsChecked = _vm.NtfySendFromThisPc;
             ChkUsageSyncEnabled.IsChecked = _vm.UsageSyncEnabled;
             TxtUsageSyncFolder.Text       = _vm.UsageSyncFolderPath;
+            ChkAutoUpdateEnabled.IsChecked  = _vm.AutoUpdateEnabled;
+            SliderAutoUpdateCountdown.Value = _vm.AutoUpdateCountdownSeconds;
+            UpdateAutoUpdateCountdownLabel(_vm.AutoUpdateCountdownSeconds);
             CmbTrayDisplayMode.SelectedItem = TrayItemAuto;
 
             UpdateUsageSyncStatusLabel();

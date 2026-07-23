@@ -419,6 +419,10 @@
                     <!-- ===== TAB 1: 일반 ===== -->
                     <TabItem x:Name="TabGeneral" Style="{StaticResource DarkTabItem}">
                         <Border Style="{StaticResource TabCard}">
+                            <!-- 자동 업데이트 항목이 늘면서 이 탭의 내용이 창 상한(MaxHeight=720)을 넘겼다.
+                                 상한을 넘으면 스크롤 없이는 마지막 항목이 조용히 잘린다. 높이를 직접
+                                 못박지 않고 스크롤만 둬서, 창은 상한까지 자라고 남는 만큼만 스크롤한다. -->
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel>
                                 <TextBlock x:Name="LblGeneral" Style="{StaticResource SectionLabel}" Margin="0,0,0,8"/>
                                 <CheckBox x:Name="ChkEnabled" Style="{StaticResource CheckStyle}" Click="Setting_Changed"/>
@@ -452,6 +456,30 @@
 
                                 <Border Height="1" Background="#2D2F45" Margin="0,10,0,8"/>
 
+                                <!-- 자동 업데이트: 끄면 업데이트 창은 뜨되 직접 실행해야 한다 -->
+                                <TextBlock x:Name="LblAutoUpdateSection" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
+                                <CheckBox x:Name="ChkAutoUpdateEnabled" Style="{StaticResource CheckStyle}" Margin="0,0,0,4" Click="Setting_Changed"/>
+                                <TextBlock x:Name="LblAutoUpdateHelp" Foreground="#5A5F7A" FontSize="10" TextWrapping="Wrap" Margin="2,0,0,8"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4"
+                                            IsEnabled="{Binding IsChecked, ElementName=ChkAutoUpdateEnabled}">
+                                    <TextBlock x:Name="LblAutoUpdateCountdown" Foreground="#C4C9E0" FontSize="12" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="TxtAutoUpdateCountdownValue" Foreground="#A78BFA" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                </StackPanel>
+                                <Grid Margin="0,0,0,2" IsEnabled="{Binding IsChecked, ElementName=ChkAutoUpdateEnabled}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="10s" Foreground="#5A5F7A" FontSize="10" VerticalAlignment="Center"/>
+                                    <Slider x:Name="SliderAutoUpdateCountdown" Grid.Column="1" Minimum="10" Maximum="300" Value="60"
+                                            TickFrequency="10" IsSnapToTickEnabled="True" Margin="8,0"
+                                            ValueChanged="SliderAutoUpdateCountdown_ValueChanged"/>
+                                    <TextBlock Grid.Column="2" Text="300s" Foreground="#5A5F7A" FontSize="10" VerticalAlignment="Center"/>
+                                </Grid>
+
+                                <Border Height="1" Background="#2D2F45" Margin="0,10,0,8"/>
+
                                 <TextBlock x:Name="LblUsageSyncTitle" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
                                 <CheckBox x:Name="ChkUsageSyncEnabled" Style="{StaticResource CheckStyle}" Margin="0,0,0,4" Click="Setting_Changed"/>
                                 <TextBlock x:Name="LblUsageSyncDescription" Foreground="#5A5F7A" FontSize="10" TextWrapping="Wrap" Margin="2,0,0,8"/>
@@ -466,6 +494,7 @@
                                 </Grid>
                                 <TextBlock x:Name="LblUsageSyncStatus" Foreground="#7C83A4" FontSize="10" TextWrapping="Wrap" Margin="2,0,0,0"/>
                             </StackPanel>
+                            </ScrollViewer>
                         </Border>
                     </TabItem>
 

@@ -101,6 +101,12 @@ public class NotificationSettings
 
     public string SkippedVersion { get; set; } = "";
 
+    // 새 버전을 카운트다운 후 자동으로 설치할지. 끄면 업데이트 창은 그대로 뜨되 직접 실행해야 한다.
+    public bool AutoUpdateEnabled { get; set; } = true;
+
+    // 자동 설치까지의 대기 시간(초). 0 이하이면 기본값을 쓰고, 허용 범위를 벗어나면 잘라낸다.
+    public int AutoUpdateCountdownSeconds { get; set; } = 60;
+
     // 카운트다운 만료로 "자동" 적용을 시도한 버전. 재시작 후에도 이 버전이 여전히 최신으로 남아 있으면
     // 적용이 실패한 것이므로 자동 재시도를 멈추고 수동 실행을 요구한다(다운로드-재시작 루프 방지).
     // 적용이 반영되면(현재 버전 >= 기록 버전) 시작 시 자동으로 비워진다.
