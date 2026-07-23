@@ -48,6 +48,24 @@ internal static class AppConstants
     /// <summary>업데이트 배치 스크립트 대기 시간 (2초)</summary>
     public const int UpdateDelaySeconds = 2;
 
+    /// <summary>
+    /// 업데이트 모달이 스스로 설치를 시작하기까지의 대기 시간 (60초).
+    /// 릴리즈 노트를 읽고 "건너뛰기"를 누를 여유는 주되, 자리를 비운 사이에도 업데이트가 끝나도록 한다.
+    /// </summary>
+    public const int AutoUpdateCountdownSeconds = 60;
+
+    /// <summary>
+    /// 앱 시작 후 첫 업데이트 확인까지의 대기 시간 (5초).
+    /// 부팅 직후 자동 실행되는 경우 네트워크 스택이 아직 올라오지 않은 상태에서 첫 요청이 나가는 것을 피한다.
+    /// </summary>
+    public const int StartupUpdateCheckDelayMs = 5_000;
+
+    /// <summary>
+    /// 시작 시 업데이트 확인이 네트워크 도달 불가/타임아웃으로 실패했을 때의 재시도 간격 (15초 → 1분 → 3분).
+    /// 여기서 포기하면 다음 확인 기회는 <see cref="UpdateCheckIntervalMs"/>(24시간) 뒤가 된다.
+    /// </summary>
+    public static readonly int[] StartupUpdateCheckRetryDelaysMs = [15_000, 60_000, 180_000];
+
     // ============== API 백오프 ==============
     /// <summary>429 응답에 Retry-After 헤더가 없거나 파싱 실패한 경우의 기본 backoff (5분)</summary>
     public const int DefaultRateLimitBackoffSeconds = 300;
