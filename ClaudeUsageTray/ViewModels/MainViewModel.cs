@@ -342,6 +342,12 @@ namespace ClaudeUsageTray.ViewModels;
     private bool _isUpdateDialogOpen = false;
     public string CurrentVersionLabel => $"v{UpdateService.CurrentVersion.ToString(3)}";
 
+    /// <summary>새 버전을 카운트다운 후 자동 설치할지 (설정).</summary>
+    [ObservableProperty] private bool _autoUpdateEnabled = true;
+
+    /// <summary>자동 설치까지의 대기 시간(초, 설정).</summary>
+    [ObservableProperty] private int _autoUpdateCountdownSeconds = AppConstants.DefaultAutoUpdateCountdownSeconds;
+
     /// <summary>마지막 업데이트 확인 시각(로컬). null = 이번 실행에서 아직 확인 결과가 없음.</summary>
     private DateTime? _lastUpdateCheckAt;
 
@@ -497,6 +503,8 @@ namespace ClaudeUsageTray.ViewModels;
         NtfyTopic           = s.NtfyTopic;
         NtfySendFromThisPc  = s.NtfySendFromThisPc;
         StartWithWindows    = s.StartWithWindows;
+        AutoUpdateEnabled          = s.AutoUpdateEnabled;
+        AutoUpdateCountdownSeconds = ClampAutoUpdateCountdown(s.AutoUpdateCountdownSeconds);
         PollingIntervalMinutes = s.PollingIntervalMinutes;
         UsageSyncEnabled = s.UsageSyncEnabled;
         UsageSyncFolderPath = s.UsageSyncFolderPath ?? "";
@@ -710,6 +718,8 @@ namespace ClaudeUsageTray.ViewModels;
             StartWithWindows = StartWithWindows,
             SkippedVersion = existing.SkippedVersion,
             AutoUpdateAttemptedVersion = existing.AutoUpdateAttemptedVersion,
+            AutoUpdateEnabled = AutoUpdateEnabled,
+            AutoUpdateCountdownSeconds = ClampAutoUpdateCountdown(AutoUpdateCountdownSeconds),
             PollingIntervalMinutes = PollingIntervalMinutes,
             UsageSyncEnabled = UsageSyncEnabled,
             UsageSyncFolderPath = UsageSyncFolderPath.Trim(),
@@ -1007,25 +1017,37 @@ namespace ClaudeUsageTray.ViewModels;
     /// <param name="canVerify">릴리스에 SHA256 자산이 있어 무결성 검증이 가능한지.</param>
     /// <param name="autoRetryExhausted">이 버전을 이미 자동으로 적용하려다 실패한 적이 있는지.</param>
     /// <returns>카운트다운 초(0 이면 수동 실행만) 와 모달에 띄울 안내 문구(없으면 null).</returns>
-    internal static (int seconds, string? notice) ResolveAutoUpdatePlan(bool canVerify, bool autoRetryExhausted)
+    internal static (int seconds, string? notice) ResolveAutoUpdatePlan(
+        bool canVerify, bool autoRetryExhausted, bool autoUpdateEnabled, int countdownSeconds)
     {
-        // 검증이 불가능하면 사람이 보지 않는 사이에 설치하지 않는다.
-        // 경고를 보고 직접 실행하는 것은 사용자의 판단으로 남겨 둔다.
+        // 검증이 불가능하면 사람이 보지 않는 사이에 설치하지 않는다. 이 안내는 자동 설치를 꺼 둔
+        // 사용자에게도 유효하다 — 직접 실행할지 판단하는 데 필요한 정보라 먼저 확인한다.
         if (!canVerify) return (0, Loc.UpdateNoChecksumWarning);
+
+        // 사용자가 자동 설치를 껐다면 그대로 따른다. 본인이 고른 동작이므로 별도 안내는 띄우지 않는다.
+        if (!autoUpdateEnabled) return (0, null);
 
         // 자동 적용이 끝내 반영되지 않은 버전이면 자동 재시도 대신 수동 실행을 요구한다 —
         // 그렇지 않으면 매 실행마다 다운로드 → 재시작을 반복하는 루프가 된다.
         if (autoRetryExhausted) return (0, Loc.AutoUpdateRetryManual);
 
-        return (AppConstants.AutoUpdateCountdownSeconds, null);
+        return (ClampAutoUpdateCountdown(countdownSeconds), null);
     }
+
+    /// <summary>설정값을 허용 범위로 잘라낸다. 0 이하(미설정·구버전 설정 파일)는 기본값으로 본다.</summary>
+    internal static int ClampAutoUpdateCountdown(int seconds) => Math.Clamp(
+        seconds <= 0 ? AppConstants.DefaultAutoUpdateCountdownSeconds : seconds,
+        AppConstants.MinAutoUpdateCountdownSeconds,
+        AppConstants.MaxAutoUpdateCountdownSeconds);
 
     /// <summary>업데이트 모달을 연다. 카운트다운 허용 여부는 <see cref="ResolveAutoUpdatePlan"/> 가 정한다.</summary>
     private void ShowUpdateDialogWithCountdown(string version, string notes)
     {
         var (seconds, notice) = ResolveAutoUpdatePlan(
             canVerify: !string.IsNullOrWhiteSpace(_updateSha256Url),
-            autoRetryExhausted: _settingsService.Load().AutoUpdateAttemptedVersion == version);
+            autoRetryExhausted: _settingsService.Load().AutoUpdateAttemptedVersion == version,
+            autoUpdateEnabled: AutoUpdateEnabled,
+            countdownSeconds: AutoUpdateCountdownSeconds);
 
         ShowUpdateDialog(version, notes, autoUpdateSeconds: seconds, notice: notice);
     }

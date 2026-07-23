@@ -49,10 +49,17 @@ internal static class AppConstants
     public const int UpdateDelaySeconds = 2;
 
     /// <summary>
-    /// 업데이트 모달이 스스로 설치를 시작하기까지의 대기 시간 (60초).
+    /// 업데이트 모달이 스스로 설치를 시작하기까지의 기본 대기 시간 (60초).
     /// 릴리즈 노트를 읽고 "건너뛰기"를 누를 여유는 주되, 자리를 비운 사이에도 업데이트가 끝나도록 한다.
+    /// 설정에서 <see cref="MinAutoUpdateCountdownSeconds"/>~<see cref="MaxAutoUpdateCountdownSeconds"/> 범위로 바꿀 수 있다.
     /// </summary>
-    public const int AutoUpdateCountdownSeconds = 60;
+    public const int DefaultAutoUpdateCountdownSeconds = 60;
+
+    /// <summary>자동 설치 대기 시간 하한 (10초) — 건너뛰기를 누를 최소한의 여유.</summary>
+    public const int MinAutoUpdateCountdownSeconds = 10;
+
+    /// <summary>자동 설치 대기 시간 상한 (5분).</summary>
+    public const int MaxAutoUpdateCountdownSeconds = 300;
 
     /// <summary>
     /// 앱 시작 후 첫 업데이트 확인까지의 대기 시간 (5초).

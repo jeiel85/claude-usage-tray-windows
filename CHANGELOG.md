@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.36.0] - 2026-07-23
+
+<!-- ko -->
+### 추가
+- **자동 업데이트 켜기/끄기와 대기 시간 설정** — 설정 → 일반 탭에 "새 버전을 자동으로 설치" 토글과 대기 시간 슬라이더(10~300초, 기본 60초)를 추가했습니다. 끄면 업데이트 창은 그대로 뜨되 카운트다운 없이 직접 실행해야 합니다. 자동 설치를 끄면 대기 시간 슬라이더도 함께 비활성화됩니다.
+
+### 개선
+- **설정 일반 탭 스크롤** — 항목이 늘어 창 높이 상한을 넘기면서 마지막 항목이 잘리던 문제를 막기 위해, 일반 탭에 스크롤을 추가했습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Auto-update toggle and wait-time setting** — Settings → General now has an "Install new versions automatically" toggle and a wait-time slider (10–300s, default 60s). With it off, the update window still appears but installs only when you press the button yourself. Turning it off also disables the wait-time slider.
+
+### Improved
+- **Scrolling in the General settings tab** — As settings piled up, the tab exceeded the window height cap and silently clipped the last item. The tab now scrolls.
+<!-- /en -->
+
 ## [1.35.2] - 2026-07-23
 
 <!-- ko -->
