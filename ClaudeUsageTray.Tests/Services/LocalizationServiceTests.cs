@@ -3,6 +3,11 @@ using Xunit;
 
 namespace ClaudeUsageTray.Tests.Services;
 
+// Loc.Lang 은 프로세스 전역 상태다. 이 클래스는 언어를 바꿔 두고 문구를 확인하는데,
+// 다른 컬렉션이 병렬로 MainViewModel 을 만들면 그 생성자의 LoadSettings() → Loc.SetLanguage()
+// 가 중간에 언어를 갈아엎어 단정이 깨진다(CI 에서 ko 케이스가 영어 문구를 받아 실패).
+// Loc 을 건드리는 테스트를 한 컬렉션으로 묶어 직렬화한다.
+[Collection("WpfTests")]
 public class LocalizationServiceTests
 {
     [Theory]
