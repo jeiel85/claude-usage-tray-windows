@@ -1018,6 +1018,17 @@ public static class Loc
     };
 
     /// <summary>
+    /// 릴리스에 SHA256 자산이 없어 무결성 검증이 불가능한 경우 — 무인 설치를 하지 않는다.
+    /// </summary>
+    public static string UpdateNoChecksumWarning => Lang switch
+    {
+        "ko" => "무결성 검증 파일(SHA256)이 없는 릴리스입니다 — 자동 설치를 건너뜁니다",
+        "zh" => "此版本未提供完整性校验文件(SHA256) — 已跳过自动安装",
+        "ja" => "整合性検証ファイル(SHA256)がないリリースです — 自動インストールは行いません",
+        _ => "This release ships no SHA256 checksum — skipping the automatic install"
+    };
+
+    /// <summary>
     /// 이전 자동 적용이 실패해 같은 버전으로 다시 시작된 경우 — 자동 재시도를 멈추고 수동 확인을 요구한다.
     /// </summary>
     public static string AutoUpdateRetryManual => Lang switch

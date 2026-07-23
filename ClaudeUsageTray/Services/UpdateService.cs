@@ -179,8 +179,21 @@ public class UpdateService
     /// Downloads the new executable to a temporary location and verifies its SHA256.
     /// Reports progress via the provided action.
     /// </summary>
-    public async Task<string> DownloadAndPrepareUpdateAsync(string downloadUrl, string sha256Url, Action<int, string> onProgress)
+    /// <param name="allowUnverified">
+    /// 릴리스에 SHA256 자산이 없어도 설치를 진행할지. 기본값(false)은 거부다 —
+    /// 카운트다운 무인 설치가 검증 불가능한 바이너리를 조용히 설치하는 일이 없어야 한다.
+    /// 사용자가 경고를 보고 직접 실행을 누른 경우에만 호출부가 true 를 넘긴다.
+    /// </param>
+    public async Task<string> DownloadAndPrepareUpdateAsync(string downloadUrl, string sha256Url,
+                                                            Action<int, string> onProgress,
+                                                            bool allowUnverified = false)
     {
+        // 내려받기 전에 막는다: 설치하지 못할 30MB 를 받을 이유가 없고, 검증 여부는 다운로드 결과와
+        // 무관하게 릴리스 자산 구성만으로 이미 결정돼 있다.
+        if (string.IsNullOrWhiteSpace(sha256Url) && !allowUnverified)
+            throw new InvalidOperationException(
+                "This release has no SHA256 checksum asset; refusing to install it unattended.");
+
         var tempExe = Path.Combine(Path.GetTempPath(), $"ClaudeUsageTray_new_{Guid.NewGuid():N}.exe");
 
         // 1. Download
