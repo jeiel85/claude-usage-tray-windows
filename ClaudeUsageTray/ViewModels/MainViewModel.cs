@@ -1002,17 +1002,32 @@ namespace ClaudeUsageTray.ViewModels;
     }
 
     /// <summary>
-    /// 카운트다운이 붙은 업데이트 모달을 연다. 다만 이전 실행에서 이미 이 버전을 자동으로 적용하려다
-    /// 실패했다면(재시작 후에도 같은 버전이 최신) 카운트다운을 끄고 수동 실행을 요구한다 —
-    /// 그렇지 않으면 매 실행마다 다운로드 → 재시작을 반복하는 루프가 된다.
+    /// 무인 설치(카운트다운)를 허용할지 결정한다. 정책 자체를 검증할 수 있도록 순수 함수로 분리했다.
     /// </summary>
+    /// <param name="canVerify">릴리스에 SHA256 자산이 있어 무결성 검증이 가능한지.</param>
+    /// <param name="autoRetryExhausted">이 버전을 이미 자동으로 적용하려다 실패한 적이 있는지.</param>
+    /// <returns>카운트다운 초(0 이면 수동 실행만) 와 모달에 띄울 안내 문구(없으면 null).</returns>
+    internal static (int seconds, string? notice) ResolveAutoUpdatePlan(bool canVerify, bool autoRetryExhausted)
+    {
+        // 검증이 불가능하면 사람이 보지 않는 사이에 설치하지 않는다.
+        // 경고를 보고 직접 실행하는 것은 사용자의 판단으로 남겨 둔다.
+        if (!canVerify) return (0, Loc.UpdateNoChecksumWarning);
+
+        // 자동 적용이 끝내 반영되지 않은 버전이면 자동 재시도 대신 수동 실행을 요구한다 —
+        // 그렇지 않으면 매 실행마다 다운로드 → 재시작을 반복하는 루프가 된다.
+        if (autoRetryExhausted) return (0, Loc.AutoUpdateRetryManual);
+
+        return (AppConstants.AutoUpdateCountdownSeconds, null);
+    }
+
+    /// <summary>업데이트 모달을 연다. 카운트다운 허용 여부는 <see cref="ResolveAutoUpdatePlan"/> 가 정한다.</summary>
     private void ShowUpdateDialogWithCountdown(string version, string notes)
     {
-        bool autoRetryExhausted = _settingsService.Load().AutoUpdateAttemptedVersion == version;
+        var (seconds, notice) = ResolveAutoUpdatePlan(
+            canVerify: !string.IsNullOrWhiteSpace(_updateSha256Url),
+            autoRetryExhausted: _settingsService.Load().AutoUpdateAttemptedVersion == version);
 
-        ShowUpdateDialog(version, notes,
-            autoUpdateSeconds: autoRetryExhausted ? 0 : AppConstants.AutoUpdateCountdownSeconds,
-            notice: autoRetryExhausted ? Loc.AutoUpdateRetryManual : null);
+        ShowUpdateDialog(version, notes, autoUpdateSeconds: seconds, notice: notice);
     }
 
     private void ShowUpdateDialog(string version, string notes, int autoUpdateSeconds, string? notice)
@@ -1044,7 +1059,10 @@ namespace ClaudeUsageTray.ViewModels;
                         IsUpdating = true;
                         var tempPath = await _updater.DownloadAndPrepareUpdateAsync(
                             _updateDownloadUrl, _updateSha256Url,
-                            (pc, status) =>
+                            // 이중 방어: 카운트다운으로 시작된 무인 설치는 검증 자산이 없으면 서비스가 거부한다.
+                            // 사용자가 경고를 보고 직접 누른 경우에만 검증 없이 진행한다.
+                            allowUnverified: !dialog.StartedAutomatically,
+                            onProgress: (pc, status) =>
                             {
                                 dialog.UpdateProgress(pc, status);
                                 System.Windows.Application.Current.Dispatcher.Invoke(() =>

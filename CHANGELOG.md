@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.35.2] - 2026-07-23
+
+<!-- ko -->
+### 보안
+- **무결성 검증이 불가능한 릴리스는 자동 설치하지 않습니다** — 릴리스에 SHA256 체크섬 파일이 첨부되지 않은 경우, 지금까지는 검증을 조용히 건너뛰고 그대로 설치했습니다. 이제 이런 릴리스에서는 카운트다운 자동 설치를 하지 않고 업데이트 창에 안내를 표시하며, 사용자가 직접 "지금 업데이트"를 누른 경우에만 진행합니다. 다운로드도 시작하기 전에 판단하므로 불필요한 내려받기가 없습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Security
+- **Releases that can't be verified are never installed unattended** — When a release ships without a SHA256 checksum file, the app used to skip verification silently and install anyway. Such releases now skip the countdown auto-install and show a notice in the update window; the install proceeds only if you press "Update Now" yourself. The check happens before the download starts, so nothing is fetched needlessly.
+<!-- /en -->
+
 ## [1.35.1] - 2026-07-23
 
 <!-- ko -->
