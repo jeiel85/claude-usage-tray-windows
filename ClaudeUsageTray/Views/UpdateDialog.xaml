@@ -7,7 +7,6 @@
         AllowsTransparency="True"
         Background="Transparent"
         WindowStartupLocation="CenterScreen"
-        Topmost="True"
         ShowInTaskbar="True">
 
     <Window.Resources>
@@ -22,6 +21,29 @@
              이 키가 없어서 InitializeComponent() 가 XamlParseException 을 던졌고 —
              모달이 생성조차 되지 못해 업데이트가 열리지 않던 근본 원인이었다. -->
         <SolidColorBrush x:Key="DangerBrush" Color="#EF4444"/>
+
+        <!-- 헤더 아이콘 버튼 (최소화 / 닫기) — Content 를 그대로 글리프로 그린다 -->
+        <Style x:Key="HeaderIconBtn" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="#8B92B3"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="6" Width="28" Height="28">
+                            <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                                       FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#2D2F45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Border Margin="15">
@@ -48,29 +70,13 @@
                                        Foreground="{StaticResource TextPrimary}" 
                                        FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         </StackPanel>
-                        <Button HorizontalAlignment="Right" Cursor="Hand" Click="Close_Click">
-                            <Button.Style>
-                                <Style TargetType="Button">
-                                    <Setter Property="Background" Value="Transparent"/>
-                                    <Setter Property="BorderThickness" Value="0"/>
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="Button">
-                                                <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="6" Width="28" Height="28">
-                                                    <TextBlock Text="✕" Foreground="#8B92B3" FontSize="12"
-                                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                </Border>
-                                                <ControlTemplate.Triggers>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="Bd" Property="Background" Value="#2D2F45"/>
-                                                    </Trigger>
-                                                </ControlTemplate.Triggers>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </Button.Style>
-                        </Button>
+                        <!-- 창을 치워둘 수 있도록 최소화 버튼 제공 (WindowStyle=None 이라 기본 제목표시줄이 없다) -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button x:Name="MinimizeBtn" Style="{StaticResource HeaderIconBtn}"
+                                    Content="—" Click="Minimize_Click"/>
+                            <Button Style="{StaticResource HeaderIconBtn}"
+                                    Content="✕" Click="Close_Click"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
 
@@ -103,19 +109,31 @@
                 <!-- Footer / Action Area -->
                 <Border Grid.Row="2" Background="#141622" CornerRadius="0,0,16,16" Padding="20,15">
                     <Grid>
+                        <!-- 안내/오류 문구는 액션 영역과 겹치지 않도록 별도 행에 둔다 -->
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
                         <!-- Error Message (shown by ShowError) -->
-                        <TextBlock x:Name="ErrorText" Foreground="{StaticResource DangerBrush}" 
+                        <TextBlock Grid.Row="0" x:Name="ErrorText" Foreground="{StaticResource DangerBrush}"
                                    FontSize="12" TextWrapping="Wrap" Margin="0,0,0,10"
                                    Visibility="Collapsed" HorizontalAlignment="Center"/>
 
                         <!-- Normal State -->
-                        <Grid x:Name="ActionPanel">
+                        <Grid Grid.Row="1" x:Name="ActionPanel">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             
+                            <!-- 자동 적용까지 남은 시간 — autoUpdateSeconds > 0 일 때만 보인다 -->
+                            <TextBlock Grid.Column="0" x:Name="CountdownText"
+                                       Foreground="{StaticResource TextSecondary}" FontSize="11"
+                                       VerticalAlignment="Center" Margin="0,0,10,0"
+                                       TextTrimming="CharacterEllipsis" Visibility="Collapsed"/>
+
                             <Button Grid.Column="1" x:Name="SkipBtn" Margin="0,0,10,0" Cursor="Hand" Click="Skip_Click">
                                 <Button.Style>
                                     <Style TargetType="Button">
@@ -164,7 +182,7 @@
                         </Grid>
 
                         <!-- Progress State (Integrated) -->
-                        <Grid x:Name="ProgressPanel" Visibility="Collapsed">
+                        <Grid Grid.Row="1" x:Name="ProgressPanel" Visibility="Collapsed">
                             <StackPanel>
                                 <Grid Margin="0,0,0,8">
                                     <TextBlock x:Name="StatusText" Text="다운로드 중..." Foreground="{StaticResource TextSecondary}" FontSize="12"/>

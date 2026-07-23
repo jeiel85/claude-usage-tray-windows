@@ -3,6 +3,30 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.35.0] - 2026-07-23
+
+<!-- ko -->
+### 추가
+- **업데이트 모달 자동 적용 카운트다운** — 업데이트 창이 뜨면 60초 카운트다운이 시작되고, 그 안에 아무것도 누르지 않으면 자동으로 설치가 진행됩니다. 카운트다운 중 "이번 버전 건너뛰기"나 "지금 업데이트"를 누르면 즉시 처리되고, 창을 닫으면 자동 적용이 취소됩니다.
+
+### 개선
+- **앱 시작 시 업데이트 확인 신뢰성 개선** — 사용량 조회가 끝나기를 기다리지 않고 시작 직후 독립적으로 확인하며, 부팅 직후 네트워크가 아직 준비되지 않아 실패하면 15초·1분·3분 간격으로 재시도합니다. 이전에는 첫 시도가 실패하면 다음 확인이 24시간 뒤였습니다.
+- **확인 결과가 화면에 보이도록 수정** — 새 버전을 찾아도 아무 표시가 없던 문제를 고쳐, 시작 시 새 버전을 찾으면 업데이트 창을 바로 띄우고 백그라운드 확인 결과는 푸터에 표시합니다. 좌하단 버전에 마우스를 올리면 마지막 확인 시각과 결과를 볼 수 있습니다.
+- **자동 업데이트 반복 방지** — 자동 적용이 끝내 반영되지 않은 버전은 다음 실행에서 자동 재시도 대신 직접 실행하도록 안내해, 다운로드와 재시작이 반복되는 상황을 막습니다.
+- **업데이트 창을 잠시 치워둘 수 있도록 개선** — 업데이트 창의 항상 위 고정을 해제하고 최소화 버튼(—)을 추가해, 다른 작업을 하는 동안 창이 계속 위에 떠 있지 않습니다. 최소화해도 카운트다운은 계속 흐르므로, 자동 적용을 멈추려면 창을 닫거나 "이번 버전 건너뛰기"를 누르면 됩니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Auto-apply countdown in the update dialog** — When the update window opens, a 60-second countdown starts and the update installs automatically if you do nothing. Pressing "Skip This Version" or "Update Now" during the countdown takes effect immediately, and closing the window cancels the auto-apply.
+
+### Improved
+- **More reliable update check at startup** — The check now runs independently instead of waiting for the usage refresh to finish, and retries after 15s, 1m, and 3m when it fails because the network isn't up yet right after boot. Previously a single failed attempt meant no further check for 24 hours.
+- **Check results are actually visible** — Finding a new version used to leave no trace on screen. The startup check now opens the update window directly, background checks show the result in the footer, and hovering the version in the bottom-left shows the last check time and outcome.
+- **Guard against repeated auto-updates** — If an automatic update never takes effect, the next launch asks you to run it manually instead of retrying automatically, preventing a download-and-restart loop.
+- **The update window can be set aside** — It no longer stays pinned above every other window, and a minimize button (—) was added. The countdown keeps running while minimized, so close the window or press "Skip This Version" to stop the auto-apply.
+<!-- /en -->
+
 ## [1.34.12] - 2026-07-15
 
 <!-- ko -->

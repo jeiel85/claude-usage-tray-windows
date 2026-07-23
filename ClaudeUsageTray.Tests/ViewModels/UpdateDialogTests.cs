@@ -30,4 +30,47 @@ public class UpdateDialogTests
             Assert.NotNull(dialog);
         });
     }
+
+    // 카운트다운이 끝나면 사용자가 "지금 업데이트"를 누르지 않아도 설치가 시작돼야 한다.
+    // StartedAutomatically 는 호출부가 무한 재시도 방지 표식을 남기는 기준이라 함께 검증한다.
+    [Fact]
+    public async Task Countdown_StartsUpdateAutomatically_WhenItExpires()
+    {
+        var started = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        UpdateDialog? dialog = null;
+
+        await WpfTestHost.RunAsync(() =>
+        {
+            dialog = new UpdateDialog("v9.9.9", "- note", onSkip: () => { }, autoUpdateSeconds: 1);
+            dialog.OnUpdateRequested += () => started.TrySetResult(dialog!.StartedAutomatically);
+        });
+
+        var finished = await Task.WhenAny(started.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+        Assert.Same(started.Task, finished);
+        Assert.True(await started.Task);
+
+        await WpfTestHost.RunAsync(() => dialog!.Close());
+    }
+
+    // autoUpdateSeconds 를 주지 않으면(수동 확인 경로, 또는 직전 자동 적용이 실패한 버전)
+    // 모달은 스스로 설치를 시작하지 않아야 한다.
+    [Fact]
+    public async Task NoCountdown_DoesNotStartUpdateOnItsOwn()
+    {
+        var requested = false;
+        UpdateDialog? dialog = null;
+
+        await WpfTestHost.RunAsync(() =>
+        {
+            dialog = new UpdateDialog("v9.9.9", "- note", onSkip: () => { });
+            dialog.OnUpdateRequested += () => requested = true;
+        });
+
+        await Task.Delay(TimeSpan.FromSeconds(1.5));
+
+        Assert.False(requested);
+        Assert.False(dialog!.StartedAutomatically);
+
+        await WpfTestHost.RunAsync(() => dialog!.Close());
+    }
 }

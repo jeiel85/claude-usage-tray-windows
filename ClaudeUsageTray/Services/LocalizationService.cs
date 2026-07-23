@@ -999,6 +999,53 @@ public static class Loc
         _ => "Open Releases page ↗"
     };
 
+    /// <summary>업데이트 모달 최소화 버튼 툴팁 — 카운트다운은 최소화 상태에서도 계속 흐른다.</summary>
+    public static string MinimizeWindow => Lang switch
+    {
+        "ko" => "최소화 (카운트다운은 계속됩니다)",
+        "zh" => "最小化（倒计时继续）",
+        "ja" => "最小化（カウントダウンは続きます）",
+        _ => "Minimize (countdown keeps running)"
+    };
+
+    /// <summary>업데이트 모달의 자동 적용 카운트다운 — 남은 시간을 초 단위로 안내한다.</summary>
+    public static string AutoUpdateCountdown(int seconds) => Lang switch
+    {
+        "ko" => $"{seconds}초 후 자동 업데이트",
+        "zh" => $"{seconds} 秒后自动更新",
+        "ja" => $"{seconds} 秒後に自動更新",
+        _ => $"Auto-updating in {seconds}s"
+    };
+
+    /// <summary>
+    /// 이전 자동 적용이 실패해 같은 버전으로 다시 시작된 경우 — 자동 재시도를 멈추고 수동 확인을 요구한다.
+    /// </summary>
+    public static string AutoUpdateRetryManual => Lang switch
+    {
+        "ko" => "지난 자동 업데이트가 완료되지 않았습니다 — 직접 실행해 주세요",
+        "zh" => "上次自动更新未完成 — 请手动执行",
+        "ja" => "前回の自動アップデートが完了しませんでした — 手動で実行してください",
+        _ => "The last auto-update didn't complete — please run it manually"
+    };
+
+    /// <summary>푸터 버전 툴팁: 마지막 업데이트 확인 시각과 결과.</summary>
+    public static string LastUpdateCheck(string when, string status) => Lang switch
+    {
+        "ko" => $"마지막 업데이트 확인: {when}\n{status}",
+        "zh" => $"上次检查更新：{when}\n{status}",
+        "ja" => $"最終アップデート確認: {when}\n{status}",
+        _ => $"Last update check: {when}\n{status}"
+    };
+
+    /// <summary>푸터 버전 툴팁: 아직 한 번도 확인하지 못한 상태(시작 직후 또는 연속 실패).</summary>
+    public static string UpdateCheckNotYetRun => Lang switch
+    {
+        "ko" => "아직 업데이트를 확인하지 못했습니다 — 클릭하면 지금 확인합니다",
+        "zh" => "尚未检查更新 — 点击立即检查",
+        "ja" => "まだアップデートを確認していません — クリックで今すぐ確認",
+        _ => "Not checked yet — click to check now"
+    };
+
     /// <summary>
     /// 릴리즈 노트에서 현재 언어 블록만 추출한다.
     /// <!-- ko -->...<!-- /ko --> 형식. 해당 언어 블록이 없으면 en 블록을 반환한다.

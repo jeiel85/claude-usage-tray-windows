@@ -342,6 +342,21 @@ namespace ClaudeUsageTray.ViewModels;
     private bool _isUpdateDialogOpen = false;
     public string CurrentVersionLabel => $"v{UpdateService.CurrentVersion.ToString(3)}";
 
+    /// <summary>마지막 업데이트 확인 시각(로컬). null = 이번 실행에서 아직 확인 결과가 없음.</summary>
+    private DateTime? _lastUpdateCheckAt;
+
+    /// <summary>
+    /// 마지막 확인 결과 문구를 지연 평가로 보관한다. 완성된 문자열을 캐시해 두면 사용자가 표시 언어를
+    /// 바꿨을 때 이 툴팁만 이전 언어로 남는다.
+    /// </summary>
+    private Func<string>? _lastUpdateCheckStatus;
+
+    /// <summary>푸터 버전 툴팁 — 시작 시 확인이 실제로 돌았는지 사용자가 눈으로 확인할 수 있는 유일한 지점.</summary>
+    public string UpdateCheckTooltip =>
+        _lastUpdateCheckAt is null || _lastUpdateCheckStatus is null
+            ? Loc.UpdateCheckNotYetRun
+            : Loc.LastUpdateCheck(_lastUpdateCheckAt.Value.ToString("yyyy-MM-dd HH:mm"), _lastUpdateCheckStatus());
+
     public string? RawApiResponse { get; private set; }
 
     // Localized static labels
@@ -679,7 +694,7 @@ namespace ClaudeUsageTray.ViewModels;
         if (IsGeminiEnabled)   visibleProviders.Add(UsageProviderKind.GeminiCli);
         if (IsOpenCodeEnabled) visibleProviders.Add(UsageProviderKind.OpenCode);
 
-        // Preserve SkippedVersion from disk
+        // Preserve SkippedVersion / AutoUpdateAttemptedVersion from disk
         var existing = _settingsService.Load();
 
         _settingsService.Save(new NotificationSettings
@@ -694,6 +709,7 @@ namespace ClaudeUsageTray.ViewModels;
             NtfySendFromThisPc = NtfySendFromThisPc,
             StartWithWindows = StartWithWindows,
             SkippedVersion = existing.SkippedVersion,
+            AutoUpdateAttemptedVersion = existing.AutoUpdateAttemptedVersion,
             PollingIntervalMinutes = PollingIntervalMinutes,
             UsageSyncEnabled = UsageSyncEnabled,
             UsageSyncFolderPath = UsageSyncFolderPath.Trim(),
@@ -733,11 +749,17 @@ namespace ClaudeUsageTray.ViewModels;
 
     public async Task StartAsync()
     {
+        // 이전 자동 적용이 실제로 반영됐다면 루프 방지 표식을 먼저 정리한다.
+        ClearCompletedAutoUpdateMarker();
+
+        // 업데이트 확인은 사용량 갱신과 독립적으로 진행한다. RefreshAsync() 뒤에 붙여 두면 모든 공급자와
+        // 날씨 조회가 끝날 때까지 확인이 시작조차 못 하고, 그 사이 실패하면 24시간 동안 재시도가 없었다.
+        _ = RunStartupUpdateCheckAsync();
+
         await RefreshAsync();
         _timer.Start();
         _countdownTimer.Start();
         _updateTimer.Start();
-        _ = CheckForUpdateAsync();
     }
 
     [RelayCommand]
@@ -755,16 +777,10 @@ namespace ClaudeUsageTray.ViewModels;
         }
         catch (UpdateCheckException uex)
         {
+            RecordUpdateCheck(() => DescribeUpdateCheckError(uex));
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
             {
-                UpdateCheckLabel = uex.Kind switch
-                {
-                    UpdateCheckErrorKind.RateLimit => Loc.UpdateCheckRateLimited(uex.RetryAtLocal ?? ""),
-                    UpdateCheckErrorKind.Network   => Loc.UpdateCheckNetworkError,
-                    UpdateCheckErrorKind.Timeout   => Loc.UpdateCheckTimeout,
-                    UpdateCheckErrorKind.ApiError  => Loc.UpdateCheckApiError(uex.StatusCode ?? 0),
-                    _ => Loc.UpdateCheckFailed
-                };
+                UpdateCheckLabel = DescribeUpdateCheckError(uex);
 
                 if (uex.Kind is UpdateCheckErrorKind.RateLimit
                                or UpdateCheckErrorKind.Timeout
@@ -794,10 +810,10 @@ namespace ClaudeUsageTray.ViewModels;
         catch (Exception ex)
         {
             // 분류되지 않은 예외 — 메시지 일부라도 노출
+            var detail = Truncate(ex.Message);
+            RecordUpdateCheck(() => $"{Loc.UpdateCheckFailed}: {detail}");
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
             {
-                var detail = ex.Message;
-                if (detail.Length > 80) detail = detail[..80] + "…";
                 UpdateCheckLabel = $"{Loc.UpdateCheckFailed}: {detail}";
                 await Task.Delay(5000);
                 UpdateCheckLabel = "";
@@ -805,32 +821,72 @@ namespace ClaudeUsageTray.ViewModels;
             return;
         }
 
-        await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
+        if (result is null)
         {
-            if (result is null)
+            RecordUpdateCheck(() => Loc.AlreadyUpToDate);
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
             {
+                UpdateAvailable = false;
                 UpdateCheckLabel = Loc.AlreadyUpToDate;
                 await Task.Delay(3000);
                 UpdateCheckLabel = "";
+            });
+            return;
+        }
+
+        // 사용자가 직접 확인을 요청했으므로, 이전에 건너뛴 버전이라도 다시 제시한다.
+        var manualVersion = result.version.ToString(3);
+        var stored = _settingsService.Load();
+        if (stored.SkippedVersion == manualVersion)
+        {
+            stored.SkippedVersion = "";
+            _settingsService.Save(stored);
+        }
+
+        await ApplyCheckResultAsync(result, showDialog: true);
+    }
+
+    /// <summary>
+    /// 시작 직후 1회 업데이트 확인. Windows 시작 프로그램으로 부팅 직후 실행되면 네트워크 스택이 아직
+    /// 준비되지 않아 첫 요청이 실패하는 일이 잦다 — 여기서 조용히 포기하면 다음 기회가 24시간 뒤가
+    /// 되므로, 도달 불가/타임아웃에 한해 백오프 재시도한다.
+    /// </summary>
+    private async Task RunStartupUpdateCheckAsync()
+    {
+        await Task.Delay(AppConstants.StartupUpdateCheckDelayMs);
+
+        var retryDelays = AppConstants.StartupUpdateCheckRetryDelaysMs;
+        for (int attempt = 0; attempt <= retryDelays.Length; attempt++)
+        {
+            if (IsUpdating) return;
+
+            UpdateService.UpdateInfo? result;
+            try
+            {
+                result = await _updater.CheckForUpdateAsync();
+            }
+            catch (UpdateCheckException uex)
+            {
+                RecordUpdateCheck(() => DescribeUpdateCheckError(uex));
+
+                // rate limit / API 오류는 즉시 재시도해도 같은 응답이다 — 24시간 타이머에 맡긴다.
+                bool retryable = uex.Kind is UpdateCheckErrorKind.Network or UpdateCheckErrorKind.Timeout;
+                if (!retryable || attempt == retryDelays.Length) return;
+
+                await Task.Delay(retryDelays[attempt]);
+                continue;
+            }
+            catch (Exception ex)
+            {
+                var detail = Truncate(ex.Message);
+                RecordUpdateCheck(() => $"{Loc.UpdateCheckFailed}: {detail}");
                 return;
             }
 
-            var info = result;
-            var versionStr = StoreAvailableUpdate(info);
-            UpdateCheckLabel = "";
-
-            var settings = _settingsService.Load();
-            if (settings.SkippedVersion == versionStr)
-            {
-                settings.SkippedVersion = "";
-                _settingsService.Save(settings);
-            }
-
-            UpdateLabel = Loc.UpdateAvailable($"v{versionStr}");
-            UpdateAvailable = true;
-
-            ShowUpdateDialog(versionStr, _updateReleaseNotes);
-        });
+            // 시작 시점은 앱을 재시작해도 사용자의 작업을 끊지 않는 유일한 타이밍이라 모달을 띄운다.
+            await ApplyCheckResultAsync(result, showDialog: true);
+            return;
+        }
     }
 
     private async Task CheckForUpdateAsync()
@@ -842,26 +898,88 @@ namespace ClaudeUsageTray.ViewModels;
         {
             result = await _updater.CheckForUpdateAsync();
         }
-        catch
+        catch (UpdateCheckException uex)
         {
+            RecordUpdateCheck(() => DescribeUpdateCheckError(uex));
             return;
         }
-        if (result is null) return;
+        catch (Exception ex)
+        {
+            var detail = Truncate(ex.Message);
+            RecordUpdateCheck(() => $"{Loc.UpdateCheckFailed}: {detail}");
+            return;
+        }
 
-        var info = result;
-        var versionStr = StoreAvailableUpdate(info);
+        // 주기 확인은 모달을 띄우지 않는다 (v1.33.8): 작업 중인 화면을 갑자기 가로채지 않도록 캐시와
+        // 푸터 라벨만 갱신하고, 실제 설치는 사용자가 버전을 클릭하거나 다음 시작 시 진행된다.
+        await ApplyCheckResultAsync(result, showDialog: false);
+    }
 
-        var settings = _settingsService.Load();
-        if (settings.SkippedVersion == versionStr) return;
+    /// <summary>확인 결과를 캐시·라벨·툴팁에 반영하고, 필요하면 카운트다운 모달을 띄운다.</summary>
+    private async Task ApplyCheckResultAsync(UpdateService.UpdateInfo? result, bool showDialog)
+    {
+        if (result is null)
+        {
+            RecordUpdateCheck(() => Loc.AlreadyUpToDate);
+            await OnUiThreadAsync(() => UpdateAvailable = false);
+            return;
+        }
 
-        // 배너도 자동 모달도 띄우지 않는다 (v1.33.8): 캐시만 갱신해 두고, 사용자가 좌하단 버전을
-        // 클릭하면 ManualCheckForUpdateAsync 의 캐시 경로가 즉시 모달을 연다. 백그라운드 체크가
-        // 갑자기 UI 를 가로채지 않도록 한다.
-        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+        var versionStr = StoreAvailableUpdate(result);
+        RecordUpdateCheck(() => Loc.UpdateAvailable($"v{versionStr}"));
+
+        if (_settingsService.Load().SkippedVersion == versionStr) return;
+
+        await OnUiThreadAsync(() =>
         {
             UpdateLabel = Loc.UpdateAvailable($"v{versionStr}");
             UpdateAvailable = true;
+            // UpdateLabel 은 어떤 XAML 에도 바인딩돼 있지 않다 — 확인 결과가 화면에 전혀 드러나지 않던
+            // 원인이라, 푸터에 실제로 보이는 UpdateCheckLabel 에도 같은 문구를 남긴다.
+            UpdateCheckLabel = UpdateLabel;
+
+            if (showDialog)
+                ShowUpdateDialogWithCountdown(versionStr, _updateReleaseNotes);
         });
+    }
+
+    private static string DescribeUpdateCheckError(UpdateCheckException uex) => uex.Kind switch
+    {
+        UpdateCheckErrorKind.RateLimit => Loc.UpdateCheckRateLimited(uex.RetryAtLocal ?? ""),
+        UpdateCheckErrorKind.Network   => Loc.UpdateCheckNetworkError,
+        UpdateCheckErrorKind.Timeout   => Loc.UpdateCheckTimeout,
+        UpdateCheckErrorKind.ApiError  => Loc.UpdateCheckApiError(uex.StatusCode ?? 0),
+        _ => Loc.UpdateCheckFailed
+    };
+
+    private static string Truncate(string text, int max = 80) =>
+        text.Length > max ? text[..max] + "…" : text;
+
+    /// <summary>확인 시각과 결과를 기록해 푸터 버전 툴팁에 노출한다.</summary>
+    private void RecordUpdateCheck(Func<string> status)
+    {
+        _lastUpdateCheckAt = DateTime.Now;
+        _lastUpdateCheckStatus = status;
+        _ = OnUiThreadAsync(() => OnPropertyChanged(nameof(UpdateCheckTooltip)));
+    }
+
+    /// <summary>
+    /// UI 스레드로 마샬링한다. 시작 시 확인은 대기·재시도까지 최대 수 분간 살아 있어서, 그 사이 사용자가
+    /// 앱을 종료하면 <c>Application.Current</c> 가 사라진 뒤 접근하게 된다 — 그때는 조용히 건너뛴다.
+    /// </summary>
+    private static async Task OnUiThreadAsync(Action action)
+    {
+        var app = System.Windows.Application.Current;
+        if (app is null || app.Dispatcher.HasShutdownStarted) return;
+
+        try
+        {
+            await app.Dispatcher.InvokeAsync(action);
+        }
+        catch (TaskCanceledException)
+        {
+            // 대기 중 디스패처가 종료됨 — 종료 경로이므로 무시한다.
+        }
     }
 
     private string StoreAvailableUpdate(UpdateService.UpdateInfo info)
@@ -879,11 +997,25 @@ namespace ClaudeUsageTray.ViewModels;
         if (string.IsNullOrWhiteSpace(_updateVersion) || string.IsNullOrWhiteSpace(_updateDownloadUrl))
             return false;
 
-        ShowUpdateDialog(_updateVersion, _updateReleaseNotes);
+        ShowUpdateDialogWithCountdown(_updateVersion, _updateReleaseNotes);
         return true;
     }
 
-    private void ShowUpdateDialog(string version, string notes)
+    /// <summary>
+    /// 카운트다운이 붙은 업데이트 모달을 연다. 다만 이전 실행에서 이미 이 버전을 자동으로 적용하려다
+    /// 실패했다면(재시작 후에도 같은 버전이 최신) 카운트다운을 끄고 수동 실행을 요구한다 —
+    /// 그렇지 않으면 매 실행마다 다운로드 → 재시작을 반복하는 루프가 된다.
+    /// </summary>
+    private void ShowUpdateDialogWithCountdown(string version, string notes)
+    {
+        bool autoRetryExhausted = _settingsService.Load().AutoUpdateAttemptedVersion == version;
+
+        ShowUpdateDialog(version, notes,
+            autoUpdateSeconds: autoRetryExhausted ? 0 : AppConstants.AutoUpdateCountdownSeconds,
+            notice: autoRetryExhausted ? Loc.AutoUpdateRetryManual : null);
+    }
+
+    private void ShowUpdateDialog(string version, string notes, int autoUpdateSeconds, string? notice)
     {
         if (_isUpdateDialogOpen) return;
 
@@ -893,10 +1025,18 @@ namespace ClaudeUsageTray.ViewModels;
             var dialog = new Views.UpdateDialog(
                 $"v{version}",
                 notes,
-                onSkip: () => SkipVersion(version));
+                onSkip: () => SkipVersion(version),
+                autoUpdateSeconds: autoUpdateSeconds);
+
+            if (!string.IsNullOrEmpty(notice))
+                dialog.ShowError(notice);
 
             dialog.OnUpdateRequested += () =>
             {
+                // 카운트다운 만료로 시작된 자동 적용만 기록한다. 사용자가 직접 누른 경우는 실패해도
+                // 루프가 아니므로 표식을 남기지 않는다.
+                if (dialog.StartedAutomatically) RecordAutoUpdateAttempt(version);
+
                 _ = Task.Run(async () =>
                 {
                     try
@@ -962,6 +1102,36 @@ namespace ClaudeUsageTray.ViewModels;
         settings.SkippedVersion = version;
         _settingsService.Save(settings);
         UpdateAvailable = false;
+        UpdateCheckLabel = "";
+    }
+
+    /// <summary>자동(카운트다운) 적용을 시도한 버전을 기록해 다음 실행의 무한 재시도를 막는다.</summary>
+    private void RecordAutoUpdateAttempt(string version)
+    {
+        var settings = _settingsService.Load();
+        if (settings.AutoUpdateAttemptedVersion == version) return;
+
+        settings.AutoUpdateAttemptedVersion = version;
+        _settingsService.Save(settings);
+    }
+
+    /// <summary>
+    /// 자동 적용이 실제로 반영됐으면(현재 버전 >= 기록된 시도 버전) 루프 방지 표식을 지운다.
+    /// 남겨 두면 이후 새 버전과 비교가 어긋나 자동 적용이 영구히 비활성화된다.
+    /// </summary>
+    private void ClearCompletedAutoUpdateMarker()
+    {
+        var settings = _settingsService.Load();
+        var attempted = settings.AutoUpdateAttemptedVersion;
+        if (string.IsNullOrEmpty(attempted)) return;
+
+        // 파싱 불가한 값은 잔재로 보고 정리한다.
+        if (Version.TryParse(attempted, out var attemptedVersion) &&
+            attemptedVersion > UpdateService.CurrentVersion)
+            return;
+
+        settings.AutoUpdateAttemptedVersion = "";
+        _settingsService.Save(settings);
     }
 
     [RelayCommand]

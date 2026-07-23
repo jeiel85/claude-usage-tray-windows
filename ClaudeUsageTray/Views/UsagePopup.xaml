@@ -1205,9 +1205,10 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <!-- 좌측: 버전 클릭 → 업데이트 확인 -->
+                        <!-- 좌측: 버전 클릭 → 업데이트 확인 (툴팁에 마지막 확인 시각/결과) -->
                         <Button Grid.Column="0" Command="{Binding ManualCheckForUpdateCommand}"
-                                Style="{StaticResource GhostBtn}" VerticalAlignment="Center">
+                                Style="{StaticResource GhostBtn}" VerticalAlignment="Center"
+                                ToolTip="{Binding UpdateCheckTooltip}">
                             <TextBlock Text="{Binding CurrentVersionLabel}" Foreground="#5A5F7A" FontSize="9"/>
                         </Button>
                         <!-- 중앙: 업데이트 체크 메시지 — 길어지면 줄바꿈으로 처리해 우측 버튼을 침범하지 않음 -->

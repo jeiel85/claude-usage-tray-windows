@@ -101,6 +101,11 @@ public class NotificationSettings
 
     public string SkippedVersion { get; set; } = "";
 
+    // 카운트다운 만료로 "자동" 적용을 시도한 버전. 재시작 후에도 이 버전이 여전히 최신으로 남아 있으면
+    // 적용이 실패한 것이므로 자동 재시도를 멈추고 수동 실행을 요구한다(다운로드-재시작 루프 방지).
+    // 적용이 반영되면(현재 버전 >= 기록 버전) 시작 시 자동으로 비워진다.
+    public string AutoUpdateAttemptedVersion { get; set; } = "";
+
     // 403 + "currently not allowed" (조직 OAuth API 미활성) 첫 감지 시각 (UTC).
     // null = 현재 미감지 / 정상. 값이 있고 24h 이상 경과하면 안내문이 에스컬레이션 톤으로 전환된다.
     public DateTime? OAuthNotAllowedFirstSeenUtc { get; set; }
