@@ -8,10 +8,20 @@ namespace ClaudeUsageTray.ViewModels;
 // UsagePopup.xaml 이 바인딩한다. (자체 새로고침 로직은 MainViewModel 로 일원화되어 제거됨)
 public partial class ClaudeViewModel : ObservableObject
 {
-    [ObservableProperty] private double _shortPercent = 0;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(ShortPercentLabel))] private double _shortPercent = 0;
     [ObservableProperty] private string _shortReset = "";
-    [ObservableProperty] private double _longPercent = 0;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(LongPercentLabel))] private double _longPercent = 0;
     [ObservableProperty] private string _longReset = "";
+
+    // 할당량을 한 번이라도 받아왔는지. false 면 ShortPercent/LongPercent 의 0 은 "사용 0%"가 아니라
+    // "아직 모름"이므로, 0% 라고 단정해 보여주지 않는다.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShortPercentLabel))]
+    [NotifyPropertyChangedFor(nameof(LongPercentLabel))]
+    private bool _hasQuotaData = false;
+
+    public string ShortPercentLabel => HasQuotaData ? ShortPercent.ToString("P0") : Loc.QuotaUnknownMark;
+    public string LongPercentLabel  => HasQuotaData ? LongPercent.ToString("P0")  : Loc.QuotaUnknownMark;
 
     // 시간 진행률(윈도우 경과 비율, 0~1) — 사용량 막대와 비교해 페이스를 육안으로 드러낸다.
     // *UsageCapped = min(사용량, 시간) — 보라 레이어 폭. 사용량이 시간을 앞지른 만큼만 주황으로 노출된다.

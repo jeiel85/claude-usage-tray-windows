@@ -349,6 +349,18 @@ public static class Loc
         _ => $" · resets ~{time} (estimated)"
     };
 
+    /// <summary>할당량을 아직 조회하지 못했을 때 퍼센트 자리에 들어가는 표기.</summary>
+    public static string QuotaUnknownMark => "—";
+
+    /// <summary>할당량 미조회 상태의 요약문 — "0% 사용"으로 단정하지 않기 위한 대체 문구.</summary>
+    public static string UsageSummaryUnknown => Lang switch
+    {
+        "ko" => "사용량을 아직 확인하지 못했습니다",
+        "zh" => "尚未获取使用量",
+        "ja" => "使用量をまだ取得できていません",
+        _ => "Usage not retrieved yet"
+    };
+
     public static string UsageSummary(double usedPercent) => Lang switch
     {
         "ko" => $"{Math.Clamp(usedPercent, 0, 1):P0} 사용 · 잔량 {(1.0 - Math.Clamp(usedPercent, 0, 1)):P0}",
@@ -675,10 +687,10 @@ public static class Loc
     // 막연한 에러 대신 구체적 조치(터미널에서 claude 로그인)를 안내한다.
     public static string NoToken => Lang switch
     {
-        "ko" => "액세스 토큰이 없습니다 — 터미널에서 Claude Code에 로그인(claude → /login)한 뒤 앱을 다시 시작하세요",
-        "zh" => "未找到访问令牌 — 请在终端登录 Claude Code(claude → /login)后重启本应用",
-        "ja" => "アクセストークンがありません — ターミナルで Claude Code にログイン(claude → /login)してからアプリを再起動してください",
-        _ => "No access token — log in to Claude Code in a terminal (claude → /login), then restart the app"
+        "ko" => "액세스 토큰이 없습니다 — 터미널에서 claude auth login 으로 로그인한 뒤 앱을 다시 시작하세요",
+        "zh" => "未找到访问令牌 — 请在终端执行 claude auth login 登录后重启本应用",
+        "ja" => "アクセストークンがありません — ターミナルで claude auth login を実行してログイン後、アプリを再起動してください",
+        _ => "No access token — run `claude auth login` in a terminal, then restart the app"
     };
 
     public static string RateLimited => Lang switch

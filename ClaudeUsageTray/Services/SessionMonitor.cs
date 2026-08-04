@@ -4,39 +4,33 @@ using ClaudeUsageTray.Models;
 
 namespace ClaudeUsageTray.Services;
 
+/// <summary>
+/// ~/.claude/projects 아래 세션 트랜스크립트(*.jsonl)에서 "오늘" 사용량을 집계한다.
+///
+/// 집계는 항상 <b>오늘 총량</b>이어야 한다 — 호출자(HistoryService.RecordToday)가 결과를
+/// 그날 항목에 덮어쓰기 때문에, 부분 합계를 돌려주면 그대로 히스토리가 오염된다.
+/// 그래서 증분(마지막 읽은 오프셋 이후만 읽기) 방식을 쓰지 않고, 오늘 기록됐을 수 있는
+/// 파일만 골라 매번 전체를 다시 읽는다. 파일 목록 필터가 mtime 기반이라 실제로 여는 파일은
+/// 보통 몇 개뿐이다.
+/// </summary>
 public class SessionMonitor
 {
-    private static readonly string ProjectsPath = Path.Combine(
+    private static readonly string DefaultProjectsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         ".claude", "projects");
 
-    private readonly Dictionary<string, long> _filePositions = new();
-    private FileSystemWatcher? _watcher;
-    private bool _hasChanges;
+    /// <summary>
+    /// mtime 필터의 여유분. 파일시스템 타임스탬프 정밀도·시계 오차로 자정 직후 기록이
+    /// 전날 mtime 을 갖는 경우를 대비한다. 몇 개 더 여는 비용이 누락보다 싸다.
+    /// </summary>
+    private static readonly TimeSpan MTimeTolerance = TimeSpan.FromHours(1);
 
-    public SessionMonitor()
+    private readonly string _projectsPath;
+
+    /// <param name="projectsPath">트랜스크립트 루트. null 이면 ~/.claude/projects (테스트용 주입점).</param>
+    public SessionMonitor(string? projectsPath = null)
     {
-        StartWatcher();
-    }
-
-    private void StartWatcher()
-    {
-        if (!Directory.Exists(ProjectsPath)) return;
-
-        try
-        {
-            _watcher = new FileSystemWatcher(ProjectsPath, "*.jsonl")
-            {
-                IncludeSubdirectories = true,
-                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size
-            };
-            _watcher.Changed += (_, _) => _hasChanges = true;
-            _watcher.EnableRaisingEvents = true;
-        }
-        catch
-        {
-            // Ignore watcher errors
-        }
+        _projectsPath = projectsPath ?? DefaultProjectsPath;
     }
 
     public SessionStats ScanTodayUsage()
@@ -44,30 +38,13 @@ public class SessionMonitor
         var stats = new SessionStats();
         var today = DateTime.Today;
 
-        // Check if any files changed since last scan
-        bool scanAll = !_hasChanges;
-        _hasChanges = false;
+        if (!Directory.Exists(_projectsPath)) return stats;
 
-        if (!Directory.Exists(ProjectsPath)) return stats;
-
-        var jsonlFiles = Directory.GetFiles(ProjectsPath, "*.jsonl", SearchOption.AllDirectories);
-
-        foreach (var file in jsonlFiles)
+        foreach (var file in EnumerateFilesTouchedSince(today))
         {
             try
             {
-                if (scanAll)
-                {
-                    // Full scan: process entire file
-                    ProcessFile(file, today, stats);
-                    _filePositions[file] = new FileInfo(file).Length;
-                }
-                else
-                {
-                    // Incremental scan: only new content
-                    var lastPos = _filePositions.GetValueOrDefault(file, 0);
-                    ProcessFileIncremental(file, today, stats, lastPos);
-                }
+                ProcessFile(file, today, stats);
             }
             catch
             {
@@ -78,71 +55,38 @@ public class SessionMonitor
         return stats;
     }
 
-    private void ProcessFileIncremental(string filePath, DateTime sinceDate, SessionStats stats, long startPosition)
+    /// <summary>
+    /// 오늘 기록이 들어 있을 수 있는 파일만 추린다.
+    /// 마지막 쓰기가 오늘 이전이면 오늘자 항목이 있을 수 없으므로 열지 않는다.
+    /// </summary>
+    private IEnumerable<string> EnumerateFilesTouchedSince(DateTime sinceLocalDate)
     {
+        var cutoffUtc = sinceLocalDate.ToUniversalTime() - MTimeTolerance;
+
+        IEnumerable<string> files;
         try
         {
-            var fileInfo = new FileInfo(filePath);
-            var currentPos = fileInfo.Length;
-
-            if (currentPos <= startPosition)
-            {
-                // File shrunk or unchanged, do full scan
-                ProcessFile(filePath, sinceDate, stats);
-                _filePositions[filePath] = currentPos;
-                return;
-            }
-
-            using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            fs.Seek(startPosition, SeekOrigin.Begin);
-            using var reader = new StreamReader(fs);
-            string? line;
-            bool fileHadActivity = false;
-
-            while ((line = reader.ReadLine()) != null)
-            {
-                if (string.IsNullOrWhiteSpace(line)) continue;
-                try
-                {
-                    using var doc = JsonDocument.Parse(line);
-                    var root = doc.RootElement;
-                    if (!root.TryGetProperty("type", out var typeEl)) continue;
-                    if (typeEl.GetString() != "assistant") continue;
-
-                    DateTime parsedTs = default;
-                    if (root.TryGetProperty("timestamp", out var tsEl) && DateTime.TryParse(tsEl.GetString(), out parsedTs))
-                    {
-                        if (parsedTs.ToLocalTime().Date < sinceDate) continue;
-                        fileHadActivity = true;
-                    }
-
-                    if (!root.TryGetProperty("message", out var msgEl) || 
-                        !msgEl.TryGetProperty("usage", out var usageEl)) continue;
-
-                    stats.TotalInputTokens += usageEl.TryGetProperty("input_tokens", out var inp) ? inp.GetInt64() : 0;
-                    stats.TotalOutputTokens += usageEl.TryGetProperty("output_tokens", out var outp) ? outp.GetInt64() : 0;
-                    stats.TotalCacheReadTokens += usageEl.TryGetProperty("cache_read_input_tokens", out var cr) ? cr.GetInt64() : 0;
-                    stats.TotalCacheWriteTokens += usageEl.TryGetProperty("cache_creation_input_tokens", out var cw) ? cw.GetInt64() : 0;
-
-                    if (parsedTs != default)
-                        stats.HourlyTokens[parsedTs.ToLocalTime().Hour] += 
-                            (usageEl.TryGetProperty("input_tokens", out var inp2) ? inp2.GetInt64() : 0) +
-                            (usageEl.TryGetProperty("output_tokens", out var outp2) ? outp2.GetInt64() : 0);
-
-                    if (root.TryGetProperty("error", out var errEl) && errEl.GetString() == "rate_limit")
-                        stats.HasRateLimitHit = true;
-                }
-                catch { }
-            }
-
-            if (fileHadActivity) stats.SessionCount++;
-            _filePositions[filePath] = currentPos;
+            files = Directory.EnumerateFiles(_projectsPath, "*.jsonl", SearchOption.AllDirectories);
         }
         catch
         {
-            // Fallback to full scan
-            ProcessFile(filePath, sinceDate, stats);
-            try { _filePositions[filePath] = new FileInfo(filePath).Length; } catch { }
+            yield break;
+        }
+
+        foreach (var file in files)
+        {
+            bool touched;
+            try
+            {
+                touched = File.GetLastWriteTimeUtc(file) >= cutoffUtc;
+            }
+            catch
+            {
+                // 상태를 못 읽으면 누락보다 한 번 더 읽는 쪽을 택한다
+                touched = true;
+            }
+
+            if (touched) yield return file;
         }
     }
 
