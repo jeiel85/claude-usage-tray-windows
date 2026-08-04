@@ -49,9 +49,11 @@ namespace ClaudeUsageTray.ViewModels;
     private string _prevShortDepletion = "";
     private DateTimeOffset? _lastNotifiedEarlyDepletionAt;
 
-    // Last known good API data (kept when rate-limited so UI doesn't reset to 0)
-    private double _lastKnownShortPercent = 0;
-    private double _lastKnownLongPercent = 0;
+    // Last known good API data (kept when rate-limited so UI doesn't reset to 0).
+    // null = 아직 한 번도 조회에 성공하지 못함 — 이 상태를 0% 로 표시하면 "여유 100%"라는
+    // 거짓 정보가 되므로 UI 에서 "—" 로 구분해야 한다.
+    private double? _lastKnownShortPercent;
+    private double? _lastKnownLongPercent;
     private string _lastKnownShortReset = "";
     private string _lastKnownLongReset = "";
 
@@ -1402,7 +1404,10 @@ namespace ClaudeUsageTray.ViewModels;
                 UsageProviderKind.Codex     => Loc.TrayStatusCodex(CodexPercent, CodexDataSource),
                 UsageProviderKind.GeminiCli => Loc.TrayStatusGemini(_lastGeminiRequestCount, _lastGeminiOutputTokens),
                 UsageProviderKind.OpenCode  => Loc.TrayStatusOpenCode(_lastOpenCodeRequestCount, _lastOpenCodeInputTokens, _lastOpenCodeOutputTokens),
-                _ => Loc.TrayStatusClaude(ClaudeVm.ShortPercent)
+                // 미조회 상태에서 "Claude 0%" 라고 쓰면 여유가 100% 라는 뜻으로 읽힌다
+                _ => ClaudeVm.HasQuotaData
+                        ? Loc.TrayStatusClaude(ClaudeVm.ShortPercent)
+                        : $"Claude {Loc.QuotaUnknownMark}"
             };
         }
     }
@@ -1580,6 +1585,7 @@ namespace ClaudeUsageTray.ViewModels;
 
         ClaudeVm.HasError = false;
         ClaudeVm.ErrorMessage = "";
+        ClaudeVm.HasQuotaData = true;
 
         ClaudeVm.ShortPercent = quota.ShortUsagePercent;
         _rawClaudeShortResetAt = quota.ShortResetAt;
@@ -1682,7 +1688,9 @@ namespace ClaudeUsageTray.ViewModels;
                 if (_api.LastRetryAfterSeconds > 0)
                     _apiRetryAfter = DateTimeOffset.UtcNow.AddSeconds(_api.LastRetryAfterSeconds);
             }
-            var sessionStats = _session.ScanTodayUsage();
+            // 트랜스크립트 스캔은 파일 I/O라 수백 ms 이상 걸린다. RefreshAsync 는 UI 스레드에서
+            // 시작될 수 있으므로(계정 전환 직후 등) 반드시 스레드풀로 밀어낸다.
+            var sessionStats = await Task.Run(_session.ScanTodayUsage);
             var syncErrorKind = skipApi ? "api_skipped" : ClassifyClaudeApiError(_api.LastError);
             var syncedClaudeQuota = TrySyncClaudeUsage(
                 currentOrgUuid,
@@ -1733,6 +1741,7 @@ namespace ClaudeUsageTray.ViewModels;
                     ClaudeVm.HasError = false;
                     ClaudeVm.ErrorMessage = "";
                     ClaudeVm.ApiNote = "";
+                    ClaudeVm.HasQuotaData = true;
                     // OAuth-not-allowed 가 해소된 첫 성공 → 첫감지 시각 클리어
                     ClearOAuthNotAllowedFirstSeenIfNeeded();
 
@@ -1871,12 +1880,19 @@ namespace ClaudeUsageTray.ViewModels;
                 }
                 else if (skipApi || _api.LastError != null)
                 {
-                    ClaudeVm.ShortPercent = _lastKnownShortPercent;
+                    // 마지막으로 성공한 값이 있으면 유지하고, 한 번도 없으면 0% 로 단정하지 않는다.
+                    ClaudeVm.HasQuotaData = _lastKnownShortPercent.HasValue || _lastKnownLongPercent.HasValue;
+
+                    ClaudeVm.ShortPercent = _lastKnownShortPercent ?? 0;
                     ClaudeVm.ShortReset   = _lastKnownShortReset;
-                    ClaudeVm.ShortSummary = Loc.UsageSummary(_lastKnownShortPercent);
-                    ClaudeVm.LongPercent  = _lastKnownLongPercent;
+                    ClaudeVm.ShortSummary = _lastKnownShortPercent is { } shortPct
+                        ? Loc.UsageSummary(shortPct)
+                        : Loc.UsageSummaryUnknown;
+                    ClaudeVm.LongPercent  = _lastKnownLongPercent ?? 0;
                     ClaudeVm.LongReset    = _lastKnownLongReset;
-                    ClaudeVm.LongSummary  = Loc.UsageSummary(_lastKnownLongPercent);
+                    ClaudeVm.LongSummary  = _lastKnownLongPercent is { } longPct
+                        ? Loc.UsageSummary(longPct)
+                        : Loc.UsageSummaryUnknown;
 
                     // 403 permission_error: 두 가지 케이스로 세분
                     //   (a) "currently not allowed for this organization" — 신규 계정 검증/조직 OAuth 미활성 (일시적, 24h내 자동 해소 가능성)

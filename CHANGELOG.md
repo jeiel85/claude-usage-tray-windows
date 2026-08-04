@@ -3,6 +3,28 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.36.1] - 2026-08-04
+
+<!-- ko -->
+### 수정
+- **오늘의 토큰이 실제 사용량보다 훨씬 적게 집계되던 문제** — 세션 파일이 계속 기록되는 동안에는 "직전 조회 이후 새로 쓰인 부분"만 더해 오늘 총량으로 표시하고, 그 값을 그대로 히스토리에 덮어썼습니다. 작업 중일수록 어긋나서 실측에서는 캐시 읽기가 실제의 1/3 수준까지 떨어졌고, 7일 추이 차트와 비용 추정치도 함께 낮게 나왔습니다. 이제 오늘 기록이 있을 수 있는 파일만 골라 매번 전체를 다시 읽어, 몇 번을 새로고침해도 같은 총량이 나옵니다. 시간대별 차트가 경로에 따라 캐시 토큰을 빼먹던 문제도 함께 고쳤습니다.
+- **로그인이 풀렸는데 "API 응답 대기 중"으로만 표시되던 문제** — Claude Code 가 로그아웃하면서 액세스 토큰을 빈 값으로 남기는 경우가 있는데, 앱이 이를 토큰이 있는 것으로 보고 인증 없이 요청을 보냈습니다. 그 응답(429)을 일시적 제한으로 오해해 "잠시 후 자동 재시도" 안내만 반복하며 사용량이 0% 로 고정됐습니다. 이제 빈 토큰을 로그인 필요 상태로 인식하고 로그인 안내를 표시합니다.
+- **할당량을 못 받아온 상태를 "0% 사용 · 잔량 100%"로 표시하던 문제** — 한 번도 조회에 성공하지 못한 상태에서 여유가 가득한 것처럼 보였습니다. 이제 조회 전에는 "—"와 안내 문구로 구분해 표시합니다.
+
+### 개선
+- 트랜스크립트 스캔을 백그라운드 스레드로 옮겨, 새로고침 중 창이 잠깐 멈추던 현상을 없앴습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Today's token count was far lower than actual usage** — While a session file was still being written, the app summed only the bytes added since the previous scan, showed that as the day's total, and overwrote history with it. The more you worked, the further it drifted — measured on real data, cache-read tokens fell to about a third of actual, dragging the 7-day chart and cost estimate down with them. It now re-reads every file that could hold today's entries in full, so repeated refreshes produce the same total. The hourly chart, which dropped cache tokens on one of the two code paths, is consistent again.
+- **A signed-out state showed only "waiting for API response"** — Claude Code can leave the access token as an empty value when signing out. The app treated that as a real token, sent an unauthenticated request, and read the resulting 429 as a temporary limit — so it kept showing "retrying automatically" with usage stuck at 0%. An empty token is now recognized as signed-out and shows sign-in guidance.
+- **An unfetched quota was shown as "0% used · 100% remaining"** — Before any successful fetch, the app looked like it had full headroom. It now shows "—" with an explanatory line until a quota is actually retrieved.
+
+### Improved
+- Transcript scanning moved off the UI thread, removing a brief freeze during refresh.
+<!-- /en -->
+
 ## [1.36.0] - 2026-07-23
 
 <!-- ko -->

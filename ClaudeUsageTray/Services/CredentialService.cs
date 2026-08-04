@@ -11,7 +11,7 @@ public class CredentialService : IDisposable
 {
     private static readonly SemaphoreSlim _lock = new(1, 1);
 
-    private static readonly string CredentialsPath = Path.Combine(
+    private static readonly string DefaultCredentialsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         ".claude", ".credentials.json");
 
@@ -19,6 +19,7 @@ public class CredentialService : IDisposable
     private const string ClientId = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(AppConstants.AuthTimeoutSeconds) };
 
+    private readonly string _credentialsPath;
     private readonly FileSystemWatcher? _watcher;
 
     /// <summary>
@@ -27,12 +28,15 @@ public class CredentialService : IDisposable
     /// </summary>
     public event Action? CredentialsChanged;
 
-    public CredentialService()
+    /// <param name="credentialsPath">자격 파일 경로. null 이면 ~/.claude/.credentials.json (테스트용 주입점).</param>
+    public CredentialService(string? credentialsPath = null)
     {
-        var dir = Path.GetDirectoryName(CredentialsPath)!;
+        _credentialsPath = credentialsPath ?? DefaultCredentialsPath;
+
+        var dir = Path.GetDirectoryName(_credentialsPath)!;
         if (Directory.Exists(dir))
         {
-            _watcher = new FileSystemWatcher(dir, ".credentials.json")
+            _watcher = new FileSystemWatcher(dir, Path.GetFileName(_credentialsPath))
             {
                 NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName,
                 EnableRaisingEvents = true
@@ -64,10 +68,10 @@ public class CredentialService : IDisposable
 
     public ClaudeCredentials? Load()
     {
-        if (!File.Exists(CredentialsPath)) return null;
+        if (!File.Exists(_credentialsPath)) return null;
         try
         {
-            var json = File.ReadAllText(CredentialsPath);
+            var json = File.ReadAllText(_credentialsPath);
             return JsonSerializer.Deserialize<ClaudeCredentials>(json);
         }
         catch (Exception ex)
@@ -83,12 +87,21 @@ public class CredentialService : IDisposable
     public string? GetAccessToken()
     {
         var cred = Load();
-        return cred?.ClaudeAiOauth?.AccessToken;
+        return NullIfBlank(cred?.ClaudeAiOauth?.AccessToken);
     }
+
+    /// <summary>
+    /// Claude Code 가 로그아웃/자격 이관 시 accessToken 을 <b>빈 문자열</b>로 남기고 나머지 필드
+    /// (scopes, subscriptionType 등)만 유지하는 경우가 있다. 빈 값을 그대로 흘려보내면 호출부가
+    /// "토큰 있음"으로 오해해 인증 없는 요청을 보내고, 그 응답(429/401)을 일시적 제한으로
+    /// 오진하게 된다. 여기서 없음(null)으로 정규화한다.
+    /// </summary>
+    private static string? NullIfBlank(string? token) =>
+        string.IsNullOrWhiteSpace(token) ? null : token;
 
     public string? GetOrganizationUuid() => Load()?.OrganizationUuid;
 
-    public bool HasCredentials() => File.Exists(CredentialsPath);
+    public bool HasCredentials() => File.Exists(_credentialsPath);
 
     /// <summary>
     /// Returns the Claude subscription type from stored credentials (e.g. "free", "pro", "max").
@@ -112,11 +125,11 @@ public class CredentialService : IDisposable
             // Token still valid (with 60s buffer)
             if (!oauth.IsExpired &&
                 DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() < oauth.ExpiresAt - 60_000)
-                return oauth.AccessToken;
+                return NullIfBlank(oauth.AccessToken);
 
             // Try to refresh
             var refreshed = await TryRefreshAsync(oauth.RefreshToken);
-            if (refreshed is null) return oauth.AccessToken; // fall back to existing token
+            if (refreshed is null) return NullIfBlank(oauth.AccessToken); // fall back to existing token
 
             // Persist updated credentials
             try
@@ -127,7 +140,7 @@ public class CredentialService : IDisposable
                     oauth.RefreshToken = refreshed.RefreshToken;
 
                 // Merge back — preserve other fields in the JSON
-                var raw = JsonNode.Parse(File.ReadAllText(CredentialsPath))!;
+                var raw = JsonNode.Parse(File.ReadAllText(_credentialsPath))!;
                 raw["claudeAiOauth"]!["accessToken"] = oauth.AccessToken;
                 raw["claudeAiOauth"]!["expiresAt"]   = oauth.ExpiresAt;
                 if (!string.IsNullOrEmpty(refreshed.RefreshToken))
@@ -137,7 +150,7 @@ public class CredentialService : IDisposable
                 _isSelfWriting = true;
                 try
                 {
-                    File.WriteAllText(CredentialsPath,
+                    File.WriteAllText(_credentialsPath,
                         raw.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
                 }
                 finally
@@ -156,7 +169,7 @@ public class CredentialService : IDisposable
                 /* ignore write errors */
             }
 
-            return oauth.AccessToken;
+            return NullIfBlank(oauth.AccessToken);
         }
         finally
         {

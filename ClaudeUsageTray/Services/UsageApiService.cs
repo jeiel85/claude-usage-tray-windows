@@ -30,7 +30,9 @@ public class UsageApiService
     public async Task<UsageResponse?> FetchUsageAsync()
     {
         var token = await _credentials.GetValidAccessTokenAsync();
-        if (token is null)
+        // 빈 문자열도 "토큰 없음"이다 — 그대로 보내면 인증 없는 요청이 되어 429 로 돌아오고,
+        // 호출부가 이를 일시적 rate limit 으로 오진한다.
+        if (string.IsNullOrWhiteSpace(token))
         {
             LastError = NoTokenError;
             return null;
