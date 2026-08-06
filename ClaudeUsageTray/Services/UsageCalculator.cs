@@ -77,6 +77,26 @@ public static class UsageCalculator
         return $"{rel} ({stamp})";
     }
 
+    /// <summary>
+    /// 리셋 시각과 창 길이로 "시간 진행률"(0~1)을 역산한다.
+    /// 창 시작 = 리셋 - 창 길이 이므로, 경과 비율 = 1 - 남은시간 / 창 길이.
+    /// 진행 막대 위 시간선 마커의 가로 위치가 이 값이다.
+    /// </summary>
+    public static double TimeProgress(DateTimeOffset? resetAt, TimeSpan window, DateTimeOffset now)
+    {
+        if (resetAt is null || window.TotalSeconds <= 0) return 0;
+        double elapsedRatio = 1.0 - (resetAt.Value - now).TotalSeconds / window.TotalSeconds;
+        return Math.Clamp(elapsedRatio, 0, 1);
+    }
+
+    /// <summary>
+    /// 응답의 window_minutes 를 창 길이로 변환한다. 길이를 모르면 <paramref name="fallback"/>.
+    /// Codex 는 플랜/계정에 따라 창이 5시간이 아니라 주간일 수 있어, 길이를 하드코딩하면
+    /// 시간 진행률이 음수로 나와 0 으로 잘리고(=시간선이 왼쪽 끝에 붙어 안 보임) 만다.
+    /// </summary>
+    public static TimeSpan WindowSpan(int? windowMinutes, TimeSpan fallback) =>
+        windowMinutes is int m && m > 0 ? TimeSpan.FromMinutes(m) : fallback;
+
     public static string FormatTokenShort(long tokens) =>
         tokens >= 1_000_000 ? $"{tokens / 1_000_000.0:F1}M" :
         tokens >= 1_000     ? $"{tokens / 1_000.0:F1}K" :
