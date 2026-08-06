@@ -105,9 +105,11 @@ public class WeatherService
 
             try
             {
-                // 모델은 사용자가 고른 소스에만 적용한다. 폴백된 provider 에까지
-                // 다른 소스의 모델 이름을 넘기면 엉뚱한 요청이 된다.
-                var effectiveModel = provider.Id == sourceId ? modelId : null;
+                // 모델은 사용자가 의도한 1순위 소스에만 적용한다. 소스가 "자동"이면 목록의
+                // 첫 provider 가 1순위다 — sourceId 와 provider.Id 를 비교하면 자동일 때
+                // 어느 provider 와도 일치하지 않아 모델 선택이 통째로 무시된다.
+                // 폴백으로 넘어간 provider 에는 다른 소스의 모델 이름을 넘기지 않는다.
+                var effectiveModel = ReferenceEquals(provider, ordered[0]) ? modelId : null;
 
                 var report = await provider.GetForecastAsync(location, effectiveModel, ct);
                 if (report?.Current != null)

@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.37.1] - 2026-08-06
+
+<!-- ko -->
+### 수정
+- **예보 제공처가 "자동"이면 모델 선택이 무시되던 문제** — 설정에서 제공처를 자동으로 둔 채 예보 모델만 바꾸면, 화면에는 선택된 것으로 보이고 설정도 저장되지만 실제 조회에는 반영되지 않았습니다. 제공처 기본값이 자동이라 모델만 바꾸는 것이 가장 자연스러운 조작인데, 그 경로가 통째로 동작하지 않았습니다. 한국에서는 기본 모델이 실제보다 2~3도 낮게 잡히기 때문에(8월 6일 서울 기준 자동 35.3°C 대 ECMWF 37.8°C) 폭염 알림이 갈지 말지가 이 설정에 달려 있습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Model selection was ignored when the forecast source was "Automatic"** — Leaving the source on Automatic and changing only the model appeared to work and was saved to settings, but never reached the actual request. Since Automatic is the default source, changing just the model is the natural thing to do — and that path did nothing at all. In Korea the default model reads 2–3°C low (35.3°C vs ECMWF's 37.8°C for Seoul on 6 August), which decides whether a heat alert is sent.
+<!-- /en -->
+
 ## [1.37.0] - 2026-08-06
 
 <!-- ko -->

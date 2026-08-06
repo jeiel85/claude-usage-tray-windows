@@ -88,6 +88,33 @@ public class ForecastProviderTests
         Assert.Null(fallback.LastModelId);
     }
 
+    /// <summary>
+    /// 설정창은 소스가 "자동"일 때도 모델을 고를 수 있게 열어 둔다. sourceId 와 provider.Id 를
+    /// 비교하면 자동일 때 어느 provider 와도 일치하지 않아 모델 선택이 조용히 무시된다.
+    /// </summary>
+    [Fact]
+    public async Task GetForecastAsync_AppliesModel_WhenSourceIsAuto()
+    {
+        var openMeteo = new StubForecastProvider("open-meteo", loc => Report(loc, "open-meteo"));
+        var metNorway = new StubForecastProvider("met-norway", loc => Report(loc, "met-norway"));
+        var service = new WeatherService([openMeteo, metNorway]);
+
+        await service.GetForecastAsync(Seoul, WeatherService.AutoSource, "ecmwf_ifs025");
+
+        Assert.Equal("ecmwf_ifs025", openMeteo.LastModelId);
+    }
+
+    [Fact]
+    public async Task GetForecastAsync_AppliesModel_ToExplicitlySelectedSource()
+    {
+        var openMeteo = new StubForecastProvider("open-meteo", loc => Report(loc, "open-meteo"));
+        var service = new WeatherService([openMeteo]);
+
+        await service.GetForecastAsync(Seoul, "open-meteo", "gfs_seamless");
+
+        Assert.Equal("gfs_seamless", openMeteo.LastModelId);
+    }
+
     [Fact]
     public async Task GetForecastAsync_Throws_WhenEveryProviderFails()
     {
