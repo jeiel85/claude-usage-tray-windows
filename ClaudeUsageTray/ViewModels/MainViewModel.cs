@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ClaudeUsageTray.Models;
 using ClaudeUsageTray.Services;
+using ClaudeUsageTray.Services.Forecasts;
 using ClaudeUsageTray.Views;
 using Timer = System.Timers.Timer;
 
@@ -159,6 +160,22 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private string _weatherTemperatureLabel = "";
     [ObservableProperty] private string _weatherConditionLabel = "";
     [ObservableProperty] private string _weatherIcon = "•";
+
+    // Weather data source (v1.37.0)
+    [ObservableProperty] private string _weatherForecastSource = WeatherService.AutoSource;
+    [ObservableProperty] private string _weatherForecastModel = OpenMeteoForecastProvider.AutoModel;
+
+    /// <summary>
+    /// 설정 파일에 남아 있는 알 수 없는 소스/모델 값(예전 버전, 손댄 JSON, 지원이 끊긴 모델)을
+    /// 자동값으로 되돌린다. 그대로 두면 매 조회가 폴백을 타면서 첫 시도가 낭비된다.
+    /// </summary>
+    private static string NormalizeForecastSource(string? value) =>
+        !string.IsNullOrWhiteSpace(value) && WeatherService.SelectableSources.Contains(value)
+            ? value : WeatherService.AutoSource;
+
+    private static string NormalizeForecastModel(string? value) =>
+        !string.IsNullOrWhiteSpace(value) && OpenMeteoForecastProvider.SelectableModels.Contains(value)
+            ? value : OpenMeteoForecastProvider.AutoModel;
 
     public bool WeatherHasLocation => WeatherEnabled
         && WeatherLatitude.HasValue && WeatherLongitude.HasValue
@@ -561,6 +578,8 @@ namespace ClaudeUsageTray.ViewModels;
         WeatherLowTemperatureThresholdC   = s.WeatherLowTemperatureThresholdC;
         WeatherWindSpeedThresholdKmh      = s.WeatherWindSpeedThresholdKmh;
         WeatherOfficialAlertsEnabled      = s.WeatherOfficialAlertsEnabled;
+        WeatherForecastSource             = NormalizeForecastSource(s.WeatherForecastSource);
+        WeatherForecastModel              = NormalizeForecastModel(s.WeatherForecastModel);
 
         // Check Claude subscription status from stored credentials
         UpdateClaudeSubscription();
@@ -761,6 +780,8 @@ namespace ClaudeUsageTray.ViewModels;
             WeatherLowTemperatureThresholdC   = WeatherLowTemperatureThresholdC,
             WeatherWindSpeedThresholdKmh      = WeatherWindSpeedThresholdKmh,
             WeatherOfficialAlertsEnabled      = WeatherOfficialAlertsEnabled,
+            WeatherForecastSource             = WeatherForecastSource,
+            WeatherForecastModel              = WeatherForecastModel,
         });
     }
 
@@ -1210,7 +1231,7 @@ namespace ClaudeUsageTray.ViewModels;
         WeatherReport report;
         try
         {
-            report = await _weather.GetForecastAsync(location);
+            report = await _weather.GetForecastAsync(location, WeatherForecastSource, WeatherForecastModel);
         }
         catch
         {
@@ -2479,6 +2500,8 @@ namespace ClaudeUsageTray.ViewModels;
         WeatherVm.LowTemperatureThresholdC = WeatherLowTemperatureThresholdC;
         WeatherVm.WindSpeedThresholdKmh = WeatherWindSpeedThresholdKmh;
         WeatherVm.OfficialAlertsEnabled = WeatherOfficialAlertsEnabled;
+        WeatherVm.ForecastSource = WeatherForecastSource;
+        WeatherVm.ForecastModel = WeatherForecastModel;
 
         await WeatherVm.RefreshAsync();
         _weatherLastRefresh = DateTimeOffset.Now;

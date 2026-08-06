@@ -2,20 +2,43 @@ using System.Globalization;
 using System.Net.Http;
 using System.Text.Json;
 using ClaudeUsageTray.Models;
+using ClaudeUsageTray.Services.Forecasts;
 
 namespace ClaudeUsageTray.Services;
 
+/// <summary>
+/// 위치 검색/역지오코딩과 예보 provider 오케스트레이션을 담당한다.
+/// 실제 예보 조회는 <see cref="IForecastProvider"/> 구현체가 수행한다.
+/// </summary>
 public class WeatherService
 {
+    /// <summary>예보 소스를 고정하지 않고 provider 순서대로 시도한다는 뜻의 설정값.</summary>
+    public const string AutoSource = "auto";
+
     private static readonly HttpClient Http = new()
     {
         Timeout = TimeSpan.FromSeconds(AppConstants.WeatherTimeoutSeconds)
     };
 
-    private static readonly JsonSerializerOptions JsonOpts = new()
+    private readonly IReadOnlyList<IForecastProvider> _forecastProviders;
+
+    public WeatherService()
+        : this([new OpenMeteoForecastProvider(), new MetNorwayForecastProvider()])
     {
-        PropertyNameCaseInsensitive = true
-    };
+    }
+
+    public WeatherService(IReadOnlyList<IForecastProvider> forecastProviders)
+    {
+        _forecastProviders = forecastProviders;
+    }
+
+    /// <summary>설정 UI 에 노출할 예보 소스 식별자 목록.</summary>
+    public static readonly IReadOnlyList<string> SelectableSources =
+    [
+        AutoSource,
+        OpenMeteoForecastProvider.ProviderId,
+        MetNorwayForecastProvider.ProviderId
+    ];
 
     public async Task<IReadOnlyList<WeatherLocation>> SearchLocationsAsync(string query, string language)
     {
@@ -55,63 +78,68 @@ public class WeatherService
         return locations;
     }
 
-    public async Task<WeatherReport> GetForecastAsync(WeatherLocation location, CancellationToken ct = default)
+    public Task<WeatherReport> GetForecastAsync(WeatherLocation location, CancellationToken ct = default) =>
+        GetForecastAsync(location, AutoSource, null, ct);
+
+    /// <summary>
+    /// 예보를 조회한다. 선택한 소스를 먼저 시도하고, 그 소스가 데이터를 주지 못하면
+    /// 나머지 provider 로 폴백한다. 어느 소스가 실제로 응답했는지는
+    /// <see cref="WeatherReport.SourceId"/> 에 담긴다.
+    /// </summary>
+    /// <param name="sourceId">
+    /// <see cref="AutoSource"/> 이거나 provider 의 Id. 알 수 없는 값이면 auto 로 취급한다.
+    /// </param>
+    /// <param name="modelId">provider 별 예보 모델. 지원하지 않는 provider 는 무시한다.</param>
+    /// <exception cref="InvalidOperationException">
+    /// 모든 provider 가 데이터를 주지 못했고 예외도 발생하지 않은 경우.
+    /// </exception>
+    public async Task<WeatherReport> GetForecastAsync(
+        WeatherLocation location, string sourceId, string? modelId, CancellationToken ct = default)
     {
-        var url = $"https://api.open-meteo.com/v1/forecast?" +
-                  $"latitude={location.Latitude.ToString(CultureInfo.InvariantCulture)}" +
-                  $"&longitude={location.Longitude.ToString(CultureInfo.InvariantCulture)}" +
-                  $"&current=temperature_2m,apparent_temperature,weather_code,precipitation,wind_speed_10m" +
-                  $"&hourly=temperature_2m,precipitation_probability,weather_code" +
-                  $"&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max" +
-                  $"&timezone={Uri.EscapeDataString(location.Timezone)}" +
-                  $"&forecast_days=3&format=json";
+        var ordered = OrderProviders(sourceId);
+        Exception? lastError = null;
 
-        var json = await Http.GetStringAsync(url, ct);
-        using var doc = JsonDocument.Parse(json);
-
-        CurrentWeatherSnapshot? current = null;
-        IReadOnlyList<DailyWeatherForecast> daily = Array.Empty<DailyWeatherForecast>();
-        var alerts = Array.Empty<WeatherAlertItem>();
-
-        if (doc.RootElement.TryGetProperty("current", out var cur))
+        foreach (var provider in ordered)
         {
-            var temp = cur.GetProperty("temperature_2m").GetDouble();
-            var appTemp = cur.TryGetProperty("apparent_temperature", out var at) ? at.GetDouble() : (double?)null;
-            var wc = cur.GetProperty("weather_code").GetInt32();
-            var precip = cur.TryGetProperty("precipitation", out var p) ? p.GetDouble() : (double?)null;
-            var wind = cur.TryGetProperty("wind_speed_10m", out var w) ? w.GetDouble() : (double?)null;
-            var updatedAt = DateTimeOffset.UtcNow;
+            ct.ThrowIfCancellationRequested();
 
-            if (cur.TryGetProperty("time", out var timeEl) && timeEl.GetString() is string ts
-                && DateTimeOffset.TryParse(ts, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
-                updatedAt = parsed;
-
-            current = new CurrentWeatherSnapshot(
-                location, updatedAt, temp, appTemp, wc,
-                MapWmoCodeToKey(wc), precip, wind);
-        }
-
-        if (doc.RootElement.TryGetProperty("daily", out var dly))
-        {
-            var dates = ParseDateArray(dly, "time");
-            var codes = ParseIntArray(dly, "weather_code");
-            var mins = ParseDoubleNullableArray(dly, "temperature_2m_min");
-            var maxs = ParseDoubleNullableArray(dly, "temperature_2m_max");
-            var precipProbs = ParseIntNullableArray(dly, "precipitation_probability_max");
-
-            var count = Math.Min(dates.Length, Math.Min(codes.Length,
-                Math.Min(mins.Length, Math.Min(maxs.Length, precipProbs.Length))));
-
-            var list = new List<DailyWeatherForecast>(count);
-            for (int i = 0; i < count; i++)
+            try
             {
-                list.Add(new DailyWeatherForecast(
-                    dates[i], codes[i], mins[i], maxs[i], precipProbs[i]));
+                // 모델은 사용자가 고른 소스에만 적용한다. 폴백된 provider 에까지
+                // 다른 소스의 모델 이름을 넘기면 엉뚱한 요청이 된다.
+                var effectiveModel = provider.Id == sourceId ? modelId : null;
+
+                var report = await provider.GetForecastAsync(location, effectiveModel, ct);
+                if (report?.Current != null)
+                    return report;
             }
-            daily = list.AsReadOnly();
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                lastError = ex;
+            }
         }
 
-        return new WeatherReport(current, daily, alerts);
+        if (lastError != null)
+            throw lastError;
+
+        throw new InvalidOperationException(
+            $"No forecast provider returned data for {location.Name} ({location.Latitude}, {location.Longitude}).");
+    }
+
+    private IReadOnlyList<IForecastProvider> OrderProviders(string sourceId)
+    {
+        if (string.IsNullOrWhiteSpace(sourceId) || sourceId == AutoSource)
+            return _forecastProviders;
+
+        var preferred = _forecastProviders.FirstOrDefault(p => p.Id == sourceId);
+        if (preferred == null)
+            return _forecastProviders;
+
+        return [preferred, .. _forecastProviders.Where(p => p != preferred)];
     }
 
     public static string MapWmoCodeToKey(int wmoCode) => wmoCode switch
@@ -181,45 +209,5 @@ public class WeatherService
         {
             return null;
         }
-    }
-
-    private static DateOnly[] ParseDateArray(JsonElement el, string key)
-    {
-        if (!el.TryGetProperty(key, out var arr)) return Array.Empty<DateOnly>();
-        var list = new List<DateOnly>();
-        foreach (var item in arr.EnumerateArray())
-        {
-            var s = item.GetString();
-            if (s != null && DateOnly.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.None, out var d))
-                list.Add(d);
-        }
-        return list.ToArray();
-    }
-
-    private static int[] ParseIntArray(JsonElement el, string key)
-    {
-        if (!el.TryGetProperty(key, out var arr)) return Array.Empty<int>();
-        var list = new List<int>();
-        foreach (var item in arr.EnumerateArray())
-            list.Add(item.ValueKind == JsonValueKind.Number ? item.GetInt32() : 0);
-        return list.ToArray();
-    }
-
-    private static double?[] ParseDoubleNullableArray(JsonElement el, string key)
-    {
-        if (!el.TryGetProperty(key, out var arr)) return Array.Empty<double?>();
-        var list = new List<double?>();
-        foreach (var item in arr.EnumerateArray())
-            list.Add(item.ValueKind == JsonValueKind.Null ? null : item.GetDouble());
-        return list.ToArray();
-    }
-
-    private static int?[] ParseIntNullableArray(JsonElement el, string key)
-    {
-        if (!el.TryGetProperty(key, out var arr)) return Array.Empty<int?>();
-        var list = new List<int?>();
-        foreach (var item in arr.EnumerateArray())
-            list.Add(item.ValueKind == JsonValueKind.Null ? null : item.GetInt32());
-        return list.ToArray();
     }
 }
