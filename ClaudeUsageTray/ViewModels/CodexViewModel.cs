@@ -12,6 +12,8 @@ public partial class CodexViewModel : ObservableObject
     private DateTimeOffset? _rawShortResetAt;
     private bool _rawShortResetEstimated;
     private DateTimeOffset? _rawLongResetAt;
+    private int? _rawShortWindowMinutes;
+    private int? _rawLongWindowMinutes;
 
     [ObservableProperty] private double _percent = 0;
     [ObservableProperty] private string _reset = "";
@@ -38,6 +40,9 @@ public partial class CodexViewModel : ObservableObject
     public DateTimeOffset? RawShortResetAt => _rawShortResetAt;
     public bool RawShortResetEstimated => _rawShortResetEstimated;
     public DateTimeOffset? RawLongResetAt => _rawLongResetAt;
+    // 창 길이(window_minutes)는 시간선 마커 위치 계산에 필요하다 — Codex 는 5시간/주간 등 창이 계정마다 다르다.
+    public int? RawShortWindowMinutes => _rawShortWindowMinutes;
+    public int? RawLongWindowMinutes => _rawLongWindowMinutes;
     public ProviderUsageSnapshot LastSnapshot { get; private set; } = new();
 
     public CodexViewModel(CodexUsageMonitor monitor, HistoryService history)
@@ -57,6 +62,8 @@ public partial class CodexViewModel : ObservableObject
                 var newPercent = snapshot.ShortUsagePercent;
                 _rawShortResetAt = snapshot.ShortResetAt;
                 _rawShortResetEstimated = snapshot.IsShortResetEstimated;
+                _rawShortWindowMinutes = snapshot.ShortWindowMinutes;
+                _rawLongWindowMinutes = snapshot.LongWindowMinutes;
                 Reset = UsageCalculator.FormatResetLabel(_rawShortResetAt, _rawShortResetEstimated, showAbsoluteResetTime, DateTimeOffset.Now);
                 DataSource = snapshot.DataSource ?? "";
                 var informational = UsageCalculator.IsNoUsageInformational(snapshot.ErrorMessage, UsageProviderKind.Codex);

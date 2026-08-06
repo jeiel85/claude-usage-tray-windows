@@ -919,7 +919,8 @@
                                 <TextBlock Text="{Binding CodexReset}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0"/>
                             </StackPanel>
                         </Grid>
-                        <Grid Height="8" Margin="0,4,0,0">
+                        <!-- 시간선 마커: 창 진행률 위치에 세로선. 창 길이는 응답의 window_minutes 기준. -->
+                        <Grid Height="8" Margin="0,4,0,0" ToolTip="{Binding CodexShortPaceTip}">
                             <ProgressBar Value="{Binding CodexPercent}" Maximum="1" Style="{StaticResource CodexBarStyle}" VerticalAlignment="Center"/>
                             <Grid VerticalAlignment="Center" Height="8">
                                 <Grid.ColumnDefinitions>
@@ -944,7 +945,7 @@
                                     <TextBlock Text="{Binding CodexLongReset}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0"/>
                                 </StackPanel>
                             </Grid>
-                            <Grid Height="8" Margin="0,4,0,0">
+                            <Grid Height="8" Margin="0,4,0,0" ToolTip="{Binding CodexLongPaceTip}">
                                 <ProgressBar Value="{Binding CodexLongPercent}" Maximum="1" Style="{StaticResource CodexBarStyle}" VerticalAlignment="Center"/>
                                 <Grid VerticalAlignment="Center" Height="8">
                                     <Grid.ColumnDefinitions>

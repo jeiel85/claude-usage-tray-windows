@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.36.2] - 2026-08-06
+
+<!-- ko -->
+### 수정
+- **Codex 사용량 막대에 시간선이 보이지 않던 문제** — 시간선(지금이 창의 어디쯤인지 알려주는 세로 마커)의 위치를 언제나 5시간/7일 창 기준으로 계산하고 있었습니다. Codex 는 계정에 따라 주간 창을 쓰기 때문에, 이 경우 진행률이 음수로 나와 0 으로 잘리면서 마커가 막대 왼쪽 끝에 숨어 한 번도 보이지 않았습니다. 이제 응답이 알려주는 실제 창 길이로 계산합니다.
+
+### 개선
+- **Codex 막대에도 페이스 툴팁 추가** — 막대에 마우스를 올리면 Claude 와 같이 "시간 67% 경과 · 사용 61% · 6%p 여유" 형태로 지금 페이스를 알려줍니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The timeline marker never appeared on Codex usage bars** — The marker's position (showing where you are within the current window) was always computed against a 5-hour / 7-day window. Codex uses a weekly window on some accounts, where that math goes negative and clamps to zero — pinning the marker to the far-left edge, out of sight. It now uses the window length the API actually reports.
+
+### Improved
+- **Pace tooltip on Codex bars** — Hovering a Codex bar now shows the same pace readout as Claude: "Time 67% · Used 61% · 6pp behind".
+<!-- /en -->
+
 ## [1.36.1] - 2026-08-04
 
 <!-- ko -->

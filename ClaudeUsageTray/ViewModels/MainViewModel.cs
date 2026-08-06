@@ -85,6 +85,8 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private bool _isCodexLongVisible = false;   // secondary 응답이 있을 때만 노출
     [ObservableProperty] private double _codexShortTimePercent = 0;
     [ObservableProperty] private double _codexLongTimePercent = 0;
+    [ObservableProperty] private string _codexShortPaceTip = "";
+    [ObservableProperty] private string _codexLongPaceTip = "";
     // v1.26.0: PlanType 라벨 — 응답에 PlanType 있으면 "ChatGPT Plus" 식으로, 없으면 "ChatGPT plan"
     [ObservableProperty] private string _codexPlanLabel = "ChatGPT plan";
     [ObservableProperty] private string _codexShortWindowLabel = Loc.ShortWindow;
@@ -262,6 +264,9 @@ namespace ClaudeUsageTray.ViewModels;
     private DateTimeOffset? _rawCodexShortResetAt;
     private bool _rawCodexShortResetEstimated;
     private DateTimeOffset? _rawCodexLongResetAt;
+    // Codex 창 길이는 계정/플랜마다 다르다(5시간 · 주간 …). 시간선 마커 위치는 이 길이로 역산한다.
+    private TimeSpan _rawCodexShortWindow = TimeSpan.FromHours(5);
+    private TimeSpan _rawCodexLongWindow = TimeSpan.FromDays(7);
 
     // History
     [ObservableProperty] private IReadOnlyList<DailyStats> _historyData = [];
@@ -2064,6 +2069,8 @@ namespace ClaudeUsageTray.ViewModels;
             CodexSummary = CodexVm.Summary;
             CodexLongPercent = CodexVm.LongPercent;
             _rawCodexLongResetAt = CodexVm.RawLongResetAt;
+            _rawCodexShortWindow = UsageCalculator.WindowSpan(CodexVm.RawShortWindowMinutes, TimeSpan.FromHours(5));
+            _rawCodexLongWindow = UsageCalculator.WindowSpan(CodexVm.RawLongWindowMinutes, TimeSpan.FromDays(7));
             CodexLongReset = CodexVm.LongReset;
             CodexLongSummary = CodexVm.LongSummary;
             IsCodexLongVisible = CodexVm.IsLongVisible;
@@ -2335,35 +2342,40 @@ namespace ClaudeUsageTray.ViewModels;
     {
         // 소진 예측과 동일한 하한(5h→5분, 7d→2시간)으로 윈도우 초반에는 페이스 판정을 유보한다.
         // 리셋 직후 1~2분 사용이 "거의 전부 초과(주황)"로 과장돼 보이는 것을 막는다(settled=false → 초과색·문구 억제).
-        var shortTime = TimeProgress(_rawClaudeShortResetAt, TimeSpan.FromHours(5), now);
+        var shortTime = UsageCalculator.TimeProgress(_rawClaudeShortResetAt, TimeSpan.FromHours(5), now);
         bool shortSettled = IsPaceSettled(shortTime, TimeSpan.FromHours(5), TimeSpan.FromMinutes(5));
         ClaudeVm.ShortTimePercent = shortTime;
         ClaudeVm.ShortUsageCapped = shortSettled ? Math.Min(ClaudeVm.ShortPercent, shortTime) : ClaudeVm.ShortPercent;
         ClaudeVm.ShortPaceTip     = Loc.PaceTip(shortTime, ClaudeVm.ShortPercent, shortSettled);
 
-        var longTime = TimeProgress(_rawClaudeLongResetAt, TimeSpan.FromDays(7), now);
+        var longTime = UsageCalculator.TimeProgress(_rawClaudeLongResetAt, TimeSpan.FromDays(7), now);
         bool longSettled = IsPaceSettled(longTime, TimeSpan.FromDays(7), TimeSpan.FromHours(2));
         ClaudeVm.LongTimePercent = longTime;
         ClaudeVm.LongUsageCapped = longSettled ? Math.Min(ClaudeVm.LongPercent, longTime) : ClaudeVm.LongPercent;
         ClaudeVm.LongPaceTip     = Loc.PaceTip(longTime, ClaudeVm.LongPercent, longSettled);
     }
 
+    /// <summary>
+    /// Codex 시간선(시간 진행률 마커)을 실제 창 길이로 역산한다.
+    /// Claude 와 달리 창 길이가 고정이 아니므로(5시간 · 주간 …) 응답의 window_minutes 를 써야 한다.
+    /// 5시간으로 하드코딩하면 주간 창에서 진행률이 음수 → 0 으로 잘려 마커가 왼쪽 끝에 숨는다.
+    /// </summary>
     private void RecomputeCodexTimeProgress(DateTimeOffset now)
     {
-        CodexShortTimePercent = TimeProgress(_rawCodexShortResetAt, TimeSpan.FromHours(5), now);
-        CodexLongTimePercent = TimeProgress(_rawCodexLongResetAt, TimeSpan.FromDays(7), now);
+        var shortTime = UsageCalculator.TimeProgress(_rawCodexShortResetAt, _rawCodexShortWindow, now);
+        CodexShortTimePercent = shortTime;
+        CodexShortPaceTip = Loc.PaceTip(shortTime, CodexPercent,
+            IsPaceSettled(shortTime, _rawCodexShortWindow, _rawCodexShortWindow / 60));
+
+        var longTime = UsageCalculator.TimeProgress(_rawCodexLongResetAt, _rawCodexLongWindow, now);
+        CodexLongTimePercent = longTime;
+        CodexLongPaceTip = Loc.PaceTip(longTime, CodexLongPercent,
+            IsPaceSettled(longTime, _rawCodexLongWindow, _rawCodexLongWindow / 60));
     }
 
     // 경과 시간이 최소 기준 이상이어야 페이스(초과색/빠름·여유)를 신뢰할 수 있다고 본다.
     private static bool IsPaceSettled(double timeProgress, TimeSpan window, TimeSpan minElapsed)
         => timeProgress * window.TotalSeconds >= minElapsed.TotalSeconds;
-
-    private static double TimeProgress(DateTimeOffset? resetAt, TimeSpan window, DateTimeOffset now)
-    {
-        if (resetAt is null || window.TotalSeconds <= 0) return 0;
-        double elapsedRatio = 1.0 - (resetAt.Value - now).TotalSeconds / window.TotalSeconds;
-        return Math.Clamp(elapsedRatio, 0, 1);
-    }
 
     /// <summary>
     /// ShowAbsoluteResetTime 토글 시 4개 reset 라벨을 raw 값에서 즉시 재포맷.
