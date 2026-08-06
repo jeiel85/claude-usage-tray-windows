@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using ClaudeUsageTray.Services;
+using ClaudeUsageTray.Services.Forecasts;
 
 namespace ClaudeUsageTray.Models;
 
@@ -134,4 +136,18 @@ public class NotificationSettings
     public double WeatherLowTemperatureThresholdC { get; set; } = -10;
     public double WeatherWindSpeedThresholdKmh { get; set; } = 50;
     public bool WeatherOfficialAlertsEnabled { get; set; } = true;
+
+    // ===== 날씨 데이터 소스 (v1.37.0) =====
+
+    /// <summary>
+    /// 예보 provider 선택. "auto" 면 순서대로 시도하고, provider Id 면 그 소스를 우선한다.
+    /// 어느 값이든 응답이 없으면 다른 provider 로 폴백한다.
+    /// </summary>
+    public string WeatherForecastSource { get; set; } = WeatherService.AutoSource;
+
+    /// <summary>
+    /// Open-Meteo 예보 모델. "best_match" 면 좌표별 최적 모델을 API 가 고른다.
+    /// 모델 선택을 지원하지 않는 provider 에서는 무시된다.
+    /// </summary>
+    public string WeatherForecastModel { get; set; } = OpenMeteoForecastProvider.AutoModel;
 }

@@ -645,6 +645,29 @@
                                            Margin="0,0,0,8" TextWrapping="Wrap"/>
 
                                 <Border Height="1" Background="#2D2F45" Margin="0,4,0,8"/>
+                                <TextBlock x:Name="LblWeatherSourceSection" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="LblWeatherForecastSource" Foreground="#C4C9E0" FontSize="12" VerticalAlignment="Center"/>
+                                    <ComboBox x:Name="CmbWeatherForecastSource" Grid.Column="1" Style="{StaticResource DarkCombo}"
+                                              Margin="8,0,0,0" SelectionChanged="WeatherForecastSource_SelectionChanged"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="LblWeatherForecastModel" Foreground="#C4C9E0" FontSize="12" VerticalAlignment="Center"/>
+                                    <ComboBox x:Name="CmbWeatherForecastModel" Grid.Column="1" Style="{StaticResource DarkCombo}"
+                                              Margin="8,0,0,0" SelectionChanged="WeatherForecastModel_SelectionChanged"/>
+                                </Grid>
+                                <TextBlock x:Name="LblWeatherSourceHint" Foreground="#5A5F7A" FontSize="10"
+                                           Margin="2,0,0,0" TextWrapping="Wrap"/>
+
+                                <Border Height="1" Background="#2D2F45" Margin="0,8,0,8"/>
                                 <CheckBox x:Name="ChkWeatherDailyForecast" Style="{StaticResource CheckStyle}" Margin="0,0,0,4" Click="Setting_Changed"/>
                                 <Grid Margin="0,0,0,8">
                                     <Grid.ColumnDefinitions>

@@ -79,9 +79,10 @@ public partial class App : Application
 
         var weather = new Services.WeatherService();
         var nwsProvider = new Services.WeatherWarnings.NwsWeatherWarningProvider();
+        var jmaProvider = new Services.WeatherWarnings.JmaWeatherWarningProvider();
         var weatherAlert = new Services.WeatherAlertService(
             weather, notifier, () => _vm?.GetCurrentSettings() ?? new NotificationSettings(),
-            [nwsProvider]);
+            [nwsProvider, jmaProvider]);
 
         _vm = new MainViewModel(apiService, credService, sessionMonitor, codexMonitor, geminiCliMonitor,
             openCodeMonitor, antigravityMonitor, notifier, settingsService, updater, history, usageSync, weather, weatherAlert);
@@ -406,7 +407,18 @@ public partial class App : Application
             _trayIcon.Visible = false;
             _trayIcon.Dispose();
         }
-        _mutex?.ReleaseMutex();
+        // Mutex 는 획득한 스레드에서만 해제할 수 있다. 종료가 다른 스레드에서 시작되면
+        // ReleaseMutex() 가 ApplicationException 을 던져 종료 경로 전체가 무너진다.
+        // 해제하지 못해도 프로세스가 끝나면 OS 가 회수하므로 단일 인스턴스 보장에는 영향이 없다.
+        try
+        {
+            _mutex?.ReleaseMutex();
+        }
+        catch (ApplicationException ex)
+        {
+            Debug.WriteLine($"[App] Mutex release skipped (not owning thread): {ex.Message}");
+        }
+
         _mutex?.Dispose();
         base.OnExit(e);
     }

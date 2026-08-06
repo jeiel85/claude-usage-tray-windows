@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using ClaudeUsageTray.Models;
 using ClaudeUsageTray.Services;
+using ClaudeUsageTray.Services.Forecasts;
 
 namespace ClaudeUsageTray.ViewModels;
 
@@ -28,6 +29,8 @@ public partial class WeatherViewModel : ObservableObject
     [ObservableProperty] private double _lowTemperatureThresholdC = -10;
     [ObservableProperty] private double _windSpeedThresholdKmh = 50;
     [ObservableProperty] private bool _officialAlertsEnabled = true;
+    [ObservableProperty] private string _forecastSource = WeatherService.AutoSource;
+    [ObservableProperty] private string _forecastModel = OpenMeteoForecastProvider.AutoModel;
     [ObservableProperty] private string _statusLabel = "";
     [ObservableProperty] private string _tooltipLabel = "";
     [ObservableProperty] private bool _hasError;
@@ -84,7 +87,7 @@ public partial class WeatherViewModel : ObservableObject
         try
         {
             var location = new WeatherLocation(LocationName, CountryCode, null, Latitude.Value, Longitude.Value, Timezone);
-            var report = await _weather.GetForecastAsync(location);
+            var report = await _weather.GetForecastAsync(location, ForecastSource, ForecastModel);
 
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {

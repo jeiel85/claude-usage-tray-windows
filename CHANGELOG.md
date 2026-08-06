@@ -3,6 +3,36 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.37.0] - 2026-08-06
+
+<!-- ko -->
+### 수정
+- **폭염·한파·비 알림이 매시간 반복 발송되던 문제** — 같은 알림을 두 번 보내지 않으려고 쓰는 열쇠값에 시각이 "시간 단위"로 들어가 있어서, 한 시간이 지나면 같은 내용이 새 알림으로 취급됐습니다. 실제로 폭염이 이어지는 날에는 하루에 열 번 넘게 같은 알림이 나갔습니다. 이 세 알림은 그날 하루 예보 하나만 보고 판정하므로, 이제 하루에 한 번만 보냅니다. 현재 풍속으로 판정하는 강풍 알림은 6시간 간격을 유지합니다.
+- **발송 기록이 무한히 쌓이던 문제** — 오래된 기록을 지우는 코드가 실제로는 공식 특보 기록만 통째로 지우고 나머지는 전혀 지우지 않았습니다. 그래서 기록 파일은 계속 커지고, 정작 공식 특보는 중복 방지가 풀려 같은 특보가 반복 발송될 수 있었습니다. 이제 발송 시각을 함께 남겨 7일이 지난 기록만 정리합니다. 기존 기록은 자동으로 새 형식으로 옮겨집니다.
+- **앱 종료 중 예외로 종료 절차가 중단되던 문제** — 중복 실행 방지용 잠금을 해제하는 코드가, 종료가 다른 스레드에서 시작된 경우 예외를 던져 이후 정리 과정이 통째로 건너뛰어졌습니다.
+
+### 추가
+- **예보 제공처와 모델 선택** — 설정 → 날씨 탭에서 예보를 어디서 받을지 고를 수 있습니다. 기존 Open-Meteo 에 더해 MET Norway 를 쓸 수 있고, Open-Meteo 안에서는 ECMWF·NOAA GFS·DWD ICON·UK Met Office·JMA·MET Norway 모델을 직접 지정할 수 있습니다. 고른 소스가 응답하지 않으면 다른 소스로 자동 전환합니다.
+- **일본 기상청(JMA) 공식 특보** — 일본 위치에서 기상청이 발표한 경보를 받습니다. 주의보는 한 지역에 백 건 넘게 걸리는 일이 흔해 알리지 않고, 경보와 특별경보만 발송합니다.
+
+### 개선
+- **한국에서 기온이 실제보다 낮게 잡히던 문제 해결 수단** — 기상청(KMA) 이 2026년 3월 말 예보 모델을 바꾸면서 Open-Meteo 로 오던 한국 데이터가 끊겼고, 그 결과 자동 선택이 일본 JMA 모델로 넘어가 있었습니다. 8월 6일 서울 기준으로 자동 선택은 34.8°C 인데 ECMWF 는 37.8°C, NOAA GFS 는 38.4°C 였습니다. 폭염·한파 알림은 기준 온도를 넘는지로 판정하므로 이 차이가 알림 발송 여부를 바꿉니다. 이제 모델을 직접 고를 수 있습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Heat, cold, and rain alerts fired every hour** — The key used to avoid sending the same alert twice included the hour, so once an hour passed the identical alert counted as new. On a stretch of hot days that meant more than ten identical notifications a day. These three alerts are decided from a single daily forecast, so they now go out once per day. Wind alerts, which read the current observed speed, keep their 6-hour interval.
+- **The sent-alert log grew without bound** — The cleanup code only ever deleted official-warning entries and never touched the rest. The file kept growing, while official warnings lost their duplicate protection and could be re-sent repeatedly. Entries now carry a timestamp and are pruned after 7 days; existing records migrate automatically.
+- **An exception during shutdown aborted the rest of the cleanup** — Releasing the single-instance lock threw when shutdown began on a different thread, skipping everything after it.
+
+### Added
+- **Forecast source and model selection** — Settings → Weather now lets you choose where forecasts come from. MET Norway joins Open-Meteo as a source, and within Open-Meteo you can pick the ECMWF, NOAA GFS, DWD ICON, UK Met Office, JMA, or MET Norway model directly. If the chosen source returns nothing, another one takes over automatically.
+- **Official JMA warnings for Japan** — Locations in Japan now receive warnings issued by the Japan Meteorological Agency. Advisories are omitted (a single region routinely carries over a hundred), leaving warnings and emergency warnings.
+
+### Improved
+- **A way out of under-reported temperatures in Korea** — When the KMA switched forecast models in late March 2026, its data stopped reaching Open-Meteo, and automatic selection quietly fell back to Japan's JMA model. For Seoul on 6 August, automatic selection read 34.8°C while ECMWF read 37.8°C and NOAA GFS 38.4°C. Heat and cold alerts trigger on crossing a fixed threshold, so that gap decides whether an alert is sent at all. You can now pick the model yourself.
+<!-- /en -->
+
 ## [1.36.2] - 2026-08-06
 
 <!-- ko -->

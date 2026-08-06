@@ -1747,10 +1747,78 @@ public static class Loc
 
     public static string WeatherOfficialAlertsHint => Lang switch
     {
-        "ko" => "미국 위치에서만 NWS(미국 기상청) 특보를 조회합니다",
-        "zh" => "仅美国位置可获取 NWS（美国气象局）警报",
-        "ja" => "米国内の位置でのみ NWS（米国気象局）警報を取得",
-        _ => "NWS alerts available for US locations only"
+        "ko" => "미국(NWS)과 일본(기상청) 위치에서만 공식 특보를 조회합니다. 일본은 경보 이상만 알립니다",
+        "zh" => "仅美国（NWS）和日本（气象厅）位置可获取官方警报。日本仅通知警报级别以上",
+        "ja" => "米国（NWS）と日本（気象庁）の位置でのみ公式警報を取得。日本は警報以上のみ通知",
+        _ => "Official alerts available for US (NWS) and Japan (JMA) locations only. Japan: warnings and above"
+    };
+
+    // ===== 날씨 데이터 소스 (v1.37.0) =====
+
+    public static string WeatherDataSource => Lang switch
+    {
+        "ko" => "데이터 소스",
+        "zh" => "数据源",
+        "ja" => "データソース",
+        _ => "Data source"
+    };
+
+    public static string WeatherForecastSource => Lang switch
+    {
+        "ko" => "예보 제공처",
+        "zh" => "预报提供方",
+        "ja" => "予報提供元",
+        _ => "Forecast source"
+    };
+
+    public static string WeatherForecastModel => Lang switch
+    {
+        "ko" => "예보 모델",
+        "zh" => "预报模型",
+        "ja" => "予報モデル",
+        _ => "Forecast model"
+    };
+
+    public static string WeatherForecastSourceHint => Lang switch
+    {
+        "ko" => "선택한 소스가 응답하지 않으면 다른 소스로 자동 전환합니다. 모델은 Open-Meteo 에만 적용되며, MET Norway 는 강수확률을 제공하지 않아 비 알림이 동작하지 않습니다",
+        "zh" => "所选数据源无响应时将自动切换到其他源。模型仅适用于 Open-Meteo；MET Norway 不提供降水概率，因此降雨提醒不会触发",
+        "ja" => "選択したソースが応答しない場合は自動的に他のソースへ切り替えます。モデルは Open-Meteo のみ適用され、MET Norway は降水確率を提供しないため雨の通知は動作しません",
+        _ => "Falls back to another source if the selected one returns no data. Model applies to Open-Meteo only; MET Norway provides no precipitation probability, so rain alerts stay silent"
+    };
+
+    /// <summary>예보 제공처 표시명. 기관명은 고유명사라 언어별로 번역하지 않는다.</summary>
+    public static string WeatherForecastSourceName(string sourceId) => sourceId switch
+    {
+        "auto" => Lang switch
+        {
+            "ko" => "자동 (권장)",
+            "zh" => "自动（推荐）",
+            "ja" => "自動（推奨）",
+            _ => "Automatic (recommended)"
+        },
+        "open-meteo" => "Open-Meteo",
+        "met-norway" => "MET Norway",
+        _ => sourceId
+    };
+
+    /// <summary>예보 모델 표시명. 모델 식별자는 기관 약칭이라 그대로 두고 설명만 붙인다.</summary>
+    public static string WeatherForecastModelName(string modelId) => modelId switch
+    {
+        "best_match" => Lang switch
+        {
+            "ko" => "자동 선택 (권장)",
+            "zh" => "自动选择（推荐）",
+            "ja" => "自動選択（推奨）",
+            _ => "Auto-select (recommended)"
+        },
+        "ecmwf_ifs025" => "ECMWF IFS",
+        "gfs_seamless" => "NOAA GFS",
+        "icon_seamless" => "DWD ICON",
+        "ukmo_seamless" => "UK Met Office",
+        "jma_seamless" => "JMA",
+        "metno_seamless" => "MET Norway",
+        _ => modelId
     };
 
     public static string WeatherSearchNoResults => Lang switch

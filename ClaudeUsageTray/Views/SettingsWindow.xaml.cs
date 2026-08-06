@@ -6,6 +6,7 @@ using System.Windows.Media.Animation;
 using Microsoft.Win32;
 using ClaudeUsageTray.ViewModels;
 using ClaudeUsageTray.Services;
+using ClaudeUsageTray.Services.Forecasts;
 using ClaudeUsageTray.Models;
 using Windows.Devices.Geolocation;
 using Forms = System.Windows.Forms;
@@ -211,6 +212,11 @@ public partial class SettingsWindow : Window, IDisposable
         LblWeatherWindThreshold.Text               = Loc.WeatherWindSpeedThreshold;
         ChkWeatherOfficialAlerts.Content           = Loc.WeatherOfficialAlerts;
         LblWeatherOfficialAlertsHint.Text          = Loc.WeatherOfficialAlertsHint;
+        LblWeatherSourceSection.Text               = Loc.WeatherDataSource;
+        LblWeatherForecastSource.Text              = Loc.WeatherForecastSource;
+        LblWeatherForecastModel.Text               = Loc.WeatherForecastModel;
+        LblWeatherSourceHint.Text                  = Loc.WeatherForecastSourceHint;
+        PopulateWeatherSourceCombos();
         BtnWeatherUseCurrentLocation.ToolTip        = Loc.WeatherUseCurrentLocation;
         BtnTestWeather.Content                     = Loc.TestWeatherNotification;
         LblTestWeatherHint.Text                   = Loc.TestWeatherHint;
@@ -323,6 +329,9 @@ public partial class SettingsWindow : Window, IDisposable
         TxtWeatherColdThreshold.Text         = _vm.WeatherLowTemperatureThresholdC.ToString();
         TxtWeatherWindThreshold.Text         = _vm.WeatherWindSpeedThresholdKmh.ToString();
         ChkWeatherOfficialAlerts.IsChecked   = _vm.WeatherOfficialAlertsEnabled;
+        SelectComboByTag(CmbWeatherForecastSource, _vm.WeatherForecastSource);
+        SelectComboByTag(CmbWeatherForecastModel, _vm.WeatherForecastModel);
+        UpdateWeatherModelAvailability();
         UpdateWeatherLocationLabel();
 
         UpdateTrayModeAvailability();
@@ -820,6 +829,89 @@ public partial class SettingsWindow : Window, IDisposable
             BtnWeatherSearch.IsEnabled = true;
             BtnWeatherSearch.Content = Loc.WeatherSearch;
         }
+    }
+
+    /// <summary>
+    /// 예보 소스/모델 목록을 채운다. 표시 문구가 언어에 따라 바뀌므로 ApplyLocalization 에서
+    /// 다시 호출되며, 그때 선택이 풀리지 않도록 현재 설정값으로 되돌려 놓는다.
+    /// </summary>
+    private void PopulateWeatherSourceCombos()
+    {
+        var wasLoading = _isLoadingValues;
+        _isLoadingValues = true;
+
+        try
+        {
+            CmbWeatherForecastSource.Items.Clear();
+            foreach (var id in WeatherService.SelectableSources)
+                CmbWeatherForecastSource.Items.Add(new ComboBoxItem
+                {
+                    Content = Loc.WeatherForecastSourceName(id),
+                    Tag = id
+                });
+
+            CmbWeatherForecastModel.Items.Clear();
+            foreach (var id in OpenMeteoForecastProvider.SelectableModels)
+                CmbWeatherForecastModel.Items.Add(new ComboBoxItem
+                {
+                    Content = Loc.WeatherForecastModelName(id),
+                    Tag = id
+                });
+
+            SelectComboByTag(CmbWeatherForecastSource, _vm.WeatherForecastSource);
+            SelectComboByTag(CmbWeatherForecastModel, _vm.WeatherForecastModel);
+            UpdateWeatherModelAvailability();
+        }
+        finally
+        {
+            _isLoadingValues = wasLoading;
+        }
+    }
+
+    private static void SelectComboByTag(System.Windows.Controls.ComboBox combo, string tag)
+    {
+        for (int i = 0; i < combo.Items.Count; i++)
+        {
+            if (combo.Items[i] is ComboBoxItem item
+                && string.Equals(item.Tag as string, tag, StringComparison.Ordinal))
+            {
+                combo.SelectedIndex = i;
+                return;
+            }
+        }
+
+        if (combo.Items.Count > 0) combo.SelectedIndex = 0;
+    }
+
+    private static string? SelectedTag(System.Windows.Controls.ComboBox combo) =>
+        (combo.SelectedItem as ComboBoxItem)?.Tag as string;
+
+    /// <summary>모델 선택은 Open-Meteo 에만 있는 개념이라 다른 소스를 고르면 잠근다.</summary>
+    private void UpdateWeatherModelAvailability()
+    {
+        var source = SelectedTag(CmbWeatherForecastSource) ?? WeatherService.AutoSource;
+        CmbWeatherForecastModel.IsEnabled =
+            source is WeatherService.AutoSource or OpenMeteoForecastProvider.ProviderId;
+    }
+
+    private void WeatherForecastSource_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        UpdateWeatherModelAvailability();
+
+        if (_isLoadingValues) return;
+        if (SelectedTag(CmbWeatherForecastSource) is not string source) return;
+
+        _vm.WeatherForecastSource = source;
+        _vm.SaveSettings();
+    }
+
+    private void WeatherForecastModel_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isLoadingValues) return;
+        if (SelectedTag(CmbWeatherForecastModel) is not string model) return;
+
+        _vm.WeatherForecastModel = model;
+        _vm.SaveSettings();
     }
 
     private void WeatherSearch_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
