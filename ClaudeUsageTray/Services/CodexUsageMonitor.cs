@@ -69,6 +69,8 @@ public class CodexUsageMonitor
                 DataSource = "Direct API",
             };
             ApplyRateLimits(rateLimitsEl, snapshot);
+            // API 응답이라고 리셋 시각이 항상 미래인 것은 아니다(캐시된 응답·시계 어긋남).
+            DropExpiredWindows(snapshot, DateTimeOffset.Now);
             snapshot.IsSubscriptionActive = snapshot.PlanType is "Plus" or "Team" or "Enterprise";
 
             return snapshot;
@@ -96,9 +98,10 @@ public class CodexUsageMonitor
 
     public ProviderUsageSnapshot GetTodaySnapshot() => GetTodaySnapshot(SessionsPath);
 
-    // sessionsPath 를 주입받는 오버로드 — 단위 테스트에서 임시 로그 폴더를 지정하기 위한 것.
-    public ProviderUsageSnapshot GetTodaySnapshot(string sessionsPath)
+    // sessionsPath / now 를 주입받는 오버로드 — 단위 테스트에서 임시 로그 폴더와 기준 시각을 지정하기 위한 것.
+    public ProviderUsageSnapshot GetTodaySnapshot(string sessionsPath, DateTimeOffset? now = null)
     {
+        var reference = now ?? DateTimeOffset.Now;
         var snapshot = new ProviderUsageSnapshot();
         if (!Directory.Exists(sessionsPath))
         {
@@ -106,7 +109,7 @@ public class CodexUsageMonitor
             return snapshot;
         }
 
-        var today = DateTime.Now.Date;
+        var today = reference.LocalDateTime.Date;
         var latestRateTs = DateTimeOffset.MinValue;
         var files = Directory.GetFiles(sessionsPath, "rollout-*.jsonl", SearchOption.AllDirectories);
 
@@ -122,10 +125,37 @@ public class CodexUsageMonitor
             }
         }
 
+        DropExpiredWindows(snapshot, reference);
+
         if (!snapshot.HasData && snapshot.ErrorMessage is null)
             snapshot.ErrorMessage = Loc.CodexNoUsageToday;
 
         return snapshot;
+    }
+
+    /// <summary>
+    /// 리셋 시각이 이미 지난 창은 통째로 버린다.
+    /// 로그 스캔은 날짜와 무관하게 가장 최근의 rate_limits 를 집어오므로, 며칠 전 세션 로그에서
+    /// 이미 끝난 창의 사용률과 리셋 시각을 그대로 읽어 온다. 그 값은 지금 창을 설명하지 않는다.
+    /// 남겨 두면 사용률은 옛날 숫자로 표시되고 시간선은 100% 경과로 계산돼 막대 오른쪽 끝에 박힌다.
+    /// (동기화가 켜져 있으면 MainViewModel 이 다른 PC 의 최신 할당량으로 이 빈자리를 채운다.)
+    /// </summary>
+    private static void DropExpiredWindows(ProviderUsageSnapshot snapshot, DateTimeOffset now)
+    {
+        if (snapshot.ShortResetAt is { } shortReset && shortReset <= now)
+        {
+            snapshot.ShortUsagePercent = 0;
+            snapshot.ShortResetAt = null;
+            snapshot.ShortWindowMinutes = null;
+            snapshot.IsShortResetEstimated = false;
+        }
+
+        if (snapshot.LongResetAt is { } longReset && longReset <= now)
+        {
+            snapshot.LongUsagePercent = 0;
+            snapshot.LongResetAt = null;
+            snapshot.LongWindowMinutes = null;
+        }
     }
 
     private static void ProcessFile(string filePath, DateTime today, ProviderUsageSnapshot snapshot,
@@ -160,7 +190,9 @@ public class CodexUsageMonitor
                     ? parsedTs
                     : DateTimeOffset.MinValue;
 
-                if (ts != DateTimeOffset.MinValue)
+                // 이름 그대로 "오늘 첫 활동" 이어야 한다. 날짜를 안 보면 며칠 전 로그의 첫 줄이 잡혀
+                // 리셋 추정치가 과거로 계산되고, 시간선이 100% 경과(막대 오른쪽 끝)로 고정된다.
+                if (ts != DateTimeOffset.MinValue && ts.ToLocalTime().Date == today)
                     firstTodayActivityTs ??= ts;
 
                 if (payloadEl.TryGetProperty("rate_limits", out var rateLimitsEl) && ts > latestRateTs)
@@ -271,8 +303,10 @@ public class CodexUsageMonitor
             ? Math.Clamp(percentEl.GetDouble() / 100.0, 0, 1)
             : 0;
 
+        // epoch 가 0/음수면 "리셋 시각 없음"이다. 그대로 받으면 1970-01-01 이 되어
+        // 시간선이 100% 경과로 계산되고 막대 오른쪽 끝에 박힌다(window_minutes 처럼 양수만 받는다).
         DateTimeOffset? resetAt = windowEl.TryGetProperty("resets_at", out var resetEl) &&
-                                  resetEl.TryGetInt64(out var epoch)
+                                  resetEl.TryGetInt64(out var epoch) && epoch > 0
             ? DateTimeOffset.FromUnixTimeSeconds(epoch)
             : null;
 

@@ -86,6 +86,9 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private bool _isCodexLongVisible = false;   // secondary 응답이 있을 때만 노출
     [ObservableProperty] private double _codexShortTimePercent = 0;
     [ObservableProperty] private double _codexLongTimePercent = 0;
+    // 시간선 표시 여부 — 지금이 창 밖(리셋이 이미 지났거나 창 길이가 어긋남)이면 마커를 숨긴다.
+    [ObservableProperty] private bool _hasCodexShortTimeline = false;
+    [ObservableProperty] private bool _hasCodexLongTimeline = false;
     [ObservableProperty] private string _codexShortPaceTip = "";
     [ObservableProperty] private string _codexLongPaceTip = "";
     // v1.26.0: PlanType 라벨 — 응답에 PlanType 있으면 "ChatGPT Plus" 식으로, 없으면 "ChatGPT plan"
@@ -463,9 +466,10 @@ namespace ClaudeUsageTray.ViewModels;
         // 계정 전환 자동 감지: credentials 파일 변경 → 새로고침
         _credentials.CredentialsChanged += OnCredentialsChanged;
 
-        // 언어 변경 시 모든 바인딩 갱신
-        Loc.LanguageChanged += () =>
-            System.Windows.Application.Current.Dispatcher.Invoke(() => OnPropertyChanged(string.Empty));
+        // 언어 변경 시 모든 바인딩 갱신.
+        // Loc.LanguageChanged 는 static 이벤트라 구독을 놓으면 Dispose 후에도 이 인스턴스가 계속 붙어 있는다.
+        // 그러면 종료 중처럼 Application.Current 가 사라진 시점의 언어 변경이 NullReferenceException 이 된다.
+        Loc.LanguageChanged += OnLanguageChanged;
 
         // _timer 초기화는 LoadSettings 이전에 필요 (ApplyPollingInterval에서 사용)
         _timer = new Timer(AppConstants.PollingIntervalMs); // 2 minutes — API has rate limits
@@ -1484,19 +1488,23 @@ namespace ClaudeUsageTray.ViewModels;
         }
     }
 
-    private UsageSyncMergedLocalTotals? TrySyncProviderSnapshot(
+    /// <summary>
+    /// provider 한 개의 스냅샷을 공유 폴더에 쓰고, 다른 PC 것까지 읽어 합산 토큰과 최신 할당량을 돌려준다.
+    /// Claude 와 달리 계정 키를 두지 않는다 — 이 provider 들은 로컬 로그만 보고 계정을 특정할 수 없다.
+    /// </summary>
+    private UsageSyncProviderResult TrySyncProviderSnapshot(
         string provider,
         ProviderUsageSnapshot snapshot)
     {
         if (!IsUsageSyncReady)
-            return null;
+            return UsageSyncProviderResult.Empty;
 
         try
         {
             var localSnapshot = _usageSync.CreateSnapshot(
                 provider,
                 null,
-                CreateProviderQuotaSnapshot(snapshot),
+                CreateProviderQuotaSnapshot(provider, snapshot),
                 CreateLocalTotals(snapshot),
                 ClassifyProviderError(snapshot.ErrorMessage));
             _usageSync.WriteSnapshot(UsageSyncFolderPath, localSnapshot);
@@ -1504,7 +1512,13 @@ namespace ClaudeUsageTray.ViewModels;
             var today = DateOnly.FromDateTime(DateTime.Now);
             var read = _usageSync.ReadSnapshots(UsageSyncFolderPath, provider, null, today);
             UsageSyncStatusLabel = Loc.UsageSyncReady;
-            return _usageSync.MergeLocalTotals(read.Snapshots, UsageSyncLocalTtl);
+            return new UsageSyncProviderResult(
+                _usageSync.MergeLocalTotals(read.Snapshots, UsageSyncLocalTtl),
+                // 할당량은 합산하지 않는다 — 계정 단위 값이라 가장 최근에 관측한 PC 것을 쓴다.
+                // 기기별로 계산되는 percent(Gemini·OpenCode)는 애초에 쓰지 않으므로 여기서도 나오지 않는다.
+                UsageSyncSharesAccountQuota(provider)
+                    ? _usageSync.SelectNewestQuotaSnapshot(read.Snapshots, UsageSyncApiTtl)
+                    : null);
         }
         catch (Exception ex)
         {
@@ -1512,8 +1526,25 @@ namespace ClaudeUsageTray.ViewModels;
 #if DEBUG
             Debug.WriteLine($"[MainViewModel] {provider} usage sync failed: {ex}");
 #endif
-            return null;
+            return UsageSyncProviderResult.Empty;
         }
+    }
+
+    /// <summary>
+    /// 이 provider 의 할당량이 "계정 단위"라서 기기 간에 공유해도 되는가.
+    /// Codex·Antigravity 는 서버가 계정별로 내려주므로 어느 PC 에서 봐도 같은 값이다.
+    /// Gemini CLI·OpenCode 의 percent 는 그 PC 의 로컬 토큰 합계를 그 PC 의 최근 최대치로 나눈 값이라
+    /// 다른 PC 의 값을 가져다 쓰면 남의 기기 기준을 내 화면에 표시하는 셈이 된다 — 대신 합산 토큰으로 다시 계산한다.
+    /// </summary>
+    internal static bool UsageSyncSharesAccountQuota(string provider) =>
+        provider is UsageProviderKind.Codex or UsageProviderKind.Antigravity;
+
+    /// <summary>동기화 1회 결과 — 기기 합산 토큰과, 계정 단위 provider 라면 가장 최신 할당량.</summary>
+    private readonly record struct UsageSyncProviderResult(
+        UsageSyncMergedLocalTotals? MergedTotals,
+        UsageSyncSnapshot? RemoteQuota)
+    {
+        public static UsageSyncProviderResult Empty => new(null, null);
     }
 
     private UsageSyncQuotaSnapshot? CreateClaudeQuotaSnapshot(UsageResponse? usage)
@@ -1546,16 +1577,15 @@ namespace ClaudeUsageTray.ViewModels;
         };
     }
 
-    private static UsageSyncQuotaSnapshot? CreateProviderQuotaSnapshot(ProviderUsageSnapshot snapshot)
+    internal static UsageSyncQuotaSnapshot? CreateProviderQuotaSnapshot(string provider, ProviderUsageSnapshot snapshot)
     {
-        var hasQuota =
-            snapshot.ShortUsagePercent > 0 ||
-            snapshot.LongUsagePercent > 0 ||
-            snapshot.ShortResetAt is not null ||
-            snapshot.LongResetAt is not null ||
-            !string.IsNullOrWhiteSpace(snapshot.PlanType);
+        // 기기 단위로 계산되는 percent 는 공유하지 않는다 — 남의 PC 기준이 내 화면에 뜨는 것을 막는다.
+        if (!UsageSyncSharesAccountQuota(provider))
+            return null;
 
-        if (!hasQuota)
+        // 리셋 시각이 있어야 창을 특정할 수 있다. 사용률만 있고 창을 모르면 시간선을 그릴 수 없고,
+        // 받는 쪽에서 "지금 창의 값"인지도 확인할 수 없으므로 공유하지 않는다.
+        if (snapshot.ShortResetAt is null && snapshot.LongResetAt is null)
             return null;
 
         return new UsageSyncQuotaSnapshot
@@ -1564,8 +1594,11 @@ namespace ClaudeUsageTray.ViewModels;
             ShortUsagePercent = snapshot.ShortUsagePercent,
             ShortResetAt = snapshot.ShortResetAt,
             IsShortResetEstimated = snapshot.IsShortResetEstimated,
+            ShortWindowMinutes = snapshot.ShortWindowMinutes,
             LongUsagePercent = snapshot.LongUsagePercent,
             LongResetAt = snapshot.LongResetAt,
+            LongWindowMinutes = snapshot.LongWindowMinutes,
+            HasLongWindow = snapshot.LongWindowMinutes is not null || snapshot.LongResetAt is not null,
             PlanType = snapshot.PlanType ?? "",
         };
     }
@@ -1647,6 +1680,48 @@ namespace ClaudeUsageTray.ViewModels;
         StatusText = $"{ClaudeVm.ShortPercent:P0} used";
     }
 
+    /// <summary>이 PC 가 "지금 열려 있는" Codex 창을 실제로 알고 있는지.</summary>
+    private bool HasLiveCodexQuota() =>
+        _rawCodexShortResetAt > DateTimeOffset.Now || _rawCodexLongResetAt > DateTimeOffset.Now;
+
+    /// <summary>
+    /// 다른 PC 가 관측한 Codex 할당량을 이 화면에 반영한다.
+    /// 창 길이(window_minutes)까지 함께 옮겨야 시간선 마커가 제자리에 선다 —
+    /// 5시간으로 가정하면 주간 창 계정에서 위치가 통째로 어긋난다.
+    /// </summary>
+    private void ApplySyncedCodexQuota(UsageSyncSnapshot snapshot)
+    {
+        if (snapshot.Quota is not { HasData: true } quota)
+            return;
+
+        CodexHasError = false;
+        CodexErrorMessage = "";
+
+        CodexPercent = quota.ShortUsagePercent;
+        _prevCodexPercent = quota.ShortUsagePercent;
+        _rawCodexShortResetAt = quota.ShortResetAt;
+        _rawCodexShortResetEstimated = quota.IsShortResetEstimated;
+        CodexReset = FormatResetLabel(quota.ShortResetAt, quota.IsShortResetEstimated);
+        CodexSummary = Loc.UsageSummary(quota.ShortUsagePercent);
+        _rawCodexShortWindow = UsageCalculator.WindowSpan(quota.ShortWindowMinutes, TimeSpan.FromHours(5));
+        CodexShortWindowLabel = Loc.CodexWindowLabel(quota.ShortWindowMinutes);
+
+        CodexLongPercent = quota.LongUsagePercent;
+        _rawCodexLongResetAt = quota.LongResetAt;
+        CodexLongReset = FormatResetLabel(quota.LongResetAt);
+        CodexLongSummary = Loc.UsageSummary(quota.LongUsagePercent);
+        _rawCodexLongWindow = UsageCalculator.WindowSpan(quota.LongWindowMinutes, TimeSpan.FromDays(7));
+        CodexLongWindowLabel = Loc.CodexWindowLabel(quota.LongWindowMinutes);
+        IsCodexLongVisible = quota.HasLongWindow;
+
+        if (!string.IsNullOrWhiteSpace(quota.PlanType))
+            CodexPlanLabel = $"ChatGPT {quota.PlanType}";
+
+        CodexDataSource = Loc.UsageSyncQuotaFromDevice(
+            snapshot.DeviceName,
+            (quota.ObservedAtUtc ?? snapshot.ObservedAtUtc).ToLocalTime().ToString("HH:mm"));
+    }
+
     private static string ClassifyClaudeApiError(string? error)
     {
         if (string.IsNullOrWhiteSpace(error))
@@ -1690,6 +1765,16 @@ namespace ClaudeUsageTray.ViewModels;
 
     private static bool HasMergedDeviceTotals(UsageSyncMergedLocalTotals? merged) =>
         merged is { DeviceCount: > 1, HasData: true };
+
+    /// <summary>
+    /// Gemini CLI·OpenCode 처럼 서버 할당량이 없어 "최근 최대 사용일" 대비로 막대를 그리는 provider 의
+    /// 진행률을, 기기 합산 토큰 기준으로 다시 계산한다. 각 모니터의 계산식(출력 토큰 / 목표치)과 같아야 한다.
+    /// </summary>
+    private double MergedGoalPercent(string provider, long outputTokens)
+    {
+        var goal = Math.Max(10000, _history.GetRecentMaxTotalTokens(provider, null, 7));
+        return Math.Clamp(outputTokens / (double)goal, 0, 1);
+    }
 
     private async Task RefreshClaudeAsync()
     {
@@ -2075,7 +2160,8 @@ namespace ClaudeUsageTray.ViewModels;
                     ThresholdToPriority(threshold)),
             () => _notifier.ShowQuotaResetAlert(NtfyTopicEffective));
 
-        var mergedTotals = TrySyncProviderSnapshot(UsageProviderKind.Codex, CodexVm.LastSnapshot);
+        var sync = TrySyncProviderSnapshot(UsageProviderKind.Codex, CodexVm.LastSnapshot);
+        var mergedTotals = sync.MergedTotals;
 
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
@@ -2095,10 +2181,16 @@ namespace ClaudeUsageTray.ViewModels;
             CodexLongReset = CodexVm.LongReset;
             CodexLongSummary = CodexVm.LongSummary;
             IsCodexLongVisible = CodexVm.IsLongVisible;
-            RecomputeCodexTimeProgress(DateTimeOffset.Now);
             CodexPlanLabel = CodexVm.PlanLabel;
             CodexShortWindowLabel = CodexVm.ShortWindowLabel;
             CodexLongWindowLabel = CodexVm.LongWindowLabel;
+
+            // 이 PC 에 지금 창을 설명하는 데이터가 없으면(오늘 요청이 없거나 로그의 창이 이미 끝남)
+            // 다른 PC 가 올린 최신 할당량으로 채운다. Codex 의 rate_limits 는 계정 단위라 그대로 옮겨도 맞다.
+            if (!HasLiveCodexQuota() && sync.RemoteQuota is { Quota.HasData: true } remoteQuota)
+                ApplySyncedCodexQuota(remoteQuota);
+
+            RecomputeCodexTimeProgress(DateTimeOffset.Now);
             CodexInputLabel = CodexVm.InputLabel;
             CodexOutputLabel = CodexVm.OutputLabel;
             CodexCacheReadLabel = CodexVm.CacheReadLabel;
@@ -2130,7 +2222,7 @@ namespace ClaudeUsageTray.ViewModels;
     {
         await GeminiVm.RefreshAsync();
 
-        var mergedTotals = TrySyncProviderSnapshot(UsageProviderKind.GeminiCli, GeminiVm.LastSnapshot);
+        var mergedTotals = TrySyncProviderSnapshot(UsageProviderKind.GeminiCli, GeminiVm.LastSnapshot).MergedTotals;
 
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
@@ -2160,6 +2252,9 @@ namespace ClaudeUsageTray.ViewModels;
                 IsGeminiUsageEmpty = false;
                 _lastGeminiRequestCount = mergedTotals.RequestCount;
                 _lastGeminiOutputTokens = mergedTotals.OutputTokens;
+                // 막대도 합산 기준으로 다시 계산한다. 안 하면 숫자는 여러 PC 합인데 막대만 이 PC 몫이라 어긋난다.
+                GeminiPercent = MergedGoalPercent(UsageProviderKind.GeminiCli, mergedTotals.OutputTokens);
+                _prevGeminiPercent = GeminiPercent;
             }
 
             UpdateOverallStatus();
@@ -2170,7 +2265,7 @@ namespace ClaudeUsageTray.ViewModels;
     {
         await OpenCodeVm.RefreshAsync();
 
-        var mergedTotals = TrySyncProviderSnapshot(UsageProviderKind.OpenCode, OpenCodeVm.LastSnapshot);
+        var mergedTotals = TrySyncProviderSnapshot(UsageProviderKind.OpenCode, OpenCodeVm.LastSnapshot).MergedTotals;
 
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
@@ -2203,6 +2298,8 @@ namespace ClaudeUsageTray.ViewModels;
                 _lastOpenCodeRequestCount = mergedTotals.RequestCount;
                 _lastOpenCodeInputTokens = mergedTotals.InputTokens;
                 _lastOpenCodeOutputTokens = mergedTotals.OutputTokens;
+                // 막대도 합산 기준으로 다시 계산한다(Gemini 와 동일한 이유).
+                OpenCodePercent = MergedGoalPercent(UsageProviderKind.OpenCode, mergedTotals.OutputTokens);
             }
 
             UpdateOverallStatus();
@@ -2365,14 +2462,16 @@ namespace ClaudeUsageTray.ViewModels;
         // 리셋 직후 1~2분 사용이 "거의 전부 초과(주황)"로 과장돼 보이는 것을 막는다(settled=false → 초과색·문구 억제).
         var shortTime = UsageCalculator.TimeProgress(_rawClaudeShortResetAt, TimeSpan.FromHours(5), now);
         bool shortSettled = IsPaceSettled(shortTime, TimeSpan.FromHours(5), TimeSpan.FromMinutes(5));
-        ClaudeVm.ShortTimePercent = shortTime;
-        ClaudeVm.ShortUsageCapped = shortSettled ? Math.Min(ClaudeVm.ShortPercent, shortTime) : ClaudeVm.ShortPercent;
+        ClaudeVm.HasShortTimeline = shortTime.HasValue;
+        ClaudeVm.ShortTimePercent = shortTime ?? 0;
+        ClaudeVm.ShortUsageCapped = shortSettled ? Math.Min(ClaudeVm.ShortPercent, shortTime!.Value) : ClaudeVm.ShortPercent;
         ClaudeVm.ShortPaceTip     = Loc.PaceTip(shortTime, ClaudeVm.ShortPercent, shortSettled);
 
         var longTime = UsageCalculator.TimeProgress(_rawClaudeLongResetAt, TimeSpan.FromDays(7), now);
         bool longSettled = IsPaceSettled(longTime, TimeSpan.FromDays(7), TimeSpan.FromHours(2));
-        ClaudeVm.LongTimePercent = longTime;
-        ClaudeVm.LongUsageCapped = longSettled ? Math.Min(ClaudeVm.LongPercent, longTime) : ClaudeVm.LongPercent;
+        ClaudeVm.HasLongTimeline = longTime.HasValue;
+        ClaudeVm.LongTimePercent = longTime ?? 0;
+        ClaudeVm.LongUsageCapped = longSettled ? Math.Min(ClaudeVm.LongPercent, longTime!.Value) : ClaudeVm.LongPercent;
         ClaudeVm.LongPaceTip     = Loc.PaceTip(longTime, ClaudeVm.LongPercent, longSettled);
     }
 
@@ -2384,19 +2483,22 @@ namespace ClaudeUsageTray.ViewModels;
     private void RecomputeCodexTimeProgress(DateTimeOffset now)
     {
         var shortTime = UsageCalculator.TimeProgress(_rawCodexShortResetAt, _rawCodexShortWindow, now);
-        CodexShortTimePercent = shortTime;
+        HasCodexShortTimeline = shortTime.HasValue;
+        CodexShortTimePercent = shortTime ?? 0;
         CodexShortPaceTip = Loc.PaceTip(shortTime, CodexPercent,
             IsPaceSettled(shortTime, _rawCodexShortWindow, _rawCodexShortWindow / 60));
 
         var longTime = UsageCalculator.TimeProgress(_rawCodexLongResetAt, _rawCodexLongWindow, now);
-        CodexLongTimePercent = longTime;
+        HasCodexLongTimeline = longTime.HasValue;
+        CodexLongTimePercent = longTime ?? 0;
         CodexLongPaceTip = Loc.PaceTip(longTime, CodexLongPercent,
             IsPaceSettled(longTime, _rawCodexLongWindow, _rawCodexLongWindow / 60));
     }
 
     // 경과 시간이 최소 기준 이상이어야 페이스(초과색/빠름·여유)를 신뢰할 수 있다고 본다.
-    private static bool IsPaceSettled(double timeProgress, TimeSpan window, TimeSpan minElapsed)
-        => timeProgress * window.TotalSeconds >= minElapsed.TotalSeconds;
+    // 진행률을 모르면(창 밖) 페이스도 판정하지 않는다.
+    private static bool IsPaceSettled(double? timeProgress, TimeSpan window, TimeSpan minElapsed)
+        => timeProgress is double progress && progress * window.TotalSeconds >= minElapsed.TotalSeconds;
 
     /// <summary>
     /// ShowAbsoluteResetTime 토글 시 4개 reset 라벨을 raw 값에서 즉시 재포맷.
@@ -2547,8 +2649,15 @@ namespace ClaudeUsageTray.ViewModels;
         _ => Loc.WeatherUnknown
     };
 
+    private void OnLanguageChanged()
+    {
+        // 종료 중이면 Application.Current 가 이미 null 이다 — 갱신할 화면도 없으므로 그냥 넘어간다.
+        System.Windows.Application.Current?.Dispatcher.Invoke(() => OnPropertyChanged(string.Empty));
+    }
+
     public void Dispose()
     {
+        Loc.LanguageChanged -= OnLanguageChanged;
         _credentials.CredentialsChanged -= OnCredentialsChanged;
         _credentials.Dispose();
         _antigravity.Dispose();
@@ -2563,8 +2672,20 @@ namespace ClaudeUsageTray.ViewModels;
         AntigravityVm.IsEnabled = IsAntigravityEnabled;
         await AntigravityVm.RefreshAsync();
 
+        var remoteQuota = IsAntigravityEnabled ? TrySyncAntigravityQuota() : null;
+
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
+            // 이 PC 에서 Antigravity 에 로그인하지 않았거나 조회가 실패하면 다른 PC 가 올린 값으로 채운다.
+            // 할당량은 구글 계정 단위라 어느 PC 에서 받아도 같은 값이다.
+            if (!AntigravityVm.HasData && remoteQuota is { Quota.HasData: true } snapshot)
+            {
+                AntigravityVm.ApplyQuota(
+                    ToAntigravityModelQuotas(snapshot.Quota!.Models),
+                    snapshot.Quota.TierName,
+                    snapshot.Quota.PaidTierName);
+            }
+
             AntigravityHasData = AntigravityVm.HasData;
             AntigravityHasError = AntigravityVm.HasError;
             AntigravityErrorMessage = AntigravityVm.ErrorMessage;
@@ -2574,6 +2695,72 @@ namespace ClaudeUsageTray.ViewModels;
             AntigravityPercent = AntigravityVm.Percent;
         });
     }
+
+    /// <summary>
+    /// Antigravity 할당량을 공유 폴더에 쓰고 다른 PC 것을 읽어 온다.
+    /// 토큰 합계 개념이 없는 provider 라 <see cref="TrySyncProviderSnapshot"/> 대신 할당량만 주고받는다.
+    ///
+    /// 계정 키는 두지 않는다(Codex 등 다른 provider 와 동일). 이 기능이 쓰이는 상황이 바로
+    /// "이 PC 는 Antigravity 에 로그인하지 않았다" 인데, 그러면 이메일을 몰라 계정 해시가 달라지고
+    /// 정작 필요한 PC 가 상대 폴더를 못 읽는다. 공유 폴더 자체가 한 사용자 것이라는 전제로 묶는다.
+    /// </summary>
+    private UsageSyncSnapshot? TrySyncAntigravityQuota()
+    {
+        if (!IsUsageSyncReady)
+            return null;
+
+        try
+        {
+            var local = AntigravityVm.LastSnapshot;
+            var snapshot = _usageSync.CreateSnapshot(
+                UsageProviderKind.Antigravity,
+                null,
+                CreateAntigravityQuotaSnapshot(local),
+                new UsageSyncLocalTotals(),
+                local.HasData ? "" : ClassifyProviderError(local.ErrorMessage));
+            _usageSync.WriteSnapshot(UsageSyncFolderPath, snapshot);
+
+            var today = DateOnly.FromDateTime(DateTime.Now);
+            var read = _usageSync.ReadSnapshots(UsageSyncFolderPath, UsageProviderKind.Antigravity, null, today);
+            UsageSyncStatusLabel = Loc.UsageSyncReady;
+            return _usageSync.SelectNewestQuotaSnapshot(read.Snapshots, UsageSyncApiTtl);
+        }
+        catch (Exception ex)
+        {
+            UsageSyncStatusLabel = Loc.UsageSyncFailed(ex.Message);
+#if DEBUG
+            Debug.WriteLine($"[MainViewModel] Antigravity usage sync failed: {ex}");
+#endif
+            return null;
+        }
+    }
+
+    private static UsageSyncQuotaSnapshot? CreateAntigravityQuotaSnapshot(AntigravitySnapshot snapshot)
+    {
+        if (!snapshot.HasData || snapshot.Models.Count == 0)
+            return null;
+
+        return new UsageSyncQuotaSnapshot
+        {
+            HasData = true,
+            TierName = snapshot.TierName ?? "",
+            PaidTierName = snapshot.PaidTierName ?? "",
+            Models = [.. snapshot.Models.Select(model => new UsageSyncModelQuota
+            {
+                ModelId = model.ModelId,
+                RemainingFraction = model.RemainingFraction,
+                ResetAt = model.ResetTime,
+            })],
+        };
+    }
+
+    private static IReadOnlyList<AntigravityModelQuota> ToAntigravityModelQuotas(UsageSyncModelQuota[] models) =>
+        [.. models.Select(model => new AntigravityModelQuota
+        {
+            ModelId = model.ModelId,
+            RemainingFraction = model.RemainingFraction,
+            ResetTime = model.ResetAt,
+        })];
 }
 
 /// <summary>Single row binding model for the Antigravity model quota list.</summary>

@@ -371,9 +371,22 @@ public static class Loc
 
     // 시간 진행률 마커 툴팁 — 시간 경과 vs 사용량을 나란히 보여주고, 색(주황=초과)과 일치하는 페이스 판정을 덧붙인다.
     // settled=false(윈도우 초반, 통계적으로 무의미한 구간)면 빠름/여유 판정을 유보하고 "측정 중"으로 표시한다.
-    public static string PaceTip(double timePercent, double usagePercent, bool settled = true)
+    // timePercent=null 은 지금이 창 밖이라 경과 비율 자체를 모른다는 뜻 — 0% 경과라고 단정하지 않는다.
+    public static string PaceTip(double? timePercent, double usagePercent, bool settled = true)
     {
-        double t = Math.Clamp(timePercent, 0, 1);
+        if (timePercent is null)
+        {
+            double used = Math.Clamp(usagePercent, 0, 1);
+            return Lang switch
+            {
+                "ko" => $"사용 {used:P0} · 창 진행률 알 수 없음",
+                "zh" => $"已用 {used:P0} · 无法确定窗口进度",
+                "ja" => $"使用 {used:P0} · ウィンドウの進捗は不明",
+                _ => $"Used {used:P0} · window progress unknown"
+            };
+        }
+
+        double t = Math.Clamp(timePercent.Value, 0, 1);
         double u = Math.Clamp(usagePercent, 0, 1);
         if (!settled)
         {

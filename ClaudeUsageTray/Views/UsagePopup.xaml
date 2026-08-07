@@ -684,7 +684,8 @@
                                             <ColumnDefinition Width="{Binding ClaudeVm.ShortTimePercent, Converter={StaticResource PercentToStar}}"/>
                                             <ColumnDefinition Width="{Binding ClaudeVm.ShortTimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
                                         </Grid.ColumnDefinitions>
-                                        <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"/>
+                                        <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"
+                                                Visibility="{Binding ClaudeVm.HasShortTimeline, Converter={StaticResource BoolToVisibility}}"/>
                                     </Grid>
                                 </Grid>
                             </Grid>
@@ -717,7 +718,8 @@
                                             <ColumnDefinition Width="{Binding ClaudeVm.LongTimePercent, Converter={StaticResource PercentToStar}}"/>
                                             <ColumnDefinition Width="{Binding ClaudeVm.LongTimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
                                         </Grid.ColumnDefinitions>
-                                        <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"/>
+                                        <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"
+                                                Visibility="{Binding ClaudeVm.HasLongTimeline, Converter={StaticResource BoolToVisibility}}"/>
                                     </Grid>
                                 </Grid>
                             </Grid>
@@ -927,7 +929,8 @@
                                     <ColumnDefinition Width="{Binding CodexShortTimePercent, Converter={StaticResource PercentToStar}}"/>
                                     <ColumnDefinition Width="{Binding CodexShortTimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
                                 </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"/>
+                                <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"
+                                        Visibility="{Binding HasCodexShortTimeline, Converter={StaticResource BoolToVisibility}}"/>
                             </Grid>
                         </Grid>
                         <TextBlock Text="{Binding CodexSummary}" Foreground="#8B92B3" FontSize="10" Margin="0,4,0,10"/>
@@ -952,7 +955,8 @@
                                         <ColumnDefinition Width="{Binding CodexLongTimePercent, Converter={StaticResource PercentToStar}}"/>
                                         <ColumnDefinition Width="{Binding CodexLongTimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
                                     </Grid.ColumnDefinitions>
-                                    <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"/>
+                                    <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"
+                                            Visibility="{Binding HasCodexLongTimeline, Converter={StaticResource BoolToVisibility}}"/>
                                 </Grid>
                             </Grid>
                             <TextBlock Text="{Binding CodexLongSummary}" Foreground="#8B92B3" FontSize="10" Margin="0,4,0,0"/>

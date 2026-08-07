@@ -138,14 +138,144 @@ public class CodexUsageMonitorTests
         finally { Directory.Delete(root, true); }
     }
 
+    // 회귀(v1.38.0): 오늘 요청이 없는 PC 에서 Codex 시간선이 막대 오른쪽 끝에 박히던 문제.
+    // 로그 스캔은 날짜와 무관하게 가장 최근의 rate_limits 를 집어오므로, 며칠 전 세션의
+    // "이미 끝난 창"이 그대로 표시됐다. 리셋이 과거면 진행률이 1 로 잘려 마커가 오른쪽 끝에 선다.
+    [Fact]
+    public void ExpiredWindowInOldLog_IsDropped_SoTimelineHasNoPosition()
+    {
+        var root = CreateTempCodexRoot();
+        try
+        {
+            var dir = Path.Combine(root, "old");
+            Directory.CreateDirectory(dir);
+            var expired = DateTimeOffset.Now.AddDays(-3).ToUnixTimeSeconds();
+            File.WriteAllLines(Path.Combine(dir, "rollout-old.jsonl"), new[]
+            {
+                TokenCountLine("2026-08-03T01:00:00.000Z", input: 999, cached: 0, output: 9, reasoning: 0,
+                    total: 1008, primaryPercent: 61.0, primaryWindowMinutes: 10080, secondaryJson: "null",
+                    primaryResetsAt: expired),
+            });
+
+            var snap = new CodexUsageMonitor().GetTodaySnapshot(root);
+
+            Assert.Null(snap.ShortResetAt);
+            Assert.Null(snap.ShortWindowMinutes);
+            Assert.Equal(0, snap.ShortUsagePercent);
+            Assert.Null(UsageCalculator.TimeProgress(
+                snap.ShortResetAt,
+                UsageCalculator.WindowSpan(snap.ShortWindowMinutes, TimeSpan.FromHours(5)),
+                DateTimeOffset.Now));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    // 아직 열려 있는 창은 오늘 활동이 없어도 유지된다 — 위 규칙이 멀쩡한 데이터까지 지우면 안 된다.
+    [Fact]
+    public void LiveWindowInOldLog_IsKept()
+    {
+        var root = CreateTempCodexRoot();
+        try
+        {
+            var dir = Path.Combine(root, "old");
+            Directory.CreateDirectory(dir);
+            var live = DateTimeOffset.Now.AddHours(2).ToUnixTimeSeconds();
+            File.WriteAllLines(Path.Combine(dir, "rollout-old.jsonl"), new[]
+            {
+                TokenCountLine("2026-08-03T01:00:00.000Z", input: 999, cached: 0, output: 9, reasoning: 0,
+                    total: 1008, primaryPercent: 61.0, primaryWindowMinutes: 300, secondaryJson: "null",
+                    primaryResetsAt: live),
+            });
+
+            var snap = new CodexUsageMonitor().GetTodaySnapshot(root);
+
+            Assert.Equal(0.61, snap.ShortUsagePercent, 3);
+            Assert.Equal(300, snap.ShortWindowMinutes);
+            Assert.NotNull(snap.ShortResetAt);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    // resets_at 이 0 이면 "리셋 시각 없음"이다. 그대로 받으면 1970-01-01 이 되어
+    // 시간선이 100% 경과로 계산되고 막대 오른쪽 끝에 박힌다. 0 은 무시하고 추정 폴백을 태워야 한다.
+    [Fact]
+    public void ZeroResetsAt_IsTreatedAsMissing_NotUnixEpoch()
+    {
+        var root = CreateTempCodexRoot();
+        try
+        {
+            var dir = Path.Combine(root, "z");
+            Directory.CreateDirectory(dir);
+            var todayTen = DateTime.Today.AddHours(10);
+            File.WriteAllLines(Path.Combine(dir, "rollout-today-z.jsonl"), new[]
+            {
+                TokenCountLine(
+                    todayTen.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture),
+                    input: 100, cached: 0, output: 10, reasoning: 0,
+                    total: 110, primaryPercent: 20.0, primaryWindowMinutes: 300, secondaryJson: "null",
+                    primaryResetsAt: 0),
+            });
+
+            var snap = new CodexUsageMonitor().GetTodaySnapshot(root, new DateTimeOffset(todayTen.AddHours(1)));
+
+            Assert.True(snap.HasData);
+            Assert.NotEqual(DateTimeOffset.UnixEpoch, snap.ShortResetAt);
+            // 0 을 무시했으므로 "오늘 첫 활동 + 창 길이" 추정치가 남는다.
+            Assert.True(snap.IsShortResetEstimated);
+            Assert.Equal(new DateTimeOffset(todayTen).AddMinutes(300), snap.ShortResetAt);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    // 리셋 시각이 없을 때의 추정치는 "오늘 첫 활동 + 창 길이"여야 한다.
+    // 날짜를 안 보면 며칠 전 첫 줄이 잡혀 추정 리셋이 과거로 계산되고, 그 값도 시간선을 오른쪽 끝에 박는다.
+    [Fact]
+    public void EstimatedReset_AnchorsToFirstActivityOfToday_NotOlderLines()
+    {
+        var root = CreateTempCodexRoot();
+        try
+        {
+            var dir = Path.Combine(root, "e");
+            Directory.CreateDirectory(dir);
+            var todayNine = DateTime.Today.AddHours(9);
+            File.WriteAllLines(Path.Combine(dir, "rollout-mixed.jsonl"), new[]
+            {
+                // 며칠 전 줄이 파일 앞에 온다 — 예전에는 이 시각이 추정 기준이 됐다.
+                TokenCountLineWithoutResetTime("2026-08-01T00:00:00.000Z", input: 10, output: 1, total: 11,
+                    primaryWindowMinutes: 300),
+                TokenCountLineWithoutResetTime(
+                    todayNine.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture),
+                    input: 200, output: 20, total: 220, primaryWindowMinutes: 300),
+            });
+
+            var snap = new CodexUsageMonitor().GetTodaySnapshot(root, new DateTimeOffset(todayNine.AddHours(1)));
+
+            Assert.True(snap.IsShortResetEstimated);
+            Assert.Equal(new DateTimeOffset(todayNine).AddMinutes(300), snap.ShortResetAt);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     private static string TokenCountLine(string ts, long input, long cached, long output,
-        long reasoning, long total, double primaryPercent, int primaryWindowMinutes, string secondaryJson)
+        long reasoning, long total, double primaryPercent, int primaryWindowMinutes, string secondaryJson,
+        long primaryResetsAt = 1900000000)
     {
         var primary = string.Format(CultureInfo.InvariantCulture,
-            @"{{""used_percent"":{0},""window_minutes"":{1},""resets_at"":1900000000}}", primaryPercent, primaryWindowMinutes);
+            @"{{""used_percent"":{0},""window_minutes"":{1},""resets_at"":{2}}}", primaryPercent, primaryWindowMinutes, primaryResetsAt);
         return string.Format(CultureInfo.InvariantCulture,
             @"{{""timestamp"":""{0}"",""type"":""event_msg"",""payload"":{{""type"":""token_count"",""info"":{{""total_token_usage"":{{""input_tokens"":{1},""cached_input_tokens"":{2},""output_tokens"":{3},""reasoning_output_tokens"":{4},""total_tokens"":{5}}}}},""rate_limits"":{{""limit_id"":""codex"",""primary"":{6},""secondary"":{7},""plan_type"":""plus""}}}}}}",
             ts, input, cached, output, reasoning, total, primary, secondaryJson);
+    }
+
+    /// <summary>resets_at 이 아예 없는 라인 — 리셋 추정 폴백 경로를 태운다.</summary>
+    private static string TokenCountLineWithoutResetTime(string ts, long input, long output, long total,
+        int primaryWindowMinutes)
+    {
+        var primary = string.Format(CultureInfo.InvariantCulture,
+            @"{{""used_percent"":5.0,""window_minutes"":{0}}}", primaryWindowMinutes);
+        return string.Format(CultureInfo.InvariantCulture,
+            @"{{""timestamp"":""{0}"",""type"":""event_msg"",""payload"":{{""type"":""token_count"",""info"":{{""total_token_usage"":{{""input_tokens"":{1},""cached_input_tokens"":0,""output_tokens"":{2},""reasoning_output_tokens"":0,""total_tokens"":{3}}}}},""rate_limits"":{{""limit_id"":""codex"",""primary"":{4},""secondary"":null,""plan_type"":""plus""}}}}}}",
+            ts, input, output, total, primary);
     }
 
     private static string CreateTempCodexRoot()
