@@ -81,12 +81,18 @@ public static class UsageCalculator
     /// 리셋 시각과 창 길이로 "시간 진행률"(0~1)을 역산한다.
     /// 창 시작 = 리셋 - 창 길이 이므로, 경과 비율 = 1 - 남은시간 / 창 길이.
     /// 진행 막대 위 시간선 마커의 가로 위치가 이 값이다.
+    ///
+    /// 지금이 창 밖이면 <c>null</c> — 마커를 그리지 않는다는 뜻이다. 예전에는 0~1 로 잘랐는데,
+    /// 그러면 "이미 끝난 창"(리셋이 과거)이 100% 경과와 구별되지 않아 마커가 오른쪽 끝에 박혔다.
+    /// 창이 끝났으면 다음 창의 어디쯤인지 알 수 없으므로 위치를 지어내지 않는다.
+    /// (<see cref="FormatResetLabel"/> 도 지난 리셋에는 빈 문자열을 돌려주므로 동작이 일치한다.)
     /// </summary>
-    public static double TimeProgress(DateTimeOffset? resetAt, TimeSpan window, DateTimeOffset now)
+    public static double? TimeProgress(DateTimeOffset? resetAt, TimeSpan window, DateTimeOffset now)
     {
-        if (resetAt is null || window.TotalSeconds <= 0) return 0;
+        if (resetAt is null || window.TotalSeconds <= 0) return null;
         double elapsedRatio = 1.0 - (resetAt.Value - now).TotalSeconds / window.TotalSeconds;
-        return Math.Clamp(elapsedRatio, 0, 1);
+        // elapsedRatio > 1: 리셋이 이미 지남(창 종료). < 0: 리셋이 창 길이보다 멀리 있음(창 길이가 어긋남).
+        return elapsedRatio is >= 0 and <= 1 ? elapsedRatio : null;
     }
 
     /// <summary>

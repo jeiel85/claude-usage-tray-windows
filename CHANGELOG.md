@@ -3,6 +3,38 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.38.0] - 2026-08-07
+
+<!-- ko -->
+### 수정
+- **오늘 요청이 없는 PC 에서 Codex 시간선이 막대 오른쪽 끝에 박히던 문제** — 시간선(지금이 창의 어디쯤인지 알려주는 세로 마커)의 위치는 리셋 시각에서 역산하는데, 리셋이 이미 지난 값을 "100% 경과"로 잘라서 쓰고 있었습니다. Codex 사용량을 로컬 로그에서 읽을 때 며칠 전 세션의 이미 끝난 창을 그대로 집어 오기 때문에, 오늘 Codex 를 쓰지 않은 PC 는 항상 이 상태였습니다. 같은 화면에서 리셋 표시는 비어 있는데 시간선만 100% 였습니다. 이제 지금이 창 밖이면 위치를 지어내지 않고 마커를 숨기며, 이미 끝난 창의 사용률도 함께 버립니다.
+- **끝난 창의 사용률이 계속 표시되던 문제** — 위와 같은 원인으로, 며칠 전에 찍힌 "69% 사용" 같은 숫자가 오늘 것처럼 남아 있었습니다.
+- **`resets_at` 이 0 이거나 로그가 며칠 전 것일 때 리셋 시각이 과거로 계산되던 문제** — 0 을 그대로 받으면 1970년이 되고, 리셋 추정치의 기준 시각도 날짜를 보지 않아 옛날 로그의 첫 줄이 잡혔습니다. 둘 다 시간선을 오른쪽 끝으로 밀던 경로입니다.
+- **앱 종료 중 언어 변경이 예외를 내던 문제** — 언어 변경 이벤트는 정적 이벤트라 구독을 해제하지 않으면 화면이 사라진 뒤에도 붙어 있었습니다.
+
+### 추가
+- **에이전트 전체 다중 PC 동기화** — 지금까지는 Claude 의 할당량만 다른 PC 값으로 채워졌고, Codex·Gemini CLI·OpenCode 는 스냅샷을 저장만 하고 아무도 읽지 않았으며 Antigravity 는 동기화 자체가 없었습니다. 이제 계정 단위로 내려오는 할당량(Codex·Antigravity)은 이 PC 에 데이터가 없을 때 다른 PC 가 관측한 값으로 채웁니다. 어느 PC 에서 보든 같은 사용률과 같은 시간선 위치가 나옵니다. 창 길이(주간/5시간)도 함께 동기화하므로 주간 창 계정에서도 마커가 제자리에 섭니다.
+- **Antigravity 다중 PC 동기화** — 모델별 잔여 할당량과 등급이 기기 간에 공유됩니다. 이 PC 에서 Antigravity 에 로그인하지 않았어도 다른 PC 가 올린 값으로 같은 패널을 볼 수 있습니다.
+
+### 개선
+- **Gemini CLI·OpenCode 막대가 합산 기준으로 바뀜** — 이 둘은 서버 할당량이 없어 "최근 가장 많이 쓴 날" 대비로 막대를 그립니다. 여러 PC 를 합산하면 숫자는 합계인데 막대만 이 PC 몫이라 어긋나 있었습니다. 이제 막대도 합산 토큰으로 계산합니다. 기기마다 기준이 다른 값이라 percent 자체는 기기 간에 주고받지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The Codex timeline marker sat pinned to the far right on PCs with no requests today** — The marker's position is derived backwards from the reset time, and a reset that had already passed was clamped to "100% elapsed". Reading Codex usage from local logs picks up the most recent `rate_limits` regardless of date, so a PC that hasn't used Codex today always landed in that state — showing a blank reset label next to a 100%-elapsed marker. When the current moment falls outside the window, the marker is now hidden rather than placed somewhere invented, and the finished window's usage is discarded with it.
+- **Usage from an already-closed window kept showing** — Same cause: a "69% used" figure recorded days ago stayed on screen as if it were today's.
+- **Reset times computed into the past from `resets_at: 0` or from older logs** — A literal 0 became 1970, and the estimated-reset anchor ignored the date, so the first line of an old log was used. Both pushed the marker to the far right.
+- **Language changes threw during shutdown** — The language-changed event is static, and the subscription was never released, so it stayed attached after the window was gone.
+
+### Added
+- **Multi-PC sync for every agent** — Only Claude's quota was ever read back from other PCs; Codex, Gemini CLI, and OpenCode wrote snapshots nobody read, and Antigravity had no sync at all. Account-level quotas (Codex, Antigravity) now fill in from whichever PC observed them when the local machine has nothing, so the usage figure and timeline position match on every PC. Window length (weekly / 5-hour) travels with the quota, so the marker lands correctly on weekly-window accounts too.
+- **Antigravity multi-PC sync** — Per-model remaining quota and tier are shared between machines. A PC that isn't signed in to Antigravity can show the same panel from another PC's reading.
+
+### Improved
+- **Gemini CLI and OpenCode bars now reflect merged totals** — Neither has a server quota, so their bars are drawn against your busiest recent day. With several PCs merged, the numbers were a sum while the bar showed only this machine's share. The bar is now computed from the merged tokens. The percentage itself is never exchanged between machines, since each one measures against its own baseline.
+<!-- /en -->
+
 ## [1.37.1] - 2026-08-06
 
 <!-- ko -->

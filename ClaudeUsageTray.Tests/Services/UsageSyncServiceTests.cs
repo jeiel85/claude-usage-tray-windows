@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using System.Text;
 using ClaudeUsageTray.Models;
 using ClaudeUsageTray.Services;
@@ -132,6 +133,124 @@ public sealed class UsageSyncServiceTests : IDisposable
         Assert.Equal(new DateTimeOffset(2026, 7, 9, 9, 0, 0, TimeSpan.Zero), newestQuota.Quota.ObservedAtUtc);
         Assert.Equal(new DateTimeOffset(2026, 7, 9, 9, 1, 0, TimeSpan.Zero), newestQuota.ObservedAtUtc);
         Assert.Equal(20, merged.InputTokens);
+    }
+
+    // 시간선 마커 위치는 (리셋 시각 - 창 길이) 로 역산하므로, 창 길이가 함께 건너오지 않으면
+    // 받는 PC 는 5시간으로 가정할 수밖에 없고 주간 창 계정에서 마커가 통째로 어긋난다.
+    [Fact]
+    public void QuotaSnapshot_CarriesWindowLengths_AcrossDevices()
+    {
+        var now = new DateTimeOffset(2026, 7, 9, 9, 0, 0, TimeSpan.Zero);
+        var desktop = CreateService("desktop", now);
+        var syncRoot = Path.Combine(_tempRoot, "sync");
+
+        desktop.WriteSnapshot(syncRoot, desktop.CreateSnapshot(
+            UsageProviderKind.Codex,
+            null,
+            new UsageSyncQuotaSnapshot
+            {
+                HasData = true,
+                ShortUsagePercent = 0.61,
+                ShortResetAt = now.AddHours(3),
+                ShortWindowMinutes = 10080,
+                LongUsagePercent = 0.2,
+                LongResetAt = now.AddDays(2),
+                LongWindowMinutes = 43200,
+                HasLongWindow = true,
+                PlanType = "Plus",
+            },
+            new UsageSyncLocalTotals()));
+
+        var laptop = CreateService("laptop", now.AddMinutes(1));
+        var read = laptop.ReadSnapshots(syncRoot, UsageProviderKind.Codex, null, new DateOnly(2026, 7, 9));
+        var newest = laptop.SelectNewestQuotaSnapshot(read.Snapshots, TimeSpan.FromMinutes(5));
+
+        Assert.NotNull(newest);
+        Assert.Equal(10080, newest!.Quota!.ShortWindowMinutes);
+        Assert.Equal(43200, newest.Quota.LongWindowMinutes);
+        Assert.True(newest.Quota.HasLongWindow);
+        Assert.Equal("Plus", newest.Quota.PlanType);
+        // 받은 창 길이로 역산해야 마커가 제자리에 선다. 주간 창인데 5시간으로 가정하면
+        // 같은 리셋 시각이 98% 경과가 아니라 40% 경과로 계산돼 마커가 막대 한가운데로 밀린다.
+        var window = UsageCalculator.WindowSpan(newest.Quota.ShortWindowMinutes, TimeSpan.FromHours(5));
+        var correct = UsageCalculator.TimeProgress(newest.Quota.ShortResetAt, window, now);
+        var assumedFiveHour = UsageCalculator.TimeProgress(newest.Quota.ShortResetAt, TimeSpan.FromHours(5), now);
+
+        Assert.NotNull(correct);
+        Assert.Equal(1.0 - 180.0 / 10080.0, correct!.Value, 6);
+        Assert.Equal(0.4, assumedFiveHour!.Value, 6);
+    }
+
+    // Antigravity 는 토큰 합계가 없고 모델별 잔여 할당량만 있다 — 그 목록이 그대로 건너와야
+    // 로그인하지 않은 PC 에서도 같은 패널을 그릴 수 있다.
+    [Fact]
+    public void QuotaSnapshot_CarriesAntigravityModelRows()
+    {
+        var now = new DateTimeOffset(2026, 7, 9, 9, 0, 0, TimeSpan.Zero);
+        var desktop = CreateService("desktop", now);
+        var syncRoot = Path.Combine(_tempRoot, "sync");
+
+        desktop.WriteSnapshot(syncRoot, desktop.CreateSnapshot(
+            UsageProviderKind.Antigravity,
+            "user@example.com",
+            new UsageSyncQuotaSnapshot
+            {
+                HasData = true,
+                TierName = "Gemini Code Assist",
+                Models =
+                [
+                    new UsageSyncModelQuota { ModelId = "gemini-3-pro", RemainingFraction = 0.25, ResetAt = now.AddHours(4) },
+                    new UsageSyncModelQuota { ModelId = "claude-sonnet-4-5", RemainingFraction = 0.8, ResetAt = now.AddHours(4) },
+                ],
+            },
+            new UsageSyncLocalTotals()));
+
+        var laptop = CreateService("laptop", now.AddMinutes(1));
+        var read = laptop.ReadSnapshots(syncRoot, UsageProviderKind.Antigravity, "user@example.com", new DateOnly(2026, 7, 9));
+        var newest = laptop.SelectNewestQuotaSnapshot(read.Snapshots, TimeSpan.FromMinutes(5));
+
+        Assert.NotNull(newest);
+        Assert.Equal("Gemini Code Assist", newest!.Quota!.TierName);
+        Assert.Equal(2, newest.Quota.Models.Length);
+        Assert.Equal("gemini-3-pro", newest.Quota.Models[0].ModelId);
+        Assert.Equal(0.25, newest.Quota.Models[0].RemainingFraction, 6);
+
+        // 계정 키를 넘기더라도 원문은 파일에 남지 않는다(경로·본문 모두 해시).
+        var written = Directory.EnumerateFiles(syncRoot, "*.json", SearchOption.AllDirectories).Single();
+        Assert.DoesNotContain("user@example.com", ReadAllTextShared(written), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("user@example.com", written, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // 스키마 버전은 정확히 일치할 때만 읽히므로, 필드 추가만으로는 올리지 않는다.
+    // 올리면 롤아웃 중 구/신 버전 PC 가 서로의 스냅샷을 통째로 무시해 동기화가 끊긴다.
+    [Fact]
+    public void ReadSnapshots_AcceptsFilesWrittenWithoutTheNewOptionalQuotaFields()
+    {
+        var now = new DateTimeOffset(2026, 7, 9, 9, 0, 0, TimeSpan.Zero);
+        var reader = CreateService("reader", now);
+        var syncRoot = Path.Combine(_tempRoot, "sync");
+        var accountHash = UsageSyncService.BuildAccountHash(UsageProviderKind.Codex, null);
+        var directory = Path.Combine(syncRoot, accountHash, UsageProviderKind.Codex, "2026-07-09");
+        Directory.CreateDirectory(directory);
+
+        // 구버전(v1.37.x)이 쓴 모양 — windowMinutes / models 필드가 아예 없다.
+        WriteAllTextShared(Path.Combine(directory, "olddevice.json"),
+            """
+            {"schemaVersion":1,"accountHash":"REPLACE","provider":"codex","deviceId":"olddevice","deviceName":"old",
+             "localDate":"2026-07-09","observedAtUtc":"2026-07-09T08:59:00Z",
+             "quota":{"hasData":true,"observedAtUtc":"2026-07-09T08:59:00Z","shortUsagePercent":0.4,
+                      "shortResetAt":"2026-07-09T12:00:00Z"},
+             "localTotals":{"inputTokens":5}}
+            """.Replace("REPLACE", accountHash));
+
+        var read = reader.ReadSnapshots(syncRoot, UsageProviderKind.Codex, null, new DateOnly(2026, 7, 9));
+        var newest = reader.SelectNewestQuotaSnapshot(read.Snapshots, TimeSpan.FromMinutes(5));
+
+        Assert.Empty(read.Diagnostics);
+        Assert.NotNull(newest);
+        Assert.Equal(0.4, newest!.Quota!.ShortUsagePercent, 6);
+        Assert.Null(newest.Quota.ShortWindowMinutes);
+        Assert.Empty(newest.Quota.Models);
     }
 
     [Fact]

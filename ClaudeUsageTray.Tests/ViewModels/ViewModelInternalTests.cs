@@ -1,3 +1,4 @@
+using ClaudeUsageTray.Models;
 using ClaudeUsageTray.ViewModels;
 using ClaudeUsageTray.Services;
 using Xunit;
@@ -82,5 +83,98 @@ public class ClaudeViewModelTests
             Assert.Equal(Loc.RateLimited, result);
         else
             Assert.DoesNotContain("429", result);
+    }
+}
+
+/// <summary>
+/// 다중 PC 동기화에서 "무엇을 공유해도 되는가" 규칙과, 받은 값을 화면에 옮기는 경로 검증.
+/// </summary>
+public class UsageSyncQuotaPolicyTests
+{
+    // 서버가 계정별로 내려주는 할당량만 공유한다. Gemini CLI·OpenCode 의 percent 는
+    // 그 PC 의 로컬 토큰을 그 PC 의 최근 최대치로 나눈 값이라, 남의 PC 것을 가져오면 기준이 뒤섞인다.
+    [Theory]
+    [InlineData(UsageProviderKind.Codex, true)]
+    [InlineData(UsageProviderKind.Antigravity, true)]
+    [InlineData(UsageProviderKind.GeminiCli, false)]
+    [InlineData(UsageProviderKind.OpenCode, false)]
+    public void OnlyAccountLevelQuotaIsShared(string provider, bool shared)
+    {
+        Assert.Equal(shared, MainViewModel.UsageSyncSharesAccountQuota(provider));
+    }
+
+    [Fact]
+    public void DeviceDerivedPercent_IsNeverWrittenToTheSharedFolder()
+    {
+        var snapshot = new ProviderUsageSnapshot
+        {
+            ShortUsagePercent = 0.73,
+            ShortResetAt = DateTimeOffset.Now.AddHours(2),
+        };
+
+        Assert.Null(MainViewModel.CreateProviderQuotaSnapshot(UsageProviderKind.GeminiCli, snapshot));
+        Assert.Null(MainViewModel.CreateProviderQuotaSnapshot(UsageProviderKind.OpenCode, snapshot));
+        Assert.NotNull(MainViewModel.CreateProviderQuotaSnapshot(UsageProviderKind.Codex, snapshot));
+    }
+
+    // 창 길이가 빠지면 받는 PC 가 5시간으로 가정할 수밖에 없어 주간 창에서 시간선이 어긋난다.
+    [Fact]
+    public void CodexQuota_CarriesWindowLengths()
+    {
+        var quota = MainViewModel.CreateProviderQuotaSnapshot(UsageProviderKind.Codex, new ProviderUsageSnapshot
+        {
+            ShortUsagePercent = 0.61,
+            ShortResetAt = DateTimeOffset.Now.AddHours(3),
+            ShortWindowMinutes = 10080,
+            LongUsagePercent = 0.2,
+            LongResetAt = DateTimeOffset.Now.AddDays(3),
+            LongWindowMinutes = 43200,
+            PlanType = "Plus",
+        });
+
+        Assert.NotNull(quota);
+        Assert.Equal(10080, quota!.ShortWindowMinutes);
+        Assert.Equal(43200, quota.LongWindowMinutes);
+        Assert.True(quota.HasLongWindow);
+        Assert.Equal("Plus", quota.PlanType);
+    }
+
+    // 리셋 시각이 없으면 어느 창의 값인지 알 수 없다 — 사용률만 떠서는 공유해도 쓸 데가 없다.
+    [Fact]
+    public void QuotaWithoutAnyResetTime_IsNotShared()
+    {
+        Assert.Null(MainViewModel.CreateProviderQuotaSnapshot(UsageProviderKind.Codex, new ProviderUsageSnapshot
+        {
+            ShortUsagePercent = 0.5,
+            PlanType = "Plus",
+        }));
+    }
+
+    // Antigravity 에 로그인하지 않은 PC 도, 받은 모델 목록으로 로컬 조회와 같은 패널을 그린다.
+    [Fact]
+    public void Antigravity_AppliesSyncedModelRows_LikeALocalLookup()
+    {
+        var vm = new AntigravityViewModel(new AntigravityUsageMonitor());
+        var resetAt = DateTimeOffset.Now.AddHours(4);
+
+        vm.ApplyQuota(
+            [
+                new AntigravityModelQuota { ModelId = "gemini-3-pro", RemainingFraction = 0.25, ResetTime = resetAt },
+                new AntigravityModelQuota { ModelId = "claude-sonnet-4-5", RemainingFraction = 0.9, ResetTime = resetAt },
+                // 내부용 모델은 로컬 경로와 똑같이 제외된다.
+                new AntigravityModelQuota { ModelId = "chat_default", RemainingFraction = 0.1, ResetTime = resetAt },
+                // 리셋 시각이 없는 행도 제외.
+                new AntigravityModelQuota { ModelId = "tab_default", RemainingFraction = 0.1, ResetTime = null },
+            ],
+            "Gemini Code Assist",
+            "Gemini Code Assist in Google One AI Pro");
+
+        Assert.True(vm.HasData);
+        Assert.Equal("Gemini Code Assist", vm.TierName);
+        Assert.Equal(2, vm.Models.Count);
+        Assert.Equal("gemini-3-pro", vm.Models[0].ModelId);   // 사용률 내림차순
+        Assert.Equal(0.75, vm.Models[0].UsagePercent, 6);
+        Assert.Equal(0.10, vm.Models[1].UsagePercent, 6);
+        Assert.Equal((0.75 + 0.10) / 2, vm.Percent, 6);       // 평균은 남은 두 모델 기준
     }
 }

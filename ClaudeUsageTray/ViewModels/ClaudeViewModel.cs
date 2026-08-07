@@ -25,9 +25,12 @@ public partial class ClaudeViewModel : ObservableObject
 
     // 시간 진행률(윈도우 경과 비율, 0~1) — 사용량 막대와 비교해 페이스를 육안으로 드러낸다.
     // *UsageCapped = min(사용량, 시간) — 보라 레이어 폭. 사용량이 시간을 앞지른 만큼만 주황으로 노출된다.
+    // Has*Timeline 이 false 면 지금이 창 밖이라 위치를 모른다는 뜻 — 마커를 아예 숨긴다.
     [ObservableProperty] private double _shortTimePercent = 0;
+    [ObservableProperty] private bool _hasShortTimeline = false;
     [ObservableProperty] private double _shortUsageCapped = 0;
     [ObservableProperty] private double _longTimePercent = 0;
+    [ObservableProperty] private bool _hasLongTimeline = false;
     [ObservableProperty] private double _longUsageCapped = 0;
     [ObservableProperty] private string _shortPaceTip = "";
     [ObservableProperty] private string _longPaceTip = "";

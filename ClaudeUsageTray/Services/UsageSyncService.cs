@@ -124,6 +124,8 @@ public class UsageSyncService
                 }
 
                 snapshot!.LocalTotals = NormalizeTotals(snapshot.LocalTotals);
+                if (snapshot.Quota is { } quota)
+                    quota.Models ??= [];
                 snapshots.Add(snapshot);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)

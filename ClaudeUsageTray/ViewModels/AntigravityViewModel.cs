@@ -18,6 +18,9 @@ public partial class AntigravityViewModel : ObservableObject
     [ObservableProperty] private bool _isEnabled = true;
     [ObservableProperty] private double _percent = 0.0;
 
+    /// <summary>마지막 조회 결과 원본 — MainViewModel 이 다중 PC 동기화에 쓴다.</summary>
+    public AntigravitySnapshot LastSnapshot { get; private set; } = new();
+
     public AntigravityViewModel(AntigravityUsageMonitor monitor)
     {
         _monitor = monitor;
@@ -44,6 +47,7 @@ public partial class AntigravityViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            LastSnapshot = new AntigravitySnapshot { ErrorMessage = ex.Message };
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 HasData = false;
@@ -53,6 +57,8 @@ public partial class AntigravityViewModel : ObservableObject
             });
             return;
         }
+
+        LastSnapshot = snap;
 
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
@@ -69,42 +75,51 @@ public partial class AntigravityViewModel : ObservableObject
                 return;
             }
 
-            HasData = true;
-            HasError = false;
-            ErrorMessage = "";
-            TierName = snap.TierName ?? "";
-            PaidTierName = snap.PaidTierName ?? "";
-
-            double totalUsed = 0;
-            int modelCount = 0;
-            var rows = new List<AntigravityModelRow>(snap.Models.Count);
-            foreach (var m in snap.Models)
-            {
-                if (m.ResetTime is null) continue;
-                if (m.ModelId.StartsWith("chat_", StringComparison.Ordinal) ||
-                    m.ModelId.StartsWith("tab_",  StringComparison.Ordinal))
-                    continue;
-
-                double used = Math.Clamp(1.0 - m.RemainingFraction, 0.0, 1.0);
-                totalUsed += used;
-                modelCount++;
-
-                if (used <= 0) continue;
-
-                rows.Add(new AntigravityModelRow
-                {
-                    ModelId = m.ModelId,
-                    DisplayName = FormatModelName(m.ModelId),
-                    UsagePercent = used,
-                    UsageLabel = $"{used * 100:0}% used",
-                    ResetAtLabel = FormatResetLabel(m.ResetTime),
-                });
-            }
-            rows.Sort((a, b) => b.UsagePercent.CompareTo(a.UsagePercent));
-            Models = rows;
-
-            Percent = modelCount > 0 ? totalUsed / modelCount : 0.0;
+            ApplyQuota(snap.Models, snap.TierName, snap.PaidTierName);
         });
+    }
+
+    /// <summary>
+    /// 모델별 할당량을 화면 상태로 옮긴다. 로컬 조회 결과와, 다중 PC 동기화로 받은 다른 PC 의 결과가
+    /// 같은 경로를 타도록 분리해 둔 것 — 표시 규칙(내부 모델 제외·정렬·평균)이 어긋나지 않게 한다.
+    /// </summary>
+    public void ApplyQuota(IReadOnlyList<AntigravityModelQuota> models, string? tierName, string? paidTierName)
+    {
+        HasData = true;
+        HasError = false;
+        ErrorMessage = "";
+        TierName = tierName ?? "";
+        PaidTierName = paidTierName ?? "";
+
+        double totalUsed = 0;
+        int modelCount = 0;
+        var rows = new List<AntigravityModelRow>(models.Count);
+        foreach (var m in models)
+        {
+            if (m.ResetTime is null) continue;
+            if (m.ModelId.StartsWith("chat_", StringComparison.Ordinal) ||
+                m.ModelId.StartsWith("tab_",  StringComparison.Ordinal))
+                continue;
+
+            double used = Math.Clamp(1.0 - m.RemainingFraction, 0.0, 1.0);
+            totalUsed += used;
+            modelCount++;
+
+            if (used <= 0) continue;
+
+            rows.Add(new AntigravityModelRow
+            {
+                ModelId = m.ModelId,
+                DisplayName = FormatModelName(m.ModelId),
+                UsagePercent = used,
+                UsageLabel = $"{used * 100:0}% used",
+                ResetAtLabel = FormatResetLabel(m.ResetTime),
+            });
+        }
+        rows.Sort((a, b) => b.UsagePercent.CompareTo(a.UsagePercent));
+        Models = rows;
+
+        Percent = modelCount > 0 ? totalUsed / modelCount : 0.0;
     }
 
     internal static string FormatModelName(string modelId)
