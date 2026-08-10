@@ -1358,10 +1358,31 @@ public static class Loc
 
     public static string ProviderOpenCodeNote => Lang switch
     {
-        "ko" => "OpenCode 구독 플랜 기준 · 로컬 DB에서 읽음",
-        "zh" => "基于 OpenCode 订阅计划 · 从本地 DB 读取",
-        "ja" => "OpenCode サブスクリプション基準 · ローカル DB から読み込み",
-        _ => "Based on OpenCode subscription · read from local DB"
+        "ko" => "OpenCode 로컬 DB에서 읽음 · 공식 콘솔과 다를 수 있음",
+        "zh" => "从 OpenCode 本地数据库读取 · 可能与官方控制台不同",
+        "ja" => "OpenCode ローカル DB から読み込み · 公式コンソールと異なる場合があります",
+        _ => "Read from the OpenCode local database · may differ from the official console"
+    };
+
+    public static string OpenCodeFiveHours => Lang switch { "ko" => "최근 5시간", "zh" => "最近 5 小时", "ja" => "直近5時間", _ => "Last 5 hours" };
+    public static string OpenCodeSevenDays => Lang switch { "ko" => "최근 7일", "zh" => "最近 7 天", "ja" => "直近7日", _ => "Last 7 days" };
+    public static string OpenCodeThisMonth => Lang switch { "ko" => "이번 달", "zh" => "本月", "ja" => "今月", _ => "This month" };
+    public static string OpenCodeRequestUnit => Lang switch { "ko" => "회", "zh" => "次", "ja" => "回", _ => " req" };
+    public static string OpenCodeQuotaNotPublished => Lang switch
+    {
+        "ko" => "할당량 총량 미공개 · 실제 누적 사용량만 표시",
+        "zh" => "配额总量未公开 · 仅显示实际累计用量",
+        "ja" => "割り当て総量は非公開 · 実際の累積使用量のみ表示",
+        _ => "Quota total is not published · showing actual accumulated usage only"
+    };
+    public static string OpenCodeFreeLimitReached => Lang switch { "ko" => "무료 한도 소진", "zh" => "免费配额已用尽", "ja" => "無料枠を使い切りました", _ => "Free limit reached" };
+    public static string OpenCodeGoLimitReached => Lang switch { "ko" => "OpenCode Go 한도 소진", "zh" => "OpenCode Go 配额已用尽", "ja" => "OpenCode Go 上限に到達", _ => "OpenCode Go limit reached" };
+    public static string OpenCodeRetryAt(string value) => Lang switch
+    {
+        "ko" => $"{value} 초기화",
+        "zh" => $"{value} 重置",
+        "ja" => $"{value} にリセット",
+        _ => $"resets {value}"
     };
 
     public static string OpenCodeDbNotFound => Lang switch
