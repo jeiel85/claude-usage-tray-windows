@@ -18,6 +18,7 @@ public partial class App : Application
     private NotifyIcon? _trayIcon;
     private MainViewModel? _vm;
     private UsagePopup? _popup;
+    private OpenCodeWebUsageService? _openCodeWebUsage;
 
     // Menu item references for status updates
     private ToolStripMenuItem? _claudeStatusItem;
@@ -71,6 +72,7 @@ public partial class App : Application
         var codexMonitor = new CodexUsageMonitor();
         var geminiCliMonitor = new GeminiCliUsageMonitor();
         var openCodeMonitor = new OpenCodeUsageMonitor();
+        _openCodeWebUsage = new OpenCodeWebUsageService();
         var antigravityMonitor = new AntigravityUsageMonitor();
         var notifier = new NotificationService(() => _trayIcon);
         var updater = new UpdateService();
@@ -85,7 +87,8 @@ public partial class App : Application
             [nwsProvider, jmaProvider]);
 
         _vm = new MainViewModel(apiService, credService, sessionMonitor, codexMonitor, geminiCliMonitor,
-            openCodeMonitor, antigravityMonitor, notifier, settingsService, updater, history, usageSync, weather, weatherAlert);
+            openCodeMonitor, antigravityMonitor, notifier, settingsService, updater, history, usageSync, weather, weatherAlert,
+            _openCodeWebUsage);
         _popup = new UsagePopup(_vm);
 
         _trayIcon = new NotifyIcon
@@ -401,6 +404,7 @@ public partial class App : Application
 
         _vm?.Dispose();
         _popup?.Dispose();
+        _openCodeWebUsage?.Dispose();
 
         if (_trayIcon != null)
         {

@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.38.2] - 2026-08-10
+
+<!-- ko -->
+### 추가
+- **OpenCode Go 실제 사용량 게이지** — 앱 전용 로그인 창에서 OpenCode에 한 번 로그인하면 공식 콘솔이 제공하는 롤링·주간·월간 사용률과 초기화 시각을 트레이 팝업에 표시합니다. Chrome·Edge 프로필이나 기존 브라우저 쿠키는 읽지 않으며 로그인 세션은 앱 전용 WebView2 데이터 폴더에 격리합니다.
+- **안전한 로컬 통계 폴백** — 로그인하지 않았거나 웹 인증·내부 응답 파싱이 실패해도 OpenCode 로컬 DB의 토큰·요청·비용 통계는 그대로 표시합니다. 임의 퍼센트는 다시 만들지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Actual OpenCode Go usage gauges** — After a one-time sign-in in the app-owned login window, the tray popup shows the rolling, weekly, and monthly usage percentages and reset times supplied by the official OpenCode console. The app does not read Chrome or Edge profiles or reuse existing browser cookies; its session stays isolated in an app-owned WebView2 data folder.
+- **Safe local-statistics fallback** — OpenCode token, request, and cost totals from the local database remain available when the user has not signed in or web authentication/internal-response parsing fails. No estimated percentage is reintroduced.
+<!-- /en -->
+
 ## [1.38.1] - 2026-08-10
 
 <!-- ko -->

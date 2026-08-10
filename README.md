@@ -40,6 +40,7 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode A
 - **변경 이력**: [CHANGELOG.md](CHANGELOG.md)
 
 ## 이슈
+- `기능` OpenCode Go 실제 사용량 게이지 연동 (2026-08-10): 웹 대시보드가 제공하는 롤링·주간·월간 실제 사용률과 초기화 시간을 안전한 로컬 인증 경로로 조회해 Claude와 같은 게이지로 표시한다. 웹 세션 쿠키나 브라우저 프로필을 직접 읽지 않으며, 인증 실패·내부 API 변경·비구독 계정에서는 기존 로컬 DB 통계를 유지한다. #117
 - `개선` OpenCode 실제 사용량·할당량 구분 표시 (2026-08-10): 기존 OpenCode 게이지가 오늘 출력 토큰을 최근 7일 최대치와 비교한 값을 실제 구독 할당량처럼 표시해 오해를 만들었다. 로컬 DB에서 확인 가능한 최근 5시간·7일·월간 토큰/요청/비용은 실제 누적으로 표시하고, 서버가 총량을 공개하지 않는 무료·Zen 사용량은 임의 퍼센트를 만들지 않는다. 무료 또는 Go 한도 오류에 재시도 시각이 포함되면 소진 상태와 초기화 시각을 표시한다. #114
 - `버그` 오늘 요청이 없는 PC 에서 Codex 시간선이 오른쪽 끝에 박힘 (2026-08-07): 로그 스캔이 토큰만 오늘로 거르고 `rate_limits` 는 날짜와 무관하게 최신 줄에서 가져와, 며칠 전의 이미 끝난 창이 그대로 표시됐다. `TimeProgress` 가 지난 리셋을 1 로 clamp 하므로 마커가 오른쪽 끝에 고정되고, 같은 화면에서 `FormatResetLabel` 은 빈 문자열이라 앞뒤가 맞지 않았다(`resets_at: 0` → 1970, 날짜를 안 보는 추정 리셋도 같은 결과). 창 밖이면 위치를 지어내지 않고 마커를 숨기며 끝난 창의 사용률도 버리도록 수정. #111
 - `기능` 에이전트 전체 다중 PC 동기화 (2026-08-07): #78 의 동기화가 Claude 할당량만 되읽고, Codex·Gemini CLI·OpenCode 는 스냅샷을 쓰기만 하고 아무도 읽지 않았으며 Antigravity 는 동기화가 없었다. 계정 단위로 내려오는 할당량(Codex·Antigravity)은 로컬에 없을 때 다른 PC 값으로 채우고, 시간선 역산에 필요한 `window_minutes` 도 함께 옮긴다. 기기 기준으로 계산되는 percent(Gemini CLI·OpenCode)는 공유하지 않고 합산 토큰으로 다시 계산한다. #111
@@ -90,7 +91,7 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode A
 - **Claude (API)**: 실시간 5시간 / 7일 윈도우 할당량 및 소진 예측
 - **Codex (ChatGPT Plan)**: ChatGPT 플랜 사용량 상태 확인
 - **Gemini CLI**: 로컬 로그 기반 요청 수 및 출력 토큰 실시간 추적
-- **OpenCode**: 로컬 DB 기반 오늘의 입력/출력 토큰 모니터링
+- **OpenCode**: 공식 Go 롤링/주간/월간 사용량 게이지 + 로컬 DB 기반 토큰 모니터링
 - **날씨 알림**: 설정한 위치의 현재 날씨, 예보, 특보를 트레이 툴팁과 알림 경로로 확인
 - **통합 트레이 툴팁**: 아이콘에 마우스를 올리면 4개 공급자의 상태 요약 즉시 확인
 - **동적 트레이 아이콘**: Claude 5시간 사용량 기준 게이지 표시
@@ -130,6 +131,7 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode A
 
 ### 4. OpenCode
 - **DB 분석**: OpenCode가 로컬에 저장하는 SQLite DB에서 오늘 사용된 메시지의 입력/출력/캐시 토큰을 집계합니다.
+- **Go 할당량**: 앱 전용 로그인 창으로 연결하면 공식 콘솔의 롤링/주간/월간 사용률과 초기화 시각을 표시합니다. 기존 브라우저 로그인 정보는 읽지 않습니다.
 
 ### 5. Antigravity (Google Gemini Code Assist IDE) — v1.31.0+
 - **인증**: Windows Credential Manager 의 `gemini:antigravity` 항목(Antigravity 가 로그인 후 자동 저장하는 OAuth refresh token)을 재사용.

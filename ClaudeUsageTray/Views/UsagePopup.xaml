@@ -534,12 +534,22 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="OpenCode" Foreground="#FB923C" FontSize="11" FontWeight="SemiBold"
                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            <ProgressBar Grid.Column="1" Value="{Binding OpenCodeVm.RollingPercent}" Maximum="1"
+                                         Style="{StaticResource OpenCodeBarStyle}" VerticalAlignment="Center"
+                                         Margin="8,0,8,0"
+                                         Visibility="{Binding OpenCodeVm.HasWebQuota, Converter={StaticResource BoolToVisibility}}"/>
                             <TextBlock Grid.Column="1" Text="{Binding OpenCodeVm.QuotaStatusLabel}"
                                        Foreground="#8B92B3" FontSize="9" TextTrimming="CharacterEllipsis"
-                                       VerticalAlignment="Center" Margin="8,0,8,0"/>
+                                       VerticalAlignment="Center" Margin="8,0,8,0"
+                                       Visibility="{Binding OpenCodeVm.NeedsWebLogin, Converter={StaticResource BoolToVisibility}}"/>
+                            <TextBlock Grid.Column="2" Text="{Binding OpenCodeVm.RollingPercent, StringFormat={}{0:P0}}"
+                                       Foreground="#FB923C" FontSize="11" FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       Visibility="{Binding OpenCodeVm.HasWebQuota, Converter={StaticResource BoolToVisibility}}"/>
                             <TextBlock Grid.Column="2" Text="{Binding OpenCodeOutputLabel}"
                                        Foreground="#FB923C" FontSize="11" FontWeight="SemiBold"
-                                       VerticalAlignment="Center"/>
+                                       VerticalAlignment="Center"
+                                       Visibility="{Binding OpenCodeVm.NeedsWebLogin, Converter={StaticResource BoolToVisibility}}"/>
                         </Grid>
 
                         <Grid Visibility="{Binding AntigravityHasData, Converter={StaticResource BoolToVisibility}}">
@@ -1082,6 +1092,45 @@
 
                         <!-- Detail body — focused 일 때만 -->
                         <StackPanel Margin="10,6,10,0" Visibility="{Binding IsOpenCodeFocused, Converter={StaticResource BoolToVisibility}}">
+                        <!-- OpenCode Go official rolling/weekly/monthly quota -->
+                        <Border Margin="0,0,0,10" Padding="10,9" Background="#1F2433" CornerRadius="8"
+                                Visibility="{Binding OpenCodeVm.HasWebQuota, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,3">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding OpenCodeVm.RollingTitle}" Foreground="#CBD5E1" FontSize="10" FontWeight="SemiBold"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding OpenCodeVm.RollingPercent, StringFormat={}{0:P0}}" Foreground="#FB923C" FontSize="10" FontWeight="Bold"/>
+                                </Grid>
+                                <ProgressBar Value="{Binding OpenCodeVm.RollingPercent}" Maximum="1" Style="{StaticResource OpenCodeBarStyle}"/>
+                                <TextBlock Text="{Binding OpenCodeVm.RollingResetLabel}" Foreground="#69708D" FontSize="9" Margin="0,3,0,7"/>
+
+                                <Grid Margin="0,0,0,3">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding OpenCodeVm.WeeklyTitle}" Foreground="#CBD5E1" FontSize="10" FontWeight="SemiBold"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding OpenCodeVm.WeeklyPercent, StringFormat={}{0:P0}}" Foreground="#FB923C" FontSize="10" FontWeight="Bold"/>
+                                </Grid>
+                                <ProgressBar Value="{Binding OpenCodeVm.WeeklyPercent}" Maximum="1" Style="{StaticResource OpenCodeBarStyle}"/>
+                                <TextBlock Text="{Binding OpenCodeVm.WeeklyResetLabel}" Foreground="#69708D" FontSize="9" Margin="0,3,0,7"/>
+
+                                <Grid Margin="0,0,0,3">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding OpenCodeVm.MonthlyTitle}" Foreground="#CBD5E1" FontSize="10" FontWeight="SemiBold"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding OpenCodeVm.MonthlyPercent, StringFormat={}{0:P0}}" Foreground="#FB923C" FontSize="10" FontWeight="Bold"/>
+                                </Grid>
+                                <ProgressBar Value="{Binding OpenCodeVm.MonthlyPercent}" Maximum="1" Style="{StaticResource OpenCodeBarStyle}"/>
+                                <TextBlock Text="{Binding OpenCodeVm.MonthlyResetLabel}" Foreground="#69708D" FontSize="9" Margin="0,3,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <StackPanel Margin="0,0,0,10" Visibility="{Binding OpenCodeVm.NeedsWebLogin, Converter={StaticResource BoolToVisibility}}">
+                            <Button Click="OpenCodeWebLogin_Click" HorizontalAlignment="Left" Padding="10,5"
+                                    Background="#9A3412" Foreground="#FFEDD5" BorderBrush="#C2410C" BorderThickness="1"
+                                    Content="{Binding OpenCodeVm.WebLoginLabel}"/>
+                            <TextBlock Text="{Binding OpenCodeVm.WebLoginError}" Foreground="#EF4444" FontSize="9"
+                                       TextWrapping="Wrap" Margin="0,4,0,0"
+                                       Visibility="{Binding OpenCodeVm.WebLoginError, Converter={StaticResource StringToVisibility}}"/>
+                        </StackPanel>
+
                         <!-- Usage Empty Placeholder (OpenCode) -->
                         <TextBlock Text="{Binding LblOpenCodeNoUsage}" Foreground="#5A5F7A" FontSize="10" FontStyle="Italic" Margin="0,0,0,10"
                                    Visibility="{Binding IsOpenCodeUsageEmpty, Converter={StaticResource BoolToVisibility}}"/>

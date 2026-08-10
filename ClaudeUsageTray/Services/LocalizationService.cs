@@ -1364,6 +1364,43 @@ public static class Loc
         _ => "Read from the OpenCode local database · may differ from the official console"
     };
 
+    public static string ProviderOpenCodeWebNote => Lang switch
+    {
+        "ko" => "게이지는 OpenCode 공식 콘솔 · 토큰은 로컬 DB 기준",
+        "zh" => "仪表来自 OpenCode 官方控制台 · 令牌来自本地数据库",
+        "ja" => "ゲージは OpenCode 公式コンソール · トークンはローカル DB 基準",
+        _ => "Gauges from the OpenCode console · tokens from the local database"
+    };
+
+    public static string OpenCodeOfficialQuota => Lang switch
+    {
+        "ko" => "OpenCode Go 실제 할당량",
+        "zh" => "OpenCode Go 实际配额",
+        "ja" => "OpenCode Go の実際の割り当て",
+        _ => "OpenCode Go actual quota"
+    };
+
+    public static string OpenCodeRollingUsage => Lang switch { "ko" => "롤링 사용량", "zh" => "滚动用量", "ja" => "ローリング使用量", _ => "Rolling usage" };
+    public static string OpenCodeWeeklyUsage => Lang switch { "ko" => "주간 사용량", "zh" => "每周用量", "ja" => "週間使用量", _ => "Weekly usage" };
+    public static string OpenCodeMonthlyUsage => Lang switch { "ko" => "월간 사용량", "zh" => "每月用量", "ja" => "月間使用量", _ => "Monthly usage" };
+    public static string OpenCodeConnectWeb => Lang switch { "ko" => "OpenCode 로그인", "zh" => "登录 OpenCode", "ja" => "OpenCode にログイン", _ => "Sign in to OpenCode" };
+    public static string OpenCodeConnectingWeb => Lang switch { "ko" => "로그인 확인 중…", "zh" => "正在检查登录…", "ja" => "ログインを確認中…", _ => "Checking sign-in…" };
+    public static string OpenCodeWebLoginTitle => Lang switch { "ko" => "OpenCode 사용량 연결", "zh" => "连接 OpenCode 用量", "ja" => "OpenCode 使用量を接続", _ => "Connect OpenCode usage" };
+    public static string OpenCodeWebLoginCancelled => Lang switch
+    {
+        "ko" => "OpenCode 로그인이 완료되지 않았습니다.",
+        "zh" => "OpenCode 登录未完成。",
+        "ja" => "OpenCode のログインが完了していません。",
+        _ => "OpenCode sign-in was not completed."
+    };
+    public static string OpenCodeResetAt(string value) => Lang switch
+    {
+        "ko" => $"초기화 {value}",
+        "zh" => $"重置 {value}",
+        "ja" => $"リセット {value}",
+        _ => $"Resets {value}"
+    };
+
     public static string OpenCodeFiveHours => Lang switch { "ko" => "최근 5시간", "zh" => "最近 5 小时", "ja" => "直近5時間", _ => "Last 5 hours" };
     public static string OpenCodeSevenDays => Lang switch { "ko" => "최근 7일", "zh" => "最近 7 天", "ja" => "直近7日", _ => "Last 7 days" };
     public static string OpenCodeThisMonth => Lang switch { "ko" => "이번 달", "zh" => "本月", "ja" => "今月", _ => "This month" };
