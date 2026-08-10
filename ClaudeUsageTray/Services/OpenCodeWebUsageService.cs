@@ -3,6 +3,8 @@ using System.IO;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Media;
+using System.Windows.Threading;
 using ClaudeUsageTray.Models;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
@@ -78,13 +80,29 @@ public sealed class OpenCodeWebUsageService : IDisposable
 
         if (interactive)
         {
-            _window.Left = double.NaN;
-            _window.Top = double.NaN;
-            _window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            var screen = System.Windows.Forms.Screen.FromPoint(System.Windows.Forms.Cursor.Position);
+            var dpi = VisualTreeHelper.GetDpi(_window);
+            var workingArea = new Rect(
+                screen.WorkingArea.Left / dpi.DpiScaleX,
+                screen.WorkingArea.Top / dpi.DpiScaleY,
+                screen.WorkingArea.Width / dpi.DpiScaleX,
+                screen.WorkingArea.Height / dpi.DpiScaleY);
+            var bounds = CenterWithinWorkArea(workingArea, new System.Windows.Size(_window.Width, _window.Height));
+
+            _window.WindowState = WindowState.Normal;
+            _window.Width = bounds.Width;
+            _window.Height = bounds.Height;
+            _window.Left = bounds.Left;
+            _window.Top = bounds.Top;
             _window.Opacity = 1;
             _window.ShowInTaskbar = true;
+            _window.Topmost = true;
             _window.Show();
             _window.Activate();
+            _ = _window.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () =>
+            {
+                if (_window != null) _window.Topmost = false;
+            });
         }
 
         var timeout = interactive ? TimeSpan.FromMinutes(3) : TimeSpan.FromSeconds(20);
@@ -192,6 +210,17 @@ public sealed class OpenCodeWebUsageService : IDisposable
         if (rolling == null || weekly == null || monthly == null) return null;
 
         return new OpenCodeWebUsage { Rolling = rolling, Weekly = weekly, Monthly = monthly };
+    }
+
+    internal static Rect CenterWithinWorkArea(Rect workArea, System.Windows.Size requestedSize)
+    {
+        var width = Math.Min(requestedSize.Width, workArea.Width);
+        var height = Math.Min(requestedSize.Height, workArea.Height);
+        return new Rect(
+            workArea.Left + Math.Max(0, (workArea.Width - width) / 2),
+            workArea.Top + Math.Max(0, (workArea.Height - height) / 2),
+            width,
+            height);
     }
 
     private static OpenCodeQuotaWindow? ParseWindow(string html, string name, DateTimeOffset observedAt)

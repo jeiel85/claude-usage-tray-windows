@@ -1,4 +1,5 @@
 using ClaudeUsageTray.Services;
+using System.Windows;
 using Xunit;
 
 namespace ClaudeUsageTray.Tests.Services;
@@ -37,5 +38,26 @@ public sealed class OpenCodeWebUsageServiceTests
             "rollingUsage:$R[1]={resetInSec:1,usagePercent:101}", now));
         Assert.Null(OpenCodeWebUsageService.ParseUsage(
             "rollingUsage:$R[1]={resetInSec:1,usagePercent:1}", now));
+    }
+
+    [Fact]
+    public void CenterWithinWorkArea_UsesExplicitCoordinatesOnNegativeMonitor()
+    {
+        var bounds = OpenCodeWebUsageService.CenterWithinWorkArea(
+            new Rect(-1920, 0, 1920, 1040), new System.Windows.Size(920, 720));
+
+        Assert.Equal(-1420, bounds.Left);
+        Assert.Equal(160, bounds.Top);
+        Assert.Equal(920, bounds.Width);
+        Assert.Equal(720, bounds.Height);
+    }
+
+    [Fact]
+    public void CenterWithinWorkArea_ClampsWindowToSmallWorkArea()
+    {
+        var bounds = OpenCodeWebUsageService.CenterWithinWorkArea(
+            new Rect(100, 50, 800, 600), new System.Windows.Size(920, 720));
+
+        Assert.Equal(new Rect(100, 50, 800, 600), bounds);
     }
 }

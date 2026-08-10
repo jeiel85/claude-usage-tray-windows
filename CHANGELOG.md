@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.38.3] - 2026-08-10
+
+<!-- ko -->
+### 수정
+- **OpenCode 로그인 창이 화면 밖에 남아 보이지 않던 문제** — WebView2 초기화를 위해 창을 화면 밖에 한 번 표시한 뒤 자동 중앙 배치에 맡겼지만, 이미 표시된 WPF 창은 위치를 다시 계산하지 않아 그대로 숨을 수 있었습니다. 로그인할 때 현재 모니터 작업 영역의 중앙 좌표를 직접 계산해 창을 복원하고 전면 활성화합니다. 음수 좌표를 쓰는 보조 모니터와 작은 작업 영역도 처리합니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The OpenCode sign-in window could remain invisible off-screen** — The window was first shown outside the desktop to initialize WebView2 and then relied on automatic centering, but WPF does not reposition a window that has already been shown. Sign-in now restores the window, calculates explicit centered coordinates inside the current monitor's work area, and brings it to the foreground. Negative-coordinate secondary monitors and small work areas are covered as well.
+<!-- /en -->
+
 ## [1.38.2] - 2026-08-10
 
 <!-- ko -->
