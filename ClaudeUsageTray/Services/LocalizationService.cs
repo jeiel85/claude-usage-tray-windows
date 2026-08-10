@@ -1401,10 +1401,6 @@ public static class Loc
         _ => $"Resets {value}"
     };
 
-    public static string OpenCodeFiveHours => Lang switch { "ko" => "최근 5시간", "zh" => "最近 5 小时", "ja" => "直近5時間", _ => "Last 5 hours" };
-    public static string OpenCodeSevenDays => Lang switch { "ko" => "최근 7일", "zh" => "最近 7 天", "ja" => "直近7日", _ => "Last 7 days" };
-    public static string OpenCodeThisMonth => Lang switch { "ko" => "이번 달", "zh" => "本月", "ja" => "今月", _ => "This month" };
-    public static string OpenCodeRequestUnit => Lang switch { "ko" => "회", "zh" => "次", "ja" => "回", _ => " req" };
     public static string OpenCodeQuotaNotPublished => Lang switch
     {
         "ko" => "할당량 총량 미공개 · 실제 누적 사용량만 표시",

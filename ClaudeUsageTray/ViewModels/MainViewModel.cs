@@ -424,9 +424,6 @@ namespace ClaudeUsageTray.ViewModels;
     public string LblCodexNoUsage    => IsCodexLoading ? Loc.CodexLoading : Loc.CodexNoUsageToday;
     public string LblGeminiNoUsage   => Loc.GeminiCliNoUsageToday;
     public string LblOpenCodeNoUsage => Loc.OpenCodeNoUsageToday;
-    public string LblOpenCodeFiveHours => Loc.OpenCodeFiveHours;
-    public string LblOpenCodeSevenDays => Loc.OpenCodeSevenDays;
-    public string LblOpenCodeThisMonth => Loc.OpenCodeThisMonth;
     public string LblVisibleProviders => Loc.VisibleProviders;
     public string DisclaimerText     => SelectedProvider == UsageProviderKind.Claude ? Loc.Disclaimer : Loc.GenericDisclaimer;
 
@@ -2449,6 +2446,7 @@ namespace ClaudeUsageTray.ViewModels;
         // 시간 진행률은 리셋 시각만 있으면 매 순간 계산 가능 — 매초 갱신해 막대가 부드럽게 흐르게 한다.
         RecomputeClaudeTimeProgress(now);
         RecomputeCodexTimeProgress(now);
+        OpenCodeVm.UpdateTimeProgress(now);
     }
 
     /// <summary>

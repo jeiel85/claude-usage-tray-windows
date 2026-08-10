@@ -1116,6 +1116,14 @@
                                 </Grid>
                                 <Grid Height="8" Margin="0,4,0,0">
                                     <ProgressBar Value="{Binding OpenCodeVm.RollingPercent}" Maximum="1" Style="{StaticResource OpenCodeBarStyle}" VerticalAlignment="Center"/>
+                                    <Grid VerticalAlignment="Center" Height="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="{Binding OpenCodeVm.RollingTimePercent, Converter={StaticResource PercentToStar}}"/>
+                                            <ColumnDefinition Width="{Binding OpenCodeVm.RollingTimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border x:Name="OpenCodeRollingTimelineMarker" Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"
+                                                Visibility="{Binding OpenCodeVm.HasRollingTimeline, Converter={StaticResource BoolToVisibility}}"/>
+                                    </Grid>
                                 </Grid>
                             </StackPanel>
 
@@ -1130,6 +1138,14 @@
                                 </Grid>
                                 <Grid Height="8" Margin="0,4,0,0">
                                     <ProgressBar Value="{Binding OpenCodeVm.WeeklyPercent}" Maximum="1" Style="{StaticResource OpenCodeBarStyle}" VerticalAlignment="Center"/>
+                                    <Grid VerticalAlignment="Center" Height="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="{Binding OpenCodeVm.WeeklyTimePercent, Converter={StaticResource PercentToStar}}"/>
+                                            <ColumnDefinition Width="{Binding OpenCodeVm.WeeklyTimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border x:Name="OpenCodeWeeklyTimelineMarker" Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"
+                                                Visibility="{Binding OpenCodeVm.HasWeeklyTimeline, Converter={StaticResource BoolToVisibility}}"/>
+                                    </Grid>
                                 </Grid>
                             </StackPanel>
 
@@ -1144,6 +1160,14 @@
                                 </Grid>
                                 <Grid Height="8" Margin="0,4,0,0">
                                     <ProgressBar Value="{Binding OpenCodeVm.MonthlyPercent}" Maximum="1" Style="{StaticResource OpenCodeBarStyle}" VerticalAlignment="Center"/>
+                                    <Grid VerticalAlignment="Center" Height="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="{Binding OpenCodeVm.MonthlyTimePercent, Converter={StaticResource PercentToStar}}"/>
+                                            <ColumnDefinition Width="{Binding OpenCodeVm.MonthlyTimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border x:Name="OpenCodeMonthlyTimelineMarker" Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"
+                                                Visibility="{Binding OpenCodeVm.HasMonthlyTimeline, Converter={StaticResource BoolToVisibility}}"/>
+                                    </Grid>
                                 </Grid>
                             </StackPanel>
                         </StackPanel>
@@ -1162,7 +1186,9 @@
                                    Visibility="{Binding IsOpenCodeUsageEmpty, Converter={StaticResource BoolToVisibility}}"/>
 
                         <!-- 오늘의 토큰 4타일 (Claude와 동일 레이아웃) -->
-                        <UniformGrid Columns="2" Rows="2"
+                        <Border x:Name="OpenCodeStatsSeparator" Height="1" Background="#2D2F45" Margin="0,2,0,10"
+                                Visibility="{Binding IsOpenCodeUsageEmpty, Converter={StaticResource BoolToVisibilityInverse}}"/>
+                        <UniformGrid x:Name="OpenCodeTokenTiles" Columns="2" Rows="2"
                                      Visibility="{Binding IsOpenCodeUsageEmpty, Converter={StaticResource BoolToVisibilityInverse}}">
                             <Border Style="{StaticResource StatBox}" Margin="0,0,4,4">
                                 <StackPanel>
@@ -1189,26 +1215,6 @@
                                 </StackPanel>
                             </Border>
                         </UniformGrid>
-
-                        <Grid Margin="0,8,0,0" Visibility="{Binding OpenCodeVm.HasPeriodUsage, Converter={StaticResource BoolToVisibility}}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <TextBlock Text="{Binding LblOpenCodeFiveHours}" Foreground="#8B92B3" FontSize="10" Margin="0,0,10,3"/>
-                            <TextBlock Grid.Column="1" Text="{Binding OpenCodeVm.FiveHourLabel}" Foreground="#FDBA74" FontSize="10" HorizontalAlignment="Right"/>
-                            <TextBlock Grid.Row="1" Text="{Binding LblOpenCodeSevenDays}" Foreground="#8B92B3" FontSize="10" Margin="0,0,10,3"/>
-                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding OpenCodeVm.SevenDayLabel}" Foreground="#FDBA74" FontSize="10" HorizontalAlignment="Right"/>
-                            <TextBlock Grid.Row="2" Text="{Binding LblOpenCodeThisMonth}" Foreground="#8B92B3" FontSize="10" Margin="0,0,10,0"/>
-                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding OpenCodeVm.MonthLabel}" Foreground="#FDBA74" FontSize="10" HorizontalAlignment="Right"/>
-                        </Grid>
-
-                        <TextBlock Text="{Binding OpenCodeVm.QuotaStatusLabel}" Foreground="#FB923C" FontSize="10" TextWrapping="Wrap" Margin="0,8,0,0"/>
 
                         <TextBlock Text="{Binding OpenCodeNote}" Foreground="#5A5F7A" FontSize="10" Margin="0,8,0,0"/>
                         <TextBlock Text="{Binding OpenCodeErrorMessage}" Foreground="#EF4444" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0" Visibility="{Binding OpenCodeHasError, Converter={StaticResource BoolToVisibility}}"/>
