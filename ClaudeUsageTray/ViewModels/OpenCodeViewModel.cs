@@ -145,6 +145,22 @@ public partial class OpenCodeViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// 현재 PC에서 공식 값을 읽지 못했을 때만 다른 PC가 관측한 공식 할당량을 적용한다.
+    /// 로그인 상태나 로컬 웹 세션은 변경하지 않는다.
+    /// </summary>
+    internal void ApplySyncedWebUsage(OpenCodeWebUsage usage)
+    {
+        ArgumentNullException.ThrowIfNull(usage);
+        if (HasWebQuota) return;
+
+        ApplyWebUsage(usage);
+        QuotaStatusLabel = Loc.OpenCodeOfficialQuota;
+        Note = Loc.ProviderOpenCodeWebNote;
+        LastSnapshot.OpenCodeDetails ??= new OpenCodeUsageDetails();
+        LastSnapshot.OpenCodeDetails.WebUsage = usage;
+    }
+
     private void ApplyWebUsage(OpenCodeWebUsage? usage)
     {
         _currentWebUsage = usage;

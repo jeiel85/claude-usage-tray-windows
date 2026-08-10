@@ -33,6 +33,41 @@ public sealed class UsageSyncServiceTests : IDisposable
     }
 
     [Fact]
+    public void OpenCodeOfficialQuota_IsAvailableToAnotherDeviceWithoutCredentials()
+    {
+        var now = new DateTimeOffset(2026, 8, 10, 4, 0, 0, TimeSpan.Zero);
+        var desktop = CreateService("desktop", now);
+        var laptop = CreateService("laptop", now.AddMinutes(1));
+        var syncRoot = Path.Combine(_tempRoot, "sync");
+
+        desktop.WriteSnapshot(syncRoot, desktop.CreateSnapshot(
+            UsageProviderKind.OpenCode,
+            null,
+            new UsageSyncQuotaSnapshot
+            {
+                HasData = true,
+                OpenCode = new UsageSyncOpenCodeQuota
+                {
+                    Rolling = new UsageSyncOpenCodeQuotaWindow { UsagePercent = 0.12, ResetAt = now.AddHours(3) },
+                    Weekly = new UsageSyncOpenCodeQuotaWindow { UsagePercent = 0.34, ResetAt = now.AddDays(5) },
+                    Monthly = new UsageSyncOpenCodeQuotaWindow { UsagePercent = 0.56, ResetAt = now.AddDays(21) },
+                },
+            },
+            new UsageSyncLocalTotals { InputTokens = 100 }));
+
+        var read = laptop.ReadSnapshots(syncRoot, UsageProviderKind.OpenCode, null, new DateOnly(2026, 8, 10));
+        var newest = laptop.SelectNewestQuotaSnapshot(read.Snapshots, TimeSpan.FromMinutes(5));
+
+        Assert.NotNull(newest?.Quota?.OpenCode);
+        Assert.Equal(0.12, newest!.Quota!.OpenCode!.Rolling.UsagePercent, 6);
+        Assert.Equal(now.AddDays(5), newest.Quota.OpenCode.Weekly.ResetAt);
+        Assert.Equal(0.56, newest.Quota.OpenCode.Monthly.UsagePercent, 6);
+        var json = ReadAllTextShared(Directory.EnumerateFiles(syncRoot, "*.json", SearchOption.AllDirectories).Single());
+        Assert.DoesNotContain("cookie", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("workspace", json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ReadSnapshots_IgnoresCorruptAndWrongContractFiles()
     {
         var desktop = CreateService("desktop");

@@ -57,6 +57,10 @@ public sealed class UsageSyncQuotaSnapshot
     public string TierName { get; set; } = "";
     public string PaidTierName { get; set; } = "";
     public UsageSyncModelQuota[] Models { get; set; } = [];
+
+    // OpenCode Go 전용 — 공식 웹 콘솔이 제공한 계정 단위 할당량만 담는다.
+    // 인증 쿠키·워크스페이스 URL 같은 로그인 정보는 동기화하지 않는다.
+    public UsageSyncOpenCodeQuota? OpenCode { get; set; }
 }
 
 /// <summary>Antigravity 의 모델 한 개짜리 할당량 행(계정 단위).</summary>
@@ -65,6 +69,19 @@ public sealed class UsageSyncModelQuota
     public string ModelId { get; set; } = "";
     public double RemainingFraction { get; set; }
     public DateTimeOffset? ResetAt { get; set; }
+}
+
+public sealed class UsageSyncOpenCodeQuota
+{
+    public UsageSyncOpenCodeQuotaWindow Rolling { get; set; } = new();
+    public UsageSyncOpenCodeQuotaWindow Weekly { get; set; } = new();
+    public UsageSyncOpenCodeQuotaWindow Monthly { get; set; } = new();
+}
+
+public sealed class UsageSyncOpenCodeQuotaWindow
+{
+    public double UsagePercent { get; set; }
+    public DateTimeOffset ResetAt { get; set; }
 }
 
 public sealed class UsageSyncLocalTotals
