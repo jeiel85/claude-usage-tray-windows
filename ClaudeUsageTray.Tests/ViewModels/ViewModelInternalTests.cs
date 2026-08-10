@@ -164,6 +164,18 @@ public class OpenCodeViewModelTests
 /// </summary>
 public class UsageSyncQuotaPolicyTests
 {
+    [Theory]
+    [InlineData(UsageProviderKind.OpenCode, 5, 40)]
+    [InlineData(UsageProviderKind.OpenCode, 60, 60)]
+    [InlineData(UsageProviderKind.Codex, 5, 5)]
+    public void OpenCodeQuotaTtl_CoversWebRetryAndCloudDelay(
+        string provider, int configuredMinutes, int expectedMinutes)
+    {
+        Assert.Equal(
+            TimeSpan.FromMinutes(expectedMinutes),
+            MainViewModel.UsageSyncQuotaTtl(provider, configuredMinutes));
+    }
+
     // 서버가 계정별로 내려주는 할당량만 공유한다. OpenCode 는 로컬 계산 percent 가 아니라
     // 공식 웹 콘솔의 계정 단위 롤링·주간·월간 값만 공유한다.
     [Theory]
@@ -193,6 +205,7 @@ public class UsageSyncQuotaPolicyTests
     [Fact]
     public void OpenCodeOfficialQuota_RoundTripsAllWindows()
     {
+        var observedAt = DateTimeOffset.Now.AddMinutes(-10);
         var rollingReset = DateTimeOffset.Now.AddHours(3);
         var weeklyReset = DateTimeOffset.Now.AddDays(4);
         var monthlyReset = DateTimeOffset.Now.AddDays(20);
@@ -202,6 +215,7 @@ public class UsageSyncQuotaPolicyTests
             {
                 WebUsage = new OpenCodeWebUsage
                 {
+                    ObservedAtUtc = observedAt,
                     Rolling = new OpenCodeQuotaWindow { UsagePercent = 0.31, ResetAt = rollingReset },
                     Weekly = new OpenCodeQuotaWindow { UsagePercent = 0.42, ResetAt = weeklyReset },
                     Monthly = new OpenCodeQuotaWindow { UsagePercent = 0.53, ResetAt = monthlyReset },
@@ -214,12 +228,31 @@ public class UsageSyncQuotaPolicyTests
 
         Assert.NotNull(quota?.OpenCode);
         Assert.NotNull(restored);
-        Assert.Equal(0.31, restored!.Rolling.UsagePercent, 6);
+        Assert.Equal(observedAt, restored!.ObservedAtUtc);
+        Assert.Equal(0.31, restored.Rolling.UsagePercent, 6);
         Assert.Equal(rollingReset, restored.Rolling.ResetAt);
         Assert.Equal(0.42, restored.Weekly.UsagePercent, 6);
         Assert.Equal(weeklyReset, restored.Weekly.ResetAt);
         Assert.Equal(0.53, restored.Monthly.UsagePercent, 6);
         Assert.Equal(monthlyReset, restored.Monthly.ResetAt);
+    }
+
+    [Fact]
+    public void OpenCodeSyncedQuota_IsRejectedAfterRollingReset()
+    {
+        var now = DateTimeOffset.Now;
+        var quota = new UsageSyncQuotaSnapshot
+        {
+            HasData = true,
+            OpenCode = new UsageSyncOpenCodeQuota
+            {
+                Rolling = new UsageSyncOpenCodeQuotaWindow { ResetAt = now.AddSeconds(-1) },
+                Weekly = new UsageSyncOpenCodeQuotaWindow { ResetAt = now.AddDays(2) },
+                Monthly = new UsageSyncOpenCodeQuotaWindow { ResetAt = now.AddDays(20) },
+            },
+        };
+
+        Assert.Null(MainViewModel.CreateOpenCodeWebUsage(quota, now));
     }
 
     // 창 길이가 빠지면 받는 PC 가 5시간으로 가정할 수밖에 없어 주간 창에서 시간선이 어긋난다.

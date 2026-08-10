@@ -18,6 +18,8 @@ namespace ClaudeUsageTray.Services;
 /// </summary>
 public sealed class OpenCodeWebUsageService : IDisposable
 {
+    internal static readonly TimeSpan CachedFallbackMaxAge = TimeSpan.FromMinutes(40);
+    private static readonly TimeSpan FailureRetryDelay = TimeSpan.FromMinutes(30);
     private static readonly Uri AuthUri = new("https://opencode.ai/auth");
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly string _dataRoot;
@@ -54,7 +56,7 @@ public sealed class OpenCodeWebUsageService : IDisposable
         if (!interactive && _cachedUsage != null && now < _cacheExpiresAt)
             return _cachedUsage;
         if (!interactive && now < _retryAfter)
-            return null;
+            return GetCachedFallback(now);
 
         await _gate.WaitAsync();
         try
@@ -62,6 +64,8 @@ public sealed class OpenCodeWebUsageService : IDisposable
             now = DateTimeOffset.Now;
             if (!interactive && _cachedUsage != null && now < _cacheExpiresAt)
                 return _cachedUsage;
+            if (!interactive && now < _retryAfter)
+                return GetCachedFallback(now);
 
             LastError = null;
             var dispatcher = System.Windows.Application.Current?.Dispatcher;
@@ -76,21 +80,31 @@ public sealed class OpenCodeWebUsageService : IDisposable
             }
             else if (!interactive)
             {
-                _retryAfter = DateTimeOffset.Now.AddMinutes(30);
+                _retryAfter = DateTimeOffset.Now.Add(FailureRetryDelay);
+                return GetCachedFallback(DateTimeOffset.Now);
             }
             return usage;
         }
         catch (Exception ex)
         {
             LastError = ex.Message;
-            _retryAfter = DateTimeOffset.Now.AddMinutes(30);
-            return null;
+            _retryAfter = DateTimeOffset.Now.Add(FailureRetryDelay);
+            return interactive ? null : GetCachedFallback(DateTimeOffset.Now);
         }
         finally
         {
             _gate.Release();
         }
     }
+
+    private OpenCodeWebUsage? GetCachedFallback(DateTimeOffset now) =>
+        IsCachedFallbackUsable(_cachedUsage, now) ? _cachedUsage : null;
+
+    internal static bool IsCachedFallbackUsable(OpenCodeWebUsage? usage, DateTimeOffset now) =>
+        usage?.ObservedAtUtc is { } observedAt &&
+        observedAt <= now.AddMinutes(5) &&
+        now - observedAt <= CachedFallbackMaxAge &&
+        usage.Rolling.ResetAt > now;
 
     private async Task<OpenCodeWebUsage?> NavigateAsync(bool interactive)
     {
@@ -147,7 +161,7 @@ public sealed class OpenCodeWebUsageService : IDisposable
             if (workspaceGoUri == null) return;
             if (!source.AbsolutePath.TrimEnd('/').EndsWith("/go", StringComparison.OrdinalIgnoreCase))
             {
-                _webView.Source = workspaceGoUri;
+                _webView.CoreWebView2.Navigate(workspaceGoUri.AbsoluteUri);
                 return;
             }
 
@@ -171,7 +185,10 @@ public sealed class OpenCodeWebUsageService : IDisposable
         }
 
         _webView.NavigationCompleted += OnNavigationCompleted;
-        _webView.Source = NavigationStartUri;
+        // Source dependency property에 현재 주소와 같은 값을 다시 넣으면 WPF가 변경으로 보지 않아
+        // 탐색 이벤트가 발생하지 않는다. 캐시 만료 후 자동 조회가 20초 타임아웃으로 끝나며
+        // 로그인 해제로 오판하던 원인이므로 CoreWebView2에 매번 명시적으로 탐색을 요청한다.
+        _webView.CoreWebView2.Navigate(NavigationStartUri.AbsoluteUri);
         try
         {
             return await completion.Task;
@@ -231,7 +248,13 @@ public sealed class OpenCodeWebUsageService : IDisposable
         var monthly = ParseWindow(html, "monthlyUsage", observedAt);
         if (rolling == null || weekly == null || monthly == null) return null;
 
-        return new OpenCodeWebUsage { Rolling = rolling, Weekly = weekly, Monthly = monthly };
+        return new OpenCodeWebUsage
+        {
+            ObservedAtUtc = observedAt.ToUniversalTime(),
+            Rolling = rolling,
+            Weekly = weekly,
+            Monthly = monthly,
+        };
     }
 
     internal static Rect CenterWithinWorkArea(Rect workArea, System.Windows.Size requestedSize)

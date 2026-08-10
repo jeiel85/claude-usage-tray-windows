@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.38.8] - 2026-08-10
+
+<!-- ko -->
+### 수정
+- **OpenCode 로그인이 반복해서 풀린 것처럼 보이던 문제** — 자동 조회 때 WebView2가 이미 열고 있는 워크스페이스 주소를 WPF `Source`에 다시 지정하면 같은 값으로 처리되어 탐색이 시작되지 않았습니다. 20초 타임아웃을 로그인 해제로 잘못 표시하던 경로를 고쳐, 같은 주소에도 명시적으로 새 탐색을 실행합니다.
+- **OneDrive 동기화 파일이 있어도 다른 PC에 OpenCode 게이지가 나오지 않던 문제** — 공식 값의 5분 유효시간이 30분 웹 재시도와 2분 폴링·클라우드 전송 지연보다 짧아 다른 PC가 읽을 기회를 놓쳤습니다. 마지막 정상 관측 시각을 보존하면서 OpenCode에만 최대 40분의 제한된 보조 유효시간을 적용하고, 롤링 초기화가 지난 값은 즉시 폐기합니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **OpenCode repeatedly appeared signed out** — Assigning the already-open workspace URL to the WPF WebView2 `Source` again was treated as an unchanged value, so no navigation started. The resulting 20-second timeout was incorrectly presented as a sign-out. Automatic reads now explicitly navigate even when the URL is unchanged.
+- **OpenCode gauges did not appear on another PC despite a synchronized OneDrive file** — The five-minute official-value lifetime was shorter than the 30-minute web retry plus two-minute polling and cloud transfer delay, leaving the receiving PC little opportunity to read it. OpenCode now preserves the original observation time and uses a bounded 40-minute fallback, while immediately rejecting values after the rolling reset.
+<!-- /en -->
+
 ## [1.38.7] - 2026-08-10
 
 <!-- ko -->
