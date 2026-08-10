@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -17,8 +18,10 @@ namespace ClaudeUsageTray.Services;
 /// </summary>
 public sealed class OpenCodeWebUsageService : IDisposable
 {
-    private static readonly Uri WorkspaceUri = new("https://opencode.ai/workspace");
+    private static readonly Uri AuthUri = new("https://opencode.ai/auth");
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly string _dataRoot;
+    private readonly string _workspaceRoutePath;
     private Window? _window;
     private WebView2? _webView;
     private bool _allowClose;
@@ -26,8 +29,24 @@ public sealed class OpenCodeWebUsageService : IDisposable
     private OpenCodeWebUsage? _cachedUsage;
     private DateTimeOffset _cacheExpiresAt;
     private DateTimeOffset _retryAfter;
+    private Uri? _workspaceUri;
 
     public string? LastError { get; private set; }
+    internal Uri NavigationStartUri => _workspaceUri ?? AuthUri;
+
+    public OpenCodeWebUsageService()
+        : this(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "ClaudeUsageTray", "OpenCodeWebSession"))
+    {
+    }
+
+    internal OpenCodeWebUsageService(string dataRoot)
+    {
+        _dataRoot = dataRoot;
+        _workspaceRoutePath = Path.Combine(dataRoot, "workspace-route.txt");
+        _workspaceUri = ReadWorkspaceRoute(_workspaceRoutePath);
+    }
 
     public async Task<OpenCodeWebUsage?> TryGetUsageAsync(bool interactive = false)
     {
@@ -124,11 +143,11 @@ public sealed class OpenCodeWebUsageService : IDisposable
             }
             if (!source.Host.Equals("opencode.ai", StringComparison.OrdinalIgnoreCase)) return;
 
-            var workspaceMatch = Regex.Match(source.AbsolutePath, @"^/workspace/(?<id>[^/]+)");
-            if (!workspaceMatch.Success) return;
-            if (!source.AbsolutePath.EndsWith("/go", StringComparison.OrdinalIgnoreCase))
+            var workspaceGoUri = NormalizeWorkspaceGoUri(source);
+            if (workspaceGoUri == null) return;
+            if (!source.AbsolutePath.TrimEnd('/').EndsWith("/go", StringComparison.OrdinalIgnoreCase))
             {
-                _webView.Source = new Uri($"https://opencode.ai/workspace/{workspaceMatch.Groups["id"].Value}/go");
+                _webView.Source = workspaceGoUri;
                 return;
             }
 
@@ -136,7 +155,13 @@ public sealed class OpenCodeWebUsageService : IDisposable
             {
                 var encodedHtml = await _webView.CoreWebView2.ExecuteScriptAsync("document.documentElement.outerHTML");
                 var html = JsonSerializer.Deserialize<string>(encodedHtml);
-                completion.TrySetResult(html == null ? null : ParseUsage(html, DateTimeOffset.Now));
+                var usage = html == null ? null : ParseUsage(html, DateTimeOffset.Now);
+                if (usage != null)
+                {
+                    _workspaceUri = workspaceGoUri;
+                    WriteWorkspaceRoute(_workspaceRoutePath, workspaceGoUri);
+                }
+                completion.TrySetResult(usage);
             }
             catch (Exception ex)
             {
@@ -146,7 +171,7 @@ public sealed class OpenCodeWebUsageService : IDisposable
         }
 
         _webView.NavigationCompleted += OnNavigationCompleted;
-        _webView.Source = WorkspaceUri;
+        _webView.Source = NavigationStartUri;
         try
         {
             return await completion.Task;
@@ -163,10 +188,7 @@ public sealed class OpenCodeWebUsageService : IDisposable
     {
         if (_webView?.CoreWebView2 != null) return;
 
-        var dataRoot = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "ClaudeUsageTray", "OpenCodeWebSession");
-        Directory.CreateDirectory(dataRoot);
+        Directory.CreateDirectory(_dataRoot);
 
         _webView = new WebView2();
         _window = new Window
@@ -194,7 +216,7 @@ public sealed class OpenCodeWebUsageService : IDisposable
         // WPF WebView2 needs a presentation source for initialization. The off-screen window is
         // shown only long enough to create the control, then hidden until the user chooses login.
         _window.Show();
-        var environment = await CoreWebView2Environment.CreateAsync(userDataFolder: dataRoot);
+        var environment = await CoreWebView2Environment.CreateAsync(userDataFolder: _dataRoot);
         await _webView.EnsureCoreWebView2Async(environment);
         _webView.CoreWebView2.Settings.AreDevToolsEnabled = false;
         _webView.CoreWebView2.Settings.IsPasswordAutosaveEnabled = false;
@@ -221,6 +243,75 @@ public sealed class OpenCodeWebUsageService : IDisposable
             workArea.Top + Math.Max(0, (workArea.Height - height) / 2),
             width,
             height);
+    }
+
+    internal static Uri? NormalizeWorkspaceGoUri(Uri? uri)
+    {
+        if (uri == null
+            || !uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+            || !uri.Host.Equals("opencode.ai", StringComparison.OrdinalIgnoreCase)
+            || !uri.IsDefaultPort)
+            return null;
+
+        var match = Regex.Match(uri.AbsolutePath,
+            @"^/workspace/(?<id>[A-Za-z0-9_-]{3,128})(?:/go)?/?$",
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        if (!match.Success) return null;
+
+        return new Uri($"https://opencode.ai/workspace/{match.Groups["id"].Value}/go");
+    }
+
+    internal static Uri? ReadWorkspaceRoute(string path)
+    {
+        if (!File.Exists(path)) return null;
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+            using var reader = new StreamReader(stream);
+            return Uri.TryCreate(reader.ReadToEnd().Trim(), UriKind.Absolute, out var uri)
+                ? NormalizeWorkspaceGoUri(uri)
+                : null;
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceWarning($"OpenCode workspace route could not be read: {ex.Message}");
+            return null;
+        }
+    }
+
+    internal static bool WriteWorkspaceRoute(string path, Uri uri)
+    {
+        var normalized = NormalizeWorkspaceGoUri(uri);
+        if (normalized == null) return false;
+
+        string? tempPath = null;
+        try
+        {
+            var directory = Path.GetDirectoryName(path);
+            if (string.IsNullOrWhiteSpace(directory)) return false;
+            Directory.CreateDirectory(directory);
+            tempPath = Path.Combine(directory, $".{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
+            using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.ReadWrite))
+            using (var writer = new StreamWriter(stream))
+                writer.Write(normalized.AbsoluteUri);
+            File.Move(tempPath, path, true);
+            tempPath = null;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceWarning($"OpenCode workspace route could not be saved: {ex.Message}");
+            return false;
+        }
+        finally
+        {
+            if (tempPath != null)
+            {
+                try { File.Delete(tempPath); }
+                catch (Exception ex) { Trace.TraceWarning($"OpenCode route temp file could not be removed: {ex.Message}"); }
+            }
+        }
     }
 
     private static OpenCodeQuotaWindow? ParseWindow(string html, string name, DateTimeOffset observedAt)

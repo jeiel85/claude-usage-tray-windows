@@ -1,4 +1,5 @@
 using ClaudeUsageTray.Services;
+using System.IO;
 using System.Windows;
 using Xunit;
 
@@ -59,5 +60,47 @@ public sealed class OpenCodeWebUsageServiceTests
             new Rect(100, 50, 800, 600), new System.Windows.Size(920, 720));
 
         Assert.Equal(new Rect(100, 50, 800, 600), bounds);
+    }
+
+    [Theory]
+    [InlineData("https://opencode.ai/workspace/wrk_ABC123", "https://opencode.ai/workspace/wrk_ABC123/go")]
+    [InlineData("https://opencode.ai/workspace/wrk_ABC123/go", "https://opencode.ai/workspace/wrk_ABC123/go")]
+    [InlineData("https://opencode.ai/workspace/wrk_ABC123/go/", "https://opencode.ai/workspace/wrk_ABC123/go")]
+    public void NormalizeWorkspaceGoUri_AcceptsOnlyWorkspaceRoutes(string input, string expected)
+    {
+        Assert.Equal(new Uri(expected), OpenCodeWebUsageService.NormalizeWorkspaceGoUri(new Uri(input)));
+    }
+
+    [Theory]
+    [InlineData("https://opencode.ai/workspace")]
+    [InlineData("https://opencode.ai/workspace/wrk_ABC123/settings")]
+    [InlineData("http://opencode.ai/workspace/wrk_ABC123/go")]
+    [InlineData("https://evil.example/workspace/wrk_ABC123/go")]
+    public void NormalizeWorkspaceGoUri_RejectsUnsafeOrMissingRoutes(string input)
+    {
+        Assert.Null(OpenCodeWebUsageService.NormalizeWorkspaceGoUri(new Uri(input)));
+    }
+
+    [Fact]
+    public void WorkspaceRoute_PersistsAcrossServiceRestarts_AndFallsBackToAuthWhenMissing()
+    {
+        var dataRoot = Path.Combine(Path.GetTempPath(), $"opencode-route-{Guid.NewGuid():N}");
+        try
+        {
+            using (var first = new OpenCodeWebUsageService(dataRoot))
+            {
+                Assert.Equal(new Uri("https://opencode.ai/auth"), first.NavigationStartUri);
+                Assert.True(OpenCodeWebUsageService.WriteWorkspaceRoute(
+                    Path.Combine(dataRoot, "workspace-route.txt"),
+                    new Uri("https://opencode.ai/workspace/wrk_TEST123/go")));
+            }
+
+            using var restarted = new OpenCodeWebUsageService(dataRoot);
+            Assert.Equal(new Uri("https://opencode.ai/workspace/wrk_TEST123/go"), restarted.NavigationStartUri);
+        }
+        finally
+        {
+            if (Directory.Exists(dataRoot)) Directory.Delete(dataRoot, true);
+        }
     }
 }

@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.38.6] - 2026-08-10
+
+<!-- ko -->
+### 수정
+- **OpenCode 로그인 버튼이 존재하지 않는 주소를 열던 문제** — 앱이 로그인과 자동 조회를 현재 404인 `https://opencode.ai/workspace`에서 시작하고 있었습니다. OpenCode 공식 페이지가 연결하는 정상 로그인 진입점 `https://opencode.ai/auth`를 사용하도록 수정했습니다.
+- **OpenCode 로그인이 5분 뒤 풀린 것처럼 보이던 문제** — 로그인 후 확인한 `https://opencode.ai/workspace/{id}/go` 주소를 보존하지 않아 캐시 만료 때 다시 404로 이동하고, 조회 실패를 로그인 해제로 표시했습니다. 성공한 워크스페이스 주소를 엄격히 검증해 앱 데이터에 저장하고 자동 새로고침과 앱 재시작에서 재사용합니다. 기존 앱 전용 WebView2 쿠키 저장소는 그대로 유지합니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The OpenCode sign-in button opened a nonexistent URL** — Sign-in and automatic reads started at `https://opencode.ai/workspace`, which now returns 404. The app now uses `https://opencode.ai/auth`, the valid sign-in entry point linked by the official OpenCode site.
+- **OpenCode appeared signed out after five minutes** — The successful `https://opencode.ai/workspace/{id}/go` route was discarded, so cache expiry navigated back to the 404 and presented the read failure as a sign-out. Successful workspace routes are now strictly validated, stored in app data, and reused for automatic refreshes and app restarts. The existing app-owned WebView2 cookie store remains unchanged.
+<!-- /en -->
+
 ## [1.38.5] - 2026-08-10
 
 <!-- ko -->
