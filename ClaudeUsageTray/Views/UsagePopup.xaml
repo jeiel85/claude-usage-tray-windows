@@ -534,10 +534,10 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="OpenCode" Foreground="#FB923C" FontSize="11" FontWeight="SemiBold"
                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                            <ProgressBar Grid.Column="1" Value="{Binding OpenCodePercent}" Maximum="1"
-                                         Style="{StaticResource OpenCodeBarStyle}" VerticalAlignment="Center"
-                                         Margin="8,0,8,0"/>
-                            <TextBlock Grid.Column="2" Text="{Binding OpenCodePercent, StringFormat={}{0:P0}}"
+                            <TextBlock Grid.Column="1" Text="{Binding OpenCodeVm.QuotaStatusLabel}"
+                                       Foreground="#8B92B3" FontSize="9" TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" Margin="8,0,8,0"/>
+                            <TextBlock Grid.Column="2" Text="{Binding OpenCodeOutputLabel}"
                                        Foreground="#FB923C" FontSize="11" FontWeight="SemiBold"
                                        VerticalAlignment="Center"/>
                         </Grid>
@@ -1114,6 +1114,26 @@
                                 </StackPanel>
                             </Border>
                         </UniformGrid>
+
+                        <Grid Margin="0,8,0,0" Visibility="{Binding OpenCodeVm.HasPeriodUsage, Converter={StaticResource BoolToVisibility}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="{Binding LblOpenCodeFiveHours}" Foreground="#8B92B3" FontSize="10" Margin="0,0,10,3"/>
+                            <TextBlock Grid.Column="1" Text="{Binding OpenCodeVm.FiveHourLabel}" Foreground="#FDBA74" FontSize="10" HorizontalAlignment="Right"/>
+                            <TextBlock Grid.Row="1" Text="{Binding LblOpenCodeSevenDays}" Foreground="#8B92B3" FontSize="10" Margin="0,0,10,3"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding OpenCodeVm.SevenDayLabel}" Foreground="#FDBA74" FontSize="10" HorizontalAlignment="Right"/>
+                            <TextBlock Grid.Row="2" Text="{Binding LblOpenCodeThisMonth}" Foreground="#8B92B3" FontSize="10" Margin="0,0,10,0"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding OpenCodeVm.MonthLabel}" Foreground="#FDBA74" FontSize="10" HorizontalAlignment="Right"/>
+                        </Grid>
+
+                        <TextBlock Text="{Binding OpenCodeVm.QuotaStatusLabel}" Foreground="#FB923C" FontSize="10" TextWrapping="Wrap" Margin="0,8,0,0"/>
 
                         <TextBlock Text="{Binding OpenCodeNote}" Foreground="#5A5F7A" FontSize="10" Margin="0,8,0,0"/>
                         <TextBlock Text="{Binding OpenCodeErrorMessage}" Foreground="#EF4444" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0" Visibility="{Binding OpenCodeHasError, Converter={StaticResource BoolToVisibility}}"/>

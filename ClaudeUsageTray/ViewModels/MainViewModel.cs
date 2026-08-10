@@ -424,6 +424,9 @@ namespace ClaudeUsageTray.ViewModels;
     public string LblCodexNoUsage    => IsCodexLoading ? Loc.CodexLoading : Loc.CodexNoUsageToday;
     public string LblGeminiNoUsage   => Loc.GeminiCliNoUsageToday;
     public string LblOpenCodeNoUsage => Loc.OpenCodeNoUsageToday;
+    public string LblOpenCodeFiveHours => Loc.OpenCodeFiveHours;
+    public string LblOpenCodeSevenDays => Loc.OpenCodeSevenDays;
+    public string LblOpenCodeThisMonth => Loc.OpenCodeThisMonth;
     public string LblVisibleProviders => Loc.VisibleProviders;
     public string DisclaimerText     => SelectedProvider == UsageProviderKind.Claude ? Loc.Disclaimer : Loc.GenericDisclaimer;
 
@@ -1329,6 +1332,7 @@ namespace ClaudeUsageTray.ViewModels;
     private int _lastOpenCodeRequestCount = 0;
     private long _lastOpenCodeInputTokens = 0;
     private long _lastOpenCodeOutputTokens = 0;
+    private bool _openCodeHasPeriodUsage = false;
 
     private void UpdateOverallStatus()
     {
@@ -1342,7 +1346,7 @@ namespace ClaudeUsageTray.ViewModels;
         ClaudeVm.IsActive = IsClaudeEnabled && (!hideInactive || TodayInputTokens + TodayOutputTokens > 0 || ClaudeVm.ShortPercent > 0 || ClaudeVm.HasError);
         IsCodexActive = IsCodexEnabled && (!hideInactive || CodexPercent > 0 || CodexHasError);
         IsGeminiActive = IsGeminiEnabled && (!hideInactive || _lastGeminiRequestCount > 0 || GeminiHasError);
-        IsOpenCodeActive = IsOpenCodeEnabled && (!hideInactive || _lastOpenCodeRequestCount > 0 || OpenCodeHasError);
+        IsOpenCodeActive = IsOpenCodeEnabled && (!hideInactive || _lastOpenCodeRequestCount > 0 || _openCodeHasPeriodUsage || OpenCodeHasError);
 
         ClaudeVm.IsUsageEmpty = TodayInputTokens + TodayOutputTokens == 0;
         IsCodexUsageEmpty = !_codexHasTokenData;
@@ -1392,7 +1396,8 @@ namespace ClaudeUsageTray.ViewModels;
             _ => ClaudeVm.ShortPercent
         };
 
-        // 제미나이/오픈코드 등 고정 할당량이 없는 경우 최근 7일 최대치 대비 비율로 보정 (트레이 전용)
+        // Gemini CLI는 공급자 할당량이 없어 최근 7일 최대치 대비 비율을 트레이 참고값으로 쓴다.
+        // OpenCode는 같은 상대값이 실제 할당량처럼 오해되므로 만들지 않는다.
         if (TrayDisplayMode == UsageProviderKind.Auto || TrayDisplayMode == EffectiveTrayProvider)
         {
             // 초기에 데이터가 없을 때를 대비해 최소 10,000 토큰을 기준으로 잡음
@@ -1403,12 +1408,6 @@ namespace ClaudeUsageTray.ViewModels;
                 var max = _history.GetRecentMaxTotalTokens(UsageProviderKind.GeminiCli, null, 7);
                 var goal = Math.Max(defaultMinGoal, max);
                 if (goal > 0) TrayUsagePercent = Math.Clamp(_lastGeminiOutputTokens / (double)goal, 0, 1);
-            }
-            else if (EffectiveTrayProvider == UsageProviderKind.OpenCode)
-            {
-                var max = _history.GetRecentMaxTotalTokens(UsageProviderKind.OpenCode, null, 7);
-                var goal = Math.Max(defaultMinGoal, max);
-                if (goal > 0) TrayUsagePercent = Math.Clamp((_lastOpenCodeInputTokens + _lastOpenCodeOutputTokens) / (double)goal, 0, 1);
             }
         }
 
@@ -1533,7 +1532,7 @@ namespace ClaudeUsageTray.ViewModels;
     /// <summary>
     /// 이 provider 의 할당량이 "계정 단위"라서 기기 간에 공유해도 되는가.
     /// Codex·Antigravity 는 서버가 계정별로 내려주므로 어느 PC 에서 봐도 같은 값이다.
-    /// Gemini CLI·OpenCode 의 percent 는 그 PC 의 로컬 토큰 합계를 그 PC 의 최근 최대치로 나눈 값이라
+    /// Gemini CLI 의 percent 는 그 PC 의 로컬 토큰 합계를 그 PC 의 최근 최대치로 나눈 값이라
     /// 다른 PC 의 값을 가져다 쓰면 남의 기기 기준을 내 화면에 표시하는 셈이 된다 — 대신 합산 토큰으로 다시 계산한다.
     /// </summary>
     internal static bool UsageSyncSharesAccountQuota(string provider) =>
@@ -1767,7 +1766,7 @@ namespace ClaudeUsageTray.ViewModels;
         merged is { DeviceCount: > 1, HasData: true };
 
     /// <summary>
-    /// Gemini CLI·OpenCode 처럼 서버 할당량이 없어 "최근 최대 사용일" 대비로 막대를 그리는 provider 의
+    /// Gemini CLI 처럼 서버 할당량이 없어 "최근 최대 사용일" 대비로 막대를 그리는 provider 의
     /// 진행률을, 기기 합산 토큰 기준으로 다시 계산한다. 각 모니터의 계산식(출력 토큰 / 목표치)과 같아야 한다.
     /// </summary>
     private double MergedGoalPercent(string provider, long outputTokens)
@@ -2282,6 +2281,7 @@ namespace ClaudeUsageTray.ViewModels;
             _lastOpenCodeRequestCount = OpenCodeVm.LastRequestCount;
             _lastOpenCodeInputTokens = OpenCodeVm.LastInputTokens;
             _lastOpenCodeOutputTokens = OpenCodeVm.LastOutputTokens;
+            _openCodeHasPeriodUsage = OpenCodeVm.HasPeriodUsage;
             OpenCodeNote = WithSyncNote(Loc.ProviderOpenCodeNote, mergedTotals);
 
             if (HasMergedDeviceTotals(mergedTotals))
@@ -2298,8 +2298,7 @@ namespace ClaudeUsageTray.ViewModels;
                 _lastOpenCodeRequestCount = mergedTotals.RequestCount;
                 _lastOpenCodeInputTokens = mergedTotals.InputTokens;
                 _lastOpenCodeOutputTokens = mergedTotals.OutputTokens;
-                // 막대도 합산 기준으로 다시 계산한다(Gemini 와 동일한 이유).
-                OpenCodePercent = MergedGoalPercent(UsageProviderKind.OpenCode, mergedTotals.OutputTokens);
+                OpenCodePercent = 0;
             }
 
             UpdateOverallStatus();

@@ -30,4 +30,22 @@ public class ProviderUsageSnapshot
     public int RequestCount { get; set; }
 
     public long[] HourlyTokens { get; set; } = new long[24];
+
+    public OpenCodeUsageDetails? OpenCodeDetails { get; set; }
+}
+
+public class OpenCodeUsageDetails
+{
+    public OpenCodePeriodUsage LastFiveHours { get; set; } = new();
+    public OpenCodePeriodUsage LastSevenDays { get; set; } = new();
+    public OpenCodePeriodUsage ThisMonth { get; set; } = new();
+    public string? LimitKind { get; set; }
+    public DateTimeOffset? RetryAt { get; set; }
+}
+
+public class OpenCodePeriodUsage
+{
+    public long Tokens { get; set; }
+    public int Requests { get; set; }
+    public decimal CostUsd { get; set; }
 }

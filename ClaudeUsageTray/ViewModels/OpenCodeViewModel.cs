@@ -22,6 +22,11 @@ public partial class OpenCodeViewModel : ObservableObject
     [ObservableProperty] private string _cacheReadLabel = "—";
     [ObservableProperty] private string _cacheWriteLabel = "—";
     [ObservableProperty] private double _percent = 0;
+    [ObservableProperty] private string _fiveHourLabel = "—";
+    [ObservableProperty] private string _sevenDayLabel = "—";
+    [ObservableProperty] private string _monthLabel = "—";
+    [ObservableProperty] private string _quotaStatusLabel = "";
+    [ObservableProperty] private bool _hasPeriodUsage = false;
     [ObservableProperty] private bool _isActive = false;
     [ObservableProperty] private bool _isUsageEmpty = true;
 
@@ -40,9 +45,7 @@ public partial class OpenCodeViewModel : ObservableObject
     {
         try
         {
-            var max = _history.GetRecentMaxTotalTokens(UsageProviderKind.OpenCode, null, 7);
-            var goal = Math.Max(10000, max);
-            var snapshot = _monitor.GetTodaySnapshot(goal);
+            var snapshot = _monitor.GetTodaySnapshot();
             LastSnapshot = snapshot;
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
@@ -67,6 +70,11 @@ public partial class OpenCodeViewModel : ObservableObject
                         : $"Today {snapshot.RequestCount} req · in {UsageCalculator.FormatTokenShort(snapshot.TotalInputTokens)} · out {UsageCalculator.FormatTokenShort(snapshot.TotalOutputTokens)}"
                     : snapshot.ErrorMessage ?? "";
                 Percent = snapshot.ShortUsagePercent;
+                FiveHourLabel = FormatPeriod(snapshot.OpenCodeDetails?.LastFiveHours);
+                SevenDayLabel = FormatPeriod(snapshot.OpenCodeDetails?.LastSevenDays);
+                MonthLabel = FormatPeriod(snapshot.OpenCodeDetails?.ThisMonth);
+                QuotaStatusLabel = FormatQuotaStatus(snapshot.OpenCodeDetails);
+                HasPeriodUsage = snapshot.OpenCodeDetails?.ThisMonth.Requests > 0;
                 IsUsageEmpty = !snapshot.HasData;
 
                 _history.RecordToday(UsageProviderKind.OpenCode, null,
@@ -86,8 +94,24 @@ public partial class OpenCodeViewModel : ObservableObject
         }
     }
 
+    private static string FormatPeriod(OpenCodePeriodUsage? period)
+    {
+        if (period == null || period.Requests == 0) return "—";
+        var cost = period.CostUsd > 0 ? $" · ${period.CostUsd:0.00}" : "";
+        return $"{UsageCalculator.FormatTokenShort(period.Tokens)} · {period.Requests}{Loc.OpenCodeRequestUnit}{cost}";
+    }
+
+    private static string FormatQuotaStatus(OpenCodeUsageDetails? details)
+    {
+        if (details?.LimitKind == null) return Loc.OpenCodeQuotaNotPublished;
+        var reset = details.RetryAt is { } retryAt && retryAt > DateTimeOffset.Now
+            ? $" · {Loc.OpenCodeRetryAt(UsageCalculator.FormatResetLabel(retryAt, false, true, DateTimeOffset.Now))}"
+            : "";
+        return (details.LimitKind == "go" ? Loc.OpenCodeGoLimitReached : Loc.OpenCodeFreeLimitReached) + reset;
+    }
+
     public void UpdateActiveState(bool isEnabled, bool hideInactive)
     {
-        IsActive = isEnabled && (!hideInactive || _lastRequestCount > 0 || HasError);
+        IsActive = isEnabled && (!hideInactive || _lastRequestCount > 0 || HasPeriodUsage || HasError);
     }
 }

@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.38.1] - 2026-08-10
+
+<!-- ko -->
+### 개선
+- **OpenCode 사용량을 실제 할당량처럼 보이게 하던 추정 퍼센트 제거** — 기존 막대는 오늘 출력 토큰을 최근 7일 중 가장 많이 쓴 날과 비교했을 뿐인데, 일반 할당량 막대와 같은 모양이라 남은 무료 한도로 오해할 수 있었습니다. OpenCode가 무료·Zen 총량을 로컬 DB에 제공하지 않으므로 임의 퍼센트를 더 이상 만들지 않습니다.
+- **OpenCode 기간별 실제 누적 사용량 추가** — 로컬 DB에서 최근 5시간·7일·이번 달의 토큰, 요청 수, 기록된 비용을 집계해 표시합니다. 오늘 사용이 없어도 기간 내 기록이 있으면 OpenCode 패널을 유지합니다.
+- **OpenCode 무료·Go 한도 소진 상태 표시** — OpenCode가 저장한 `FreeUsageLimitError` 또는 `GoUsageLimitError`와 `retry-after`를 읽어, 한도가 실제로 유효한 동안 소진 상태와 초기화 시각을 표시합니다. 재시도 시각이 지난 오류는 현재 한도 소진으로 표시하지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Removed the estimated percentage that made OpenCode usage look like a real quota** — The old bar only compared today's output tokens with the busiest day in the previous seven days, but its quota-style presentation could be mistaken for remaining free allowance. OpenCode does not expose free or Zen quota totals in its local database, so the app no longer invents a percentage.
+- **Added actual OpenCode usage totals by period** — The panel now aggregates tokens, request count, and recorded cost from the local database for the last five hours, seven days, and current month. It remains available when there is no usage today but the selected periods contain records.
+- **Added OpenCode free and Go limit status** — Stored `FreeUsageLimitError` / `GoUsageLimitError` data and `retry-after` are used to show an active limit and its reset time. Expired retry windows are not presented as a current limit.
+<!-- /en -->
+
 ## [1.38.0] - 2026-08-07
 
 <!-- ko -->
