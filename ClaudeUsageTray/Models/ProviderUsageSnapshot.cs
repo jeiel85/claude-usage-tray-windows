@@ -41,6 +41,20 @@ public class OpenCodeUsageDetails
     public OpenCodePeriodUsage ThisMonth { get; set; } = new();
     public string? LimitKind { get; set; }
     public DateTimeOffset? RetryAt { get; set; }
+    public OpenCodeWebUsage? WebUsage { get; set; }
+}
+
+public sealed class OpenCodeWebUsage
+{
+    public OpenCodeQuotaWindow Rolling { get; init; } = new();
+    public OpenCodeQuotaWindow Weekly { get; init; } = new();
+    public OpenCodeQuotaWindow Monthly { get; init; } = new();
+}
+
+public sealed class OpenCodeQuotaWindow
+{
+    public double UsagePercent { get; init; }
+    public DateTimeOffset ResetAt { get; init; }
 }
 
 public class OpenCodePeriodUsage

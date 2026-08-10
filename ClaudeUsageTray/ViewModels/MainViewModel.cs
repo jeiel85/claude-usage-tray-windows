@@ -442,7 +442,8 @@ namespace ClaudeUsageTray.ViewModels;
                          NotificationService notifier, SettingsService settingsService,
                          UpdateService updater, HistoryService history,
                          UsageSyncService usageSync,
-                         WeatherService weather, WeatherAlertService weatherAlert)
+                         WeatherService weather, WeatherAlertService weatherAlert,
+                         OpenCodeWebUsageService? openCodeWebUsage = null)
     {
         _api = api;
         _credentials = credentials;
@@ -461,7 +462,7 @@ namespace ClaudeUsageTray.ViewModels;
 
         AntigravityVm = new AntigravityViewModel(antigravity);
         WeatherVm = new WeatherViewModel(weather, weatherAlert);
-        OpenCodeVm = new OpenCodeViewModel(openCode, history);
+        OpenCodeVm = new OpenCodeViewModel(openCode, history, openCodeWebUsage);
         GeminiVm = new GeminiViewModel(geminiCli, history);
         CodexVm = new CodexViewModel(codex, history);
         ClaudeVm = new ClaudeViewModel();
@@ -2282,7 +2283,7 @@ namespace ClaudeUsageTray.ViewModels;
             _lastOpenCodeInputTokens = OpenCodeVm.LastInputTokens;
             _lastOpenCodeOutputTokens = OpenCodeVm.LastOutputTokens;
             _openCodeHasPeriodUsage = OpenCodeVm.HasPeriodUsage;
-            OpenCodeNote = WithSyncNote(Loc.ProviderOpenCodeNote, mergedTotals);
+            OpenCodeNote = WithSyncNote(OpenCodeVm.Note, mergedTotals);
 
             if (HasMergedDeviceTotals(mergedTotals))
             {
@@ -2298,7 +2299,7 @@ namespace ClaudeUsageTray.ViewModels;
                 _lastOpenCodeRequestCount = mergedTotals.RequestCount;
                 _lastOpenCodeInputTokens = mergedTotals.InputTokens;
                 _lastOpenCodeOutputTokens = mergedTotals.OutputTokens;
-                OpenCodePercent = 0;
+                OpenCodePercent = OpenCodeVm.HasWebQuota ? OpenCodeVm.Percent : 0;
             }
 
             UpdateOverallStatus();
@@ -2651,7 +2652,11 @@ namespace ClaudeUsageTray.ViewModels;
     private void OnLanguageChanged()
     {
         // 종료 중이면 Application.Current 가 이미 null 이다 — 갱신할 화면도 없으므로 그냥 넘어간다.
-        System.Windows.Application.Current?.Dispatcher.Invoke(() => OnPropertyChanged(string.Empty));
+        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+        {
+            OpenCodeVm.RefreshLocalizedLabels();
+            OnPropertyChanged(string.Empty);
+        });
     }
 
     public void Dispose()

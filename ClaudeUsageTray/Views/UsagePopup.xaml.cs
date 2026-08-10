@@ -450,6 +450,12 @@ public partial class UsagePopup : Window, IDisposable
     private void CodexFocus_Click(object sender, RoutedEventArgs e)    => SetFocusedProvider(Models.UsageProviderKind.Codex);
     private void GeminiFocus_Click(object sender, RoutedEventArgs e)   => SetFocusedProvider(Models.UsageProviderKind.GeminiCli);
     private void OpenCodeFocus_Click(object sender, RoutedEventArgs e) => SetFocusedProvider(Models.UsageProviderKind.OpenCode);
+    private async void OpenCodeWebLogin_Click(object sender, RoutedEventArgs e)
+    {
+        if (_vm.OpenCodeVm.IsWebLoginRunning) return;
+        if (await _vm.OpenCodeVm.ConnectWebUsageAsync())
+            await _vm.RefreshAsync();
+    }
     private void AntigravityFocus_Click(object sender, RoutedEventArgs e) => SetFocusedProvider(Models.UsageProviderKind.Antigravity);
 
     private void SetFocusedProvider(string provider)

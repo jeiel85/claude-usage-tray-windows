@@ -8,6 +8,7 @@ public partial class OpenCodeViewModel : ObservableObject
 {
     private readonly OpenCodeUsageMonitor _monitor;
     private readonly HistoryService _history;
+    private readonly OpenCodeWebUsageService? _webUsage;
     private int _lastRequestCount = 0;
     private long _lastInputTokens = 0;
     private long _lastOutputTokens = 0;
@@ -27,6 +28,15 @@ public partial class OpenCodeViewModel : ObservableObject
     [ObservableProperty] private string _monthLabel = "—";
     [ObservableProperty] private string _quotaStatusLabel = "";
     [ObservableProperty] private bool _hasPeriodUsage = false;
+    [ObservableProperty] private bool _hasWebQuota = false;
+    [ObservableProperty] private bool _isWebLoginRunning = false;
+    [ObservableProperty] private string _webLoginError = "";
+    [ObservableProperty] private double _rollingPercent = 0;
+    [ObservableProperty] private double _weeklyPercent = 0;
+    [ObservableProperty] private double _monthlyPercent = 0;
+    [ObservableProperty] private string _rollingResetLabel = "";
+    [ObservableProperty] private string _weeklyResetLabel = "";
+    [ObservableProperty] private string _monthlyResetLabel = "";
     [ObservableProperty] private bool _isActive = false;
     [ObservableProperty] private bool _isUsageEmpty = true;
 
@@ -35,10 +45,18 @@ public partial class OpenCodeViewModel : ObservableObject
     public long LastOutputTokens => _lastOutputTokens;
     public ProviderUsageSnapshot LastSnapshot { get; private set; } = new();
 
-    public OpenCodeViewModel(OpenCodeUsageMonitor monitor, HistoryService history)
+    public bool NeedsWebLogin => !HasWebQuota;
+    public string RollingTitle => Loc.OpenCodeRollingUsage;
+    public string WeeklyTitle => Loc.OpenCodeWeeklyUsage;
+    public string MonthlyTitle => Loc.OpenCodeMonthlyUsage;
+    public string WebLoginLabel => IsWebLoginRunning ? Loc.OpenCodeConnectingWeb : Loc.OpenCodeConnectWeb;
+
+    public OpenCodeViewModel(OpenCodeUsageMonitor monitor, HistoryService history,
+        OpenCodeWebUsageService? webUsage = null)
     {
         _monitor = monitor;
         _history = history;
+        _webUsage = webUsage;
     }
 
     public async Task RefreshAsync()
@@ -46,6 +64,8 @@ public partial class OpenCodeViewModel : ObservableObject
         try
         {
             var snapshot = _monitor.GetTodaySnapshot();
+            var webUsage = _webUsage == null ? null : await _webUsage.TryGetUsageAsync();
+            if (snapshot.OpenCodeDetails != null) snapshot.OpenCodeDetails.WebUsage = webUsage;
             LastSnapshot = snapshot;
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
@@ -69,11 +89,12 @@ public partial class OpenCodeViewModel : ObservableObject
                         ? $"오늘 {snapshot.RequestCount}회 · 입력 {UsageCalculator.FormatTokenShort(snapshot.TotalInputTokens)} · 출력 {UsageCalculator.FormatTokenShort(snapshot.TotalOutputTokens)}"
                         : $"Today {snapshot.RequestCount} req · in {UsageCalculator.FormatTokenShort(snapshot.TotalInputTokens)} · out {UsageCalculator.FormatTokenShort(snapshot.TotalOutputTokens)}"
                     : snapshot.ErrorMessage ?? "";
-                Percent = snapshot.ShortUsagePercent;
+                ApplyWebUsage(webUsage);
                 FiveHourLabel = FormatPeriod(snapshot.OpenCodeDetails?.LastFiveHours);
                 SevenDayLabel = FormatPeriod(snapshot.OpenCodeDetails?.LastSevenDays);
                 MonthLabel = FormatPeriod(snapshot.OpenCodeDetails?.ThisMonth);
-                QuotaStatusLabel = FormatQuotaStatus(snapshot.OpenCodeDetails);
+                QuotaStatusLabel = webUsage != null ? Loc.OpenCodeOfficialQuota : FormatQuotaStatus(snapshot.OpenCodeDetails);
+                Note = webUsage != null ? Loc.ProviderOpenCodeWebNote : Loc.ProviderOpenCodeNote;
                 HasPeriodUsage = snapshot.OpenCodeDetails?.ThisMonth.Requests > 0;
                 IsUsageEmpty = !snapshot.HasData;
 
@@ -94,6 +115,73 @@ public partial class OpenCodeViewModel : ObservableObject
         }
     }
 
+    public async Task<bool> ConnectWebUsageAsync()
+    {
+        if (_webUsage == null) return false;
+        IsWebLoginRunning = true;
+        WebLoginError = "";
+        try
+        {
+            var usage = await _webUsage.TryGetUsageAsync(interactive: true);
+            if (usage == null)
+            {
+                WebLoginError = _webUsage.LastError ?? Loc.OpenCodeWebLoginCancelled;
+                return false;
+            }
+
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                ApplyWebUsage(usage);
+                QuotaStatusLabel = Loc.OpenCodeOfficialQuota;
+                Note = Loc.ProviderOpenCodeWebNote;
+                if (LastSnapshot.OpenCodeDetails != null) LastSnapshot.OpenCodeDetails.WebUsage = usage;
+            });
+            return true;
+        }
+        finally
+        {
+            IsWebLoginRunning = false;
+        }
+    }
+
+    private void ApplyWebUsage(OpenCodeWebUsage? usage)
+    {
+        HasWebQuota = usage != null;
+        if (usage == null)
+        {
+            RollingPercent = WeeklyPercent = MonthlyPercent = 0;
+            RollingResetLabel = WeeklyResetLabel = MonthlyResetLabel = "";
+            Percent = 0;
+            return;
+        }
+
+        RollingPercent = usage.Rolling.UsagePercent;
+        WeeklyPercent = usage.Weekly.UsagePercent;
+        MonthlyPercent = usage.Monthly.UsagePercent;
+        RollingResetLabel = Loc.OpenCodeResetAt(UsageCalculator.FormatResetLabel(
+            usage.Rolling.ResetAt, false, true, DateTimeOffset.Now));
+        WeeklyResetLabel = Loc.OpenCodeResetAt(UsageCalculator.FormatResetLabel(
+            usage.Weekly.ResetAt, false, true, DateTimeOffset.Now));
+        MonthlyResetLabel = Loc.OpenCodeResetAt(UsageCalculator.FormatResetLabel(
+            usage.Monthly.ResetAt, false, true, DateTimeOffset.Now));
+        Percent = RollingPercent;
+    }
+
+    partial void OnHasWebQuotaChanged(bool value) => OnPropertyChanged(nameof(NeedsWebLogin));
+    partial void OnIsWebLoginRunningChanged(bool value) => OnPropertyChanged(nameof(WebLoginLabel));
+
+    public void RefreshLocalizedLabels()
+    {
+        OnPropertyChanged(nameof(RollingTitle));
+        OnPropertyChanged(nameof(WeeklyTitle));
+        OnPropertyChanged(nameof(MonthlyTitle));
+        OnPropertyChanged(nameof(WebLoginLabel));
+        var usage = LastSnapshot.OpenCodeDetails?.WebUsage;
+        ApplyWebUsage(usage);
+        QuotaStatusLabel = usage != null ? Loc.OpenCodeOfficialQuota : FormatQuotaStatus(LastSnapshot.OpenCodeDetails);
+        Note = usage != null ? Loc.ProviderOpenCodeWebNote : Loc.ProviderOpenCodeNote;
+    }
+
     private static string FormatPeriod(OpenCodePeriodUsage? period)
     {
         if (period == null || period.Requests == 0) return "—";
@@ -112,6 +200,6 @@ public partial class OpenCodeViewModel : ObservableObject
 
     public void UpdateActiveState(bool isEnabled, bool hideInactive)
     {
-        IsActive = isEnabled && (!hideInactive || _lastRequestCount > 0 || HasPeriodUsage || HasError);
+        IsActive = isEnabled && (!hideInactive || _lastRequestCount > 0 || HasPeriodUsage || HasWebQuota || HasError);
     }
 }
