@@ -42,14 +42,26 @@ public partial class OpenCodeViewModel : ObservableObject
     [ObservableProperty] private double _monthlyTimePercent = 0;
     [ObservableProperty] private bool _isActive = false;
     [ObservableProperty] private bool _isUsageEmpty = true;
+    [ObservableProperty] private bool _hasStaleSyncedQuota = false;
+    [ObservableProperty] private string _syncedQuotaNoticeLabel = "";
     private OpenCodeWebUsage? _currentWebUsage;
+    private string? _staleQuotaDevice;
+    private DateTimeOffset? _staleQuotaObservedAt;
 
     public int LastRequestCount => _lastRequestCount;
     public long LastInputTokens => _lastInputTokens;
     public long LastOutputTokens => _lastOutputTokens;
     public ProviderUsageSnapshot LastSnapshot { get; private set; } = new();
 
+    /// <summary>공식 게이지를 못 그리는 상태 — 대신 요청 수·상태 문구를 보여주는 자리에 쓴다.</summary>
     public bool NeedsWebLogin => !HasWebQuota;
+
+    /// <summary>
+    /// 로그인 버튼을 실제로 권할 상황인가.
+    /// 다른 PC 가 오늘 관측한 공식 값이 있는데 유효시간만 지난 경우라면, 이 PC 는 로그인할 이유가 없다 —
+    /// 버튼 대신 마지막 관측 안내를 보여준다. 관측 이력이 아예 없으면 종전대로 로그인 경로를 남긴다.
+    /// </summary>
+    public bool ShowWebLoginButton => !HasWebQuota && !HasStaleSyncedQuota;
     public string RollingTitle => Loc.OpenCodeRollingUsage;
     public string WeeklyTitle => Loc.OpenCodeWeeklyUsage;
     public string MonthlyTitle => Loc.OpenCodeMonthlyUsage;
@@ -154,6 +166,7 @@ public partial class OpenCodeViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(usage);
         if (HasWebQuota) return;
 
+        ClearStaleSyncedQuotaNotice();
         ApplyWebUsage(usage);
         QuotaStatusLabel = Loc.OpenCodeOfficialQuota;
         Note = Loc.ProviderOpenCodeWebNote;
@@ -161,10 +174,38 @@ public partial class OpenCodeViewModel : ObservableObject
         LastSnapshot.OpenCodeDetails.WebUsage = usage;
     }
 
+    /// <summary>
+    /// 다른 PC 가 오늘 관측했지만 유효시간이 지나 게이지로는 못 쓰는 공식 값이 있을 때,
+    /// 로그인 버튼 대신 보여줄 안내를 세운다. 게이지·퍼센트는 건드리지 않는다.
+    /// </summary>
+    internal void ApplyStaleSyncedQuotaNotice(string deviceName, DateTimeOffset observedAt)
+    {
+        if (HasWebQuota)
+        {
+            ClearStaleSyncedQuotaNotice();
+            return;
+        }
+
+        _staleQuotaDevice = string.IsNullOrWhiteSpace(deviceName) ? "?" : deviceName;
+        _staleQuotaObservedAt = observedAt;
+        SyncedQuotaNoticeLabel = Loc.UsageSyncQuotaStale(
+            _staleQuotaDevice, observedAt.ToLocalTime().ToString("HH:mm"));
+        HasStaleSyncedQuota = true;
+    }
+
+    internal void ClearStaleSyncedQuotaNotice()
+    {
+        _staleQuotaDevice = null;
+        _staleQuotaObservedAt = null;
+        HasStaleSyncedQuota = false;
+        SyncedQuotaNoticeLabel = "";
+    }
+
     private void ApplyWebUsage(OpenCodeWebUsage? usage)
     {
         _currentWebUsage = usage;
         HasWebQuota = usage != null;
+        if (usage != null) ClearStaleSyncedQuotaNotice();
         if (usage == null)
         {
             RollingPercent = WeeklyPercent = MonthlyPercent = 0;
@@ -211,7 +252,13 @@ public partial class OpenCodeViewModel : ObservableObject
             UsageCalculator.TimeProgress(usage.Monthly.ResetAt, usage.Monthly.ResetAt - monthlyStart, now));
     }
 
-    partial void OnHasWebQuotaChanged(bool value) => OnPropertyChanged(nameof(NeedsWebLogin));
+    partial void OnHasWebQuotaChanged(bool value)
+    {
+        OnPropertyChanged(nameof(NeedsWebLogin));
+        OnPropertyChanged(nameof(ShowWebLoginButton));
+    }
+
+    partial void OnHasStaleSyncedQuotaChanged(bool value) => OnPropertyChanged(nameof(ShowWebLoginButton));
     partial void OnIsWebLoginRunningChanged(bool value) => OnPropertyChanged(nameof(WebLoginLabel));
 
     public void RefreshLocalizedLabels()
@@ -224,6 +271,9 @@ public partial class OpenCodeViewModel : ObservableObject
         ApplyWebUsage(usage);
         QuotaStatusLabel = usage != null ? Loc.OpenCodeOfficialQuota : FormatQuotaStatus(LastSnapshot.OpenCodeDetails);
         Note = usage != null ? Loc.ProviderOpenCodeWebNote : Loc.ProviderOpenCodeNote;
+        // 언어를 바꿨을 뿐인데 안내 문구만 이전 언어로 남지 않도록 다시 만든다.
+        if (usage == null && _staleQuotaDevice is { } device && _staleQuotaObservedAt is { } observedAt)
+            SyncedQuotaNoticeLabel = Loc.UsageSyncQuotaStale(device, observedAt.ToLocalTime().ToString("HH:mm"));
     }
 
     private static string FormatQuotaStatus(OpenCodeUsageDetails? details)
