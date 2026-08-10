@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.38.10] - 2026-08-10
+
+<!-- ko -->
+### 수정
+- **동기화 값만 쓰는 PC에서 로그인이 풀린 것처럼 보이던 문제** — 다른 PC가 관측한 OpenCode 공식 할당량이 유효시간(최대 40분)을 넘기면 게이지가 사라지고 `OpenCode 로그인` 버튼이 노출됐습니다. 그 PC는 로그인한 적도, 할 이유도 없는데 로그인을 요구하는 화면이라 동기화가 끊긴 것으로 오해하기 쉬웠습니다. 이제 오늘 다른 PC가 관측한 이력이 있으면 버튼 대신 `기기명의 15:02 값 · 갱신 대기 중` 안내를 표시하고, 관측 이력이 아예 없을 때만 로그인 버튼을 남깁니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **A PC that only consumes synchronized values looked signed out** — Once the OpenCode official quota observed by another PC passed its lifetime (up to 40 minutes), the gauges disappeared and the `Sign in to OpenCode` button took their place, even though that PC had never signed in and had no reason to. The screen now shows `<device> value from 15:02 · awaiting refresh` whenever another PC observed the quota today, and keeps the sign-in button only when there is no observation at all.
+<!-- /en -->
+
 ## [1.38.9] - 2026-08-10
 
 <!-- ko -->

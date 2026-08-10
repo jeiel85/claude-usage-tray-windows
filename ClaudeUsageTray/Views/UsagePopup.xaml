@@ -1172,7 +1172,7 @@
                             </StackPanel>
                         </StackPanel>
 
-                        <StackPanel Margin="0,0,0,10" Visibility="{Binding OpenCodeVm.NeedsWebLogin, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel Margin="0,0,0,10" Visibility="{Binding OpenCodeVm.ShowWebLoginButton, Converter={StaticResource BoolToVisibility}}">
                             <Button Click="OpenCodeWebLogin_Click" HorizontalAlignment="Left" Padding="10,5"
                                     Background="#9A3412" Foreground="#FFEDD5" BorderBrush="#C2410C" BorderThickness="1"
                                     Content="{Binding OpenCodeVm.WebLoginLabel}"/>
@@ -1180,6 +1180,12 @@
                                        TextWrapping="Wrap" Margin="0,4,0,0"
                                        Visibility="{Binding OpenCodeVm.WebLoginError, Converter={StaticResource StringToVisibility}}"/>
                         </StackPanel>
+
+                        <!-- 다른 PC 관측값이 시효만 지난 상태 — 로그인이 풀린 게 아니므로 버튼 대신 안내 -->
+                        <TextBlock x:Name="OpenCodeSyncedQuotaNotice" Text="{Binding OpenCodeVm.SyncedQuotaNoticeLabel}"
+                                   Foreground="#8B92B3" FontSize="10" FontStyle="Italic"
+                                   TextWrapping="Wrap" Margin="0,0,0,10"
+                                   Visibility="{Binding OpenCodeVm.HasStaleSyncedQuota, Converter={StaticResource BoolToVisibility}}"/>
 
                         <!-- Usage Empty Placeholder (OpenCode) -->
                         <TextBlock Text="{Binding LblOpenCodeNoUsage}" Foreground="#5A5F7A" FontSize="10" FontStyle="Italic" Margin="0,0,0,10"

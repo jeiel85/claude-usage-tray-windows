@@ -160,6 +160,72 @@ public class OpenCodeViewModelTests
 }
 
 /// <summary>
+/// OpenCode 를 다른 PC 에서만 쓰는 PC 에서, 동기화 값의 시효가 지났다고 로그인 버튼을 들이밀지 않는지 검증.
+/// </summary>
+public class OpenCodeWebLoginPromptTests
+{
+    private static OpenCodeViewModel CreateViewModel() =>
+        new(new OpenCodeUsageMonitor(), new HistoryService());
+
+    private static OpenCodeWebUsage CreateWebUsage() => new()
+    {
+        ObservedAtUtc = DateTimeOffset.UtcNow,
+        Rolling = new OpenCodeQuotaWindow { UsagePercent = 0.12, ResetAt = DateTimeOffset.Now.AddHours(3) },
+        Weekly = new OpenCodeQuotaWindow { UsagePercent = 0.34, ResetAt = DateTimeOffset.Now.AddDays(5) },
+        Monthly = new OpenCodeQuotaWindow { UsagePercent = 0.56, ResetAt = DateTimeOffset.Now.AddDays(21) },
+    };
+
+    // 다른 PC 관측값이 시효만 지난 상태 — 로그인이 풀린 게 아니므로 버튼 대신 안내를 보여준다.
+    // 단, 게이지 자리에 요청 수를 그리는 NeedsWebLogin 은 그대로 true 여야 값이 사라지지 않는다.
+    [Fact]
+    public void StaleSyncedQuota_ReplacesLoginButtonWithNotice()
+    {
+        var vm = CreateViewModel();
+        var observedAt = DateTimeOffset.Now.AddMinutes(-70);
+
+        vm.ApplyStaleSyncedQuotaNotice("DESKTOP-OTHER", observedAt);
+
+        Assert.True(vm.HasStaleSyncedQuota);
+        Assert.False(vm.ShowWebLoginButton);
+        Assert.True(vm.NeedsWebLogin);
+        Assert.Contains("DESKTOP-OTHER", vm.SyncedQuotaNoticeLabel, StringComparison.Ordinal);
+        Assert.Contains(observedAt.ToLocalTime().ToString("HH:mm"), vm.SyncedQuotaNoticeLabel, StringComparison.Ordinal);
+    }
+
+    // 관측 이력이 아예 없으면(=처음 쓰는 계정) 직접 로그인할 경로는 남아 있어야 한다.
+    [Fact]
+    public void WithoutAnyObservation_LoginButtonStays()
+    {
+        var vm = CreateViewModel();
+
+        Assert.False(vm.HasStaleSyncedQuota);
+        Assert.True(vm.ShowWebLoginButton);
+
+        vm.ApplyStaleSyncedQuotaNotice("DESKTOP-OTHER", DateTimeOffset.Now.AddMinutes(-70));
+        vm.ClearStaleSyncedQuotaNotice();
+
+        Assert.True(vm.ShowWebLoginButton);
+        Assert.Equal("", vm.SyncedQuotaNoticeLabel);
+    }
+
+    // 유효한 동기화 값이 도착하면 게이지를 그리므로 안내도 버튼도 남아 있으면 안 된다.
+    [Fact]
+    public void FreshSyncedQuota_ClearsNoticeAndLoginButton()
+    {
+        var vm = CreateViewModel();
+        vm.ApplyStaleSyncedQuotaNotice("DESKTOP-OTHER", DateTimeOffset.Now.AddMinutes(-70));
+
+        vm.ApplySyncedWebUsage(CreateWebUsage());
+
+        Assert.True(vm.HasWebQuota);
+        Assert.False(vm.HasStaleSyncedQuota);
+        Assert.False(vm.ShowWebLoginButton);
+        Assert.False(vm.NeedsWebLogin);
+        Assert.Equal("", vm.SyncedQuotaNoticeLabel);
+    }
+}
+
+/// <summary>
 /// 다중 PC 동기화에서 "무엇을 공유해도 되는가" 규칙과, 받은 값을 화면에 옮기는 경로 검증.
 /// </summary>
 public class UsageSyncQuotaPolicyTests

@@ -1683,6 +1683,18 @@ public static class Loc
         _ => $"Showing {deviceName} snapshot from {observedAt}"
     };
 
+    /// <summary>
+    /// 다른 PC 가 오늘 관측한 공식 할당량은 있는데 유효시간만 지난 상태.
+    /// 이 PC 는 로그인한 적도, 할 이유도 없으므로 로그인 버튼 대신 이 안내를 보여준다.
+    /// </summary>
+    public static string UsageSyncQuotaStale(string deviceName, string observedAt) => Lang switch
+    {
+        "ko" => $"{deviceName}의 {observedAt} 값 · 갱신 대기 중",
+        "zh" => $"{deviceName} 于 {observedAt} 的数据 · 等待更新",
+        "ja" => $"{deviceName} の {observedAt} の値 · 更新待ち",
+        _ => $"{deviceName} value from {observedAt} · awaiting refresh"
+    };
+
     // ===== 날씨 (v1.29.0) =====
     public static string WeatherTab => Lang switch
     {

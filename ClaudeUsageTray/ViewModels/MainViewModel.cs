@@ -1519,12 +1519,19 @@ namespace ClaudeUsageTray.ViewModels;
             var today = DateOnly.FromDateTime(DateTime.Now);
             var read = _usageSync.ReadSnapshots(UsageSyncFolderPath, provider, null, today);
             UsageSyncStatusLabel = Loc.UsageSyncReady;
+            var sharesQuota = UsageSyncSharesAccountQuota(provider);
             return new UsageSyncProviderResult(
                 _usageSync.MergeLocalTotals(read.Snapshots, UsageSyncLocalTtl),
                 // 할당량은 합산하지 않는다 — 계정 단위 값이라 가장 최근에 관측한 PC 것을 쓴다.
                 // 기기별로 계산되는 Gemini percent 는 쓰지 않는다. OpenCode 는 공식 웹 할당량만 공유한다.
-                UsageSyncSharesAccountQuota(provider)
+                sharesQuota
                     ? _usageSync.SelectNewestQuotaSnapshot(read.Snapshots, UsageSyncQuotaTtl(provider))
+                    : null,
+                // 유효시간이 지나 게이지로는 못 쓰더라도 "다른 PC 가 오늘 관측하긴 했다" 는 사실은 남는다.
+                // 이걸 알아야 로그인이 풀린 것과 갱신이 늦는 것을 화면에서 구분할 수 있다.
+                // 스냅샷 자체가 당일치라 하루보다 긴 유효시간은 의미가 없다.
+                sharesQuota
+                    ? _usageSync.SelectNewestQuotaSnapshot(read.Snapshots, TimeSpan.FromDays(1))
                     : null);
         }
         catch (Exception ex)
@@ -1546,12 +1553,17 @@ namespace ClaudeUsageTray.ViewModels;
     internal static bool UsageSyncSharesAccountQuota(string provider) =>
         provider is UsageProviderKind.Codex or UsageProviderKind.Antigravity or UsageProviderKind.OpenCode;
 
-    /// <summary>동기화 1회 결과 — 기기 합산 토큰과, 계정 단위 provider 라면 가장 최신 할당량.</summary>
+    /// <summary>
+    /// 동기화 1회 결과 — 기기 합산 토큰과, 계정 단위 provider 라면 가장 최신 할당량.
+    /// <paramref name="LastObservedQuota"/> 는 유효시간을 무시한 오늘의 최신 관측으로,
+    /// 화면에 값을 그리는 용도가 아니라 "언제 마지막으로 관측됐는지" 안내에만 쓴다.
+    /// </summary>
     private readonly record struct UsageSyncProviderResult(
         UsageSyncMergedLocalTotals? MergedTotals,
-        UsageSyncSnapshot? RemoteQuota)
+        UsageSyncSnapshot? RemoteQuota,
+        UsageSyncSnapshot? LastObservedQuota = null)
     {
-        public static UsageSyncProviderResult Empty => new(null, null);
+        public static UsageSyncProviderResult Empty => new(null, null, null);
     }
 
     private UsageSyncQuotaSnapshot? CreateClaudeQuotaSnapshot(UsageResponse? usage)
@@ -2329,6 +2341,8 @@ namespace ClaudeUsageTray.ViewModels;
             if (!OpenCodeVm.HasWebQuota && CreateOpenCodeWebUsage(syncResult.RemoteQuota?.Quota) is { } syncedUsage)
                 OpenCodeVm.ApplySyncedWebUsage(syncedUsage);
 
+            ApplyOpenCodeSyncedQuotaNotice(syncResult.LastObservedQuota);
+
             OpenCodeHasError = OpenCodeVm.HasError;
             OpenCodeErrorMessage = OpenCodeVm.ErrorMessage;
             OpenCodeSummary = OpenCodeVm.Summary;
@@ -2364,6 +2378,31 @@ namespace ClaudeUsageTray.ViewModels;
 
             UpdateOverallStatus();
         });
+    }
+
+    /// <summary>
+    /// 공식 값을 못 그리는 상태에서, 다른 PC 가 오늘 관측한 이력이 있으면 그 시각을 안내한다.
+    /// OpenCode 를 이 PC 에서 쓰지 않는 사용자에게 로그인 버튼을 들이밀지 않기 위한 구분이다.
+    /// 관측 이력이 없거나(=처음 쓰는 계정) 이 PC 가 직접 읽어냈으면 안내를 지우고 종전 동작으로 돌아간다.
+    /// </summary>
+    private void ApplyOpenCodeSyncedQuotaNotice(UsageSyncSnapshot? lastObserved)
+    {
+        if (OpenCodeVm.HasWebQuota || lastObserved?.Quota is not { HasData: true } quota)
+        {
+            OpenCodeVm.ClearStaleSyncedQuotaNotice();
+            return;
+        }
+
+        // 이 PC 가 남긴 관측을 근거로 "다른 PC 대기 중" 이라 안내하면 앞뒤가 안 맞는다.
+        if (string.Equals(lastObserved.DeviceId, _usageSync.DeviceId, StringComparison.OrdinalIgnoreCase))
+        {
+            OpenCodeVm.ClearStaleSyncedQuotaNotice();
+            return;
+        }
+
+        OpenCodeVm.ApplyStaleSyncedQuotaNotice(
+            lastObserved.DeviceName,
+            quota.ObservedAtUtc ?? lastObserved.ObservedAtUtc);
     }
 
     // Manual triggers (optional, usually RefreshAsync is enough)
