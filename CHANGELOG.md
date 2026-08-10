@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.38.5] - 2026-08-10
+
+<!-- ko -->
+### 개선
+- **OpenCode 상세 화면에서 중복 기간 통계 제거** — 공식 롤링·주간·월간 할당량 게이지 아래에 별도로 표시되던 로컬 DB 기준 `최근 5시간`, `최근 7일`, `이번 달` 누적 행과 중복 할당량 문구를 제거했습니다. 공식 게이지, 오늘의 토큰 타일, 데이터 출처만 남겨 Claude·Codex와 같은 정보 밀도로 정리했습니다. 로컬 기간 집계 자체는 비활성 공급자 판정을 위해 내부적으로 유지합니다.
+- **OpenCode 공식 게이지에 시간선 추가** — Claude·Codex와 동일한 현재 시간 위치선을 롤링·주간·월간 게이지에 추가했습니다. 롤링은 5시간, 주간은 7일, 월간은 실제 달 길이를 기준으로 매초 위치를 갱신하며 만료된 창에는 표시하지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Removed duplicate period totals from the OpenCode details** — Removed the local-database `Last 5 hours`, `Last 7 days`, and `This month` rows and the redundant quota caption below the official rolling, weekly, and monthly gauges. The panel now keeps only the official gauges, today's token tiles, and the data-source note, matching the information density of Claude and Codex. Local period aggregation remains available internally for inactive-provider detection.
+- **Added timelines to the official OpenCode gauges** — Added the same current-time marker used by Claude and Codex to the rolling, weekly, and monthly gauges. Positions update every second using a 5-hour rolling window, a 7-day weekly window, and the actual calendar-month length; expired windows hide the marker.
+<!-- /en -->
+
 ## [1.38.4] - 2026-08-10
 
 <!-- ko -->

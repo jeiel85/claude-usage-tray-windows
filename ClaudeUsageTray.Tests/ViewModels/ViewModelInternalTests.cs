@@ -86,6 +86,53 @@ public class ClaudeViewModelTests
     }
 }
 
+public class OpenCodeViewModelTests
+{
+    [Fact]
+    public void CalculateTimeProgress_UsesEachOfficialWindowLength()
+    {
+        var now = new DateTimeOffset(2026, 8, 26, 0, 0, 0, TimeSpan.FromHours(9));
+        var usage = new OpenCodeWebUsage
+        {
+            Rolling = new OpenCodeQuotaWindow { ResetAt = now.AddHours(2.5) },
+            Weekly = new OpenCodeQuotaWindow { ResetAt = now.AddDays(3.5) },
+            // 8/10 12:00 ~ 9/10 12:00 의 정확한 중간이 8/26 00:00 이다.
+            Monthly = new OpenCodeQuotaWindow
+            {
+                ResetAt = new DateTimeOffset(2026, 9, 10, 12, 0, 0, TimeSpan.FromHours(9))
+            },
+        };
+
+        var timeline = OpenCodeViewModel.CalculateTimeProgress(usage, now);
+
+        Assert.NotNull(timeline.Rolling);
+        Assert.NotNull(timeline.Weekly);
+        Assert.NotNull(timeline.Monthly);
+        Assert.Equal(0.5, timeline.Rolling.Value, 6);
+        Assert.Equal(0.5, timeline.Weekly.Value, 6);
+        Assert.Equal(0.5, timeline.Monthly.Value, 6);
+    }
+
+    [Fact]
+    public void CalculateTimeProgress_HidesExpiredWindows()
+    {
+        var now = new DateTimeOffset(2026, 8, 26, 0, 0, 0, TimeSpan.FromHours(9));
+        var expired = new OpenCodeQuotaWindow { ResetAt = now.AddSeconds(-1) };
+        var usage = new OpenCodeWebUsage
+        {
+            Rolling = expired,
+            Weekly = expired,
+            Monthly = expired,
+        };
+
+        var timeline = OpenCodeViewModel.CalculateTimeProgress(usage, now);
+
+        Assert.Null(timeline.Rolling);
+        Assert.Null(timeline.Weekly);
+        Assert.Null(timeline.Monthly);
+    }
+}
+
 /// <summary>
 /// 다중 PC 동기화에서 "무엇을 공유해도 되는가" 규칙과, 받은 값을 화면에 옮기는 경로 검증.
 /// </summary>

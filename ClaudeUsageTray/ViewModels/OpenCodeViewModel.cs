@@ -23,9 +23,6 @@ public partial class OpenCodeViewModel : ObservableObject
     [ObservableProperty] private string _cacheReadLabel = "—";
     [ObservableProperty] private string _cacheWriteLabel = "—";
     [ObservableProperty] private double _percent = 0;
-    [ObservableProperty] private string _fiveHourLabel = "—";
-    [ObservableProperty] private string _sevenDayLabel = "—";
-    [ObservableProperty] private string _monthLabel = "—";
     [ObservableProperty] private string _quotaStatusLabel = "";
     [ObservableProperty] private bool _hasPeriodUsage = false;
     [ObservableProperty] private bool _hasWebQuota = false;
@@ -37,8 +34,15 @@ public partial class OpenCodeViewModel : ObservableObject
     [ObservableProperty] private string _rollingResetLabel = "";
     [ObservableProperty] private string _weeklyResetLabel = "";
     [ObservableProperty] private string _monthlyResetLabel = "";
+    [ObservableProperty] private bool _hasRollingTimeline = false;
+    [ObservableProperty] private bool _hasWeeklyTimeline = false;
+    [ObservableProperty] private bool _hasMonthlyTimeline = false;
+    [ObservableProperty] private double _rollingTimePercent = 0;
+    [ObservableProperty] private double _weeklyTimePercent = 0;
+    [ObservableProperty] private double _monthlyTimePercent = 0;
     [ObservableProperty] private bool _isActive = false;
     [ObservableProperty] private bool _isUsageEmpty = true;
+    private OpenCodeWebUsage? _currentWebUsage;
 
     public int LastRequestCount => _lastRequestCount;
     public long LastInputTokens => _lastInputTokens;
@@ -90,9 +94,6 @@ public partial class OpenCodeViewModel : ObservableObject
                         : $"Today {snapshot.RequestCount} req · in {UsageCalculator.FormatTokenShort(snapshot.TotalInputTokens)} · out {UsageCalculator.FormatTokenShort(snapshot.TotalOutputTokens)}"
                     : snapshot.ErrorMessage ?? "";
                 ApplyWebUsage(webUsage);
-                FiveHourLabel = FormatPeriod(snapshot.OpenCodeDetails?.LastFiveHours);
-                SevenDayLabel = FormatPeriod(snapshot.OpenCodeDetails?.LastSevenDays);
-                MonthLabel = FormatPeriod(snapshot.OpenCodeDetails?.ThisMonth);
                 QuotaStatusLabel = webUsage != null ? Loc.OpenCodeOfficialQuota : FormatQuotaStatus(snapshot.OpenCodeDetails);
                 Note = webUsage != null ? Loc.ProviderOpenCodeWebNote : Loc.ProviderOpenCodeNote;
                 HasPeriodUsage = snapshot.OpenCodeDetails?.ThisMonth.Requests > 0;
@@ -146,25 +147,52 @@ public partial class OpenCodeViewModel : ObservableObject
 
     private void ApplyWebUsage(OpenCodeWebUsage? usage)
     {
+        _currentWebUsage = usage;
         HasWebQuota = usage != null;
         if (usage == null)
         {
             RollingPercent = WeeklyPercent = MonthlyPercent = 0;
             RollingResetLabel = WeeklyResetLabel = MonthlyResetLabel = "";
+            HasRollingTimeline = HasWeeklyTimeline = HasMonthlyTimeline = false;
+            RollingTimePercent = WeeklyTimePercent = MonthlyTimePercent = 0;
             Percent = 0;
             return;
         }
 
+        var now = DateTimeOffset.Now;
         RollingPercent = usage.Rolling.UsagePercent;
         WeeklyPercent = usage.Weekly.UsagePercent;
         MonthlyPercent = usage.Monthly.UsagePercent;
         RollingResetLabel = UsageCalculator.FormatResetLabel(
-            usage.Rolling.ResetAt, false, true, DateTimeOffset.Now);
+            usage.Rolling.ResetAt, false, true, now);
         WeeklyResetLabel = UsageCalculator.FormatResetLabel(
-            usage.Weekly.ResetAt, false, true, DateTimeOffset.Now);
+            usage.Weekly.ResetAt, false, true, now);
         MonthlyResetLabel = UsageCalculator.FormatResetLabel(
-            usage.Monthly.ResetAt, false, true, DateTimeOffset.Now);
+            usage.Monthly.ResetAt, false, true, now);
         Percent = RollingPercent;
+        UpdateTimeProgress(now);
+    }
+
+    public void UpdateTimeProgress(DateTimeOffset now)
+    {
+        if (_currentWebUsage == null) return;
+        var timeline = CalculateTimeProgress(_currentWebUsage, now);
+        HasRollingTimeline = timeline.Rolling.HasValue;
+        HasWeeklyTimeline = timeline.Weekly.HasValue;
+        HasMonthlyTimeline = timeline.Monthly.HasValue;
+        RollingTimePercent = timeline.Rolling ?? 0;
+        WeeklyTimePercent = timeline.Weekly ?? 0;
+        MonthlyTimePercent = timeline.Monthly ?? 0;
+    }
+
+    internal static (double? Rolling, double? Weekly, double? Monthly) CalculateTimeProgress(
+        OpenCodeWebUsage usage, DateTimeOffset now)
+    {
+        var monthlyStart = usage.Monthly.ResetAt.AddMonths(-1);
+        return (
+            UsageCalculator.TimeProgress(usage.Rolling.ResetAt, TimeSpan.FromHours(5), now),
+            UsageCalculator.TimeProgress(usage.Weekly.ResetAt, TimeSpan.FromDays(7), now),
+            UsageCalculator.TimeProgress(usage.Monthly.ResetAt, usage.Monthly.ResetAt - monthlyStart, now));
     }
 
     partial void OnHasWebQuotaChanged(bool value) => OnPropertyChanged(nameof(NeedsWebLogin));
@@ -180,13 +208,6 @@ public partial class OpenCodeViewModel : ObservableObject
         ApplyWebUsage(usage);
         QuotaStatusLabel = usage != null ? Loc.OpenCodeOfficialQuota : FormatQuotaStatus(LastSnapshot.OpenCodeDetails);
         Note = usage != null ? Loc.ProviderOpenCodeWebNote : Loc.ProviderOpenCodeNote;
-    }
-
-    private static string FormatPeriod(OpenCodePeriodUsage? period)
-    {
-        if (period == null || period.Requests == 0) return "—";
-        var cost = period.CostUsd > 0 ? $" · ${period.CostUsd:0.00}" : "";
-        return $"{UsageCalculator.FormatTokenShort(period.Tokens)} · {period.Requests}{Loc.OpenCodeRequestUnit}{cost}";
     }
 
     private static string FormatQuotaStatus(OpenCodeUsageDetails? details)

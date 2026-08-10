@@ -166,6 +166,11 @@ public class MainViewModelIntegrationTests
                 Assert.NotNull(popup.FindName("OpenCodeRollingGauge"));
                 Assert.NotNull(popup.FindName("OpenCodeWeeklyGauge"));
                 Assert.NotNull(popup.FindName("OpenCodeMonthlyGauge"));
+                Assert.NotNull(popup.FindName("OpenCodeRollingTimelineMarker"));
+                Assert.NotNull(popup.FindName("OpenCodeWeeklyTimelineMarker"));
+                Assert.NotNull(popup.FindName("OpenCodeMonthlyTimelineMarker"));
+                Assert.NotNull(popup.FindName("OpenCodeStatsSeparator"));
+                Assert.NotNull(popup.FindName("OpenCodeTokenTiles"));
             }
             finally
             {
