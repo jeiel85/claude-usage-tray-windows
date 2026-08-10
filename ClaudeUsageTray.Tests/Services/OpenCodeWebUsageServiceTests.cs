@@ -26,9 +26,34 @@ public sealed class OpenCodeWebUsageServiceTests
         Assert.Equal(0.125, usage.Rolling.UsagePercent, 6);
         Assert.Equal(0.42, usage.Weekly.UsagePercent, 6);
         Assert.Equal(0.87, usage.Monthly.UsagePercent, 6);
+        Assert.Equal(now.ToUniversalTime(), usage.ObservedAtUtc);
         Assert.Equal(now.AddSeconds(16930), usage.Rolling.ResetAt);
         Assert.Equal(now.AddSeconds(594907), usage.Weekly.ResetAt);
         Assert.Equal(now.AddSeconds(2676664), usage.Monthly.ResetAt);
+    }
+
+    [Fact]
+    public void CachedFallback_RemainsAvailableDuringRetryButNotPastItsSafetyBounds()
+    {
+        var observedAt = new DateTimeOffset(2026, 8, 10, 12, 0, 0, TimeSpan.FromHours(9));
+        var usage = new ClaudeUsageTray.Models.OpenCodeWebUsage
+        {
+            ObservedAtUtc = observedAt,
+            Rolling = new ClaudeUsageTray.Models.OpenCodeQuotaWindow { ResetAt = observedAt.AddHours(5) },
+            Weekly = new ClaudeUsageTray.Models.OpenCodeQuotaWindow { ResetAt = observedAt.AddDays(7) },
+            Monthly = new ClaudeUsageTray.Models.OpenCodeQuotaWindow { ResetAt = observedAt.AddMonths(1) },
+        };
+
+        Assert.True(OpenCodeWebUsageService.IsCachedFallbackUsable(usage, observedAt.AddMinutes(39)));
+        Assert.False(OpenCodeWebUsageService.IsCachedFallbackUsable(usage, observedAt.AddMinutes(41)));
+
+        var resetExpired = new ClaudeUsageTray.Models.OpenCodeWebUsage
+        {
+            ObservedAtUtc = observedAt,
+            Rolling = new ClaudeUsageTray.Models.OpenCodeQuotaWindow { ResetAt = observedAt.AddMinutes(10) },
+        };
+        Assert.False(OpenCodeWebUsageService.IsCachedFallbackUsable(resetExpired, observedAt.AddMinutes(11)));
+        Assert.False(OpenCodeWebUsageService.IsCachedFallbackUsable(usage, observedAt.AddMinutes(-6)));
     }
 
     [Fact]

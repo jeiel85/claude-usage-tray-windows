@@ -1448,6 +1448,16 @@ namespace ClaudeUsageTray.ViewModels;
     private TimeSpan UsageSyncLocalTtl =>
         TimeSpan.FromHours(Math.Clamp(UsageSyncLocalSnapshotTtlHours, 1, 168));
 
+    private TimeSpan UsageSyncQuotaTtl(string provider) =>
+        UsageSyncQuotaTtl(provider, UsageSyncApiSnapshotTtlMinutes);
+
+    internal static TimeSpan UsageSyncQuotaTtl(string provider, int configuredMinutes) =>
+        provider == UsageProviderKind.OpenCode
+            ? TimeSpan.FromMinutes(Math.Max(
+                Math.Clamp(configuredMinutes, 1, 60),
+                OpenCodeWebUsageService.CachedFallbackMaxAge.TotalMinutes))
+            : TimeSpan.FromMinutes(Math.Clamp(configuredMinutes, 1, 60));
+
     private UsageSyncSnapshot? TrySyncClaudeUsage(
         string? accountKey,
         UsageResponse? usage,
@@ -1514,7 +1524,7 @@ namespace ClaudeUsageTray.ViewModels;
                 // 할당량은 합산하지 않는다 — 계정 단위 값이라 가장 최근에 관측한 PC 것을 쓴다.
                 // 기기별로 계산되는 Gemini percent 는 쓰지 않는다. OpenCode 는 공식 웹 할당량만 공유한다.
                 UsageSyncSharesAccountQuota(provider)
-                    ? _usageSync.SelectNewestQuotaSnapshot(read.Snapshots, UsageSyncApiTtl)
+                    ? _usageSync.SelectNewestQuotaSnapshot(read.Snapshots, UsageSyncQuotaTtl(provider))
                     : null);
         }
         catch (Exception ex)
@@ -1585,6 +1595,7 @@ namespace ClaudeUsageTray.ViewModels;
             return new UsageSyncQuotaSnapshot
             {
                 HasData = true,
+                ObservedAtUtc = usage.ObservedAtUtc,
                 OpenCode = new UsageSyncOpenCodeQuota
                 {
                     Rolling = CreateOpenCodeQuotaWindow(usage.Rolling),
@@ -1621,14 +1632,17 @@ namespace ClaudeUsageTray.ViewModels;
     private static UsageSyncOpenCodeQuotaWindow CreateOpenCodeQuotaWindow(OpenCodeQuotaWindow window) =>
         new() { UsagePercent = window.UsagePercent, ResetAt = window.ResetAt };
 
-    internal static OpenCodeWebUsage? CreateOpenCodeWebUsage(UsageSyncQuotaSnapshot? quota)
+    internal static OpenCodeWebUsage? CreateOpenCodeWebUsage(
+        UsageSyncQuotaSnapshot? quota,
+        DateTimeOffset? now = null)
     {
         var usage = quota?.OpenCode;
-        if (usage is null)
+        if (usage is null || usage.Rolling.ResetAt <= (now ?? DateTimeOffset.Now))
             return null;
 
         return new OpenCodeWebUsage
         {
+            ObservedAtUtc = quota!.ObservedAtUtc,
             Rolling = CreateOpenCodeQuotaWindow(usage.Rolling),
             Weekly = CreateOpenCodeQuotaWindow(usage.Weekly),
             Monthly = CreateOpenCodeQuotaWindow(usage.Monthly),

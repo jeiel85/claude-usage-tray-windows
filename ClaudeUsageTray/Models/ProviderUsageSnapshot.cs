@@ -46,6 +46,7 @@ public class OpenCodeUsageDetails
 
 public sealed class OpenCodeWebUsage
 {
+    public DateTimeOffset? ObservedAtUtc { get; init; }
     public OpenCodeQuotaWindow Rolling { get; init; } = new();
     public OpenCodeQuotaWindow Weekly { get; init; } = new();
     public OpenCodeQuotaWindow Monthly { get; init; } = new();
