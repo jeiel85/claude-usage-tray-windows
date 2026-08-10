@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.38.4] - 2026-08-10
+
+<!-- ko -->
+### 개선
+- **OpenCode 게이지를 Claude·Codex와 같은 모습으로 통일** — OpenCode Go의 롤링·주간·월간 사용량에서 별도의 큰 배경 카드를 제거하고, 각 항목을 다른 공급자와 같은 `이름 / 사용률+초기화 / 얇은 게이지` 구조와 간격으로 정리했습니다. OpenCode 제목 행도 로그인된 경우 요청 횟수 대신 롤링 사용률을 표시하며, 주황색 게이지에는 다른 공급자와 같은 방향의 그라데이션을 적용했습니다.
+- **OpenCode 초기화 문구 중복 제거** — `초기화 · 3시간 후 초기화`처럼 같은 의미가 반복되던 문구를 Claude·Codex와 동일한 초기화 표기로 맞췄습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Matched OpenCode gauges to the Claude and Codex presentation** — Removed the separate large background card around OpenCode Go rolling, weekly, and monthly usage. Each item now follows the same `label / percentage + reset / slim gauge` structure and spacing as the other providers. When signed in, the OpenCode header shows rolling usage instead of request count, and its orange gauge now uses the same gradient direction as the other providers.
+- **Removed duplicate OpenCode reset wording** — Reset labels no longer repeat the same meaning, such as `Resets · resets in 3 hours`, and now use the same reset format as Claude and Codex.
+<!-- /en -->
+
 ## [1.38.3] - 2026-08-10
 
 <!-- ko -->

@@ -149,6 +149,32 @@ public class MainViewModelIntegrationTests
     }
 
     [Fact]
+    public async Task UsagePopup_OpenCodeQuotaUsesTheSameFlatGaugeStructureAsOtherProviders()
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            try
+            {
+                using var popup = new UsagePopup(vm);
+
+                var gauges = Assert.IsType<System.Windows.Controls.StackPanel>(
+                    popup.FindName("OpenCodeQuotaGauges"));
+                Assert.Equal(3, gauges.Children.Count);
+                Assert.All(gauges.Children.Cast<System.Windows.UIElement>(), child =>
+                    Assert.IsType<System.Windows.Controls.StackPanel>(child));
+                Assert.NotNull(popup.FindName("OpenCodeRollingGauge"));
+                Assert.NotNull(popup.FindName("OpenCodeWeeklyGauge"));
+                Assert.NotNull(popup.FindName("OpenCodeMonthlyGauge"));
+            }
+            finally
+            {
+                vm.Dispose();
+            }
+        });
+    }
+
+    [Fact]
     public async Task SettingsWindow_ConstructsWithoutOpacitySliderException()
     {
         await WpfTestHost.RunAsync(() =>

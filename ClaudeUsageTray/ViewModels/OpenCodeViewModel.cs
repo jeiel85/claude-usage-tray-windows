@@ -158,12 +158,12 @@ public partial class OpenCodeViewModel : ObservableObject
         RollingPercent = usage.Rolling.UsagePercent;
         WeeklyPercent = usage.Weekly.UsagePercent;
         MonthlyPercent = usage.Monthly.UsagePercent;
-        RollingResetLabel = Loc.OpenCodeResetAt(UsageCalculator.FormatResetLabel(
-            usage.Rolling.ResetAt, false, true, DateTimeOffset.Now));
-        WeeklyResetLabel = Loc.OpenCodeResetAt(UsageCalculator.FormatResetLabel(
-            usage.Weekly.ResetAt, false, true, DateTimeOffset.Now));
-        MonthlyResetLabel = Loc.OpenCodeResetAt(UsageCalculator.FormatResetLabel(
-            usage.Monthly.ResetAt, false, true, DateTimeOffset.Now));
+        RollingResetLabel = UsageCalculator.FormatResetLabel(
+            usage.Rolling.ResetAt, false, true, DateTimeOffset.Now);
+        WeeklyResetLabel = UsageCalculator.FormatResetLabel(
+            usage.Weekly.ResetAt, false, true, DateTimeOffset.Now);
+        MonthlyResetLabel = UsageCalculator.FormatResetLabel(
+            usage.Monthly.ResetAt, false, true, DateTimeOffset.Now);
         Percent = RollingPercent;
     }
 
