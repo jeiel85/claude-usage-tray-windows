@@ -1812,8 +1812,15 @@ namespace ClaudeUsageTray.ViewModels;
         return string.IsNullOrWhiteSpace(text) ? note : $"{text} · {note}";
     }
 
-    private static bool HasMergedDeviceTotals(UsageSyncMergedLocalTotals? merged) =>
-        merged is { DeviceCount: > 1, HasData: true };
+    /// <summary>
+    /// 병합 합계를 화면 값으로 쓸지 여부.
+    /// DeviceCount 는 "사용량이 있는 기기" 수라, &gt; 1 을 요구하면 이 PC 에 로컬 사용량이 없을 때
+    /// (예: OpenCode 를 다른 PC 에서만 쓰는 경우) 다른 PC 값이 통째로 버려져
+    /// HideInactiveProviders 와 맞물려 공급자 섹션이 아예 사라진다.
+    /// 기기가 1대뿐이고 그게 이 PC 라면 병합값 = 로컬값이므로 그대로 써도 결과가 같다.
+    /// </summary>
+    internal static bool HasMergedDeviceTotals(UsageSyncMergedLocalTotals? merged) =>
+        merged is { HasData: true };
 
     /// <summary>
     /// Gemini CLI 처럼 서버 할당량이 없어 "최근 최대 사용일" 대비로 막대를 그리는 provider 의
