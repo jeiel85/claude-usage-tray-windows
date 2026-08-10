@@ -139,6 +139,40 @@ public sealed class UsageSyncServiceTests : IDisposable
         Assert.Equal("desktop", newestQuota!.DeviceName);
     }
 
+    // DeviceCount 는 "기기 수" 가 아니라 "사용량이 있는 기기 수" 다.
+    // 이 PC 에서 OpenCode 를 아예 안 쓰면 이 PC 스냅샷은 집계에서 빠져 DeviceCount 가 1 이 되고,
+    // 그래도 다른 PC 의 합계는 그대로 살아 있어야 한다. (MainViewModel.HasMergedDeviceTotals 가 이 값을 본다)
+    [Fact]
+    public void MergeLocalTotals_CountsOnlyDevicesWithUsage()
+    {
+        var now = new DateTimeOffset(2026, 8, 10, 6, 0, 0, TimeSpan.Zero);
+        var desktop = CreateService("desktop", now);
+        var idleLaptop = CreateService("idle-laptop", now.AddMinutes(1));
+        var syncRoot = Path.Combine(_tempRoot, "sync");
+
+        desktop.WriteSnapshot(syncRoot, desktop.CreateSnapshot(
+            UsageProviderKind.OpenCode,
+            null,
+            null,
+            new UsageSyncLocalTotals { InputTokens = 248_796, OutputTokens = 42_958, RequestCount = 179 }));
+        idleLaptop.WriteSnapshot(syncRoot, idleLaptop.CreateSnapshot(
+            UsageProviderKind.OpenCode,
+            null,
+            null,
+            new UsageSyncLocalTotals(),
+            "no_usage"));
+
+        var read = idleLaptop.ReadSnapshots(syncRoot, UsageProviderKind.OpenCode, null, new DateOnly(2026, 8, 10));
+        var merged = idleLaptop.MergeLocalTotals(read.Snapshots, TimeSpan.FromHours(24));
+
+        Assert.Equal(2, read.Snapshots.Count);
+        Assert.Equal(1, merged.DeviceCount);
+        Assert.True(merged.HasData);
+        Assert.Equal(248_796, merged.InputTokens);
+        Assert.Equal(42_958, merged.OutputTokens);
+        Assert.Equal(179, merged.RequestCount);
+    }
+
     [Fact]
     public void WriteSnapshot_PreservesPreviousSuccessfulQuotaWhenCurrentWriteHasOnlyLocalTotals()
     {

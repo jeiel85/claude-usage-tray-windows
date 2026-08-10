@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.38.9] - 2026-08-10
+
+<!-- ko -->
+### 수정
+- **다른 PC에서만 쓰는 공급자 섹션이 통째로 보이지 않던 문제** — 동기화 합계를 화면에 반영할지 판단할 때 "사용량이 있는 기기"가 2대 이상일 것을 요구했습니다. 이 PC에서 한 번도 쓰지 않은 공급자(예: OpenCode)는 기기 수가 1이 되어 다른 PC 값이 통째로 버려졌고, "데이터 없는 공급자 자동 숨김"과 맞물려 섹션 자체가 사라졌습니다. 이제 합계에 데이터가 있으면 기기 수와 무관하게 표시합니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **A provider section was missing entirely when only another PC used it** — Applying synchronized totals required at least two devices with usage. A provider never used on this PC (for example OpenCode) produced a device count of one, so the other PC's totals were discarded, and combined with "hide providers without data" the section disappeared. Totals that contain data are now displayed regardless of device count.
+<!-- /en -->
+
 ## [1.38.8] - 2026-08-10
 
 <!-- ko -->

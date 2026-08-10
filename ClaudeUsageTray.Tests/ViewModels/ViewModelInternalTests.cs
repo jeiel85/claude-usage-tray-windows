@@ -188,6 +188,31 @@ public class UsageSyncQuotaPolicyTests
         Assert.Equal(shared, MainViewModel.UsageSyncSharesAccountQuota(provider));
     }
 
+    // 이 PC 에 로컬 사용량이 없고 다른 PC 에만 있는 경우(예: OpenCode 를 다른 PC 에서만 씀),
+    // MergeLocalTotals 는 "사용량이 있는 기기" 만 세므로 DeviceCount 가 1 이 된다.
+    // 예전처럼 DeviceCount > 1 을 요구하면 그 값이 통째로 버려져
+    // HideInactiveProviders 와 맞물려 공급자 섹션이 화면에서 사라졌다.
+    [Fact]
+    public void RemoteOnlyTotals_AreStillDisplayed()
+    {
+        var remoteOnly = new UsageSyncMergedLocalTotals
+        {
+            DeviceCount = 1,
+            InputTokens = 248_796,
+            OutputTokens = 42_958,
+            RequestCount = 179,
+        };
+
+        Assert.True(MainViewModel.HasMergedDeviceTotals(remoteOnly));
+    }
+
+    [Fact]
+    public void MergedTotals_WithoutAnyDevice_AreNotDisplayed()
+    {
+        Assert.False(MainViewModel.HasMergedDeviceTotals(null));
+        Assert.False(MainViewModel.HasMergedDeviceTotals(new UsageSyncMergedLocalTotals { DeviceCount = 0 }));
+    }
+
     [Fact]
     public void DeviceDerivedPercent_IsNeverWrittenToTheSharedFolder()
     {
