@@ -131,6 +131,32 @@ public class OpenCodeViewModelTests
         Assert.Null(timeline.Weekly);
         Assert.Null(timeline.Monthly);
     }
+
+    [Fact]
+    public void ApplySyncedWebUsage_DoesNotReplaceAnAlreadyAppliedQuota()
+    {
+        var vm = new OpenCodeViewModel(new OpenCodeUsageMonitor(), new HistoryService());
+        var first = CreateUsage(0.25);
+        var later = CreateUsage(0.8);
+
+        vm.ApplySyncedWebUsage(first);
+        vm.ApplySyncedWebUsage(later);
+
+        Assert.True(vm.HasWebQuota);
+        Assert.Equal(0.25, vm.RollingPercent, 6);
+        Assert.Same(first, vm.LastSnapshot.OpenCodeDetails?.WebUsage);
+    }
+
+    private static OpenCodeWebUsage CreateUsage(double percent)
+    {
+        var now = DateTimeOffset.Now;
+        return new OpenCodeWebUsage
+        {
+            Rolling = new OpenCodeQuotaWindow { UsagePercent = percent, ResetAt = now.AddHours(3) },
+            Weekly = new OpenCodeQuotaWindow { UsagePercent = percent, ResetAt = now.AddDays(4) },
+            Monthly = new OpenCodeQuotaWindow { UsagePercent = percent, ResetAt = now.AddDays(20) },
+        };
+    }
 }
 
 /// <summary>
@@ -138,13 +164,13 @@ public class OpenCodeViewModelTests
 /// </summary>
 public class UsageSyncQuotaPolicyTests
 {
-    // 서버가 계정별로 내려주는 할당량만 공유한다. Gemini CLI·OpenCode 의 percent 는
-    // 그 PC 의 로컬 토큰을 그 PC 의 최근 최대치로 나눈 값이라, 남의 PC 것을 가져오면 기준이 뒤섞인다.
+    // 서버가 계정별로 내려주는 할당량만 공유한다. OpenCode 는 로컬 계산 percent 가 아니라
+    // 공식 웹 콘솔의 계정 단위 롤링·주간·월간 값만 공유한다.
     [Theory]
     [InlineData(UsageProviderKind.Codex, true)]
     [InlineData(UsageProviderKind.Antigravity, true)]
     [InlineData(UsageProviderKind.GeminiCli, false)]
-    [InlineData(UsageProviderKind.OpenCode, false)]
+    [InlineData(UsageProviderKind.OpenCode, true)]
     public void OnlyAccountLevelQuotaIsShared(string provider, bool shared)
     {
         Assert.Equal(shared, MainViewModel.UsageSyncSharesAccountQuota(provider));
@@ -162,6 +188,38 @@ public class UsageSyncQuotaPolicyTests
         Assert.Null(MainViewModel.CreateProviderQuotaSnapshot(UsageProviderKind.GeminiCli, snapshot));
         Assert.Null(MainViewModel.CreateProviderQuotaSnapshot(UsageProviderKind.OpenCode, snapshot));
         Assert.NotNull(MainViewModel.CreateProviderQuotaSnapshot(UsageProviderKind.Codex, snapshot));
+    }
+
+    [Fact]
+    public void OpenCodeOfficialQuota_RoundTripsAllWindows()
+    {
+        var rollingReset = DateTimeOffset.Now.AddHours(3);
+        var weeklyReset = DateTimeOffset.Now.AddDays(4);
+        var monthlyReset = DateTimeOffset.Now.AddDays(20);
+        var snapshot = new ProviderUsageSnapshot
+        {
+            OpenCodeDetails = new OpenCodeUsageDetails
+            {
+                WebUsage = new OpenCodeWebUsage
+                {
+                    Rolling = new OpenCodeQuotaWindow { UsagePercent = 0.31, ResetAt = rollingReset },
+                    Weekly = new OpenCodeQuotaWindow { UsagePercent = 0.42, ResetAt = weeklyReset },
+                    Monthly = new OpenCodeQuotaWindow { UsagePercent = 0.53, ResetAt = monthlyReset },
+                },
+            },
+        };
+
+        var quota = MainViewModel.CreateProviderQuotaSnapshot(UsageProviderKind.OpenCode, snapshot);
+        var restored = MainViewModel.CreateOpenCodeWebUsage(quota);
+
+        Assert.NotNull(quota?.OpenCode);
+        Assert.NotNull(restored);
+        Assert.Equal(0.31, restored!.Rolling.UsagePercent, 6);
+        Assert.Equal(rollingReset, restored.Rolling.ResetAt);
+        Assert.Equal(0.42, restored.Weekly.UsagePercent, 6);
+        Assert.Equal(weeklyReset, restored.Weekly.ResetAt);
+        Assert.Equal(0.53, restored.Monthly.UsagePercent, 6);
+        Assert.Equal(monthlyReset, restored.Monthly.ResetAt);
     }
 
     // 창 길이가 빠지면 받는 PC 가 5시간으로 가정할 수밖에 없어 주간 창에서 시간선이 어긋난다.

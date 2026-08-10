@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.38.7] - 2026-08-10
+
+<!-- ko -->
+### 추가
+- **OpenCode 공식 사용량 다중 PC 동기화** — 한 PC에서 읽은 OpenCode Go 공식 롤링·주간·월간 사용률과 초기화 시각을 기존 공유 폴더 스냅샷에 포함합니다. 현재 PC에서 공식 값을 읽지 못하면 5분 이내에 다른 PC가 관측한 최신 값으로 같은 게이지와 시간선을 표시합니다.
+
+### 보안
+- **인증 정보는 동기화 대상에서 제외** — OpenCode 로그인 쿠키, 웹 세션, 워크스페이스 URL은 공유하지 않습니다. 로컬 토큰 합계는 기존처럼 PC별 스냅샷을 병합합니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Multi-PC sync for official OpenCode usage** — Official OpenCode Go rolling, weekly, and monthly utilization and reset times observed on one PC are now included in the existing shared-folder snapshot. If the current PC cannot read official usage, it displays the newest value observed by another PC within five minutes, including matching gauges and timelines.
+
+### Security
+- **Authentication data stays local** — OpenCode sign-in cookies, web sessions, and workspace URLs are never synchronized. Local token totals continue to be merged from per-device snapshots as before.
+<!-- /en -->
+
 ## [1.38.6] - 2026-08-10
 
 <!-- ko -->

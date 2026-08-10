@@ -1512,7 +1512,7 @@ namespace ClaudeUsageTray.ViewModels;
             return new UsageSyncProviderResult(
                 _usageSync.MergeLocalTotals(read.Snapshots, UsageSyncLocalTtl),
                 // 할당량은 합산하지 않는다 — 계정 단위 값이라 가장 최근에 관측한 PC 것을 쓴다.
-                // 기기별로 계산되는 percent(Gemini·OpenCode)는 애초에 쓰지 않으므로 여기서도 나오지 않는다.
+                // 기기별로 계산되는 Gemini percent 는 쓰지 않는다. OpenCode 는 공식 웹 할당량만 공유한다.
                 UsageSyncSharesAccountQuota(provider)
                     ? _usageSync.SelectNewestQuotaSnapshot(read.Snapshots, UsageSyncApiTtl)
                     : null);
@@ -1529,12 +1529,12 @@ namespace ClaudeUsageTray.ViewModels;
 
     /// <summary>
     /// 이 provider 의 할당량이 "계정 단위"라서 기기 간에 공유해도 되는가.
-    /// Codex·Antigravity 는 서버가 계정별로 내려주므로 어느 PC 에서 봐도 같은 값이다.
+    /// Codex·Antigravity·OpenCode 공식 웹 할당량은 서버가 계정별로 내려주므로 어느 PC 에서 봐도 같은 값이다.
     /// Gemini CLI 의 percent 는 그 PC 의 로컬 토큰 합계를 그 PC 의 최근 최대치로 나눈 값이라
     /// 다른 PC 의 값을 가져다 쓰면 남의 기기 기준을 내 화면에 표시하는 셈이 된다 — 대신 합산 토큰으로 다시 계산한다.
     /// </summary>
     internal static bool UsageSyncSharesAccountQuota(string provider) =>
-        provider is UsageProviderKind.Codex or UsageProviderKind.Antigravity;
+        provider is UsageProviderKind.Codex or UsageProviderKind.Antigravity or UsageProviderKind.OpenCode;
 
     /// <summary>동기화 1회 결과 — 기기 합산 토큰과, 계정 단위 provider 라면 가장 최신 할당량.</summary>
     private readonly record struct UsageSyncProviderResult(
@@ -1576,6 +1576,24 @@ namespace ClaudeUsageTray.ViewModels;
 
     internal static UsageSyncQuotaSnapshot? CreateProviderQuotaSnapshot(string provider, ProviderUsageSnapshot snapshot)
     {
+        if (provider == UsageProviderKind.OpenCode)
+        {
+            var usage = snapshot.OpenCodeDetails?.WebUsage;
+            if (usage is null)
+                return null;
+
+            return new UsageSyncQuotaSnapshot
+            {
+                HasData = true,
+                OpenCode = new UsageSyncOpenCodeQuota
+                {
+                    Rolling = CreateOpenCodeQuotaWindow(usage.Rolling),
+                    Weekly = CreateOpenCodeQuotaWindow(usage.Weekly),
+                    Monthly = CreateOpenCodeQuotaWindow(usage.Monthly),
+                },
+            };
+        }
+
         // 기기 단위로 계산되는 percent 는 공유하지 않는다 — 남의 PC 기준이 내 화면에 뜨는 것을 막는다.
         if (!UsageSyncSharesAccountQuota(provider))
             return null;
@@ -1599,6 +1617,26 @@ namespace ClaudeUsageTray.ViewModels;
             PlanType = snapshot.PlanType ?? "",
         };
     }
+
+    private static UsageSyncOpenCodeQuotaWindow CreateOpenCodeQuotaWindow(OpenCodeQuotaWindow window) =>
+        new() { UsagePercent = window.UsagePercent, ResetAt = window.ResetAt };
+
+    internal static OpenCodeWebUsage? CreateOpenCodeWebUsage(UsageSyncQuotaSnapshot? quota)
+    {
+        var usage = quota?.OpenCode;
+        if (usage is null)
+            return null;
+
+        return new OpenCodeWebUsage
+        {
+            Rolling = CreateOpenCodeQuotaWindow(usage.Rolling),
+            Weekly = CreateOpenCodeQuotaWindow(usage.Weekly),
+            Monthly = CreateOpenCodeQuotaWindow(usage.Monthly),
+        };
+    }
+
+    private static OpenCodeQuotaWindow CreateOpenCodeQuotaWindow(UsageSyncOpenCodeQuotaWindow window) =>
+        new() { UsagePercent = window.UsagePercent, ResetAt = window.ResetAt };
 
     private static UsageSyncLocalTotals CreateLocalTotals(SessionStats stats) =>
         new()
@@ -2262,10 +2300,14 @@ namespace ClaudeUsageTray.ViewModels;
     {
         await OpenCodeVm.RefreshAsync();
 
-        var mergedTotals = TrySyncProviderSnapshot(UsageProviderKind.OpenCode, OpenCodeVm.LastSnapshot).MergedTotals;
+        var syncResult = TrySyncProviderSnapshot(UsageProviderKind.OpenCode, OpenCodeVm.LastSnapshot);
+        var mergedTotals = syncResult.MergedTotals;
 
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
+            if (!OpenCodeVm.HasWebQuota && CreateOpenCodeWebUsage(syncResult.RemoteQuota?.Quota) is { } syncedUsage)
+                OpenCodeVm.ApplySyncedWebUsage(syncedUsage);
+
             OpenCodeHasError = OpenCodeVm.HasError;
             OpenCodeErrorMessage = OpenCodeVm.ErrorMessage;
             OpenCodeSummary = OpenCodeVm.Summary;
