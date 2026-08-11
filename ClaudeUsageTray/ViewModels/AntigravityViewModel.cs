@@ -21,6 +21,12 @@ public partial class AntigravityViewModel : ObservableObject
     /// <summary>마지막 조회 결과 원본 — MainViewModel 이 다중 PC 동기화에 쓴다.</summary>
     public AntigravitySnapshot LastSnapshot { get; private set; } = new();
 
+    // 화면에 올린 마지막 입력. 언어가 바뀌면 이 값으로 행을 다시 만든다
+    // (LastSnapshot 과 별개다 — 다른 PC 에서 받은 값을 표시 중일 수 있다).
+    private IReadOnlyList<AntigravityModelQuota> _appliedQuota = System.Array.Empty<AntigravityModelQuota>();
+    private string? _appliedTierName;
+    private string? _appliedPaidTierName;
+
     public AntigravityViewModel(AntigravityUsageMonitor monitor)
     {
         _monitor = monitor;
@@ -81,6 +87,10 @@ public partial class AntigravityViewModel : ObservableObject
     /// </summary>
     public void ApplyQuota(IReadOnlyList<AntigravityModelQuota> models, string? tierName, string? paidTierName)
     {
+        _appliedQuota = models;
+        _appliedTierName = tierName;
+        _appliedPaidTierName = paidTierName;
+
         HasData = true;
         HasError = false;
         ErrorMessage = "";
@@ -116,6 +126,16 @@ public partial class AntigravityViewModel : ObservableObject
         // 창마다 한도가 따로 걸리므로 평균은 가장 급한 제약을 가린다 (주간 90% + 5시간 0% → 45%).
         // 트레이 게이지에는 가장 많이 쓴 창을 올린다.
         Percent = worstUsed;
+    }
+
+    /// <summary>
+    /// 언어를 바꿨을 때 이미 만들어 둔 행을 다시 만든다.
+    /// 행의 문구는 만들 때 한 번 정해지므로, 다시 만들지 않으면 다음 조회까지 이전 언어로 남는다.
+    /// </summary>
+    public void RefreshLocalizedLabels()
+    {
+        if (!HasData || _appliedQuota.Count == 0) return;
+        ApplyQuota(_appliedQuota, _appliedTierName, _appliedPaidTierName);
     }
 
     /// <summary>

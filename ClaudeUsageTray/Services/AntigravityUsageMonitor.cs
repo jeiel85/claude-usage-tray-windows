@@ -425,8 +425,14 @@ public sealed class AntigravityUsageMonitor : IDisposable
             }, new JsonSerializerOptions { WriteIndented = true });
 
             // 쓰다 만 파일이 남지 않도록 임시 파일에 쓴 뒤 옮긴다.
+            // 임시 경로가 고정이라 다른 인스턴스가 같은 파일을 보고 있을 수 있으므로 공유 모드로 연다
+            // (여기서 IOException 이 나면 캐시를 못 남겨 다음 실행에서 바이너리를 또 훑게 된다).
             var temp = ClientConfigPath + ".tmp";
-            File.WriteAllText(temp, json);
+            using (var fs = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
+            using (var writer = new StreamWriter(fs, Encoding.UTF8))
+            {
+                writer.Write(json);
+            }
             File.Move(temp, ClientConfigPath, overwrite: true);
         }
         catch (Exception ex)

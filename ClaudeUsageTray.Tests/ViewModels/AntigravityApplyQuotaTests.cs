@@ -147,6 +147,53 @@ public sealed class AntigravityApplyQuotaTests
     }
 
     [Fact]
+    public void RefreshLocalizedLabels_RebuildsRows_WhenLanguageChangesAfterLoad()
+    {
+        var previous = Loc.CurrentLang;
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            try
+            {
+                Loc.SetLanguage("en");
+                vm.ApplyQuota(
+                [
+                    new AntigravityModelQuota
+                    {
+                        ModelId = "gemini-weekly", TokenType = "weekly",
+                        RemainingFraction = 0.4, ResetTime = Reset,
+                    },
+                ], null, null);
+                Assert.Equal("Gemini Models · Weekly Limit Remaining", vm.Models[0].DisplayName);
+
+                // 행 문구는 만들 때 정해지므로, 언어만 바꾸면 다음 조회까지 옛 언어로 남는다.
+                Loc.SetLanguage("ko");
+                vm.RefreshLocalizedLabels();
+
+                Assert.Equal("Gemini 모델 · 주간 잔여량", vm.Models[0].DisplayName);
+                Assert.Contains("사용", vm.Models[0].UsageLabel);
+            }
+            finally
+            {
+                Loc.SetLanguage(previous);
+            }
+        }
+    }
+
+    [Fact]
+    public void RefreshLocalizedLabels_DoesNothing_WhenNoQuotaLoaded()
+    {
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            vm.RefreshLocalizedLabels();
+
+            Assert.False(vm.HasData);
+            Assert.Empty(vm.Models);
+        }
+    }
+
+    [Fact]
     public void ApplyQuota_FallsBackToFormattedId_WhenDisplayNameMissing()
     {
         var vm = CreateVm(out var monitor);
