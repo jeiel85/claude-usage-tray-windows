@@ -19,7 +19,9 @@ namespace ClaudeUsageTray.Services;
 public sealed class OpenCodeWebUsageService : IDisposable
 {
     internal static readonly TimeSpan CachedFallbackMaxAge = TimeSpan.FromMinutes(40);
-    private static readonly TimeSpan FailureRetryDelay = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan SignedOutRetryDelay = TimeSpan.FromMinutes(30);
+    /// <summary>확인 실패의 재시도 간격 단계 — 1·2·4·8·16분.</summary>
+    private const int MaxUnavailableBackoffSteps = 5;
     private static readonly Uri AuthUri = new("https://opencode.ai/auth");
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly string _dataRoot;
@@ -27,14 +29,22 @@ public sealed class OpenCodeWebUsageService : IDisposable
     private Window? _window;
     private WebView2? _webView;
     private bool _allowClose;
-    private TaskCompletionSource<OpenCodeWebUsage?>? _pendingNavigation;
+    private TaskCompletionSource<OpenCodeWebReadResult>? _pendingNavigation;
     private OpenCodeWebUsage? _cachedUsage;
     private DateTimeOffset _cacheExpiresAt;
     private DateTimeOffset _retryAfter;
+    private OpenCodeWebSessionState _lastFailureState = OpenCodeWebSessionState.Unknown;
+    private int _consecutiveUnavailable;
     private Uri? _workspaceUri;
 
     public string? LastError { get; private set; }
     internal Uri NavigationStartUri => _workspaceUri ?? AuthUri;
+
+    /// <summary>
+    /// 이 PC 에서 로그인에 성공해 작업공간 주소까지 저장해 둔 적이 있는가.
+    /// 주소 파일은 공식 값을 실제로 읽어낸 뒤에만 쓰이므로 "여기서 한 번은 됐다" 의 증거가 된다.
+    /// </summary>
+    public bool HasSavedSession => _workspaceUri != null;
 
     public OpenCodeWebUsageService()
         : this(Path.Combine(
@@ -50,52 +60,80 @@ public sealed class OpenCodeWebUsageService : IDisposable
         _workspaceUri = ReadWorkspaceRoute(_workspaceRoutePath);
     }
 
-    public async Task<OpenCodeWebUsage?> TryGetUsageAsync(bool interactive = false)
+    public async Task<OpenCodeWebReadResult> TryGetUsageAsync(bool interactive = false)
     {
         var now = DateTimeOffset.Now;
         if (!interactive && _cachedUsage != null && now < _cacheExpiresAt)
-            return _cachedUsage;
+            return OpenCodeWebReadResult.Success(_cachedUsage);
         if (!interactive && now < _retryAfter)
-            return GetCachedFallback(now);
+            return WaitingForRetry(now);
 
         await _gate.WaitAsync();
         try
         {
             now = DateTimeOffset.Now;
             if (!interactive && _cachedUsage != null && now < _cacheExpiresAt)
-                return _cachedUsage;
+                return OpenCodeWebReadResult.Success(_cachedUsage);
             if (!interactive && now < _retryAfter)
-                return GetCachedFallback(now);
+                return WaitingForRetry(now);
 
             LastError = null;
             var dispatcher = System.Windows.Application.Current?.Dispatcher;
-            if (dispatcher == null) return null;
+            if (dispatcher == null) return OpenCodeWebReadResult.NotAttempted;
 
-            var usage = await dispatcher.InvokeAsync(() => NavigateAsync(interactive)).Task.Unwrap();
-            if (usage != null)
+            var result = await dispatcher.InvokeAsync(() => NavigateAsync(interactive)).Task.Unwrap();
+            if (result.Usage is { } usage)
             {
                 _cachedUsage = usage;
                 _cacheExpiresAt = DateTimeOffset.Now.AddMinutes(5);
                 _retryAfter = default;
+                _lastFailureState = OpenCodeWebSessionState.Unknown;
+                _consecutiveUnavailable = 0;
+                return result;
             }
-            else if (!interactive)
-            {
-                _retryAfter = DateTimeOffset.Now.Add(FailureRetryDelay);
-                return GetCachedFallback(DateTimeOffset.Now);
-            }
-            return usage;
+            return interactive ? result : RegisterFailure(result.State, DateTimeOffset.Now);
         }
         catch (Exception ex)
         {
             LastError = ex.Message;
-            _retryAfter = DateTimeOffset.Now.Add(FailureRetryDelay);
-            return interactive ? null : GetCachedFallback(DateTimeOffset.Now);
+            return interactive
+                ? OpenCodeWebReadResult.Unavailable
+                : RegisterFailure(OpenCodeWebSessionState.Unavailable, DateTimeOffset.Now);
         }
         finally
         {
             _gate.Release();
         }
     }
+
+    /// <summary>
+    /// 실패를 기록하고 다음 확인 시각을 잡는다. 로그인이 풀린 경우엔 사용자가 로그인하기 전까지
+    /// 결과가 달라지지 않으므로 길게 쉬고, 확인 자체를 못 한 경우엔 짧게 쉬었다가 다시 본다 —
+    /// 부팅 직후 네트워크가 늦게 올라온 것뿐인데 30분 동안 로그인 버튼을 띄우고 있지 않도록.
+    /// </summary>
+    private OpenCodeWebReadResult RegisterFailure(OpenCodeWebSessionState state, DateTimeOffset now)
+    {
+        if (state is OpenCodeWebSessionState.Unknown or OpenCodeWebSessionState.Authenticated)
+            state = OpenCodeWebSessionState.Unavailable;
+
+        _lastFailureState = state;
+        _consecutiveUnavailable = state == OpenCodeWebSessionState.Unavailable
+            ? Math.Min(_consecutiveUnavailable + 1, MaxUnavailableBackoffSteps)
+            : 0;
+        _retryAfter = now.Add(RetryDelayFor(state, _consecutiveUnavailable));
+        return WaitingForRetry(now);
+    }
+
+    /// <summary>재시도 대기 중 — 아직 쓸 수 있는 직전 값이 있으면 그걸 쓰고, 없으면 마지막 판정을 유지한다.</summary>
+    private OpenCodeWebReadResult WaitingForRetry(DateTimeOffset now) =>
+        GetCachedFallback(now) is { } usage
+            ? OpenCodeWebReadResult.Success(usage)
+            : new OpenCodeWebReadResult(null, _lastFailureState);
+
+    internal static TimeSpan RetryDelayFor(OpenCodeWebSessionState state, int consecutiveUnavailable) =>
+        state == OpenCodeWebSessionState.Unavailable
+            ? TimeSpan.FromMinutes(1 << Math.Clamp(consecutiveUnavailable - 1, 0, MaxUnavailableBackoffSteps - 1))
+            : SignedOutRetryDelay;
 
     private OpenCodeWebUsage? GetCachedFallback(DateTimeOffset now) =>
         IsCachedFallbackUsable(_cachedUsage, now) ? _cachedUsage : null;
@@ -106,10 +144,10 @@ public sealed class OpenCodeWebUsageService : IDisposable
         now - observedAt <= CachedFallbackMaxAge &&
         usage.Rolling.ResetAt > now;
 
-    private async Task<OpenCodeWebUsage?> NavigateAsync(bool interactive)
+    private async Task<OpenCodeWebReadResult> NavigateAsync(bool interactive)
     {
         await EnsureWebViewAsync(interactive);
-        if (_window == null || _webView?.CoreWebView2 == null) return null;
+        if (_window == null || _webView?.CoreWebView2 == null) return OpenCodeWebReadResult.Unavailable;
 
         if (interactive)
         {
@@ -140,25 +178,49 @@ public sealed class OpenCodeWebUsageService : IDisposable
 
         var timeout = interactive ? TimeSpan.FromMinutes(3) : TimeSpan.FromSeconds(20);
         using var cts = new CancellationTokenSource(timeout);
-        var completion = new TaskCompletionSource<OpenCodeWebUsage?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completion = new TaskCompletionSource<OpenCodeWebReadResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pendingNavigation = completion;
-        cts.Token.Register(() => completion.TrySetResult(null));
+        cts.Token.Register(() =>
+        {
+            // 로그인 창을 열어둔 동안의 시간 초과는 "사용자가 안 끝냈다" 이므로 종전 문구를 남긴다.
+            if (!interactive) LastError ??= Loc.OpenCodeWebNavigationTimedOut;
+            completion.TrySetResult(OpenCodeWebReadResult.Unavailable);
+        });
 
         async void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs args)
         {
-            if (!args.IsSuccess || _webView?.CoreWebView2 == null) return;
+            if (_webView?.CoreWebView2 == null) return;
+            if (!args.IsSuccess)
+            {
+                // 부팅 직후처럼 네트워크가 아직 준비되지 않으면 탐색 자체가 실패한다.
+                // 이걸 로그아웃과 같이 다루면 멀쩡한 세션에 로그인 버튼을 들이밀게 된다.
+                LastError = Loc.OpenCodeWebNavigationFailed(args.WebErrorStatus.ToString());
+                if (!interactive) completion.TrySetResult(OpenCodeWebReadResult.Unavailable);
+                return;
+            }
 
             var source = _webView.Source;
             if (source == null) return;
             if (source.Host.Equals("auth.opencode.ai", StringComparison.OrdinalIgnoreCase))
             {
-                if (!interactive) completion.TrySetResult(null);
+                // 서버가 로그인 페이지로 되돌린 것 — 세션이 실제로 만료된 유일한 신호다.
+                if (!interactive) completion.TrySetResult(OpenCodeWebReadResult.SignedOut);
                 return;
             }
             if (!source.Host.Equals("opencode.ai", StringComparison.OrdinalIgnoreCase)) return;
 
             var workspaceGoUri = NormalizeWorkspaceGoUri(source);
-            if (workspaceGoUri == null) return;
+            if (workspaceGoUri == null)
+            {
+                // opencode.ai 안이지만 작업공간 페이지가 아니다. 로그인 여부를 단정할 수 없으므로
+                // 로그인 버튼을 띄우지 않고 확인 실패로만 남긴다.
+                if (!interactive)
+                {
+                    LastError = Loc.OpenCodeWebQuotaNotFound(source.AbsolutePath);
+                    completion.TrySetResult(OpenCodeWebReadResult.Unavailable);
+                }
+                return;
+            }
             if (!source.AbsolutePath.TrimEnd('/').EndsWith("/go", StringComparison.OrdinalIgnoreCase))
             {
                 _webView.CoreWebView2.Navigate(workspaceGoUri.AbsoluteUri);
@@ -170,17 +232,21 @@ public sealed class OpenCodeWebUsageService : IDisposable
                 var encodedHtml = await _webView.CoreWebView2.ExecuteScriptAsync("document.documentElement.outerHTML");
                 var html = JsonSerializer.Deserialize<string>(encodedHtml);
                 var usage = html == null ? null : ParseUsage(html, DateTimeOffset.Now);
-                if (usage != null)
+                if (usage == null)
                 {
-                    _workspaceUri = workspaceGoUri;
-                    WriteWorkspaceRoute(_workspaceRoutePath, workspaceGoUri);
+                    LastError = Loc.OpenCodeWebQuotaNotFound(source.AbsolutePath);
+                    completion.TrySetResult(OpenCodeWebReadResult.Unavailable);
+                    return;
                 }
-                completion.TrySetResult(usage);
+
+                _workspaceUri = workspaceGoUri;
+                WriteWorkspaceRoute(_workspaceRoutePath, workspaceGoUri);
+                completion.TrySetResult(OpenCodeWebReadResult.Success(usage));
             }
             catch (Exception ex)
             {
                 LastError = ex.Message;
-                completion.TrySetResult(null);
+                completion.TrySetResult(OpenCodeWebReadResult.Unavailable);
             }
         }
 
@@ -227,7 +293,7 @@ public sealed class OpenCodeWebUsageService : IDisposable
             if (_allowClose) return;
             args.Cancel = true;
             _window.Hide();
-            _pendingNavigation?.TrySetResult(null);
+            _pendingNavigation?.TrySetResult(OpenCodeWebReadResult.Unavailable);
         };
 
         // WPF WebView2 needs a presentation source for initialization. The off-screen window is

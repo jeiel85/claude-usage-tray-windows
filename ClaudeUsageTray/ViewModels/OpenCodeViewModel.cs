@@ -44,6 +44,7 @@ public partial class OpenCodeViewModel : ObservableObject
     [ObservableProperty] private bool _isUsageEmpty = true;
     [ObservableProperty] private bool _hasStaleSyncedQuota = false;
     [ObservableProperty] private string _syncedQuotaNoticeLabel = "";
+    [ObservableProperty] private bool _isWebQuotaUnavailable = false;
     private OpenCodeWebUsage? _currentWebUsage;
     private string? _staleQuotaDevice;
     private DateTimeOffset? _staleQuotaObservedAt;
@@ -59,9 +60,14 @@ public partial class OpenCodeViewModel : ObservableObject
     /// <summary>
     /// 로그인 버튼을 실제로 권할 상황인가.
     /// 다른 PC 가 오늘 관측한 공식 값이 있는데 유효시간만 지난 경우라면, 이 PC 는 로그인할 이유가 없다 —
-    /// 버튼 대신 마지막 관측 안내를 보여준다. 관측 이력이 아예 없으면 종전대로 로그인 경로를 남긴다.
+    /// 버튼 대신 마지막 관측 안내를 보여준다. 이 PC 의 세션이 멀쩡한데 확인만 실패한 경우도 마찬가지다.
+    /// 관측 이력이 아예 없으면 종전대로 로그인 경로를 남긴다.
     /// </summary>
-    public bool ShowWebLoginButton => !HasWebQuota && !HasStaleSyncedQuota;
+    public bool ShowWebLoginButton => !HasWebQuota && !HasStaleSyncedQuota && !IsWebQuotaUnavailable;
+
+    /// <summary>버튼을 감춘 자리에 "왜 값이 없는지" 를 알려주는 안내. 동기화 안내가 있으면 그쪽이 우선이다.</summary>
+    public bool ShowWebQuotaUnavailableNotice => IsWebQuotaUnavailable && !HasWebQuota && !HasStaleSyncedQuota;
+    public string WebQuotaUnavailableLabel => Loc.OpenCodeQuotaUnavailable;
     public string RollingTitle => Loc.OpenCodeRollingUsage;
     public string WeeklyTitle => Loc.OpenCodeWeeklyUsage;
     public string MonthlyTitle => Loc.OpenCodeMonthlyUsage;
@@ -80,7 +86,10 @@ public partial class OpenCodeViewModel : ObservableObject
         try
         {
             var snapshot = _monitor.GetTodaySnapshot();
-            var webUsage = _webUsage == null ? null : await _webUsage.TryGetUsageAsync();
+            var read = _webUsage == null
+                ? OpenCodeWebReadResult.NotAttempted
+                : await _webUsage.TryGetUsageAsync();
+            var webUsage = read.Usage;
             if (snapshot.OpenCodeDetails != null) snapshot.OpenCodeDetails.WebUsage = webUsage;
             LastSnapshot = snapshot;
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
@@ -106,6 +115,7 @@ public partial class OpenCodeViewModel : ObservableObject
                         : $"Today {snapshot.RequestCount} req · in {UsageCalculator.FormatTokenShort(snapshot.TotalInputTokens)} · out {UsageCalculator.FormatTokenShort(snapshot.TotalOutputTokens)}"
                     : snapshot.ErrorMessage ?? "";
                 ApplyWebUsage(webUsage);
+                ApplyWebSessionState(read.State, _webUsage?.HasSavedSession == true);
                 QuotaStatusLabel = webUsage != null ? Loc.OpenCodeOfficialQuota : FormatQuotaStatus(snapshot.OpenCodeDetails);
                 Note = webUsage != null ? Loc.ProviderOpenCodeWebNote : Loc.ProviderOpenCodeNote;
                 HasPeriodUsage = snapshot.OpenCodeDetails?.ThisMonth.Requests > 0;
@@ -135,8 +145,8 @@ public partial class OpenCodeViewModel : ObservableObject
         WebLoginError = "";
         try
         {
-            var usage = await _webUsage.TryGetUsageAsync(interactive: true);
-            if (usage == null)
+            var read = await _webUsage.TryGetUsageAsync(interactive: true);
+            if (read.Usage is not { } usage)
             {
                 WebLoginError = _webUsage.LastError ?? Loc.OpenCodeWebLoginCancelled;
                 return false;
@@ -201,11 +211,20 @@ public partial class OpenCodeViewModel : ObservableObject
         SyncedQuotaNoticeLabel = "";
     }
 
+    /// <summary>
+    /// 확인 자체를 못 한 상태(부팅 직후 네트워크 미준비 등)를 로그아웃과 구분해 화면에 옮긴다.
+    /// 이 PC 에 이미 성공한 세션이 남아 있는데 확인만 실패했다면 로그인할 이유가 없으므로,
+    /// 버튼 대신 재시도 안내를 보여준다. 서버가 로그인 페이지로 되돌렸을 때만 버튼을 남긴다.
+    /// </summary>
+    internal void ApplyWebSessionState(OpenCodeWebSessionState state, bool hasSavedSession) =>
+        IsWebQuotaUnavailable = !HasWebQuota
+            && hasSavedSession
+            && state == OpenCodeWebSessionState.Unavailable;
+
     private void ApplyWebUsage(OpenCodeWebUsage? usage)
     {
         _currentWebUsage = usage;
         HasWebQuota = usage != null;
-        if (usage != null) ClearStaleSyncedQuotaNotice();
         if (usage == null)
         {
             RollingPercent = WeeklyPercent = MonthlyPercent = 0;
@@ -215,6 +234,10 @@ public partial class OpenCodeViewModel : ObservableObject
             Percent = 0;
             return;
         }
+
+        // 게이지를 그릴 값이 생겼으니 "왜 못 그리는지" 안내는 모두 필요 없다.
+        ClearStaleSyncedQuotaNotice();
+        IsWebQuotaUnavailable = false;
 
         var now = DateTimeOffset.Now;
         RollingPercent = usage.Rolling.UsagePercent;
@@ -256,9 +279,21 @@ public partial class OpenCodeViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(NeedsWebLogin));
         OnPropertyChanged(nameof(ShowWebLoginButton));
+        OnPropertyChanged(nameof(ShowWebQuotaUnavailableNotice));
     }
 
-    partial void OnHasStaleSyncedQuotaChanged(bool value) => OnPropertyChanged(nameof(ShowWebLoginButton));
+    partial void OnHasStaleSyncedQuotaChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowWebLoginButton));
+        OnPropertyChanged(nameof(ShowWebQuotaUnavailableNotice));
+    }
+
+    partial void OnIsWebQuotaUnavailableChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowWebLoginButton));
+        OnPropertyChanged(nameof(ShowWebQuotaUnavailableNotice));
+    }
+
     partial void OnIsWebLoginRunningChanged(bool value) => OnPropertyChanged(nameof(WebLoginLabel));
 
     public void RefreshLocalizedLabels()
@@ -267,6 +302,7 @@ public partial class OpenCodeViewModel : ObservableObject
         OnPropertyChanged(nameof(WeeklyTitle));
         OnPropertyChanged(nameof(MonthlyTitle));
         OnPropertyChanged(nameof(WebLoginLabel));
+        OnPropertyChanged(nameof(WebQuotaUnavailableLabel));
         var usage = LastSnapshot.OpenCodeDetails?.WebUsage;
         ApplyWebUsage(usage);
         QuotaStatusLabel = usage != null ? Loc.OpenCodeOfficialQuota : FormatQuotaStatus(LastSnapshot.OpenCodeDetails);

@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.38.11] - 2026-08-11
+
+<!-- ko -->
+### 수정
+- **PC 재부팅 뒤 OpenCode 로그인이 풀린 것처럼 보이던 문제** — 부팅 직후에는 네트워크가 아직 올라오지 않아 자동 조회의 탐색 자체가 실패하는데, 앱은 이 실패를 로그아웃과 똑같이 다뤄 `OpenCode 로그인` 버튼을 띄우고 30분 동안 재시도하지 않았습니다. 세션 쿠키는 멀쩡한데도 다시 로그인해야 하는 것처럼 보였습니다. 이제 서버가 로그인 페이지로 되돌린 경우에만 로그인이 풀린 것으로 판정하고, 탐색 실패·응답 없음처럼 확인 자체를 못 한 경우에는 버튼 대신 `공식 할당량을 잠시 못 읽었습니다 · 곧 다시 시도` 안내를 표시하며 1분부터 시작하는 짧은 간격으로 다시 확인합니다. 조용히 넘어가던 탐색 실패도 이유가 기록됩니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **OpenCode looked signed out after a PC reboot** — Right after boot the network is not up yet, so the automatic read's navigation fails outright, and the app treated that failure exactly like a sign-out: it showed the `Sign in to OpenCode` button and stopped retrying for 30 minutes, even though the session cookie was still valid. A sign-out is now recognized only when the server redirects to the login page. When the check itself could not be completed — navigation failure, no response — the button is replaced with `Couldn't read the official quota right now · retrying soon`, and the next check starts one minute later with a short back-off. Navigation failures that used to pass silently are now recorded with a reason.
+<!-- /en -->
+
 ## [1.38.10] - 2026-08-10
 
 <!-- ko -->

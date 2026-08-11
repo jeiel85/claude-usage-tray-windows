@@ -1393,6 +1393,42 @@ public static class Loc
         "ja" => "OpenCode のログインが完了していません。",
         _ => "OpenCode sign-in was not completed."
     };
+
+    /// <summary>
+    /// 로그인이 풀린 게 아니라 이번 확인만 실패한 상태.
+    /// 부팅 직후 네트워크가 늦게 올라오는 경우가 대표적이라 로그인 버튼 대신 이 안내를 보여준다.
+    /// </summary>
+    public static string OpenCodeQuotaUnavailable => Lang switch
+    {
+        "ko" => "공식 할당량을 잠시 못 읽었습니다 · 곧 다시 시도",
+        "zh" => "暂时无法读取官方配额 · 稍后重试",
+        "ja" => "公式割り当てを一時的に取得できません · まもなく再試行",
+        _ => "Couldn't read the official quota right now · retrying soon"
+    };
+
+    public static string OpenCodeWebNavigationFailed(string detail) => Lang switch
+    {
+        "ko" => $"OpenCode 페이지를 열지 못했습니다 ({detail})",
+        "zh" => $"无法打开 OpenCode 页面（{detail}）",
+        "ja" => $"OpenCode ページを開けませんでした（{detail}）",
+        _ => $"Could not open the OpenCode page ({detail})"
+    };
+
+    public static string OpenCodeWebNavigationTimedOut => Lang switch
+    {
+        "ko" => "OpenCode 페이지 응답이 없어 시간이 초과됐습니다.",
+        "zh" => "OpenCode 页面无响应，已超时。",
+        "ja" => "OpenCode ページの応答がなくタイムアウトしました。",
+        _ => "The OpenCode page did not respond in time."
+    };
+
+    public static string OpenCodeWebQuotaNotFound(string detail) => Lang switch
+    {
+        "ko" => $"OpenCode 페이지에서 할당량을 찾지 못했습니다 ({detail})",
+        "zh" => $"未能在 OpenCode 页面中找到配额（{detail}）",
+        "ja" => $"OpenCode ページで割り当てを見つけられませんでした（{detail}）",
+        _ => $"Could not find the quota on the OpenCode page ({detail})"
+    };
     public static string OpenCodeResetAt(string value) => Lang switch
     {
         "ko" => $"초기화 {value}",
