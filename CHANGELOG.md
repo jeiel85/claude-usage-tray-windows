@@ -13,6 +13,7 @@
 - **Antigravity 사용량이 앱 화면과 같은 게이지로 표시됩니다** — 기존에는 `retrieveUserQuota` 가 주는 모델별 요청 잔량을 보여줘서, Antigravity 의 `Models & Usage` 화면에 있는 게이지와 서로 다른 값이었습니다. 이제 같은 출처(`retrieveUserQuotaSummary`)를 사용해 `Gemini Models` 와 `Claude and GPT models` 각각의 **주간·5시간 잔여량** 네 칸을 그대로 보여줍니다.
 - **아직 쓰지 않은 창도 표시합니다** — 사용률이 0% 인 항목을 목록에서 빼고 있어서, 그 주에 아무것도 쓰지 않았으면 상세를 펼쳐도 빈 화면이었습니다. Antigravity 앱은 이 경우에도 100% 게이지를 보여줍니다.
 - **트레이 게이지는 가장 많이 쓴 창을 기준으로 합니다** — 창마다 한도가 따로 걸리므로 평균을 쓰면 급한 제약이 가려집니다(주간 90% + 5시간 0% → 45%로 표시되던 문제).
+- **게이지 이름이 앱 언어로 표시됩니다** — 서버는 이름을 영어로만 내려주므로 `Gemini 모델 · 주간 잔여량` 처럼 네 가지 언어로 옮겨 보여줍니다. 아직 모르는 항목이 오면 서버가 준 문구를 그대로 씁니다.
 - Antigravity 를 실행하지 않아도 조회됩니다. 앱의 로컬 서버가 아니라 Google 백엔드를 직접 호출합니다.
 <!-- /ko -->
 
@@ -24,6 +25,7 @@
 - **Antigravity usage now shows the same gauge as the app itself** — The old call (`retrieveUserQuota`) returned per-model request allowances, which did not match the gauge on Antigravity's `Models & Usage` screen. The app now reads the same source (`retrieveUserQuotaSummary`) and shows the four windows verbatim: weekly and five-hour remaining for `Gemini Models` and for `Claude and GPT models`.
 - **Windows you have not used yet are kept on screen** — Rows at 0% usage were filtered out, so during a week with no activity the expanded view was blank. Antigravity itself shows a full gauge in that situation.
 - **The tray gauge follows the most consumed window** — Each window carries its own limit, so averaging hides the binding constraint (90% weekly + 0% five-hour used to read as 45%).
+- **Gauge labels follow the app language** — The server sends these names in English only, so they are now translated into all four languages (for example `Gemini 모델 · 주간 잔여량`). Unrecognized entries keep the server's own wording.
 - Usage is read even when Antigravity is not running, since the request goes to Google's backend rather than the app's local server.
 <!-- /en -->
 
