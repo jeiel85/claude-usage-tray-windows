@@ -1,53 +1,41 @@
 # Antigravity 통합 셋업
 
-Antigravity (Google Gemini Code Assist IDE) 의 모델별 quota 패널을 트레이에 표시하려면 OAuth client 자격 증명이 필요합니다. Antigravity 의 비공식 API 를 호출하기 위함이며, 값은 사용자 PC 의 Antigravity 바이너리/메모리에서 추출합니다.
+> **보통은 아무 설정도 필요 없습니다.** Antigravity 에 로그인만 되어 있으면 트레이 앱이 알아서 사용량을 읽습니다.
+> 이 문서는 자동 탐색이 실패했을 때 직접 값을 지정하는 방법을 다룹니다.
 
-## 어떤 값이 필요한가
+## 어떻게 동작하나
 
-- **client_id**: `<숫자>-<영숫자>.apps.googleusercontent.com` 형태
-- **client_secret**: `GOCSPX-` 로 시작하는 문자열 (35자 안팎)
+트레이 앱은 Antigravity 를 실행하지 않아도 사용량을 읽습니다. 앱의 로컬 서버가 아니라 Google 백엔드를 직접 호출하기 때문입니다.
 
-## 추출 방법
+1. **토큰 읽기** — Windows 자격 증명 관리자의 `gemini:antigravity` 항목에서 Antigravity 가 저장해 둔 토큰을 읽습니다.
+2. **그대로 사용** — 저장된 access token 이 아직 유효하면(발급 후 약 1시간) 그대로 씁니다. 이 경로에는 OAuth client 자격 증명이 **필요 없습니다.**
+3. **만료 시 갱신** — 토큰이 만료됐으면 refresh token 으로 갱신합니다. 이때만 client_id/secret 이 필요하며, 설치된 `language_server.exe` 에서 자동으로 찾습니다(약 2초). 통한 조합은 `%APPDATA%\ClaudeUsageTray\antigravity-oauth-client.json` 에 저장해 다음부터는 다시 훑지 않습니다.
+4. **조회** — `v1internal:retrieveUserQuotaSummary` 로 그룹별(Gemini / Claude·GPT) 주간·5시간 잔여량을 받습니다. Antigravity 앱의 `Models & Usage` 화면이 보여주는 값과 같습니다.
 
-### 옵션 A — 메모리 추출 (Antigravity 실행 중일 때만, 권장)
+로그인하지 않았거나, 세션이 만료됐는데 갱신에 실패하면 오류 대신 섹션이 숨겨집니다. **Antigravity 를 한 번 실행하면** 앱이 토큰을 새로 발급해 두므로 다시 표시됩니다. 대개 이것으로 해결됩니다.
 
-Antigravity 가 실행 중인 상태에서 `language_server.exe` 프로세스의 메모리에 client_id/secret 이 평문으로 보관됩니다. PowerShell 로 추출:
+## 자동 탐색이 실패할 때
+
+Antigravity 가 설치 위치를 바꾸거나 자격 증명 형식을 바꾸면 자동 탐색이 실패할 수 있습니다. 그때는 값을 직접 넣습니다.
+
+### 1. 값 추출
+
+설치된 바이너리에서 뽑습니다. Antigravity 를 실행 중이 아니어도 됩니다.
 
 ```powershell
-# 1. language_server.exe PID 확인
-$pid = (Get-CimInstance Win32_Process -Filter "Name='language_server.exe'").ProcessId
-
-# 2. 메모리 dump (사용자 권한이면 가능, 사이즈 약 400MB)
-Add-Type -TypeDefinition @'
-using System; using System.Runtime.InteropServices; using System.IO; using System.Diagnostics;
-public static class MD {
-  [DllImport("Dbghelp.dll")]
-  public static extern bool MiniDumpWriteDump(IntPtr h, uint pid, IntPtr file, uint t, IntPtr e, IntPtr u, IntPtr c);
-  public static void Dump(int pid, string path) {
-    var p = Process.GetProcessById(pid);
-    using (var fs = new FileStream(path, FileMode.Create))
-      MiniDumpWriteDump(p.Handle, (uint)pid, fs.SafeFileHandle.DangerousGetHandle(), 2, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
-  }
-}
-'@ -Language CSharp
-[MD]::Dump($pid, "$env:TEMP\ls.dmp")
-
-# 3. dump 에서 client_id 와 secret 패턴 추출
-$bytes = [IO.File]::ReadAllBytes("$env:TEMP\ls.dmp")
-$text = -join ($bytes | ForEach-Object { if ($_ -ge 32 -and $_ -lt 127) { [char]$_ } else { ' ' } })
-$ids     = ([regex]::Matches($text, '[0-9]{8,15}-[a-z0-9]{20,40}\.apps\.googleusercontent\.com')).Value | Sort-Object -Unique
-$secrets = ([regex]::Matches($text, 'GOCSPX-[A-Za-z0-9_-]{20,40}')).Value | Sort-Object -Unique
-$ids
-$secrets
+$exe = "$env:LOCALAPPDATA\Programs\antigravity\resources\bin\language_server.exe"
+$bytes = [IO.File]::ReadAllBytes($exe)
+$text = [Text.Encoding]::ASCII.GetString($bytes)
+([regex]::Matches($text, '[0-9]{6,}-[a-z0-9]{15,}\.apps\.googleusercontent\.com')).Value | Sort-Object -Unique
+([regex]::Matches($text, 'GOCSPX-[A-Za-z0-9_-]{28}')).Value | Sort-Object -Unique
 ```
 
-### 옵션 B — 정적 추출 (`language_server.exe` 바이너리)
+- **client_id**: `<숫자>-<영숫자>.apps.googleusercontent.com`
+- **client_secret**: `GOCSPX-` + 28자 (총 35자). 길이가 35자가 아니면 경계를 잘못 잡은 것입니다.
 
-Antigravity 가 실행 중이지 않을 때도 동일한 client_id 가 바이너리에 박혀있습니다. 같은 PowerShell regex 를 `C:\Users\<USER>\AppData\Local\Programs\Antigravity\resources\bin\language_server.exe` 에 돌리면 됩니다 (130MB 바이너리라 시간 좀 걸림).
+각각 여러 개가 나올 수 있습니다. 바이너리에 짝 정보가 없으므로 어느 조합이 맞는지는 시도해 봐야 알 수 있습니다(앱은 자동으로 순서대로 시도합니다).
 
-## 파일 작성
-
-추출한 값을 다음 경로에 저장 (디렉터리는 자동 생성):
+### 2. 파일 작성
 
 ```
 %APPDATA%\ClaudeUsageTray\antigravity-oauth-client.json
@@ -55,18 +43,23 @@ Antigravity 가 실행 중이지 않을 때도 동일한 client_id 가 바이너
 
 ```json
 {
-  "client_id": "1071006060591-...apps.googleusercontent.com",
-  "client_secret": "GOCSPX-..."
+  "client_id": "<숫자>-<영숫자>.apps.googleusercontent.com",
+  "client_secret": "GOCSPX-<28자>"
 }
 ```
 
-## 짝 맞는지 검증
+### 3. 확인
 
-저장 후 트레이 앱 새로고침 → "Antigravity" 섹션이 사용자의 plan + 모델별 quota 와 함께 뜨면 성공. 아무 일도 안 나면:
+트레이 앱 새로고침 → `Antigravity` 섹션에 플랜과 네 개의 게이지가 뜨면 성공입니다.
 
-- `gemini:antigravity` 라는 항목이 Windows Credential Manager 에 있는지 (`cmdkey /list`) 확인 — 없으면 Antigravity 로그인부터.
-- secret 길이가 35자가 안 되면 boundary 잘못 잡힌 것 (인접한 다른 secret 의 prefix 가 섞임). 가능한 다른 후보로 재시도.
+아무 일도 없다면 자격 증명 관리자에 항목이 있는지부터 확인하세요.
 
-## 왜 코드에 박지 않나
+```powershell
+cmdkey /list:gemini:antigravity
+```
 
-Google 의 secret-scanning 정책상 public repo 에 client_secret 노출 시 자동 revoke 가능성이 있고, Antigravity 의 마이너 업데이트로 client 가 회전될 수도 있어 사용자 PC 단위로 분리해 관리합니다.
+없으면 Antigravity 로그인이 먼저입니다.
+
+## 왜 secret 을 코드에 박지 않나
+
+Google 의 secret-scanning 정책상 공개 저장소에 client_secret 이 노출되면 자동으로 폐기될 수 있고, Antigravity 업데이트로 값이 바뀔 수도 있습니다. 그래서 저장소에 넣지 않고 각 PC 에 설치된 바이너리에서 읽습니다.

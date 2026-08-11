@@ -65,11 +65,7 @@ public partial class AntigravityViewModel : ObservableObject
             if (!snap.HasData)
             {
                 HasData = false;
-                bool isInformational =
-                    string.Equals(snap.ErrorMessage, "Antigravity not signed in", StringComparison.Ordinal)
-                    || string.Equals(snap.ErrorMessage, "no refresh_token in credstore", StringComparison.Ordinal)
-                    || string.Equals(snap.ErrorMessage, "Antigravity OAuth client not configured", StringComparison.Ordinal);
-                HasError = !isInformational && !string.IsNullOrEmpty(snap.ErrorMessage);
+                HasError = !snap.IsInformational && !string.IsNullOrEmpty(snap.ErrorMessage);
                 ErrorMessage = HasError ? (snap.ErrorMessage ?? "") : "";
                 Models = System.Array.Empty<AntigravityModelRow>();
                 return;
@@ -91,8 +87,7 @@ public partial class AntigravityViewModel : ObservableObject
         TierName = tierName ?? "";
         PaidTierName = paidTierName ?? "";
 
-        double totalUsed = 0;
-        int modelCount = 0;
+        double worstUsed = 0;
         var rows = new List<AntigravityModelRow>(models.Count);
         foreach (var m in models)
         {
@@ -102,15 +97,14 @@ public partial class AntigravityViewModel : ObservableObject
                 continue;
 
             double used = Math.Clamp(1.0 - m.RemainingFraction, 0.0, 1.0);
-            totalUsed += used;
-            modelCount++;
+            if (used > worstUsed) worstUsed = used;
 
-            if (used <= 0) continue;
-
+            // 아직 쓰지 않은 창도 남겨 둔다. Antigravity 화면과 같은 네 칸(그룹 × 주간·5시간)이
+            // 항상 보여야 지금 무엇이 얼마나 남았는지 읽을 수 있다.
             rows.Add(new AntigravityModelRow
             {
                 ModelId = m.ModelId,
-                DisplayName = FormatModelName(m.ModelId),
+                DisplayName = string.IsNullOrWhiteSpace(m.DisplayName) ? FormatModelName(m.ModelId) : m.DisplayName,
                 UsagePercent = used,
                 UsageLabel = $"{used * 100:0}% used",
                 ResetAtLabel = FormatResetLabel(m.ResetTime),
@@ -119,7 +113,9 @@ public partial class AntigravityViewModel : ObservableObject
         rows.Sort((a, b) => b.UsagePercent.CompareTo(a.UsagePercent));
         Models = rows;
 
-        Percent = modelCount > 0 ? totalUsed / modelCount : 0.0;
+        // 창마다 한도가 따로 걸리므로 평균은 가장 급한 제약을 가린다 (주간 90% + 5시간 0% → 45%).
+        // 트레이 게이지에는 가장 많이 쓴 창을 올린다.
+        Percent = worstUsed;
     }
 
     internal static string FormatModelName(string modelId)

@@ -3,6 +3,30 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.39.0] - 2026-08-11
+
+<!-- ko -->
+### 수정
+- **Antigravity 게이지가 사전 설정 없이는 뜨지 않던 문제** — 사용량을 조회하기도 전에 사용자가 직접 만들어야 하는 OAuth client 파일을 요구해, 그 파일이 없는 대부분의 PC 에서 섹션이 조용히 사라졌습니다. 파일을 만들려면 실행 중인 `language_server.exe` 의 400MB 메모리 덤프를 떠서 값을 뽑아내야 했습니다. 그런데 Windows 자격 증명 관리자에는 refresh token 뿐 아니라 **아직 유효한 access token 이 함께** 저장돼 있어서, 이 과정 자체가 필요 없었습니다. 이제 저장된 토큰을 먼저 쓰고, 만료됐을 때만 설치된 `language_server.exe` 에서 client 값을 자동으로 찾아 갱신합니다. Antigravity 에 로그인만 되어 있으면 **설정할 것이 없습니다.**
+
+### 변경
+- **Antigravity 사용량이 앱 화면과 같은 게이지로 표시됩니다** — 기존에는 `retrieveUserQuota` 가 주는 모델별 요청 잔량을 보여줘서, Antigravity 의 `Models & Usage` 화면에 있는 게이지와 서로 다른 값이었습니다. 이제 같은 출처(`retrieveUserQuotaSummary`)를 사용해 `Gemini Models` 와 `Claude and GPT models` 각각의 **주간·5시간 잔여량** 네 칸을 그대로 보여줍니다.
+- **아직 쓰지 않은 창도 표시합니다** — 사용률이 0% 인 항목을 목록에서 빼고 있어서, 그 주에 아무것도 쓰지 않았으면 상세를 펼쳐도 빈 화면이었습니다. Antigravity 앱은 이 경우에도 100% 게이지를 보여줍니다.
+- **트레이 게이지는 가장 많이 쓴 창을 기준으로 합니다** — 창마다 한도가 따로 걸리므로 평균을 쓰면 급한 제약이 가려집니다(주간 90% + 5시간 0% → 45%로 표시되던 문제).
+- Antigravity 를 실행하지 않아도 조회됩니다. 앱의 로컬 서버가 아니라 Google 백엔드를 직접 호출합니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The Antigravity gauge never appeared without manual setup** — Before reading any usage, the app demanded an OAuth client file that users had to create themselves, so on most PCs the section simply vanished. Producing that file meant taking a 400MB memory dump of the running `language_server.exe` and extracting the values by hand. Yet the Windows Credential Manager already stores **a still-valid access token** alongside the refresh token, which made the whole procedure unnecessary. The stored token is now used first, and the client values are located automatically from the installed `language_server.exe` only when the token has expired. If you are signed in to Antigravity, **there is nothing to configure.**
+
+### Changed
+- **Antigravity usage now shows the same gauge as the app itself** — The old call (`retrieveUserQuota`) returned per-model request allowances, which did not match the gauge on Antigravity's `Models & Usage` screen. The app now reads the same source (`retrieveUserQuotaSummary`) and shows the four windows verbatim: weekly and five-hour remaining for `Gemini Models` and for `Claude and GPT models`.
+- **Windows you have not used yet are kept on screen** — Rows at 0% usage were filtered out, so during a week with no activity the expanded view was blank. Antigravity itself shows a full gauge in that situation.
+- **The tray gauge follows the most consumed window** — Each window carries its own limit, so averaging hides the binding constraint (90% weekly + 0% five-hour used to read as 45%).
+- Usage is read even when Antigravity is not running, since the request goes to Google's backend rather than the app's local server.
+<!-- /en -->
+
 ## [1.38.11] - 2026-08-11
 
 <!-- ko -->

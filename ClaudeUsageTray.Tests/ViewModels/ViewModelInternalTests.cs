@@ -474,6 +474,8 @@ public class UsageSyncQuotaPolicyTests
         Assert.Equal("gemini-3-pro", vm.Models[0].ModelId);   // 사용률 내림차순
         Assert.Equal(0.75, vm.Models[0].UsagePercent, 6);
         Assert.Equal(0.10, vm.Models[1].UsagePercent, 6);
-        Assert.Equal((0.75 + 0.10) / 2, vm.Percent, 6);       // 평균은 남은 두 모델 기준
+        // 한도는 창마다 따로 걸리므로 평균이 아니라 가장 많이 쓴 쪽을 대표값으로 쓴다.
+        // 평균이면 여기서 42.5% 가 되어, 이미 75% 를 쓴 제약이 화면에서 가려진다.
+        Assert.Equal(0.75, vm.Percent, 6);
     }
 }
