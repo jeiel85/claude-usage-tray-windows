@@ -2855,6 +2855,7 @@ namespace ClaudeUsageTray.ViewModels;
                 RemainingFraction = model.RemainingFraction,
                 ResetAt = model.ResetTime,
                 DisplayName = model.DisplayName,
+                Window = model.TokenType,
             })],
         };
     }
@@ -2866,6 +2867,7 @@ namespace ClaudeUsageTray.ViewModels;
             RemainingFraction = model.RemainingFraction,
             ResetTime = model.ResetAt,
             DisplayName = model.DisplayName,
+            TokenType = model.Window,
         })];
 }
 

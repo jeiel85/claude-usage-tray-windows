@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
@@ -59,6 +60,13 @@ public sealed class AntigravityUsageMonitor : IDisposable
     private string? _accessToken;
     private DateTimeOffset _accessExpiresAt = DateTimeOffset.MinValue;
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
+
+    /// <summary>
+    /// 서버가 거부한 자격 증명 관리자 토큰. 폐기된 토큰은 기록된 만료 시각이 아직 남아 있어도 다시 쓰면 안 된다.
+    /// 그대로 두면 만료 시각이 지날 때까지 매번 401 을 받으며 갱신 경로로 넘어가지 못한다.
+    /// Antigravity 가 새 토큰을 저장하면 값이 달라지므로 저절로 풀린다.
+    /// </summary>
+    private string? _rejectedStoredToken;
 
     // 바이너리 스캔은 한 번만 시도한다 (144MB, 약 1.5초).
     private bool _clientLookupAttempted;
@@ -234,9 +242,13 @@ public sealed class AntigravityUsageMonitor : IDisposable
             using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseContentRead, ct).ConfigureAwait(false);
             if (!resp.IsSuccessStatusCode)
             {
-                // 401 → 다음 호출에서 다시 갱신하도록 캐시를 버린다.
                 if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    // 다음 호출에서 다시 갱신하도록 캐시를 버리고,
+                    // 방금 거부당한 토큰은 만료 시각이 남아 있어도 재사용하지 않는다.
                     _accessExpiresAt = DateTimeOffset.MinValue;
+                    _rejectedStoredToken = accessToken;
+                }
                 return null;
             }
 
@@ -261,6 +273,7 @@ public sealed class AntigravityUsageMonitor : IDisposable
 
         // Antigravity 가 직접 갱신해 둔 토큰이 아직 살아 있으면 그대로 쓴다. 가장 흔한 경로다.
         if (!string.IsNullOrEmpty(cred.AccessToken) &&
+            !string.Equals(cred.AccessToken, _rejectedStoredToken, StringComparison.Ordinal) &&
             cred.ExpiresAt is { } expiry &&
             DateTimeOffset.UtcNow + TokenRefreshSkew < expiry)
         {
@@ -276,7 +289,7 @@ public sealed class AntigravityUsageMonitor : IDisposable
             if (IsCachedTokenUsable())
                 return _accessToken;
 
-            foreach (var client in EnumerateClientCandidates())
+            foreach (var client in await LoadClientCandidatesAsync().ConfigureAwait(false))
             {
                 var token = await TryRefreshAsync(client, cred.RefreshToken, ct).ConfigureAwait(false);
                 if (token is null) continue;
@@ -297,39 +310,39 @@ public sealed class AntigravityUsageMonitor : IDisposable
     private bool IsCachedTokenUsable() =>
         !string.IsNullOrEmpty(_accessToken) && DateTimeOffset.UtcNow + TokenRefreshSkew < _accessExpiresAt;
 
-    /// <summary>사용자가 적어 둔 값을 먼저 쓰고, 없으면 설치된 바이너리에서 찾아낸 후보를 차례로 준다.</summary>
-    private IEnumerable<AntigravityOAuthClient> EnumerateClientCandidates()
+    /// <summary>사용자가 적어 둔 값을 먼저 쓰고, 없으면 설치된 바이너리에서 찾아낸 후보를 뒤에 붙인다.</summary>
+    private async Task<IReadOnlyList<AntigravityOAuthClient>> LoadClientCandidatesAsync()
     {
-        var configured = ReadClientConfig();
-        if (configured is not null) yield return configured;
+        var candidates = new List<AntigravityOAuthClient>();
 
-        if (_clientLookupAttempted) yield break;
+        var configured = ReadClientConfig();
+        if (configured is not null) candidates.Add(configured);
+
+        if (_clientLookupAttempted) return candidates;
         _clientLookupAttempted = true;
 
         var path = AntigravityOAuthClientLocator.FindLanguageServerPath();
-        if (path is null) yield break;
+        if (path is null) return candidates;
 
-        IReadOnlyList<AntigravityOAuthClient> candidates;
         try
         {
-            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            candidates = AntigravityOAuthClientLocator.ScanCandidates(fs);
+            // 144MB 를 순차로 훑는 작업이라 호출한 스레드에서 그대로 돌리면 안 된다.
+            // 수동 새로고침은 UI 스레드에서 시작되므로 그동안 트레이 화면이 멈춘다.
+            var scanned = await Task.Run(() =>
+            {
+                using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                return AntigravityOAuthClientLocator.ScanCandidates(fs);
+            }).ConfigureAwait(false);
+
+            // 이미 실패한 조합을 다시 시도하지 않는다.
+            candidates.AddRange(scanned.Where(c => c != configured));
         }
-        catch
+        catch (Exception ex)
         {
-            yield break;
+            System.Diagnostics.Trace.TraceWarning($"[AntigravityUsageMonitor] client lookup failed: {ex.Message}");
         }
 
-        foreach (var candidate in candidates)
-        {
-            if (configured is not null &&
-                configured.ClientId == candidate.ClientId &&
-                configured.ClientSecret == candidate.ClientSecret)
-            {
-                continue;   // 방금 실패한 조합을 다시 시도하지 않는다.
-            }
-            yield return candidate;
-        }
+        return candidates;
     }
 
     /// <summary>갱신에 성공하면 access_token, 자격 증명이 틀리면 null. 네트워크 오류는 예외로 올린다.</summary>

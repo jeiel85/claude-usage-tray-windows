@@ -333,6 +333,79 @@ public static class Loc
         _ => $"{count} session(s) today"
     };
 
+    /// <summary>
+    /// Antigravity 할당량 한 칸의 이름. 서버는 이 값을 영어로만 내려주므로 아는 버킷은 직접 번역한다.
+    /// 모르는 버킷이면 null 을 돌려주고, 화면은 서버가 준 문구를 그대로 쓴다.
+    /// </summary>
+    public static string? AntigravityBucketLabel(string bucketId, string window)
+    {
+        var group = AntigravityGroupName(bucketId);
+        var span = AntigravityWindowName(window);
+        if (group is null || span is null) return null;
+        return $"{group} · {span}";
+    }
+
+    /// <summary>버킷 식별자 앞부분이 모델 그룹을 가리킨다 (gemini-weekly, 3p-5h).</summary>
+    private static string? AntigravityGroupName(string bucketId)
+    {
+        if (bucketId.StartsWith("gemini", StringComparison.OrdinalIgnoreCase))
+        {
+            return Lang switch
+            {
+                "ko" => "Gemini 모델",
+                "zh" => "Gemini 模型",
+                "ja" => "Gemini モデル",
+                _ => "Gemini Models"
+            };
+        }
+
+        // Google 이 자사 모델과 구분해 부르는 이름(third-party) 이 3p 다.
+        if (bucketId.StartsWith("3p", StringComparison.OrdinalIgnoreCase))
+        {
+            return Lang switch
+            {
+                "ko" => "Claude · GPT 모델",
+                "zh" => "Claude 和 GPT 模型",
+                "ja" => "Claude・GPT モデル",
+                _ => "Claude and GPT models"
+            };
+        }
+
+        return null;
+    }
+
+    private static string? AntigravityWindowName(string window) => window switch
+    {
+        "weekly" => Lang switch
+        {
+            "ko" => "주간 잔여량",
+            "zh" => "每周剩余",
+            "ja" => "週間残量",
+            _ => "Weekly Limit Remaining"
+        },
+        "5h" => Lang switch
+        {
+            "ko" => "5시간 잔여량",
+            "zh" => "5 小时剩余",
+            "ja" => "5時間残量",
+            _ => "Five Hour Limit Remaining"
+        },
+        _ => null
+    };
+
+    /// <summary>사용량 행 오른쪽에 붙는 소진율 표기.</summary>
+    public static string PercentUsed(double fraction)
+    {
+        var percent = $"{fraction * 100:0}%";
+        return Lang switch
+        {
+            "ko" => $"{percent} 사용",
+            "zh" => $"已用 {percent}",
+            "ja" => $"{percent} 使用",
+            _ => $"{percent} used"
+        };
+    }
+
     public static string ResetsIn(string time) => Lang switch
     {
         "ko" => $" · {time} 후 초기화",

@@ -11,7 +11,11 @@ namespace ClaudeUsageTray.Tests.ViewModels;
 /// <summary>
 /// 화면에 올라가는 규칙(무엇을 보여주고, 트레이 게이지에 어떤 값을 쓰는지)만 검증한다.
 /// ApplyQuota 는 로컬 조회와 다른 PC 동기화가 함께 지나가는 지점이라 표시가 어긋나면 양쪽이 같이 틀어진다.
+///
+/// 언어를 바꿔 확인하는 항목이 있어 Loc 을 만지는 다른 테스트와 같은 컬렉션에 둔다.
+/// Loc.Lang 은 프로세스 전역이라 병렬로 돌면 서로의 단정을 깨뜨린다.
 /// </summary>
+[Collection("WpfTests")]
 public sealed class AntigravityApplyQuotaTests
 {
     private static readonly DateTimeOffset Reset = DateTimeOffset.UtcNow.AddHours(3);
@@ -86,6 +90,59 @@ public sealed class AntigravityApplyQuotaTests
             ], null, null);
 
             Assert.Equal(["3p-5h", "gemini-5h", "gemini-weekly"], vm.Models.Select(m => m.ModelId));
+        }
+    }
+
+    [Theory]
+    [InlineData("ko", "gemini-weekly", "weekly", "Gemini 모델 · 주간 잔여량")]
+    [InlineData("ko", "3p-5h", "5h", "Claude · GPT 모델 · 5시간 잔여량")]
+    [InlineData("ja", "gemini-5h", "5h", "Gemini モデル · 5時間残量")]
+    [InlineData("zh", "3p-weekly", "weekly", "Claude 和 GPT 模型 · 每周剩余")]
+    [InlineData("en", "gemini-weekly", "weekly", "Gemini Models · Weekly Limit Remaining")]
+    public void ResolveDisplayName_UsesAppLanguage_ForKnownBuckets(
+        string lang, string bucketId, string window, string expected)
+    {
+        var previous = Loc.CurrentLang;
+        try
+        {
+            Loc.SetLanguage(lang);
+
+            var label = AntigravityViewModel.ResolveDisplayName(new AntigravityModelQuota
+            {
+                ModelId = bucketId,
+                TokenType = window,
+                DisplayName = "Gemini Models · Weekly Limit Remaining",   // 서버가 준 영어 문구
+            });
+
+            Assert.Equal(expected, label);
+        }
+        finally
+        {
+            Loc.SetLanguage(previous);
+        }
+    }
+
+    [Fact]
+    public void ResolveDisplayName_KeepsServerText_ForUnknownBucket()
+    {
+        var previous = Loc.CurrentLang;
+        try
+        {
+            Loc.SetLanguage("ko");
+
+            // 새 그룹이나 새 창 종류가 생기면 번역이 없으므로 서버 문구를 그대로 보여준다.
+            var label = AntigravityViewModel.ResolveDisplayName(new AntigravityModelQuota
+            {
+                ModelId = "future-group-monthly",
+                TokenType = "monthly",
+                DisplayName = "Future Group · Monthly Limit",
+            });
+
+            Assert.Equal("Future Group · Monthly Limit", label);
+        }
+        finally
+        {
+            Loc.SetLanguage(previous);
         }
     }
 

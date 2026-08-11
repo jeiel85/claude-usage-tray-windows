@@ -104,9 +104,9 @@ public partial class AntigravityViewModel : ObservableObject
             rows.Add(new AntigravityModelRow
             {
                 ModelId = m.ModelId,
-                DisplayName = string.IsNullOrWhiteSpace(m.DisplayName) ? FormatModelName(m.ModelId) : m.DisplayName,
+                DisplayName = ResolveDisplayName(m),
                 UsagePercent = used,
-                UsageLabel = $"{used * 100:0}% used",
+                UsageLabel = Loc.PercentUsed(used),
                 ResetAtLabel = FormatResetLabel(m.ResetTime),
             });
         }
@@ -116,6 +116,20 @@ public partial class AntigravityViewModel : ObservableObject
         // 창마다 한도가 따로 걸리므로 평균은 가장 급한 제약을 가린다 (주간 90% + 5시간 0% → 45%).
         // 트레이 게이지에는 가장 많이 쓴 창을 올린다.
         Percent = worstUsed;
+    }
+
+    /// <summary>
+    /// 아는 버킷은 앱 언어로 부르고, 모르는 버킷만 서버가 준 영어 문구를 쓴다.
+    /// 표시 이름을 함께 보내지 않던 버전이 동기화한 값은 식별자를 다듬어 쓴다.
+    /// </summary>
+    internal static string ResolveDisplayName(AntigravityModelQuota quota)
+    {
+        var localized = Loc.AntigravityBucketLabel(quota.ModelId, quota.TokenType);
+        if (localized is not null) return localized;
+
+        return string.IsNullOrWhiteSpace(quota.DisplayName)
+            ? FormatModelName(quota.ModelId)
+            : quota.DisplayName;
     }
 
     internal static string FormatModelName(string modelId)
