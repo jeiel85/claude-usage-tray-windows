@@ -223,6 +223,76 @@ public class OpenCodeWebLoginPromptTests
         Assert.False(vm.NeedsWebLogin);
         Assert.Equal("", vm.SyncedQuotaNoticeLabel);
     }
+
+    // 재부팅 직후 네트워크가 아직 안 올라와 탐색이 실패한 상황.
+    // 세션은 이 PC 에 그대로 남아 있으므로 로그인 버튼이 아니라 재시도 안내를 보여야 한다.
+    [Fact]
+    public void UnavailableRead_WithSavedSession_ReplacesLoginButtonWithNotice()
+    {
+        var vm = CreateViewModel();
+
+        vm.ApplyWebSessionState(OpenCodeWebSessionState.Unavailable, hasSavedSession: true);
+
+        Assert.True(vm.IsWebQuotaUnavailable);
+        Assert.False(vm.ShowWebLoginButton);
+        Assert.True(vm.ShowWebQuotaUnavailableNotice);
+        Assert.True(vm.NeedsWebLogin);
+        Assert.False(string.IsNullOrWhiteSpace(vm.WebQuotaUnavailableLabel));
+    }
+
+    // 서버가 로그인 페이지로 되돌린 경우에만 세션이 실제로 풀린 것 — 이때는 버튼을 남겨야 한다.
+    [Fact]
+    public void SignedOutRead_KeepsLoginButton()
+    {
+        var vm = CreateViewModel();
+        vm.ApplyWebSessionState(OpenCodeWebSessionState.Unavailable, hasSavedSession: true);
+
+        vm.ApplyWebSessionState(OpenCodeWebSessionState.SignedOut, hasSavedSession: true);
+
+        Assert.False(vm.IsWebQuotaUnavailable);
+        Assert.True(vm.ShowWebLoginButton);
+        Assert.False(vm.ShowWebQuotaUnavailableNotice);
+    }
+
+    // 이 PC 에서 한 번도 로그인한 적이 없으면 확인 실패여도 로그인 경로를 감추면 안 된다.
+    [Fact]
+    public void UnavailableRead_WithoutSavedSession_KeepsLoginButton()
+    {
+        var vm = CreateViewModel();
+
+        vm.ApplyWebSessionState(OpenCodeWebSessionState.Unavailable, hasSavedSession: false);
+
+        Assert.False(vm.IsWebQuotaUnavailable);
+        Assert.True(vm.ShowWebLoginButton);
+    }
+
+    // 다시 읽어내면 안내는 사라지고 게이지가 돌아온다.
+    [Fact]
+    public void RecoveredRead_ClearsUnavailableNotice()
+    {
+        var vm = CreateViewModel();
+        vm.ApplyWebSessionState(OpenCodeWebSessionState.Unavailable, hasSavedSession: true);
+
+        vm.ApplySyncedWebUsage(CreateWebUsage());
+
+        Assert.False(vm.IsWebQuotaUnavailable);
+        Assert.False(vm.ShowWebQuotaUnavailableNotice);
+        Assert.False(vm.ShowWebLoginButton);
+    }
+
+    // 안내가 둘 다 걸릴 수 있는 상황에서는 더 구체적인 다른 PC 관측 안내만 보인다.
+    [Fact]
+    public void StaleSyncedNotice_TakesPrecedenceOverUnavailableNotice()
+    {
+        var vm = CreateViewModel();
+        vm.ApplyWebSessionState(OpenCodeWebSessionState.Unavailable, hasSavedSession: true);
+
+        vm.ApplyStaleSyncedQuotaNotice("DESKTOP-OTHER", DateTimeOffset.Now.AddMinutes(-70));
+
+        Assert.True(vm.HasStaleSyncedQuota);
+        Assert.False(vm.ShowWebQuotaUnavailableNotice);
+        Assert.False(vm.ShowWebLoginButton);
+    }
 }
 
 /// <summary>

@@ -1187,6 +1187,12 @@
                                    TextWrapping="Wrap" Margin="0,0,0,10"
                                    Visibility="{Binding OpenCodeVm.HasStaleSyncedQuota, Converter={StaticResource BoolToVisibility}}"/>
 
+                        <!-- 세션은 살아 있는데 이번 확인만 실패(부팅 직후 네트워크 미준비 등) — 버튼 대신 안내 -->
+                        <TextBlock x:Name="OpenCodeQuotaUnavailableNotice" Text="{Binding OpenCodeVm.WebQuotaUnavailableLabel}"
+                                   Foreground="#8B92B3" FontSize="10" FontStyle="Italic"
+                                   TextWrapping="Wrap" Margin="0,0,0,10"
+                                   Visibility="{Binding OpenCodeVm.ShowWebQuotaUnavailableNotice, Converter={StaticResource BoolToVisibility}}"/>
+
                         <!-- Usage Empty Placeholder (OpenCode) -->
                         <TextBlock Text="{Binding LblOpenCodeNoUsage}" Foreground="#5A5F7A" FontSize="10" FontStyle="Italic" Margin="0,0,0,10"
                                    Visibility="{Binding IsOpenCodeUsageEmpty, Converter={StaticResource BoolToVisibility}}"/>

@@ -122,10 +122,55 @@ public sealed class OpenCodeWebUsageServiceTests
 
             using var restarted = new OpenCodeWebUsageService(dataRoot);
             Assert.Equal(new Uri("https://opencode.ai/workspace/wrk_TEST123/go"), restarted.NavigationStartUri);
+            Assert.True(restarted.HasSavedSession);
         }
         finally
         {
             if (Directory.Exists(dataRoot)) Directory.Delete(dataRoot, true);
         }
+    }
+
+    [Fact]
+    public void HasSavedSession_IsFalseUntilAReadSucceeds()
+    {
+        var dataRoot = Path.Combine(Path.GetTempPath(), $"opencode-route-{Guid.NewGuid():N}");
+        try
+        {
+            using var service = new OpenCodeWebUsageService(dataRoot);
+            Assert.False(service.HasSavedSession);
+        }
+        finally
+        {
+            if (Directory.Exists(dataRoot)) Directory.Delete(dataRoot, true);
+        }
+    }
+
+    // 부팅 직후 네트워크 미준비처럼 확인 자체를 못 한 실패는 곧 회복되므로 짧게 쉬었다가 다시 본다.
+    // 30분을 쉬면 멀쩡한 세션에 로그인 버튼이 그만큼 붙어 있게 된다.
+    [Theory]
+    [InlineData(1, 1)]
+    [InlineData(2, 2)]
+    [InlineData(3, 4)]
+    [InlineData(4, 8)]
+    [InlineData(5, 16)]
+    [InlineData(9, 16)]
+    public void RetryDelay_ForUnavailable_BacksOffGraduallyAndStaysShorterThanSignedOut(
+        int consecutiveFailures, int expectedMinutes)
+    {
+        var delay = OpenCodeWebUsageService.RetryDelayFor(
+            ClaudeUsageTray.Models.OpenCodeWebSessionState.Unavailable, consecutiveFailures);
+
+        Assert.Equal(TimeSpan.FromMinutes(expectedMinutes), delay);
+        Assert.True(delay < OpenCodeWebUsageService.RetryDelayFor(ClaudeUsageTray.Models.OpenCodeWebSessionState.SignedOut, 1));
+    }
+
+    // 로그인이 풀린 상태는 사용자가 로그인하기 전엔 결과가 달라지지 않으므로 종전대로 길게 쉰다.
+    [Fact]
+    public void RetryDelay_ForSignedOut_StaysLong()
+    {
+        Assert.Equal(TimeSpan.FromMinutes(30),
+            OpenCodeWebUsageService.RetryDelayFor(ClaudeUsageTray.Models.OpenCodeWebSessionState.SignedOut, 1));
+        Assert.Equal(TimeSpan.FromMinutes(30),
+            OpenCodeWebUsageService.RetryDelayFor(ClaudeUsageTray.Models.OpenCodeWebSessionState.SignedOut, 9));
     }
 }
