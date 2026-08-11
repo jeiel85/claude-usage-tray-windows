@@ -21,6 +21,12 @@ public partial class AntigravityViewModel : ObservableObject
     /// <summary>마지막 조회 결과 원본 — MainViewModel 이 다중 PC 동기화에 쓴다.</summary>
     public AntigravitySnapshot LastSnapshot { get; private set; } = new();
 
+    // 화면에 올린 마지막 입력. 언어가 바뀌면 이 값으로 행을 다시 만든다
+    // (LastSnapshot 과 별개다 — 다른 PC 에서 받은 값을 표시 중일 수 있다).
+    private IReadOnlyList<AntigravityModelQuota> _appliedQuota = System.Array.Empty<AntigravityModelQuota>();
+    private string? _appliedTierName;
+    private string? _appliedPaidTierName;
+
     public AntigravityViewModel(AntigravityUsageMonitor monitor)
     {
         _monitor = monitor;
@@ -65,11 +71,7 @@ public partial class AntigravityViewModel : ObservableObject
             if (!snap.HasData)
             {
                 HasData = false;
-                bool isInformational =
-                    string.Equals(snap.ErrorMessage, "Antigravity not signed in", StringComparison.Ordinal)
-                    || string.Equals(snap.ErrorMessage, "no refresh_token in credstore", StringComparison.Ordinal)
-                    || string.Equals(snap.ErrorMessage, "Antigravity OAuth client not configured", StringComparison.Ordinal);
-                HasError = !isInformational && !string.IsNullOrEmpty(snap.ErrorMessage);
+                HasError = !snap.IsInformational && !string.IsNullOrEmpty(snap.ErrorMessage);
                 ErrorMessage = HasError ? (snap.ErrorMessage ?? "") : "";
                 Models = System.Array.Empty<AntigravityModelRow>();
                 return;
@@ -85,14 +87,17 @@ public partial class AntigravityViewModel : ObservableObject
     /// </summary>
     public void ApplyQuota(IReadOnlyList<AntigravityModelQuota> models, string? tierName, string? paidTierName)
     {
+        _appliedQuota = models;
+        _appliedTierName = tierName;
+        _appliedPaidTierName = paidTierName;
+
         HasData = true;
         HasError = false;
         ErrorMessage = "";
         TierName = tierName ?? "";
         PaidTierName = paidTierName ?? "";
 
-        double totalUsed = 0;
-        int modelCount = 0;
+        double worstUsed = 0;
         var rows = new List<AntigravityModelRow>(models.Count);
         foreach (var m in models)
         {
@@ -102,24 +107,49 @@ public partial class AntigravityViewModel : ObservableObject
                 continue;
 
             double used = Math.Clamp(1.0 - m.RemainingFraction, 0.0, 1.0);
-            totalUsed += used;
-            modelCount++;
+            if (used > worstUsed) worstUsed = used;
 
-            if (used <= 0) continue;
-
+            // 아직 쓰지 않은 창도 남겨 둔다. Antigravity 화면과 같은 네 칸(그룹 × 주간·5시간)이
+            // 항상 보여야 지금 무엇이 얼마나 남았는지 읽을 수 있다.
             rows.Add(new AntigravityModelRow
             {
                 ModelId = m.ModelId,
-                DisplayName = FormatModelName(m.ModelId),
+                DisplayName = ResolveDisplayName(m),
                 UsagePercent = used,
-                UsageLabel = $"{used * 100:0}% used",
+                UsageLabel = Loc.PercentUsed(used),
                 ResetAtLabel = FormatResetLabel(m.ResetTime),
             });
         }
         rows.Sort((a, b) => b.UsagePercent.CompareTo(a.UsagePercent));
         Models = rows;
 
-        Percent = modelCount > 0 ? totalUsed / modelCount : 0.0;
+        // 창마다 한도가 따로 걸리므로 평균은 가장 급한 제약을 가린다 (주간 90% + 5시간 0% → 45%).
+        // 트레이 게이지에는 가장 많이 쓴 창을 올린다.
+        Percent = worstUsed;
+    }
+
+    /// <summary>
+    /// 언어를 바꿨을 때 이미 만들어 둔 행을 다시 만든다.
+    /// 행의 문구는 만들 때 한 번 정해지므로, 다시 만들지 않으면 다음 조회까지 이전 언어로 남는다.
+    /// </summary>
+    public void RefreshLocalizedLabels()
+    {
+        if (!HasData || _appliedQuota.Count == 0) return;
+        ApplyQuota(_appliedQuota, _appliedTierName, _appliedPaidTierName);
+    }
+
+    /// <summary>
+    /// 아는 버킷은 앱 언어로 부르고, 모르는 버킷만 서버가 준 영어 문구를 쓴다.
+    /// 표시 이름을 함께 보내지 않던 버전이 동기화한 값은 식별자를 다듬어 쓴다.
+    /// </summary>
+    internal static string ResolveDisplayName(AntigravityModelQuota quota)
+    {
+        var localized = Loc.AntigravityBucketLabel(quota.ModelId, quota.TokenType);
+        if (localized is not null) return localized;
+
+        return string.IsNullOrWhiteSpace(quota.DisplayName)
+            ? FormatModelName(quota.ModelId)
+            : quota.DisplayName;
     }
 
     internal static string FormatModelName(string modelId)

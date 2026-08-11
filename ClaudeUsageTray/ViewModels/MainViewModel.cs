@@ -2755,6 +2755,9 @@ namespace ClaudeUsageTray.ViewModels;
         System.Windows.Application.Current?.Dispatcher.Invoke(() =>
         {
             OpenCodeVm.RefreshLocalizedLabels();
+            AntigravityVm.RefreshLocalizedLabels();
+            // 행 객체가 새로 만들어지므로 미러 프로퍼티도 다시 가리켜야 화면이 바뀐다.
+            AntigravityModels = AntigravityVm.Models;
             OnPropertyChanged(string.Empty);
         });
     }
@@ -2854,6 +2857,8 @@ namespace ClaudeUsageTray.ViewModels;
                 ModelId = model.ModelId,
                 RemainingFraction = model.RemainingFraction,
                 ResetAt = model.ResetTime,
+                DisplayName = model.DisplayName,
+                Window = model.TokenType,
             })],
         };
     }
@@ -2864,6 +2869,8 @@ namespace ClaudeUsageTray.ViewModels;
             ModelId = model.ModelId,
             RemainingFraction = model.RemainingFraction,
             ResetTime = model.ResetAt,
+            DisplayName = model.DisplayName,
+            TokenType = model.Window,
         })];
 }
 

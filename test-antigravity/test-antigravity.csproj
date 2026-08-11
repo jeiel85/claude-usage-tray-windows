@@ -9,7 +9,9 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Only compile the bits the monitor needs — avoid pulling WPF/WindowsForms from the main proj. -->
-    <Compile Include="..\ClaudeUsageTray\Services\AntigravityUsageMonitor.cs" Link="AntigravityUsageMonitor.cs" />
-    <Compile Include="..\ClaudeUsageTray\Models\AntigravityUsage.cs"          Link="AntigravityUsage.cs" />
+    <Compile Include="..\ClaudeUsageTray\Services\AntigravityUsageMonitor.cs"         Link="AntigravityUsageMonitor.cs" />
+    <Compile Include="..\ClaudeUsageTray\Services\AntigravityOAuthClientLocator.cs"   Link="AntigravityOAuthClientLocator.cs" />
+    <Compile Include="..\ClaudeUsageTray\Services\AppConstants.cs"                    Link="AppConstants.cs" />
+    <Compile Include="..\ClaudeUsageTray\Models\AntigravityUsage.cs"                  Link="AntigravityUsage.cs" />
   </ItemGroup>
 </Project>

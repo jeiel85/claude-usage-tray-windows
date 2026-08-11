@@ -69,6 +69,12 @@ public sealed class UsageSyncModelQuota
     public string ModelId { get; set; } = "";
     public double RemainingFraction { get; set; }
     public DateTimeOffset? ResetAt { get; set; }
+
+    /// <summary>서버가 내려준 표시 이름. 이 필드가 없던 버전이 올린 스냅샷에서는 비어 있다.</summary>
+    public string DisplayName { get; set; } = "";
+
+    /// <summary>창 종류("weekly", "5h"). 받는 쪽에서 이름을 자기 언어로 부르는 데 쓴다.</summary>
+    public string Window { get; set; } = "";
 }
 
 public sealed class UsageSyncOpenCodeQuota

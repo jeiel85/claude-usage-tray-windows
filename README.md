@@ -40,6 +40,7 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode A
 - **변경 이력**: [CHANGELOG.md](CHANGELOG.md)
 
 ## 이슈
+- `버그` Antigravity 게이지가 수동 설정 없이는 뜨지 않고, 뜨더라도 앱 화면과 다른 값을 보여줌 (2026-08-11): 조회 첫 단계에서 사용자가 직접 만들어야 하는 OAuth client 파일을 요구해, 그 파일이 없는 대부분의 PC 에서 섹션이 조용히 사라졌다(파일을 만들려면 실행 중인 `language_server.exe` 의 400MB 메모리 덤프가 필요했다). 자격 증명 관리자에는 refresh token 뿐 아니라 **유효한 access token 도 함께** 저장돼 있어 이 단계 자체가 불필요했다. 저장된 토큰을 먼저 쓰고, 만료됐을 때만 설치된 바이너리에서 client 값을 찾아 갱신하도록 바꿔 사전 설정을 없앴다. 또한 호출 대상을 `retrieveUserQuota` 에서 `retrieveUserQuotaSummary` 로 바꿔 Antigravity 앱의 `Models & Usage` 화면과 같은 게이지(그룹별 주간·5시간)를 표시하고, 아직 쓰지 않은 창도 숨기지 않는다. 트레이 대표값은 평균 대신 가장 소진된 창을 쓴다. #137
 - `버그` PC 재부팅 뒤 OpenCode 로그인이 풀린 것처럼 보임 (2026-08-11): 부팅 직후 네트워크가 준비되기 전의 탐색 실패를 로그아웃과 구분하지 않아, 세션이 멀쩡한데도 `OpenCode 로그인` 버튼이 뜨고 30분 동안 재시도하지 않았다. 서버가 로그인 페이지로 되돌린 경우에만 로그인 해제로 판정하고, 확인 자체를 못 한 경우에는 버튼 대신 재시도 안내를 표시하며 1분부터 시작하는 짧은 간격으로 다시 확인한다. 조용히 넘어가던 탐색 실패의 이유도 기록한다. #130
 - `개선` 동기화 값만 쓰는 PC에서 할당량 시효가 지나면 로그인 버튼이 떠 로그인이 풀린 것처럼 보임 (2026-08-10): 다른 PC가 관측한 OpenCode 공식 할당량이 최대 40분의 유효시간을 넘기면 게이지가 사라지고 `OpenCode 로그인` 버튼이 노출돼, 로그인한 적도 없는 PC에서 동기화가 끊긴 것으로 오해했다. 오늘 다른 PC의 관측 이력이 있으면 버튼 대신 마지막 관측 시각과 기기명을 안내하고, 관측 이력이 없을 때만 로그인 버튼을 남긴다. #134
 - `버그` 다른 PC에서만 쓰는 공급자 섹션이 표시되지 않음 (2026-08-10): 동기화 합계를 화면 값으로 쓸지 판단할 때 "사용량이 있는 기기"가 2대 이상일 것을 요구해, 이 PC에서 한 번도 쓰지 않은 공급자(예: OpenCode)는 기기 수가 1이 되어 다른 PC의 합계가 통째로 버려졌다. `데이터 없는 공급자 자동 숨김`과 맞물려 섹션 자체가 사라졌다. 합계에 데이터가 있으면 기기 수와 무관하게 반영한다. #133
@@ -143,23 +144,14 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode A
 - **Go 할당량**: 앱 전용 로그인 창으로 연결하면 공식 콘솔의 롤링/주간/월간 사용률과 초기화 시각을 표시합니다. 기존 브라우저 로그인 정보는 읽지 않습니다.
 
 ### 5. Antigravity (Google Gemini Code Assist IDE) — v1.31.0+
-- **인증**: Windows Credential Manager 의 `gemini:antigravity` 항목(Antigravity 가 로그인 후 자동 저장하는 OAuth refresh token)을 재사용.
-- **할당량**: `daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota` 를 1시간 주기로 호출하여 모델별 잔여 비율 + 다음 리셋 시각을 받음.
-- **표시**: Gemini 2.5/3.x 계열, Claude Sonnet/Opus 4.6 (Thinking), GPT-OSS 120B 등 사용자 plan 에 포함된 모델 전부 progress bar 로 렌더.
-- **사전 설정 필요**: 비공식 API 라 OAuth client 자격 증명을 사용자가 직접 추출해 다음 경로에 두어야 합니다 — 파일이 없으면 섹션이 자동으로 숨겨집니다.
-
-  ```
-  %APPDATA%\ClaudeUsageTray\antigravity-oauth-client.json
-  ```
-
-  ```json
-  {
-    "client_id": "<Antigravity's OAuth client ID>",
-    "client_secret": "<Antigravity's OAuth client secret>"
-  }
-  ```
-
-  값 추출 방법은 [docs/antigravity-setup.md](docs/antigravity-setup.md) 참고. Antigravity 2.0 마이너 업데이트로 값이 바뀌면 파일을 다시 채워야 합니다.
+- **인증**: Windows 자격 증명 관리자의 `gemini:antigravity` 항목을 재사용합니다. Antigravity 에 로그인해 두었다면 **따로 설정할 것이 없습니다.**
+  - 저장된 access token 이 살아 있으면 그대로 씁니다.
+  - 만료되었으면 refresh token 으로 갱신하며, 이때 필요한 OAuth client 값은 설치된 `language_server.exe` 에서 자동으로 찾습니다(약 2초, 한 번 성공하면 저장해 두고 재사용).
+- **할당량**: `daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary` 를 호출해 Antigravity 앱의 `Models & Usage` 화면과 **같은 게이지**를 받습니다 — `Gemini Models` 와 `Claude and GPT models` 각각의 주간·5시간 잔여량 + 다음 초기화 시각.
+- **표시**: 네 칸(그룹 × 주간·5시간)을 progress bar 로 렌더하고, 트레이 게이지에는 그중 **가장 많이 소진된 창**을 올립니다. 창마다 한도가 따로 걸리므로 평균을 쓰면 급한 제약이 가려집니다.
+- **Antigravity 를 실행하지 않아도 조회됩니다.** 앱의 로컬 서버가 아니라 Google 백엔드를 직접 호출하기 때문입니다.
+- 로그인하지 않았거나 세션이 만료되어 갱신에 실패하면 오류를 띄우지 않고 섹션만 숨깁니다. Antigravity 를 한 번 실행하면 다시 표시됩니다.
+- 비공식 API 라 클라이언트 업데이트로 규칙이 바뀔 수 있습니다. 자동 탐색이 실패하는 경우의 수동 지정 방법은 [docs/antigravity-setup.md](docs/antigravity-setup.md) 를 참고하세요.
 
 ---
 
