@@ -140,6 +140,8 @@ namespace ClaudeUsageTray.ViewModels;
     // 상세 하단 안내 + 출처 — Codex 상세의 같은 자리(왼쪽 안내 / 오른쪽 출처)와 같은 구성.
     [ObservableProperty] private string _antigravityNote = Loc.ProviderAntigravityNote;
     [ObservableProperty] private string _antigravityDataSource = "";
+    // 출처 문구는 언어가 바뀌면 다시 만들어야 하므로 완성된 문장 대신 재료(기기·관측 시각)를 들고 있는다.
+    private (string Device, DateTimeOffset ObservedAt)? _antigravityQuotaOrigin;
 
     /// <summary>플랜 배지 문구 — Codex 의 플랜 라벨과 같은 자리에 쓴다. 요금제 이름이 없으면 tier 이름으로 대신한다.</summary>
     public string AntigravityPlanLabel =>
@@ -2768,8 +2770,9 @@ namespace ClaudeUsageTray.ViewModels;
             AntigravityVm.RefreshLocalizedLabels();
             // 행 객체가 새로 만들어지므로 미러 프로퍼티도 다시 가리켜야 화면이 바뀐다.
             AntigravityModels = AntigravityVm.Models;
-            // 안내 문구는 값이 필드에 담겨 있어 다시 넣어야 바뀐다(다음 조회까지 기다리지 않도록).
+            // 안내·출처 문구는 값이 필드에 담겨 있어 다시 만들어야 바뀐다(다음 조회까지 기다리지 않도록).
             AntigravityNote = Loc.ProviderAntigravityNote;
+            RefreshAntigravityDataSourceLabel();
             OnPropertyChanged(string.Empty);
         });
     }
@@ -2796,7 +2799,7 @@ namespace ClaudeUsageTray.ViewModels;
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
             AntigravityNote = Loc.ProviderAntigravityNote;
-            AntigravityDataSource = "";
+            _antigravityQuotaOrigin = null;
 
             // 이 PC 에서 Antigravity 에 로그인하지 않았거나 조회가 실패하면 다른 PC 가 올린 값으로 채운다.
             // 할당량은 구글 계정 단위라 어느 PC 에서 받아도 같은 값이다.
@@ -2808,10 +2811,11 @@ namespace ClaudeUsageTray.ViewModels;
                     snapshot.Quota.PaidTierName);
 
                 // 다른 PC 의 값을 보고 있다는 것은 Codex 와 같은 자리(오른쪽 출처)에 적는다.
-                AntigravityDataSource = Loc.UsageSyncQuotaFromDevice(
+                _antigravityQuotaOrigin = (
                     snapshot.DeviceName,
-                    (snapshot.Quota.ObservedAtUtc ?? snapshot.ObservedAtUtc).ToLocalTime().ToString("HH:mm"));
+                    snapshot.Quota.ObservedAtUtc ?? snapshot.ObservedAtUtc);
             }
+            RefreshAntigravityDataSourceLabel();
 
             AntigravityHasData = AntigravityVm.HasData;
             AntigravityHasError = AntigravityVm.HasError;
@@ -2861,6 +2865,15 @@ namespace ClaudeUsageTray.ViewModels;
             return null;
         }
     }
+
+    /// <summary>
+    /// 출처 문구를 현재 언어로 만든다. 다른 PC 값을 보고 있지 않으면 빈 문자열 —
+    /// 로컬 조회 결과에는 "어디서 왔는지" 적을 것이 없다.
+    /// </summary>
+    private void RefreshAntigravityDataSourceLabel() =>
+        AntigravityDataSource = _antigravityQuotaOrigin is { } origin
+            ? Loc.UsageSyncQuotaFromDevice(origin.Device, origin.ObservedAt.ToLocalTime().ToString("HH:mm"))
+            : "";
 
     private static UsageSyncQuotaSnapshot? CreateAntigravityQuotaSnapshot(AntigravitySnapshot snapshot)
     {
