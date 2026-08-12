@@ -137,6 +137,9 @@ namespace ClaudeUsageTray.ViewModels;
         System.Array.Empty<AntigravityModelRow>();
     [ObservableProperty] private bool _isAntigravityEnabled = true;
     [ObservableProperty] private double _antigravityPercent = 0.0;
+    // 상세 하단 안내 + 출처 — Codex 상세의 같은 자리(왼쪽 안내 / 오른쪽 출처)와 같은 구성.
+    [ObservableProperty] private string _antigravityNote = Loc.ProviderAntigravityNote;
+    [ObservableProperty] private string _antigravityDataSource = "";
 
     /// <summary>플랜 배지 문구 — Codex 의 플랜 라벨과 같은 자리에 쓴다. 요금제 이름이 없으면 tier 이름으로 대신한다.</summary>
     public string AntigravityPlanLabel =>
@@ -2603,10 +2606,9 @@ namespace ClaudeUsageTray.ViewModels;
             IsPaceSettled(longTime, _rawCodexLongWindow, _rawCodexLongWindow / 60));
     }
 
-    // 경과 시간이 최소 기준 이상이어야 페이스(초과색/빠름·여유)를 신뢰할 수 있다고 본다.
-    // 진행률을 모르면(창 밖) 페이스도 판정하지 않는다.
+    // 페이스 판정 기준은 Antigravity 행(AntigravityModelRow)도 같이 쓰므로 UsageCalculator 에 둔다.
     private static bool IsPaceSettled(double? timeProgress, TimeSpan window, TimeSpan minElapsed)
-        => timeProgress is double progress && progress * window.TotalSeconds >= minElapsed.TotalSeconds;
+        => UsageCalculator.IsPaceSettled(timeProgress, window, minElapsed);
 
     /// <summary>
     /// ShowAbsoluteResetTime 토글 시 4개 reset 라벨을 raw 값에서 즉시 재포맷.
@@ -2766,6 +2768,8 @@ namespace ClaudeUsageTray.ViewModels;
             AntigravityVm.RefreshLocalizedLabels();
             // 행 객체가 새로 만들어지므로 미러 프로퍼티도 다시 가리켜야 화면이 바뀐다.
             AntigravityModels = AntigravityVm.Models;
+            // 안내 문구는 값이 필드에 담겨 있어 다시 넣어야 바뀐다(다음 조회까지 기다리지 않도록).
+            AntigravityNote = Loc.ProviderAntigravityNote;
             OnPropertyChanged(string.Empty);
         });
     }
@@ -2791,6 +2795,9 @@ namespace ClaudeUsageTray.ViewModels;
 
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
+            AntigravityNote = Loc.ProviderAntigravityNote;
+            AntigravityDataSource = "";
+
             // 이 PC 에서 Antigravity 에 로그인하지 않았거나 조회가 실패하면 다른 PC 가 올린 값으로 채운다.
             // 할당량은 구글 계정 단위라 어느 PC 에서 받아도 같은 값이다.
             if (!AntigravityVm.HasData && remoteQuota is { Quota.HasData: true } snapshot)
@@ -2799,6 +2806,11 @@ namespace ClaudeUsageTray.ViewModels;
                     ToAntigravityModelQuotas(snapshot.Quota!.Models),
                     snapshot.Quota.TierName,
                     snapshot.Quota.PaidTierName);
+
+                // 다른 PC 의 값을 보고 있다는 것은 Codex 와 같은 자리(오른쪽 출처)에 적는다.
+                AntigravityDataSource = Loc.UsageSyncQuotaFromDevice(
+                    snapshot.DeviceName,
+                    (snapshot.Quota.ObservedAtUtc ?? snapshot.ObservedAtUtc).ToLocalTime().ToString("HH:mm"));
             }
 
             AntigravityHasData = AntigravityVm.HasData;

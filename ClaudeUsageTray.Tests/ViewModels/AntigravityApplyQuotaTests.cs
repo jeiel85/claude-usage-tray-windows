@@ -21,13 +21,14 @@ public sealed class AntigravityApplyQuotaTests
     private static readonly DateTimeOffset Reset = DateTimeOffset.UtcNow.AddHours(3);
 
     private static AntigravityModelQuota Bucket(string id, double remaining, string displayName = "",
-                                                DateTimeOffset? reset = null) =>
+                                                DateTimeOffset? reset = null, string window = "") =>
         new()
         {
             ModelId = id,
             RemainingFraction = remaining,
             DisplayName = displayName,
             ResetTime = reset ?? Reset,
+            TokenType = window,
         };
 
     private static AntigravityViewModel CreateVm(out AntigravityUsageMonitor monitor)
@@ -77,19 +78,66 @@ public sealed class AntigravityApplyQuotaTests
     }
 
     [Fact]
-    public void ApplyQuota_SortsMostConsumedFirst()
+    public void ApplyQuota_OrdersShortWindowFirst_LikeClaudeAndCodex()
     {
         var vm = CreateVm(out var monitor);
         using (monitor)
         {
+            // 사용량 순으로 세우면 새로고침마다 자리가 바뀐다. 다른 provider 처럼 창 길이 순으로 고정한다.
             vm.ApplyQuota(
             [
-                Bucket("gemini-weekly", 0.80),   // 20% 사용
-                Bucket("3p-5h",         0.10),   // 90% 사용
-                Bucket("gemini-5h",     0.50),   // 50% 사용
+                Bucket("gemini-weekly", 0.80, window: "weekly"),   // 20% 사용
+                Bucket("3p-5h",         0.10, window: "5h"),       // 90% 사용
+                Bucket("gemini-5h",     0.50, window: "5h"),       // 50% 사용
+                Bucket("3p-weekly",     0.30, window: "weekly"),   // 70% 사용
             ], null, null);
 
-            Assert.Equal(["3p-5h", "gemini-5h", "gemini-weekly"], vm.Models.Select(m => m.ModelId));
+            // 그룹은 서버가 준 순서(gemini → 3p)를 지키고, 그 안에서 5시간 → 주간.
+            Assert.Equal(
+                ["gemini-5h", "gemini-weekly", "3p-5h", "3p-weekly"],
+                vm.Models.Select(m => m.ModelId));
+        }
+    }
+
+    [Fact]
+    public void ApplyQuota_PutsUnknownWindowLast_WithoutDroppingIt()
+    {
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            // 새 창 종류는 길이를 몰라 시간선을 못 그린다 — 자리를 지어내지 않고 그룹 맨 뒤로 보낸다.
+            vm.ApplyQuota(
+            [
+                Bucket("gemini-monthly", 0.50, window: "monthly"),
+                Bucket("gemini-weekly",  0.50, window: "weekly"),
+                Bucket("gemini-5h",      0.50, window: "5h"),
+            ], null, null);
+
+            Assert.Equal(
+                ["gemini-5h", "gemini-weekly", "gemini-monthly"],
+                vm.Models.Select(m => m.ModelId));
+        }
+    }
+
+    [Fact]
+    public void ApplyQuota_WritesSummaryLine_LikeClaudeAndCodexGauges()
+    {
+        var previous = Loc.CurrentLang;
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            try
+            {
+                Loc.SetLanguage("ko");
+                vm.ApplyQuota([Bucket("gemini-5h", 0.25, window: "5h")], null, null);
+
+                // 게이지 아래 한 줄은 다른 provider 와 같은 문구 형식이어야 한다.
+                Assert.Equal(Loc.UsageSummary(0.75), vm.Models[0].Summary);
+            }
+            finally
+            {
+                Loc.SetLanguage(previous);
+            }
         }
     }
 
@@ -341,11 +389,37 @@ public sealed class AntigravityApplyQuotaTests
         var vm = CreateVm(out var monitor);
         using (monitor)
         {
-            vm.ApplyQuota([Bucket("3p-5h", 0.5)], null, null);
+            vm.ApplyQuota([Bucket("3p-5h", 0.5, window: "5h")], null, null);
 
-            // 이름이 긴 행이라 한 줄 라벨에는 남은 시간만 적고, 절대 시각은 툴팁으로 뺀다.
+            // 행 이름이 "그룹 · 창"이라 한 줄 라벨에 절대 시각까지 넣으면 이름이 잘린다 — 툴팁으로 뺀다.
             Assert.DoesNotContain("(", vm.Models[0].ResetAtLabel);
-            Assert.Contains("(", vm.Models[0].ResetTooltip);
+            Assert.Contains("(", vm.Models[0].PaceTip);
+        }
+    }
+
+    [Fact]
+    public void ApplyQuota_WritesPaceTip_ForTheGaugeTooltip()
+    {
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            var now = DateTimeOffset.Now;
+            vm.ApplyQuota(
+            [
+                new AntigravityModelQuota
+                {
+                    ModelId = "3p-5h", TokenType = "5h",
+                    RemainingFraction = 0.4, ResetTime = now.AddHours(2.5),
+                },
+            ], null, null);
+
+            vm.UpdateTimeProgress(now);
+
+            // 툴팁 첫 줄은 Claude·Codex 와 같은 페이스 문구다 (시간 50% 경과 · 사용 60%).
+            var lines = vm.Models[0].PaceTip.Split('\n');
+            Assert.Equal(Loc.PaceTip(0.5, 0.6, settled: true), lines[0]);
+            // 둘째 줄에 절대 시각이 남는다.
+            Assert.Contains("(", lines[1]);
         }
     }
 

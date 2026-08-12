@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.39.2] - 2026-08-12
+
+<!-- ko -->
+### 변경
+- **Antigravity 게이지가 5시간 → 주간 순으로 고정됩니다** — 사용량이 많은 순으로 세우고 있어서 새로고침할 때마다 네 칸의 자리가 뒤바뀌었고, 5시간·주간이 섞여 나와 Claude·Codex 와 읽는 방식이 달랐습니다. 이제 모델 그룹별로 묶고 그 안에서 짧은 창이 위로 갑니다.
+- **게이지 아래에 `45% 사용 · 잔량 55%` 요약이 추가됐습니다** — Claude·Codex 게이지에만 있던 한 줄입니다.
+- **게이지 툴팁이 페이스 문구로 통일됐습니다** — `시간 50% 경과 · 사용 45% · 5%p 여유` 처럼 Claude·Codex 와 같은 내용을 보여주고, 리셋 절대 시각은 그 아래 줄에 남습니다.
+- **상세 맨 아래에 데이터 출처 안내가 생겼습니다** — 다른 에이전트와 같은 자리입니다. 다른 PC 가 올린 값을 보고 있을 때는 오른쪽에 그 PC 와 관측 시각을 적습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Changed
+- **Antigravity gauges are pinned to 5-hour → weekly order** — They were sorted by usage, so the four rows swapped places on every refresh and the 5-hour and weekly windows came out interleaved, unlike Claude and Codex. Rows are now grouped by model group, shortest window first.
+- **Each gauge carries a `45% used · 55% remaining` summary line** — the single line that previously existed only on the Claude and Codex gauges.
+- **Gauge tooltips now show the same pace text as the other agents** — `Time 50% · Used 45% · 5pp behind`, with the absolute reset stamp on the line below.
+- **The detail ends with a data-source note** — same position as the other agents. When another PC's snapshot is on screen, that device and observation time are shown on the right.
+<!-- /en -->
+
 ## [1.39.1] - 2026-08-12
 
 <!-- ko -->
