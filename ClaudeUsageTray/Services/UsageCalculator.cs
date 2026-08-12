@@ -96,6 +96,14 @@ public static class UsageCalculator
     }
 
     /// <summary>
+    /// 경과 시간이 최소 기준 이상이어야 페이스(빠름/여유 판정, 초과색)를 신뢰할 수 있다고 본다.
+    /// 창 초반 1~2분 사용이 "거의 전부 초과"로 과장돼 보이는 것을 막는다.
+    /// 진행률을 모르면(창 밖) 페이스도 판정하지 않는다.
+    /// </summary>
+    public static bool IsPaceSettled(double? timeProgress, TimeSpan window, TimeSpan minElapsed)
+        => timeProgress is double progress && progress * window.TotalSeconds >= minElapsed.TotalSeconds;
+
+    /// <summary>
     /// 응답의 window_minutes 를 창 길이로 변환한다. 길이를 모르면 <paramref name="fallback"/>.
     /// Codex 는 플랜/계정에 따라 창이 5시간이 아니라 주간일 수 있어, 길이를 하드코딩하면
     /// 시간 진행률이 음수로 나와 0 으로 잘리고(=시간선이 왼쪽 끝에 붙어 안 보임) 만다.

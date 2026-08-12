@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using ClaudeUsageTray.Models;
 using ClaudeUsageTray.Services;
@@ -117,14 +118,14 @@ public partial class AntigravityViewModel : ObservableObject
                 ModelId = m.ModelId,
                 DisplayName = ResolveDisplayName(m),
                 UsagePercent = used,
+                Summary = Loc.UsageSummary(used),
                 ResetAt = m.ResetTime,
                 Window = ResolveWindowLength(m),
             };
             row.UpdateTimeProgress(now);
             rows.Add(row);
         }
-        rows.Sort((a, b) => b.UsagePercent.CompareTo(a.UsagePercent));
-        Models = rows;
+        Models = SortLikeOtherProviders(rows, models);
 
         // 창마다 한도가 따로 걸리므로 평균은 가장 급한 제약을 가린다 (주간 90% + 5시간 0% → 45%).
         // 트레이 게이지에는 가장 많이 쓴 창을 올린다.
@@ -139,6 +140,37 @@ public partial class AntigravityViewModel : ObservableObject
     {
         foreach (var row in Models)
             row.UpdateTimeProgress(now);
+    }
+
+    /// <summary>
+    /// 게이지 순서를 Claude·Codex 와 맞춘다 — 짧은 창(5시간)이 위, 긴 창(주간)이 아래.
+    /// 사용량 내림차순으로 세우면 새로고침마다 순서가 뒤바뀌어 같은 자리를 눈으로 좇을 수 없고,
+    /// 다른 provider 는 창 길이 순으로 고정돼 있어 같은 화면에서 읽는 방식이 달라진다.
+    ///
+    /// 그룹(Gemini · Claude·GPT)끼리는 서버가 준 순서를 지켜 같은 그룹의 두 창이 붙어 보이게 한다.
+    /// 창 길이를 모르는 행(새 창 종류)은 맨 뒤로 — 자리를 지어내지 않는다.
+    /// </summary>
+    private static IReadOnlyList<AntigravityModelRow> SortLikeOtherProviders(
+        List<AntigravityModelRow> rows, IReadOnlyList<AntigravityModelQuota> source)
+    {
+        var groupOrder = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var quota in source)
+        {
+            var key = GroupKey(quota.ModelId);
+            if (!groupOrder.ContainsKey(key))
+                groupOrder[key] = groupOrder.Count;
+        }
+
+        return [.. rows
+            .OrderBy(r => groupOrder.TryGetValue(GroupKey(r.ModelId), out var i) ? i : int.MaxValue)
+            .ThenBy(r => r.Window ?? TimeSpan.MaxValue)];
+    }
+
+    /// <summary>버킷 식별자에서 창 종류를 뗀 앞부분이 모델 그룹이다 ("gemini-weekly" → "gemini").</summary>
+    private static string GroupKey(string modelId)
+    {
+        var dash = modelId.LastIndexOf('-');
+        return dash > 0 ? modelId[..dash] : modelId;
     }
 
     /// <summary>
@@ -220,17 +252,23 @@ public sealed partial class AntigravityModelRow : ObservableObject
     public double UsagePercent { get; init; }        // 0..1
     public DateTimeOffset? ResetAt { get; init; }
 
+    /// <summary>게이지 아래 한 줄 요약 ("70% 사용 · 잔량 30%") — Claude·Codex 게이지와 같은 자리.</summary>
+    public string Summary { get; init; } = "";
+
     /// <summary>창 길이. 모르면 null — 시간선 마커를 그리지 않는다.</summary>
     public TimeSpan? Window { get; init; }
 
     [ObservableProperty] private string _resetAtLabel = "";
 
     /// <summary>
-    /// 게이지 툴팁 — 절대 시각까지 적는다.
-    /// 이름이 긴 행이라(그룹 × 창) 한 줄 라벨에 절대 시각까지 넣으면 이름이 잘린다.
-    /// 다른 provider 의 설정(ShowAbsoluteResetTime)과 달리 여기서는 툴팁 자리를 쓴다.
+    /// 게이지 툴팁 — 첫 줄은 Claude·Codex 게이지 툴팁과 같은 페이스 문구,
+    /// 둘째 줄은 리셋 절대 시각이다.
+    ///
+    /// 절대 시각을 다른 provider 처럼 한 줄 라벨에 붙이지 않는 이유: 이 행의 이름은 "그룹 · 창"이라
+    /// 320px 팝업에서 절대 시각까지 넣으면 이름이 "Gemini 모..." 로 잘려 어느 창인지 구분되지 않는다.
+    /// (다른 provider 의 행 이름은 "주간 윈도우" 한 덩어리라 같은 문제가 없다.)
     /// </summary>
-    [ObservableProperty] private string _resetTooltip = "";
+    [ObservableProperty] private string _paceTip = "";
 
     [ObservableProperty] private bool _hasTimeline = false;
     [ObservableProperty] private double _timePercent = 0.0;
@@ -238,9 +276,15 @@ public sealed partial class AntigravityModelRow : ObservableObject
     internal void UpdateTimeProgress(DateTimeOffset now)
     {
         ResetAtLabel = UsageCalculator.FormatResetLabel(ResetAt, false, false, now);
-        ResetTooltip = UsageCalculator.FormatResetLabel(ResetAt, false, true, now);
-        var progress = UsageCalculator.TimeProgress(ResetAt, Window ?? TimeSpan.Zero, now);
+
+        var window = Window ?? TimeSpan.Zero;
+        var progress = UsageCalculator.TimeProgress(ResetAt, window, now);
         HasTimeline = progress.HasValue;
         TimePercent = progress ?? 0;
+        // 창 초반에는 페이스 판정을 유보한다 — 하한은 Codex 와 같은 창 길이의 1/60(5시간→5분, 주간→2.8시간).
+        var pace = Loc.PaceTip(progress, UsagePercent,
+            UsageCalculator.IsPaceSettled(progress, window, window / 60));
+        var absolute = UsageCalculator.FormatResetLabel(ResetAt, false, true, now);
+        PaceTip = string.IsNullOrEmpty(absolute) ? pace : $"{pace}\n{absolute.TrimStart(' ', '·')}";
     }
 }

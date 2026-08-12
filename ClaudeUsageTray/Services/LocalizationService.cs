@@ -99,6 +99,15 @@ public static class Loc
         _ => "Based on ChatGPT plan · local Codex session data"
     };
 
+    /// <summary>Antigravity 상세 하단 안내 — Codex·OpenCode 의 같은 자리 문구와 같은 톤.</summary>
+    public static string ProviderAntigravityNote => Lang switch
+    {
+        "ko" => "Google 계정 할당량 기준 · Antigravity 공식 수치",
+        "zh" => "基于 Google 账号配额 · Antigravity 官方数据",
+        "ja" => "Google アカウントの割当基準 · Antigravity 公式数値",
+        _ => "Based on the Google account quota · official Antigravity figures"
+    };
+
     public static string ProviderGeminiCliNote => Lang switch
     {
         "ko" => "Gemini CLI 로컬 기준 · 공식 수치 아님",

@@ -240,6 +240,17 @@ public class MainViewModelIntegrationTests
                 Assert.Equal(2, markers.Count);
                 Assert.Equal(1, markers.Count(m => m.Visibility == System.Windows.Visibility.Visible));
                 Assert.Equal(1, markers.Count(m => m.Visibility == System.Windows.Visibility.Collapsed));
+
+                // 게이지 아래 요약 한 줄 — Claude·Codex 게이지와 같은 자리·같은 문구.
+                var texts = FindChildren<System.Windows.Controls.TextBlock>(list)
+                    .Select(t => t.Text)
+                    .ToList();
+                Assert.Contains(Loc.UsageSummary(0.6), texts);
+                Assert.Contains(Loc.UsageSummary(0.9), texts);
+
+                // 하단 안내·출처도 다른 provider 상세와 같은 자리에 있다.
+                var note = Assert.IsType<System.Windows.Controls.TextBlock>(popup.FindName("AntigravityNoteText"));
+                Assert.Equal(Loc.ProviderAntigravityNote, note.Text);
             }
             finally
             {
