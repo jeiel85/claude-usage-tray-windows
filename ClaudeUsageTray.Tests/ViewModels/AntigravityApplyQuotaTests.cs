@@ -94,11 +94,11 @@ public sealed class AntigravityApplyQuotaTests
     }
 
     [Theory]
-    [InlineData("ko", "gemini-weekly", "weekly", "Gemini 모델 · 주간 잔여량")]
-    [InlineData("ko", "3p-5h", "5h", "Claude · GPT 모델 · 5시간 잔여량")]
-    [InlineData("ja", "gemini-5h", "5h", "Gemini モデル · 5時間残量")]
-    [InlineData("zh", "3p-weekly", "weekly", "Claude 和 GPT 模型 · 每周剩余")]
-    [InlineData("en", "gemini-weekly", "weekly", "Gemini Models · Weekly Limit Remaining")]
+    [InlineData("ko", "gemini-weekly", "weekly", "Gemini 모델 · 주간")]
+    [InlineData("ko", "3p-5h", "5h", "Claude · GPT 모델 · 5시간")]
+    [InlineData("ja", "gemini-5h", "5h", "Gemini モデル · 5時間")]
+    [InlineData("zh", "3p-weekly", "weekly", "Claude 和 GPT 模型 · 每周")]
+    [InlineData("en", "gemini-weekly", "weekly", "Gemini Models · Weekly")]
     public void ResolveDisplayName_UsesAppLanguage_ForKnownBuckets(
         string lang, string bucketId, string window, string expected)
     {
@@ -164,14 +164,14 @@ public sealed class AntigravityApplyQuotaTests
                         RemainingFraction = 0.4, ResetTime = Reset,
                     },
                 ], null, null);
-                Assert.Equal("Gemini Models · Weekly Limit Remaining", vm.Models[0].DisplayName);
+                Assert.Equal("Gemini Models · Weekly", vm.Models[0].DisplayName);
 
                 // 행 문구는 만들 때 정해지므로, 언어만 바꾸면 다음 조회까지 옛 언어로 남는다.
                 Loc.SetLanguage("ko");
                 vm.RefreshLocalizedLabels();
 
-                Assert.Equal("Gemini 모델 · 주간 잔여량", vm.Models[0].DisplayName);
-                Assert.Contains("사용", vm.Models[0].UsageLabel);
+                Assert.Equal("Gemini 모델 · 주간", vm.Models[0].DisplayName);
+                Assert.Contains("초기화", vm.Models[0].ResetAtLabel);
             }
             finally
             {
@@ -251,6 +251,101 @@ public sealed class AntigravityApplyQuotaTests
 
             Assert.False(vm.HasError);
             Assert.Equal("", vm.ErrorMessage);
+        }
+    }
+
+    [Fact]
+    public void ApplyQuota_PlacesTimelineMarker_ByWindowLength()
+    {
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            var now = DateTimeOffset.Now;
+            vm.ApplyQuota(
+            [
+                new AntigravityModelQuota
+                {
+                    ModelId = "gemini-weekly", TokenType = "weekly",
+                    RemainingFraction = 0.5, ResetTime = now.AddDays(3.5),
+                },
+                new AntigravityModelQuota
+                {
+                    ModelId = "3p-5h", TokenType = "5h",
+                    RemainingFraction = 0.5, ResetTime = now.AddHours(2.5),
+                },
+            ], null, null);
+
+            vm.UpdateTimeProgress(now);
+
+            // 창 길이가 다르므로 같은 "절반 남음"이라도 마커는 각자의 창 기준으로 찍혀야 한다.
+            var weekly = vm.Models.Single(m => m.ModelId == "gemini-weekly");
+            var fiveHour = vm.Models.Single(m => m.ModelId == "3p-5h");
+            Assert.True(weekly.HasTimeline);
+            Assert.Equal(0.5, weekly.TimePercent, 6);
+            Assert.True(fiveHour.HasTimeline);
+            Assert.Equal(0.5, fiveHour.TimePercent, 6);
+        }
+    }
+
+    [Fact]
+    public void ApplyQuota_HidesTimeline_WhenWindowLengthIsUnknown()
+    {
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            // 새 창 종류가 생기면 길이를 모른다 — 행과 리셋 안내는 남기고 마커만 그리지 않는다.
+            vm.ApplyQuota(
+            [
+                new AntigravityModelQuota
+                {
+                    ModelId = "future-group-monthly", TokenType = "monthly",
+                    RemainingFraction = 0.5, ResetTime = DateTimeOffset.Now.AddDays(10),
+                },
+            ], null, null);
+
+            var row = Assert.Single(vm.Models);
+            Assert.False(row.HasTimeline);
+            Assert.Equal(0, row.TimePercent);
+            Assert.NotEqual("", row.ResetAtLabel);
+        }
+    }
+
+    [Fact]
+    public void UpdateTimeProgress_AdvancesMarkerOnTheSameRows()
+    {
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            var now = DateTimeOffset.Now;
+            vm.ApplyQuota(
+            [
+                new AntigravityModelQuota
+                {
+                    ModelId = "3p-5h", TokenType = "5h",
+                    RemainingFraction = 0.5, ResetTime = now.AddHours(5),
+                },
+            ], null, null);
+            var row = vm.Models[0];
+
+            vm.UpdateTimeProgress(now.AddHours(2.5));
+
+            // 매초 갱신이므로 행을 새로 만들면 안 된다 (스크롤·바인딩이 튄다).
+            Assert.Same(row, vm.Models[0]);
+            Assert.Equal(0.5, row.TimePercent, 6);
+        }
+    }
+
+    [Fact]
+    public void ApplyQuota_KeepsAbsoluteResetTime_InTheTooltipOnly()
+    {
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            vm.ApplyQuota([Bucket("3p-5h", 0.5)], null, null);
+
+            // 이름이 긴 행이라 한 줄 라벨에는 남은 시간만 적고, 절대 시각은 툴팁으로 뺀다.
+            Assert.DoesNotContain("(", vm.Models[0].ResetAtLabel);
+            Assert.Contains("(", vm.Models[0].ResetTooltip);
         }
     }
 

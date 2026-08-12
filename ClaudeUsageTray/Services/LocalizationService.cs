@@ -374,37 +374,28 @@ public static class Loc
         return null;
     }
 
+    /// <summary>
+    /// 창 이름 — 다른 provider 의 "5시간 윈도우 / 7일 윈도우" 와 같은 자리에 오므로 같은 톤으로 짧게 쓴다.
+    /// 게이지가 사용률을 보여주므로 "잔여량"이라고 부르지 않는다(값의 방향이 반대로 읽힌다).
+    /// </summary>
     private static string? AntigravityWindowName(string window) => window switch
     {
         "weekly" => Lang switch
         {
-            "ko" => "주간 잔여량",
-            "zh" => "每周剩余",
-            "ja" => "週間残量",
-            _ => "Weekly Limit Remaining"
+            "ko" => "주간",
+            "zh" => "每周",
+            "ja" => "週間",
+            _ => "Weekly"
         },
         "5h" => Lang switch
         {
-            "ko" => "5시간 잔여량",
-            "zh" => "5 小时剩余",
-            "ja" => "5時間残量",
-            _ => "Five Hour Limit Remaining"
+            "ko" => "5시간",
+            "zh" => "5 小时",
+            "ja" => "5時間",
+            _ => "5-hour"
         },
         _ => null
     };
-
-    /// <summary>사용량 행 오른쪽에 붙는 소진율 표기.</summary>
-    public static string PercentUsed(double fraction)
-    {
-        var percent = $"{fraction * 100:0}%";
-        return Lang switch
-        {
-            "ko" => $"{percent} 사용",
-            "zh" => $"已用 {percent}",
-            "ja" => $"{percent} 使用",
-            _ => $"{percent} used"
-        };
-    }
 
     public static string ResetsIn(string time) => Lang switch
     {

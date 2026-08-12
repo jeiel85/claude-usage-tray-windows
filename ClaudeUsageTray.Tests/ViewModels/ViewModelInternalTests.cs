@@ -46,25 +46,37 @@ public class AntigravityViewModelTests
         Assert.Equal(expected, result);
     }
 
-    [Fact]
-    public void FormatResetLabel_ReturnsEmpty_WhenNull()
+    // 리셋 라벨 포맷은 UsageCalculator.FormatResetLabel 로 합쳤다 — 검증은 UsageCalculatorTests 에 있다.
+
+    [Theory]
+    [InlineData("gemini-weekly", "weekly", 7 * 24 * 60)]
+    [InlineData("3p-5h", "5h", 5 * 60)]
+    // 창 종류를 함께 올리지 않던 버전이 동기화한 값 — 버킷 식별자 꼬리로 창을 알아낸다.
+    [InlineData("gemini-weekly", "", 7 * 24 * 60)]
+    [InlineData("3p-5h", "", 5 * 60)]
+    public void ResolveWindowLength_MapsKnownWindows(string bucketId, string window, int expectedMinutes)
     {
-        var result = AntigravityViewModel.FormatResetLabel(null);
-        Assert.Equal("", result);
+        var length = AntigravityViewModel.ResolveWindowLength(new AntigravityModelQuota
+        {
+            ModelId = bucketId,
+            TokenType = window,
+        });
+
+        Assert.Equal(TimeSpan.FromMinutes(expectedMinutes), length);
     }
 
-    [Fact]
-    public void FormatResetLabel_ReturnsEmpty_WhenPast()
+    [Theory]
+    [InlineData("future-group-monthly", "monthly")]
+    [InlineData("gemini-2.5-pro", "")]
+    [InlineData("", "")]
+    public void ResolveWindowLength_ReturnsNull_WhenWindowUnknown(string bucketId, string window)
     {
-        var result = AntigravityViewModel.FormatResetLabel(DateTimeOffset.Now.AddHours(-1));
-        Assert.Equal("", result);
-    }
-
-    [Fact]
-    public void FormatResetLabel_ShowsMinutes_WhenLessThanOneHour()
-    {
-        var result = AntigravityViewModel.FormatResetLabel(DateTimeOffset.Now.AddMinutes(30));
-        Assert.Contains("m", result);
+        // 길이를 모르면 마커 위치를 지어내지 않는다 — null 이면 화면에 시간선을 그리지 않는다.
+        Assert.Null(AntigravityViewModel.ResolveWindowLength(new AntigravityModelQuota
+        {
+            ModelId = bucketId,
+            TokenType = window,
+        }));
     }
 }
 

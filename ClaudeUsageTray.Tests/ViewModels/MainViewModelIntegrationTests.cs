@@ -179,6 +179,76 @@ public class MainViewModelIntegrationTests
         });
     }
 
+    /// <summary>
+    /// Antigravity 창 목록이 다른 provider 와 같은 게이지 구조로 그려지는지 — 실제 화면 트리로 확인한다.
+    /// 행이 DataTemplate 안에 있어 이름으로 찾을 수 없으므로, 생성된 컨테이너를 훑어
+    /// (1) provider 색 게이지 스타일, (2) 시간선 마커, (3) 창 길이를 모르는 행의 마커 숨김을 본다.
+    /// </summary>
+    [Fact]
+    public async Task UsagePopup_AntigravityQuotaUsesTheSameFlatGaugeStructureAsOtherProviders()
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            UsagePopup? popup = null;
+            try
+            {
+                var now = DateTimeOffset.Now;
+                vm.AntigravityVm.ApplyQuota(
+                [
+                    new AntigravityModelQuota
+                    {
+                        ModelId = "gemini-weekly", TokenType = "weekly",
+                        RemainingFraction = 0.4, ResetTime = now.AddDays(3.5),
+                    },
+                    // 창 길이를 모르는 행 — 마커만 빠지고 게이지는 같아야 한다.
+                    new AntigravityModelQuota
+                    {
+                        ModelId = "future-group-monthly", TokenType = "monthly",
+                        RemainingFraction = 0.1, ResetTime = now.AddDays(10),
+                        DisplayName = "Future Group · Monthly Limit",
+                    },
+                ], "Antigravity", "Google AI Pro");
+
+                vm.IsAntigravityEnabled = true;
+                vm.AntigravityHasData = true;
+                vm.AntigravityPaidTierName = vm.AntigravityVm.PaidTierName;
+                vm.AntigravityModels = vm.AntigravityVm.Models;
+                vm.FocusedProvider = UsageProviderKind.Antigravity;
+
+                popup = new UsagePopup(vm);
+                popup.Left = -10000;
+                popup.Show();
+                popup.UpdateLayout();
+
+                var badge = Assert.IsType<System.Windows.Controls.TextBlock>(popup.FindName("AntigravityPlanBadge"));
+                Assert.Equal("Google AI Pro", badge.Text);
+
+                var list = Assert.IsType<System.Windows.Controls.ItemsControl>(popup.FindName("AntigravityGaugeList"));
+                list.UpdateLayout();
+                Assert.Equal(2, list.Items.Count);
+
+                // 두 행 모두 provider 색 게이지를 쓴다 (다른 provider 와 같은 스타일 리소스).
+                var bars = FindChildren<System.Windows.Controls.ProgressBar>(list).ToList();
+                Assert.Equal(2, bars.Count);
+                Assert.All(bars, bar => Assert.Same(popup.FindResource("AntigravityBarStyle"), bar.Style));
+
+                // 시간선 마커는 창 길이를 아는 행(주간)에만 보인다.
+                var markers = FindChildren<System.Windows.Controls.Border>(list)
+                    .Where(border => Math.Abs(border.Width - 1.5) < 0.01)
+                    .ToList();
+                Assert.Equal(2, markers.Count);
+                Assert.Equal(1, markers.Count(m => m.Visibility == System.Windows.Visibility.Visible));
+                Assert.Equal(1, markers.Count(m => m.Visibility == System.Windows.Visibility.Collapsed));
+            }
+            finally
+            {
+                popup?.Close();
+                vm.Dispose();
+            }
+        });
+    }
+
     [Fact]
     public async Task SettingsWindow_ConstructsWithoutOpacitySliderException()
     {
@@ -302,6 +372,18 @@ public class MainViewModelIntegrationTests
                 vm.Dispose();
             }
         });
+    }
+
+    private static IEnumerable<T> FindChildren<T>(System.Windows.DependencyObject root)
+        where T : System.Windows.DependencyObject
+    {
+        int count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < count; i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+            if (child is T match) yield return match;
+            foreach (var nested in FindChildren<T>(child)) yield return nested;
+        }
     }
 
     private static T? FindChild<T>(System.Windows.DependencyObject root) where T : System.Windows.DependencyObject
