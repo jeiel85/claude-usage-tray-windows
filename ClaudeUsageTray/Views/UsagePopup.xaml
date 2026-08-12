@@ -1251,53 +1251,53 @@
                             </Grid>
                         </Button>
 
-                        <!-- Detail body — focused 일 때만 -->
+                        <!-- Detail body — focused 일 때만. 다른 provider 와 같은 구조:
+                             플랜 배지 → (제목 · 퍼센트 · 리셋) 한 줄 → 게이지 + 시간선 마커 -->
                         <StackPanel Margin="10,6,10,0" Visibility="{Binding IsAntigravityFocused, Converter={StaticResource BoolToVisibility}}">
-                            <Border Margin="0,4,0,0" Padding="10,8" Background="#1F2433" CornerRadius="8">
-                                <StackPanel>
-                                    <!-- Header row: brand + tier -->
-                                    <Grid Margin="0,0,0,8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{Binding AntigravityPaidTierName}" Foreground="#A5B4FC" FontSize="10" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="{Binding AntigravityTierName}" Foreground="#818CF8" FontSize="10" VerticalAlignment="Center" Margin="8,0,0,0"/>
-                                    </Grid>
-                                    <!-- Per-model quota list (wrapped in ScrollViewer to prevent screen overflow) -->
-                                    <ScrollViewer MaxHeight="260" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                        <ItemsControl ItemsSource="{Binding AntigravityModels}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Grid Margin="0,4,0,8">
-                                                        <Grid.RowDefinitions>
-                                                            <RowDefinition Height="Auto"/>
-                                                            <RowDefinition Height="Auto"/>
-                                                            <RowDefinition Height="Auto"/>
-                                                        </Grid.RowDefinitions>
-                                                        <!-- 1st Row: Model Name & Usage Status -->
-                                                        <Grid Grid.Row="0">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*"/>
-                                                                <ColumnDefinition Width="Auto"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Foreground="#F1F5F9" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                                            <TextBlock Grid.Column="1" Text="{Binding UsageLabel}" Foreground="#A5B4FC" FontSize="10.5" FontWeight="Bold"/>
-                                                        </Grid>
-                                                        <!-- 2nd Row: Usage Progress Bar -->
-                                                        <ProgressBar Grid.Row="1" Value="{Binding UsagePercent}" Maximum="1" Height="4" Margin="0,5,0,3" Foreground="#818CF8" Background="#2A2F45" BorderThickness="0"/>
-                                                        <!-- 3rd Row: Reset Time Info -->
-                                                        <TextBlock Grid.Row="2" Text="{Binding ResetAtLabel}" Foreground="#6B7280" FontSize="9" HorizontalAlignment="Right"/>
-                                                    </Grid>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </ScrollViewer>
-                                    <!-- Error line (if any) -->
-                                    <TextBlock Text="{Binding AntigravityErrorMessage}" Foreground="#EF4444" FontSize="10" TextWrapping="Wrap" Margin="0,6,0,0"
-                                               Visibility="{Binding AntigravityHasError, Converter={StaticResource BoolToVisibility}}"/>
-                                </StackPanel>
-                            </Border>
+                            <!-- 플랜 배지 — Codex 의 플랜 라벨과 같은 자리·같은 톤 -->
+                            <TextBlock x:Name="AntigravityPlanBadge"
+                                       Text="{Binding AntigravityPlanLabel}" Foreground="#A5B4FC" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,8"
+                                       TextWrapping="Wrap"
+                                       Visibility="{Binding AntigravityPlanLabel, Converter={StaticResource StringToVisibility}}"/>
+
+                            <!-- 창별 게이지 (그룹 × 주간·5시간) -->
+                            <ItemsControl x:Name="AntigravityGaugeList" ItemsSource="{Binding AntigravityModels}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="0,0,0,10">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <!-- 이름이 길어 잘릴 수 있으므로(절대 시각 표시를 켠 경우 등) 전체 이름은 툴팁으로 남긴다 -->
+                                                <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Foreground="#F1F5F9" FontSize="10.5"
+                                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                                           ToolTip="{Binding DisplayName}"/>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="6,0,0,0">
+                                                    <TextBlock Text="{Binding UsagePercent, StringFormat={}{0:P0}}" Foreground="#A5B4FC" FontSize="11" FontWeight="Bold"/>
+                                                    <TextBlock Text="{Binding ResetAtLabel}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0"/>
+                                                </StackPanel>
+                                            </Grid>
+                                            <!-- 시간선 마커: 창 진행률 위치에 세로선 (주간 7일 / 5시간 창 기준) -->
+                                            <Grid Height="8" Margin="0,4,0,0" ToolTip="{Binding ResetTooltip}">
+                                                <ProgressBar Value="{Binding UsagePercent}" Maximum="1" Style="{StaticResource AntigravityBarStyle}" VerticalAlignment="Center"/>
+                                                <Grid VerticalAlignment="Center" Height="8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="{Binding TimePercent, Converter={StaticResource PercentToStar}}"/>
+                                                        <ColumnDefinition Width="{Binding TimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"
+                                                            Visibility="{Binding HasTimeline, Converter={StaticResource BoolToVisibility}}"/>
+                                                </Grid>
+                                            </Grid>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <TextBlock Text="{Binding AntigravityErrorMessage}" Foreground="#EF4444" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0"
+                                       Visibility="{Binding AntigravityHasError, Converter={StaticResource BoolToVisibility}}"/>
                         </StackPanel>
                     </StackPanel>
                 </StackPanel>

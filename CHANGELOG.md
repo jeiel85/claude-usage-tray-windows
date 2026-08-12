@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.39.1] - 2026-08-12
+
+<!-- ko -->
+### 변경
+- **Antigravity 상세가 다른 에이전트와 같은 모양으로 표시됩니다** — 혼자만 별도 카드 안에 그려져 제목·퍼센트·리셋 시각이 따로 놀았습니다. 이제 Claude·Codex·OpenCode 와 같은 한 줄 구성(`이름 · 사용률 · 리셋까지 남은 시간` + 게이지)을 씁니다. 요금제 이름은 Codex 의 플랜 배지와 같은 자리에 놓았고, 창 목록 안의 별도 스크롤도 없앴습니다.
+- **Antigravity 게이지에도 시간선이 표시됩니다** — 창이 얼마나 흘렀는지 알려 주는 세로 마커를 다른 에이전트와 같은 모양으로 추가했습니다. 마커보다 게이지가 앞서 있으면 이번 창을 평소보다 빨리 쓰고 있다는 뜻입니다. 창 길이(주간·5시간)를 알 수 없는 항목에는 위치를 지어내지 않고 마커를 그리지 않습니다.
+- **창 이름을 `Gemini 모델 · 주간` 처럼 줄였습니다** — 퍼센트가 사용률인데 이름은 `잔여량` 이라 값이 반대로 읽혔고, 이름이 길어 잘리기도 했습니다. 리셋 시각의 절대 표기(`(08-14 18:44)`)는 한 줄을 넘기므로 게이지 툴팁으로 옮겼습니다. 전체 이름도 툴팁에서 볼 수 있습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Changed
+- **The Antigravity detail now matches the other agents** — It was the only section drawn inside its own card, with the name, percentage and reset time each on a separate line. It now uses the same single-row layout as Claude, Codex and OpenCode (`name · usage · time to reset` plus a gauge). The plan name sits where Codex shows its plan badge, and the separate scrollbar inside the window list is gone.
+- **The Antigravity gauges show a timeline marker** — The vertical marker for how far the window has elapsed is now drawn the same way as for the other agents. A gauge ahead of the marker means the window is being consumed faster than the clock. Entries whose window length is unknown get no marker rather than an invented position.
+- **Window names are shortened to `Gemini Models · Weekly`** — The percentage is usage, but the name said `Remaining`, so the value read backwards; the long names were also being truncated. The absolute reset stamp (`(08-14 18:44)`) does not fit on one line and moved to the gauge tooltip, which also carries the full name.
+<!-- /en -->
+
 ## [1.39.0] - 2026-08-11
 
 <!-- ko -->

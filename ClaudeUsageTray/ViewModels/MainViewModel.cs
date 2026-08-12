@@ -138,6 +138,13 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private bool _isAntigravityEnabled = true;
     [ObservableProperty] private double _antigravityPercent = 0.0;
 
+    /// <summary>플랜 배지 문구 — Codex 의 플랜 라벨과 같은 자리에 쓴다. 요금제 이름이 없으면 tier 이름으로 대신한다.</summary>
+    public string AntigravityPlanLabel =>
+        string.IsNullOrWhiteSpace(AntigravityPaidTierName) ? AntigravityTierName : AntigravityPaidTierName;
+
+    partial void OnAntigravityTierNameChanged(string value) => OnPropertyChanged(nameof(AntigravityPlanLabel));
+    partial void OnAntigravityPaidTierNameChanged(string value) => OnPropertyChanged(nameof(AntigravityPlanLabel));
+
     // Weather (v1.29.0)
     [ObservableProperty] private bool _weatherEnabled;
     [ObservableProperty] private bool _weatherShowInTrayTooltip = true;
@@ -2549,6 +2556,7 @@ namespace ClaudeUsageTray.ViewModels;
         RecomputeClaudeTimeProgress(now);
         RecomputeCodexTimeProgress(now);
         OpenCodeVm.UpdateTimeProgress(now);
+        AntigravityVm.UpdateTimeProgress(now);
     }
 
     /// <summary>
@@ -2872,14 +2880,4 @@ namespace ClaudeUsageTray.ViewModels;
             DisplayName = model.DisplayName,
             TokenType = model.Window,
         })];
-}
-
-/// <summary>Single row binding model for the Antigravity model quota list.</summary>
-public sealed class AntigravityModelRow
-{
-    public string ModelId { get; init; } = "";
-    public string DisplayName { get; init; } = "";
-    public double UsagePercent { get; init; }   // 0..1
-    public string UsageLabel { get; init; } = "";
-    public string ResetAtLabel { get; init; } = "";
 }

@@ -98,6 +98,7 @@ public partial class AntigravityViewModel : ObservableObject
         PaidTierName = paidTierName ?? "";
 
         double worstUsed = 0;
+        var now = DateTimeOffset.Now;
         var rows = new List<AntigravityModelRow>(models.Count);
         foreach (var m in models)
         {
@@ -111,14 +112,16 @@ public partial class AntigravityViewModel : ObservableObject
 
             // 아직 쓰지 않은 창도 남겨 둔다. Antigravity 화면과 같은 네 칸(그룹 × 주간·5시간)이
             // 항상 보여야 지금 무엇이 얼마나 남았는지 읽을 수 있다.
-            rows.Add(new AntigravityModelRow
+            var row = new AntigravityModelRow
             {
                 ModelId = m.ModelId,
                 DisplayName = ResolveDisplayName(m),
                 UsagePercent = used,
-                UsageLabel = Loc.PercentUsed(used),
-                ResetAtLabel = FormatResetLabel(m.ResetTime),
-            });
+                ResetAt = m.ResetTime,
+                Window = ResolveWindowLength(m),
+            };
+            row.UpdateTimeProgress(now);
+            rows.Add(row);
         }
         rows.Sort((a, b) => b.UsagePercent.CompareTo(a.UsagePercent));
         Models = rows;
@@ -126,6 +129,42 @@ public partial class AntigravityViewModel : ObservableObject
         // 창마다 한도가 따로 걸리므로 평균은 가장 급한 제약을 가린다 (주간 90% + 5시간 0% → 45%).
         // 트레이 게이지에는 가장 많이 쓴 창을 올린다.
         Percent = worstUsed;
+    }
+
+    /// <summary>
+    /// 시간선 마커와 리셋 카운트다운을 현재 시각 기준으로 다시 계산한다.
+    /// Claude·Codex·OpenCode 와 같은 1초 주기로 불려, 막대 위 마커가 같은 속도로 흐른다.
+    /// </summary>
+    public void UpdateTimeProgress(DateTimeOffset now)
+    {
+        foreach (var row in Models)
+            row.UpdateTimeProgress(now);
+    }
+
+    /// <summary>
+    /// 시간선 마커를 그리려면 창 길이가 필요하다 — 응답의 window 값("weekly"·"5h")이 곧 길이다.
+    /// 표시 이름과 달리 창 종류를 함께 올리지 않던 버전이 동기화한 값은 비어 있을 수 있어,
+    /// 버킷 식별자 꼬리("gemini-weekly" → weekly)로 한 번 더 본다.
+    /// 어느 쪽으로도 모르면 null — 위치를 지어내지 않고 마커를 그리지 않는다.
+    /// </summary>
+    internal static TimeSpan? ResolveWindowLength(AntigravityModelQuota quota)
+    {
+        var window = string.IsNullOrWhiteSpace(quota.TokenType)
+            ? BucketIdSuffix(quota.ModelId)
+            : quota.TokenType;
+
+        return window.ToLowerInvariant() switch
+        {
+            "weekly" => TimeSpan.FromDays(7),
+            "5h"     => TimeSpan.FromHours(5),
+            _        => null,
+        };
+    }
+
+    private static string BucketIdSuffix(string modelId)
+    {
+        var dash = modelId.LastIndexOf('-');
+        return dash >= 0 && dash < modelId.Length - 1 ? modelId[(dash + 1)..] : "";
     }
 
     /// <summary>
@@ -167,17 +206,41 @@ public partial class AntigravityViewModel : ObservableObject
         }
         return sb.ToString();
     }
+}
 
-    internal static string FormatResetLabel(DateTimeOffset? resetAt)
+/// <summary>
+/// Antigravity 할당량 한 칸(그룹 × 창)의 화면 상태.
+/// 퍼센트·이름은 조회할 때 정해지지만 리셋 카운트다운과 시간선 마커는 매초 움직이므로,
+/// 행을 통째로 다시 만들지 않고 <see cref="UpdateTimeProgress"/> 로 제자리에서 갱신한다.
+/// </summary>
+public sealed partial class AntigravityModelRow : ObservableObject
+{
+    public string ModelId { get; init; } = "";
+    public string DisplayName { get; init; } = "";
+    public double UsagePercent { get; init; }        // 0..1
+    public DateTimeOffset? ResetAt { get; init; }
+
+    /// <summary>창 길이. 모르면 null — 시간선 마커를 그리지 않는다.</summary>
+    public TimeSpan? Window { get; init; }
+
+    [ObservableProperty] private string _resetAtLabel = "";
+
+    /// <summary>
+    /// 게이지 툴팁 — 절대 시각까지 적는다.
+    /// 이름이 긴 행이라(그룹 × 창) 한 줄 라벨에 절대 시각까지 넣으면 이름이 잘린다.
+    /// 다른 provider 의 설정(ShowAbsoluteResetTime)과 달리 여기서는 툴팁 자리를 쓴다.
+    /// </summary>
+    [ObservableProperty] private string _resetTooltip = "";
+
+    [ObservableProperty] private bool _hasTimeline = false;
+    [ObservableProperty] private double _timePercent = 0.0;
+
+    internal void UpdateTimeProgress(DateTimeOffset now)
     {
-        if (resetAt is null) return "";
-        var diff = resetAt.Value - DateTimeOffset.Now;
-        if (diff.TotalSeconds <= 0) return "";
-        string time;
-        if (diff.TotalMinutes < 10) time = $"{(int)diff.TotalMinutes}m {diff.Seconds:D2}s";
-        else if (diff.TotalHours < 1) time = $"{(int)diff.TotalMinutes}m";
-        else if (diff.TotalDays < 1) time = $"{(int)diff.TotalHours}h {diff.Minutes}m";
-        else time = $"{(int)diff.TotalDays}d {diff.Hours}h";
-        return Loc.ResetsIn(time);
+        ResetAtLabel = UsageCalculator.FormatResetLabel(ResetAt, false, false, now);
+        ResetTooltip = UsageCalculator.FormatResetLabel(ResetAt, false, true, now);
+        var progress = UsageCalculator.TimeProgress(ResetAt, Window ?? TimeSpan.Zero, now);
+        HasTimeline = progress.HasValue;
+        TimePercent = progress ?? 0;
     }
 }
