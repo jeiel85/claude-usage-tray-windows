@@ -3,6 +3,28 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.40.0] - 2026-08-20
+
+<!-- ko -->
+### 추가
+- **`오늘 N개 세션` 을 누르면 그 세션들이 목록으로 펼쳐집니다** — 줄마다 프로젝트 이름, 브랜치, 오늘 그 세션이 쓴 토큰, 마지막 활동 시각이 나옵니다. 최근 활동 순으로 정렬되고, 최근 10분 안에 기록이 있는 세션은 초록 점으로 구분합니다. 줄에 마우스를 올리면 그 세션의 첫 프롬프트와 전체 경로를 볼 수 있습니다. 기본은 접힌 상태라 기존 화면 높이는 그대로입니다.
+- 워크트리에서 돌린 세션은 마지막 폴더 이름(`auto-update-logic-3db433` 같은 해시 이름) 대신 저장소 이름으로 표시하고, 어느 워크트리인지는 브랜치로 구분합니다.
+- 다중 PC 동기화로 다른 PC 의 세션이 합계에 섞여 있으면, 목록 아래에 `다른 PC 세션 N개는 목록에 없음` 이라고 적습니다(트랜스크립트는 그 PC 에만 있어 목록으로 만들 수 없습니다).
+
+### 참고
+- 이 수는 **지금 실행 중인 세션이 아니라 오늘 기록이 남은 세션**의 수입니다. 세션 종료는 트랜스크립트에 남지 않아 정확한 "활성" 판정은 불가능하며, 초록 점은 "최근 10분 안에 기록이 있었다"는 뜻입니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Clicking `N session(s) today` expands the list of those sessions** — each row shows the project name, branch, tokens that session spent today, and its last activity time. Rows are ordered by most recent activity, and sessions written to within the last 10 minutes get a green dot. Hovering a row reveals its first prompt and full path. The list starts collapsed, so the popup keeps its current height.
+- Sessions run from a worktree are listed under the repository name instead of the hash-suffixed worktree folder (`auto-update-logic-3db433`); the branch tells the worktrees apart.
+- When multi-PC sync mixes other devices into the session count, the list notes `N session(s) from other PCs not listed` — their transcripts live on those PCs and cannot be listed here.
+
+### Note
+- The count is **sessions with activity recorded today, not sessions running right now**. Transcripts do not record when a session ends, so "active" cannot be determined exactly; the green dot means "written to within the last 10 minutes".
+<!-- /en -->
+
 ## [1.39.2] - 2026-08-12
 
 <!-- ko -->

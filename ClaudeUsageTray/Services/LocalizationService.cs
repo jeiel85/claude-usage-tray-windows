@@ -342,6 +342,32 @@ public static class Loc
         _ => $"{count} session(s) today"
     };
 
+    // 오늘 세션 목록
+    public static string SessionListEmpty => Lang switch
+    {
+        "ko" => "이 PC 에 오늘 기록된 세션이 없습니다",
+        "zh" => "本机今日没有会话记录",
+        "ja" => "この PC に本日のセッション記録はありません",
+        _ => "No sessions recorded on this PC today"
+    };
+
+    public static string SessionListMore(int count) => Lang switch
+    {
+        "ko" => $"+{count}개 더",
+        "zh" => $"另外 {count} 个",
+        "ja" => $"他 {count} 件",
+        _ => $"+{count} more"
+    };
+
+    /// <summary>다중 PC 합계에는 잡히지만 이 PC 에 트랜스크립트가 없어 목록에 못 넣는 세션 수.</summary>
+    public static string SessionListRemoteOnly(int count) => Lang switch
+    {
+        "ko" => $"다른 PC 세션 {count}개는 목록에 없음",
+        "zh" => $"其他电脑的 {count} 个会话不在列表中",
+        "ja" => $"他の PC のセッション {count} 件は一覧に含まれません",
+        _ => $"{count} session(s) from other PCs not listed"
+    };
+
     /// <summary>
     /// Antigravity 할당량 한 칸의 이름. 서버는 이 값을 영어로만 내려주므로 아는 버킷은 직접 번역한다.
     /// 모르는 버킷이면 null 을 돌려주고, 화면은 서버가 준 문구를 그대로 쓴다.
