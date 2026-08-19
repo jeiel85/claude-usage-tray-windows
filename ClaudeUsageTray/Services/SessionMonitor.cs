@@ -25,6 +25,9 @@ public class SessionMonitor
     /// </summary>
     private static readonly TimeSpan MTimeTolerance = TimeSpan.FromHours(1);
 
+    /// <summary>세션 제목(첫 프롬프트)을 잘라 보관할 최대 길이 — 팝업 툴팁 한 줄 분량.</summary>
+    private const int MaxTitleLength = 80;
+
     private readonly string _projectsPath;
 
     /// <param name="projectsPath">트랜스크립트 루트. null 이면 ~/.claude/projects (테스트용 주입점).</param>
@@ -96,6 +99,8 @@ public class SessionMonitor
         using var reader = new StreamReader(fs);
         string? line;
         bool fileHadActivity = false;
+        // 트랜스크립트에 sessionId 가 없는 옛 형식이면 파일명이 곧 세션 id 다.
+        var session = new SessionInfo { SessionId = Path.GetFileNameWithoutExtension(filePath) };
 
         while ((line = reader.ReadLine()) != null)
         {
@@ -106,9 +111,22 @@ public class SessionMonitor
                 using var doc = JsonDocument.Parse(line);
                 var root = doc.RootElement;
 
-                // Only process assistant messages with usage data
+                // cwd·브랜치는 종류를 가리지 않고 모든 줄에 실린다. 나중 줄이 최신 상태다.
+                CaptureSessionMeta(root, session);
+
                 if (!root.TryGetProperty("type", out var typeEl)) continue;
-                if (typeEl.GetString() != "assistant") continue;
+                var entryType = typeEl.GetString();
+
+                // 제목은 날짜와 무관하게 세션의 첫 사람 프롬프트에서 뽑는다
+                // (어제 시작해 오늘까지 이어진 세션도 알아볼 수 있어야 한다).
+                if (entryType == "user")
+                {
+                    if (session.Title.Length == 0) TryCaptureTitle(root, session);
+                    continue;
+                }
+
+                // Only process assistant messages with usage data
+                if (entryType != "assistant") continue;
 
                 // Check timestamp
                 DateTime parsedTs = default;
@@ -118,8 +136,9 @@ public class SessionMonitor
                     {
                         if (parsedTs.ToLocalTime().Date < sinceDate) continue;
                         fileHadActivity = true;
-                        if (parsedTs.ToUniversalTime() > stats.LastActivity)
-                            stats.LastActivity = parsedTs.ToUniversalTime();
+                        var tsUtc = parsedTs.ToUniversalTime();
+                        if (tsUtc > stats.LastActivity) stats.LastActivity = tsUtc;
+                        if (tsUtc > session.LastActivityUtc) session.LastActivityUtc = tsUtc;
                     }
                 }
 
@@ -132,6 +151,8 @@ public class SessionMonitor
                 if (usageEl.TryGetProperty("output_tokens", out var outp)) { out_ = outp.GetInt64(); stats.TotalOutputTokens += out_; }
                 if (usageEl.TryGetProperty("cache_read_input_tokens", out var cr)) { cr_ = cr.GetInt64(); stats.TotalCacheReadTokens += cr_; }
                 if (usageEl.TryGetProperty("cache_creation_input_tokens", out var cw)) { cw_ = cw.GetInt64(); stats.TotalCacheWriteTokens += cw_; }
+
+                session.TotalTokens += inp_ + out_ + cr_ + cw_;
 
                 // 시간대별 집계 (로컬 시간 기준, parsedTs 재사용)
                 if (parsedTs != default)
@@ -162,6 +183,76 @@ public class SessionMonitor
             }
         }
 
-        if (fileHadActivity) stats.SessionCount++;
+        if (fileHadActivity)
+        {
+            stats.SessionCount++;
+            stats.Sessions.Add(session);
+        }
+    }
+
+    /// <summary>
+    /// 세션 식별 정보(id·cwd·브랜치)를 줍는다. 값이 있는 나중 줄이 이긴다 — 세션 도중
+    /// 브랜치를 바꿨다면 마지막 상태를 보여주는 쪽이 사용자가 기대하는 값이다.
+    /// </summary>
+    private static void CaptureSessionMeta(JsonElement root, SessionInfo session)
+    {
+        if (TryGetNonEmptyString(root, "sessionId", out var id)) session.SessionId = id;
+        if (TryGetNonEmptyString(root, "cwd", out var cwd)) session.ProjectPath = cwd;
+        if (TryGetNonEmptyString(root, "gitBranch", out var branch)) session.GitBranch = branch;
+    }
+
+    private static bool TryGetNonEmptyString(JsonElement root, string name, out string value)
+    {
+        value = "";
+        if (!root.TryGetProperty(name, out var el) || el.ValueKind != JsonValueKind.String) return false;
+
+        var s = el.GetString();
+        if (string.IsNullOrEmpty(s)) return false;
+
+        value = s;
+        return true;
+    }
+
+    /// <summary>
+    /// 첫 사람 프롬프트를 세션 제목으로 삼는다. 도구 결과·슬래시 명령 래퍼(&lt;command-name&gt; 등)·
+    /// 시스템 주입 문구는 세션을 알아보는 데 도움이 안 되므로 제목으로 쓰지 않는다.
+    /// </summary>
+    private static void TryCaptureTitle(JsonElement root, SessionInfo session)
+    {
+        if (IsTrue(root, "isMeta") || IsTrue(root, "isSidechain")) return;
+        if (!root.TryGetProperty("message", out var msgEl) || msgEl.ValueKind != JsonValueKind.Object) return;
+        if (!msgEl.TryGetProperty("content", out var contentEl)) return;
+
+        string? text = null;
+        if (contentEl.ValueKind == JsonValueKind.String)
+        {
+            text = contentEl.GetString();
+        }
+        else if (contentEl.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in contentEl.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object) continue;
+                if (!item.TryGetProperty("type", out var itemType) || itemType.GetString() != "text") continue;
+                if (item.TryGetProperty("text", out var textEl)) { text = textEl.GetString(); break; }
+            }
+        }
+
+        var title = NormalizeTitle(text);
+        if (title.Length > 0) session.Title = title;
+    }
+
+    private static bool IsTrue(JsonElement root, string name) =>
+        root.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.True;
+
+    /// <summary>제목 한 줄 정규화 — 줄바꿈·연속 공백을 접고, 너무 길면 자른다.</summary>
+    private static string NormalizeTitle(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return "";
+
+        var flat = string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (flat.Length == 0 || flat[0] == '<') return "";
+
+        return flat.Length <= MaxTitleLength ? flat : flat[..MaxTitleLength].TrimEnd() + "…";
     }
 }

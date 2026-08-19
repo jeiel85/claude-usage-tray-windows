@@ -260,6 +260,27 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private long _todayCacheRead = 0;
     [ObservableProperty] private long _todayCacheWrite = 0;
     [ObservableProperty] private string _sessionsLabel = "";
+
+    // 오늘 세션 목록 — "오늘 N개 세션" 라벨을 눌러 펼친다. 목록은 이 PC 의 트랜스크립트에서만
+    // 나오므로, 다중 PC 동기화가 켜져 있으면 합계 세션 수보다 짧을 수 있다(차이는 안내로 표시).
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsSessionListEmpty))]
+    private IReadOnlyList<SessionListItem> _todaySessions = [];
+
+    [ObservableProperty] private bool _isSessionListExpanded = false;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SessionListMoreLabel))]
+    private int _sessionListHiddenCount = 0;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SessionListNote))]
+    private int _sessionListRemoteCount = 0;
+
+    public bool IsSessionListEmpty => TodaySessions.Count == 0;
+    public string SessionListMoreLabel => SessionListHiddenCount > 0 ? Loc.SessionListMore(SessionListHiddenCount) : "";
+    public string SessionListNote => SessionListRemoteCount > 0 ? Loc.SessionListRemoteOnly(SessionListRemoteCount) : "";
+
     [ObservableProperty] private bool _hasRateLimitHit = false;
     [ObservableProperty] private string _rateLimitInfo = "";
 
@@ -408,6 +429,7 @@ namespace ClaudeUsageTray.ViewModels;
     public string LblAppTitle        => Loc.AgentUsageTitle;
     public string LblApiQuota        => Loc.ApiQuota;
     public string LblTodayTokens     => Loc.TodayTokens;
+    public string LblSessionListEmpty => Loc.SessionListEmpty;
     public string LblFiveHour        => Loc.FiveHourWindow;
     public string LblSevenDay        => Loc.SevenDayWindow;
     public string LblInput           => Loc.Input;
@@ -1904,6 +1926,7 @@ namespace ClaudeUsageTray.ViewModels;
                 TodayCacheRead    = displayCacheReadTokens;
                 TodayCacheWrite   = displayCacheWriteTokens;
                 SessionsLabel     = Loc.Sessions(displaySessionCount);
+                ApplySessionList(sessionStats.Sessions, displaySessionCount);
 
                 _history.RecordToday(displayInputTokens, displayOutputTokens,
                     displayCacheReadTokens, displayCacheWriteTokens,
@@ -2415,6 +2438,32 @@ namespace ClaudeUsageTray.ViewModels;
         OpenCodeVm.ApplyStaleSyncedQuotaNotice(
             lastObserved.DeviceName,
             quota.ObservedAtUtc ?? lastObserved.ObservedAtUtc);
+    }
+
+    /// <summary>"오늘 N개 세션" 라벨 클릭 — 목록 펼침/접기.</summary>
+    [RelayCommand]
+    private void ToggleSessionList() => IsSessionListExpanded = !IsSessionListExpanded;
+
+    /// <summary>목록에 한 번에 보여줄 최대 줄 수. 나머지는 "+N개 더" 로만 알린다.</summary>
+    private const int MaxSessionListRows = 8;
+
+    /// <summary>
+    /// 세션 목록을 최근 활동 순으로 다시 만든다.
+    /// <paramref name="displayCount"/> 는 다른 PC 몫이 합쳐진 수라 이 PC 세션 수보다 클 수 있고,
+    /// 그 차이는 목록으로 보여줄 방법이 없으므로(트랜스크립트가 이 PC 에 없다) 안내 문구로 남긴다.
+    /// </summary>
+    private void ApplySessionList(IReadOnlyList<SessionInfo> sessions, int displayCount)
+    {
+        var nowUtc = DateTime.UtcNow;
+        var ordered = sessions.OrderByDescending(s => s.LastActivityUtc).ToList();
+
+        TodaySessions = ordered
+            .Take(MaxSessionListRows)
+            .Select(s => new SessionListItem(s, nowUtc))
+            .ToList();
+
+        SessionListHiddenCount = ordered.Count - TodaySessions.Count;
+        SessionListRemoteCount = Math.Max(0, displayCount - ordered.Count);
     }
 
     // Manual triggers (optional, usually RefreshAsync is enough)

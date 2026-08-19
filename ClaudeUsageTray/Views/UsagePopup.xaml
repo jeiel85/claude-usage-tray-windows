@@ -308,6 +308,29 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- "오늘 N개 세션" 토글 — 라벨 톤은 그대로 두고, 눌리는 곳이라는 것만 hover 로 알린다 -->
+        <Style x:Key="SessionToggleBtn" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="5,2"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#1E2035"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Border x:Name="PopupShell" Background="Transparent">
@@ -869,8 +892,76 @@
                             <Border Height="1" Background="#2D2F45" Margin="0,14,0,14"/>
                             <Grid Margin="0,0,0,12">
                                 <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblTodayTokens}" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding SessionsLabel}" Foreground="#8B92B3" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                <Button HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,-2,-5,-2"
+                                        Command="{Binding ToggleSessionListCommand}" Style="{StaticResource SessionToggleBtn}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding SessionsLabel}" Foreground="#8B92B3" FontSize="10" VerticalAlignment="Center"/>
+                                        <TextBlock Foreground="#8B92B3" FontSize="8" Margin="4,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="&#x25BE;"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSessionListExpanded}" Value="True">
+                                                            <Setter Property="Text" Value="&#x25B4;"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </Button>
                             </Grid>
+
+                            <!-- 오늘 세션 목록 — 최근 활동 순. 초록 점은 최근 10분 안에 기록이 있는 세션.
+                                 상자는 아래 토큰 타일(StatBox)과 같은 배경·모서리를 쓴다. -->
+                            <Border Style="{StaticResource StatBox}" Padding="10,8" Margin="0,0,0,12"
+                                    Visibility="{Binding IsSessionListExpanded, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding LblSessionListEmpty}" Foreground="#5A5F7A" FontSize="10" FontStyle="Italic"
+                                               TextWrapping="Wrap"
+                                               Visibility="{Binding IsSessionListEmpty, Converter={StaticResource BoolToVisibility}}"/>
+                                    <ItemsControl ItemsSource="{Binding TodaySessions}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,3,0,3" ToolTip="{Binding Tooltip}" Background="Transparent">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Ellipse Grid.Column="0" Width="6" Height="6" Margin="0,0,7,0" VerticalAlignment="Center">
+                                                        <Ellipse.Style>
+                                                            <Style TargetType="Ellipse">
+                                                                <Setter Property="Fill" Value="#3D4060"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsRecent}" Value="True">
+                                                                        <Setter Property="Fill" Value="#10B981"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Ellipse.Style>
+                                                    </Ellipse>
+                                                    <StackPanel Grid.Column="1">
+                                                        <TextBlock Text="{Binding DisplayName}" Foreground="#F1F5F9" FontSize="10.5"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding ContextLabel}" Foreground="#8B92B3" FontSize="9"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   Visibility="{Binding ContextLabel, Converter={StaticResource StringToVisibility}}"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="2" Margin="6,0,0,0">
+                                                        <TextBlock Text="{Binding TokenLabel}" Foreground="#A78BFA" FontSize="10.5" HorizontalAlignment="Right"/>
+                                                        <TextBlock Text="{Binding TimeLabel}" Foreground="#8B92B3" FontSize="9" HorizontalAlignment="Right"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock Text="{Binding SessionListMoreLabel}" Foreground="#8B92B3" FontSize="9" Margin="13,4,0,0"
+                                               Visibility="{Binding SessionListMoreLabel, Converter={StaticResource StringToVisibility}}"/>
+                                    <TextBlock Text="{Binding SessionListNote}" Foreground="#5A5F7A" FontSize="9" Margin="13,4,0,0" TextWrapping="Wrap"
+                                               Visibility="{Binding SessionListNote, Converter={StaticResource StringToVisibility}}"/>
+                                </StackPanel>
+                            </Border>
                             <UniformGrid Columns="2" Rows="2">
                                 <Border Style="{StaticResource StatBox}" Margin="0,0,4,4">
                                     <StackPanel>
