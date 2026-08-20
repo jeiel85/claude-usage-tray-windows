@@ -78,4 +78,41 @@ public sealed class OpenCodeUsageMonitorTests : IDisposable
         SqliteConnection.ClearAllPools();
         if (File.Exists(_dbPath)) File.Delete(_dbPath);
     }
+
+    // 로그인 파일에는 OpenCode 자체 로그인 말고 다른 공급자 키도 함께 들어 있다.
+    [Fact]
+    public void TryReadAuthProviderId_PicksOpenCodeEntryOnly()
+    {
+        var authPath = Path.Combine(Path.GetTempPath(), $"opencode-auth-{Guid.NewGuid():N}.json");
+        File.WriteAllText(authPath,
+            """{"anthropic":{"type":"oauth"},"opencode-go":{"type":"api","key":"redacted"}}""");
+        try
+        {
+            Assert.Equal("opencode-go", OpenCodeUsageMonitor.TryReadAuthProviderId(authPath));
+        }
+        finally
+        {
+            File.Delete(authPath);
+        }
+    }
+
+    [Fact]
+    public void TryReadAuthProviderId_ReturnsNullWithoutOpenCodeEntry()
+    {
+        var authPath = Path.Combine(Path.GetTempPath(), $"opencode-auth-{Guid.NewGuid():N}.json");
+        File.WriteAllText(authPath, """{"anthropic":{"type":"oauth"}}""");
+        try
+        {
+            Assert.Null(OpenCodeUsageMonitor.TryReadAuthProviderId(authPath));
+        }
+        finally
+        {
+            File.Delete(authPath);
+        }
+    }
+
+    [Fact]
+    public void TryReadAuthProviderId_ReturnsNullWhenFileMissing()
+        => Assert.Null(OpenCodeUsageMonitor.TryReadAuthProviderId(
+            Path.Combine(Path.GetTempPath(), $"opencode-missing-{Guid.NewGuid():N}.json")));
 }

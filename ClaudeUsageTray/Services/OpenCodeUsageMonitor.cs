@@ -8,6 +8,7 @@ namespace ClaudeUsageTray.Services;
 public class OpenCodeUsageMonitor
 {
     private readonly string _dbPath;
+    private readonly string _authPath;
 
     public OpenCodeUsageMonitor()
         : this(Path.Combine(
@@ -16,9 +17,42 @@ public class OpenCodeUsageMonitor
     {
     }
 
-    public OpenCodeUsageMonitor(string dbPath)
+    public OpenCodeUsageMonitor(string dbPath, string? authPath = null)
     {
         _dbPath = dbPath;
+        _authPath = authPath ?? Path.Combine(Path.GetDirectoryName(dbPath) ?? "", "auth.json");
+    }
+
+    /// <summary>로그인된 OpenCode 상품 키. 로그인 파일이 없거나 OpenCode 항목이 없으면 null.</summary>
+    public string? GetPlanProviderId() => TryReadAuthProviderId(_authPath);
+
+    /// <summary>
+    /// OpenCode 로그인 파일에서 <b>OpenCode 자체 상품</b>의 항목 키를 찾는다("opencode-go").
+    /// 이 파일에는 사용자가 붙여 둔 다른 공급자(anthropic 등)의 키도 함께 들어 있으므로,
+    /// 이름이 opencode 로 시작하는 항목만 본다. 값(API 키)은 읽지 않는다.
+    /// </summary>
+    internal static string? TryReadAuthProviderId(string authPath)
+    {
+        try
+        {
+            if (!File.Exists(authPath)) return null;
+
+            using var stream = new FileStream(authPath, FileMode.Open, FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+            using var doc = JsonDocument.Parse(stream);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object) return null;
+
+            foreach (var entry in doc.RootElement.EnumerateObject())
+            {
+                if (entry.Name.StartsWith("opencode", StringComparison.OrdinalIgnoreCase))
+                    return entry.Name;
+            }
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public ProviderUsageSnapshot GetTodaySnapshot()

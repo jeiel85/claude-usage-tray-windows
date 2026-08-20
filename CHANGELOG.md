@@ -3,6 +3,30 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.41.0] - 2026-08-20
+
+<!-- ko -->
+### 추가
+- **내 구독 등급이 화면에 나옵니다** — 각 에이전트 상세를 펼치면 이름 아래에 `Claude Max 5x`, `ChatGPT Plus`, `OpenCode Go` 같은 배지가 붙습니다. Claude 는 Max 안에서도 5x·20x 로 한도가 4배 차이 나므로 배수까지 함께 표시합니다.
+- Codex 배지는 오늘 Codex 를 아직 쓰지 않아 세션 로그에 사용량이 없을 때도 로그인 정보에서 요금제를 읽어 채웁니다.
+- 설정 → 표시 옵션의 `Codex 플랜 배지 표시` 가 `구독 등급 배지 표시` 로 바뀌어 모든 에이전트의 배지를 함께 켜고 끕니다. 예전에 이 항목을 꺼 두었다면 그 설정이 그대로 유지됩니다.
+
+### 참고
+- 등급을 알 수 없는 경우에는 `ChatGPT plan` 같은 빈 껍데기 문구 대신 배지를 표시하지 않습니다. Gemini CLI 는 등급을 알 수 있는 로컬 자료가 없어 배지가 없습니다.
+- **구독 만료일은 표시하지 않습니다** — Claude 는 앱이 쓰는 토큰으로 결제 정보를 볼 수 없고, Codex 는 만료 정보가 갱신되지 않아 이미 지난 날짜가 남아 있습니다. 잘못된 날짜를 보여 주는 대신 표시하지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Your subscription plan is now on screen** — expanding an agent's details shows a badge such as `Claude Max 5x`, `ChatGPT Plus`, or `OpenCode Go` under its name. Claude Max comes in 5x and 20x with a 4x difference in limits, so the multiplier is shown too.
+- The Codex badge is filled in from the local sign-in file when today's session logs carry no usage yet.
+- Settings → Display options renamed `Show Codex plan badge` to `Show subscription plan badge`; it now toggles every agent's badge at once, and an existing "off" choice is preserved.
+
+### Notes
+- When the plan cannot be determined the badge is hidden rather than showing a placeholder like `ChatGPT plan`. Gemini CLI has no local source for its tier, so it has no badge.
+- **Renewal/expiry dates are not shown** — Claude's Claude Code token cannot read billing data, and Codex's expiry claim is not refreshed (it still carries a date from two months ago while the plan is active). A wrong date is worse than none.
+<!-- /en -->
+
 ## [1.40.0] - 2026-08-20
 
 <!-- ko -->

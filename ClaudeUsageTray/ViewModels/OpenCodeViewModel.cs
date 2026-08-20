@@ -24,6 +24,9 @@ public partial class OpenCodeViewModel : ObservableObject
     [ObservableProperty] private string _cacheWriteLabel = "—";
     [ObservableProperty] private double _percent = 0;
     [ObservableProperty] private string _quotaStatusLabel = "";
+
+    /// <summary>구독 등급 배지 ("OpenCode Go"). 로그인 항목이 없으면 빈 문자열이라 배지가 숨는다.</summary>
+    [ObservableProperty] private string _planLabel = "";
     [ObservableProperty] private bool _hasPeriodUsage = false;
     [ObservableProperty] private bool _hasWebQuota = false;
     [ObservableProperty] private bool _isWebLoginRunning = false;
@@ -118,6 +121,7 @@ public partial class OpenCodeViewModel : ObservableObject
                 ApplyWebSessionState(read.State, _webUsage?.HasSavedSession == true);
                 QuotaStatusLabel = webUsage != null ? Loc.OpenCodeOfficialQuota : FormatQuotaStatus(snapshot.OpenCodeDetails);
                 Note = webUsage != null ? Loc.ProviderOpenCodeWebNote : Loc.ProviderOpenCodeNote;
+                PlanLabel = PlanLabels.OpenCode(_monitor.GetPlanProviderId());
                 HasPeriodUsage = snapshot.OpenCodeDetails?.ThisMonth.Requests > 0;
                 IsUsageEmpty = !snapshot.HasData;
 

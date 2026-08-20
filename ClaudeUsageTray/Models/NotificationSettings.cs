@@ -57,8 +57,19 @@ public class NotificationSettings
     public string FocusedProvider { get; set; } = "";
 
     // v1.27.0 표시 옵션 토글
-    // Codex 플랜 배지 ("ChatGPT Plus" 등) 표시 여부
-    public bool ShowCodexPlanBadge { get; set; } = true;
+    // 구독 등급 배지 ("Claude Max 5x", "ChatGPT Plus" 등) 표시 여부 — v1.41.0 부터 전 공급자 공통
+    public bool ShowPlanBadge { get; set; } = true;
+
+    /// <summary>
+    /// v1.40.x 까지 쓰던 Codex 전용 키. 예전 설정 파일을 그대로 읽고(끄기 상태 보존),
+    /// 새로 저장할 때도 같은 값을 함께 써 이전 버전으로 되돌아가도 토글이 유지되도록 한다.
+    /// </summary>
+    [JsonPropertyName("ShowCodexPlanBadge")]
+    public bool ShowCodexPlanBadgeCompat
+    {
+        get => ShowPlanBadge;
+        set => ShowPlanBadge = value;
+    }
 
     // 리셋 라벨에 절대 시각을 병기할지 ("1h 23m 후 리셋 (18:30)")
     public bool ShowAbsoluteResetTime { get; set; } = false;

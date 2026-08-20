@@ -40,7 +40,66 @@ public class CodexUsageMonitor
 
         var snapshot = GetTodaySnapshot();
         snapshot.DataSource = "Local Log";
+        snapshot.PlanType ??= TryReadPlanTypeFromAuth(AuthPath);
         return snapshot;
+    }
+
+    /// <summary>
+    /// 로그인 파일(<c>~/.codex/auth.json</c>)의 id_token 에서 요금제를 읽는다.
+    /// 세션 로그의 <c>rate_limits.plan_type</c> 은 오늘 Codex 를 한 번이라도 써야 생기므로,
+    /// 요금제 배지가 "쓰기 전에는 안 보이는" 값이 되지 않도록 여기서 보완한다.
+    ///
+    /// id_token 은 서명 검증 없이 payload 만 읽는다. 이 값은 <b>표시 전용</b>이며 인증이나 권한
+    /// 판단에 쓰지 않는다(파일 자체가 이미 사용자 소유의 로컬 자격 파일이다).
+    /// </summary>
+    internal static string? TryReadPlanTypeFromAuth(string authPath)
+    {
+        try
+        {
+            if (!File.Exists(authPath)) return null;
+
+            using var doc = JsonDocument.Parse(File.ReadAllText(authPath));
+            if (!doc.RootElement.TryGetProperty("tokens", out var tokens) ||
+                tokens.ValueKind != JsonValueKind.Object ||
+                !tokens.TryGetProperty("id_token", out var idTokenEl) ||
+                idTokenEl.ValueKind != JsonValueKind.String)
+                return null;
+
+            using var payload = DecodeJwtPayload(idTokenEl.GetString());
+            if (payload is null) return null;
+
+            return payload.RootElement.TryGetProperty("https://api.openai.com/auth", out var auth) &&
+                   auth.ValueKind == JsonValueKind.Object &&
+                   auth.TryGetProperty("chatgpt_plan_type", out var planEl) &&
+                   planEl.ValueKind == JsonValueKind.String
+                ? planEl.GetString()
+                : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>JWT 의 payload(두 번째 조각, base64url) 를 JSON 으로 편다. 형태가 아니면 null.</summary>
+    internal static JsonDocument? DecodeJwtPayload(string? jwt)
+    {
+        if (string.IsNullOrWhiteSpace(jwt)) return null;
+
+        var parts = jwt.Split('.');
+        if (parts.Length < 2 || parts[1].Length == 0) return null;
+
+        var payload = parts[1].Replace('-', '+').Replace('_', '/');
+        payload = payload.PadRight(payload.Length + (4 - payload.Length % 4) % 4, '=');
+
+        try
+        {
+            return JsonDocument.Parse(Convert.FromBase64String(payload));
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private async Task<ProviderUsageSnapshot?> FetchUsageFromApiAsync()

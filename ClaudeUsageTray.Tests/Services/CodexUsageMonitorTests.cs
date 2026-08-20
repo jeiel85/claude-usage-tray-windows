@@ -293,4 +293,50 @@ public class CodexUsageMonitorTests
         var local = DateTime.Today.AddHours(hour).AddMinutes(minute);
         return local.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture);
     }
+
+    // 오늘 Codex 를 쓰지 않아 세션 로그에 rate_limits 가 없어도, 로그인 파일의 id_token 으로
+    // 요금제 배지를 채울 수 있어야 한다.
+    [Fact]
+    public void TryReadPlanTypeFromAuth_ReadsPlanFromIdTokenClaims()
+    {
+        var authPath = Path.Combine(CreateTempCodexRoot(), "auth.json");
+        WriteAuthFile(authPath, """{"chatgpt_plan_type":"plus","chatgpt_account_id":"acc"}""");
+
+        Assert.Equal("plus", CodexUsageMonitor.TryReadPlanTypeFromAuth(authPath));
+    }
+
+    [Fact]
+    public void TryReadPlanTypeFromAuth_ReturnsNullWhenClaimMissing()
+    {
+        var authPath = Path.Combine(CreateTempCodexRoot(), "auth.json");
+        WriteAuthFile(authPath, """{"chatgpt_account_id":"acc"}""");
+
+        Assert.Null(CodexUsageMonitor.TryReadPlanTypeFromAuth(authPath));
+    }
+
+    [Theory]
+    [InlineData("not-a-jwt")]
+    [InlineData("header.%%%.signature")]
+    [InlineData("")]
+    public void TryReadPlanTypeFromAuth_SurvivesMalformedToken(string idToken)
+    {
+        var authPath = Path.Combine(CreateTempCodexRoot(), "auth.json");
+        File.WriteAllText(authPath, "{\"tokens\":{\"id_token\":\"" + idToken + "\"}}");
+
+        Assert.Null(CodexUsageMonitor.TryReadPlanTypeFromAuth(authPath));
+    }
+
+    [Fact]
+    public void TryReadPlanTypeFromAuth_ReturnsNullWhenFileMissing()
+        => Assert.Null(CodexUsageMonitor.TryReadPlanTypeFromAuth(
+            Path.Combine(Path.GetTempPath(), $"codex-missing-{Guid.NewGuid():N}", "auth.json")));
+
+    /// <summary>서명 없는 표시용 id_token 을 만들어 auth.json 형태로 저장한다(payload 만 base64url).</summary>
+    private static void WriteAuthFile(string authPath, string authClaimJson)
+    {
+        var payload = "{\"https://api.openai.com/auth\":" + authClaimJson + "}";
+        var encoded = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(payload))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        File.WriteAllText(authPath, "{\"tokens\":{\"id_token\":\"header." + encoded + ".signature\"}}");
+    }
 }
