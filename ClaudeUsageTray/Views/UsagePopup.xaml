@@ -696,6 +696,11 @@
 
                         <!-- Detail body — focused 일 때만 -->
                         <StackPanel Margin="10,6,10,0" Visibility="{Binding IsClaudeFocused, Converter={StaticResource BoolToVisibility}}">
+                            <!-- 구독 등급 배지 ("Claude Max 5x") — 다른 공급자와 같은 자리·같은 톤 -->
+                            <TextBlock x:Name="ClaudePlanBadge" Text="{Binding ClaudePlanLabel}"
+                                       Foreground="#A78BFA" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,8"
+                                       TextWrapping="Wrap"
+                                       Visibility="{Binding IsClaudePlanBadgeVisible, Converter={StaticResource BoolToVisibility}}"/>
                             <Grid Margin="0,0,0,10">
                                 <Grid.RowDefinitions>
                                     <RowDefinition/>
@@ -1013,9 +1018,11 @@
                         <!-- Detail body — focused 일 때만 -->
                         <StackPanel Margin="10,6,10,0" Visibility="{Binding IsCodexFocused, Converter={StaticResource BoolToVisibility}}">
 
-                        <!-- v1.26.0: PlanType 라벨 ("ChatGPT Plus" 등) — v1.27.0: ShowCodexPlanBadge 토글 -->
-                        <TextBlock Text="{Binding CodexPlanLabel}" Foreground="#6EE7B7" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,8"
-                                   Visibility="{Binding ShowCodexPlanBadge, Converter={StaticResource BoolToVisibility}}"/>
+                        <!-- v1.26.0: PlanType 라벨 ("ChatGPT Plus" 등) — v1.27.0: 표시 토글, v1.41.0: 요금제를 모르면 숨김 -->
+                        <TextBlock x:Name="CodexPlanBadge" Text="{Binding CodexPlanLabel}"
+                                   Foreground="#6EE7B7" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,8"
+                                   TextWrapping="Wrap"
+                                   Visibility="{Binding IsCodexPlanBadgeVisible, Converter={StaticResource BoolToVisibility}}"/>
 
                         <!-- 단기 윈도우 (primary) -->
                         <Grid>
@@ -1193,6 +1200,11 @@
 
                         <!-- Detail body — focused 일 때만 -->
                         <StackPanel Margin="10,6,10,0" Visibility="{Binding IsOpenCodeFocused, Converter={StaticResource BoolToVisibility}}">
+                        <!-- 구독 등급 배지 ("OpenCode Go") — 로그인된 OpenCode 상품 -->
+                        <TextBlock x:Name="OpenCodePlanBadge" Text="{Binding OpenCodePlanLabel}"
+                                   Foreground="#FB923C" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,8"
+                                   TextWrapping="Wrap"
+                                   Visibility="{Binding IsOpenCodePlanBadgeVisible, Converter={StaticResource BoolToVisibility}}"/>
                         <!-- OpenCode Go official quota — Claude·Codex와 같은 라벨/리셋/게이지 구조 -->
                         <StackPanel x:Name="OpenCodeQuotaGauges" Margin="0,0,0,10"
                                     Visibility="{Binding OpenCodeVm.HasWebQuota, Converter={StaticResource BoolToVisibility}}">
@@ -1349,7 +1361,7 @@
                             <TextBlock x:Name="AntigravityPlanBadge"
                                        Text="{Binding AntigravityPlanLabel}" Foreground="#A5B4FC" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,8"
                                        TextWrapping="Wrap"
-                                       Visibility="{Binding AntigravityPlanLabel, Converter={StaticResource StringToVisibility}}"/>
+                                       Visibility="{Binding IsAntigravityPlanBadgeVisible, Converter={StaticResource BoolToVisibility}}"/>
 
                             <!-- 창별 게이지 (그룹 × 5시간·주간 — 짧은 창이 위, Claude·Codex 와 같은 순서) -->
                             <ItemsControl x:Name="AntigravityGaugeList" ItemsSource="{Binding AntigravityModels}">

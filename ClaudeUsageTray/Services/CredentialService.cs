@@ -110,6 +110,16 @@ public class CredentialService : IDisposable
     public string? GetSubscriptionType() => Load()?.ClaudeAiOauth?.SubscriptionType;
 
     /// <summary>
+    /// 구독 등급 표시에 필요한 두 값을 한 번의 파일 읽기로 돌려준다. Max 는 5x/20x 로 한도가 갈리는데
+    /// 그 배수는 subscriptionType 이 아니라 rateLimitTier("default_claude_max_5x") 에만 들어 있다.
+    /// </summary>
+    public (string? SubscriptionType, string? RateLimitTier) GetSubscriptionInfo()
+    {
+        var oauth = Load()?.ClaudeAiOauth;
+        return (oauth?.SubscriptionType, oauth?.RateLimitTier);
+    }
+
+    /// <summary>
     /// Returns a valid access token, refreshing it first if it has expired.
     /// Returns null if no credentials exist or refresh failed.
     /// Thread-safe: serializes concurrent refresh attempts.

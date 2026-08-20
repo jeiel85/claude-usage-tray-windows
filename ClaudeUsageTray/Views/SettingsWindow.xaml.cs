@@ -159,7 +159,7 @@ public partial class SettingsWindow : Window, IDisposable
 
         // v1.27.0 표시 옵션 토글
         LblDisplayOptions.Text              = Loc.DisplayOptionsSection;
-        ChkShowCodexPlanBadge.Content       = Loc.ShowCodexPlanBadge;
+        ChkShowPlanBadge.Content            = Loc.ShowPlanBadge;
         ChkShowAbsoluteResetTime.Content    = Loc.ShowAbsoluteResetTime;
         LblShowAbsoluteResetTimeHint.Text   = Loc.ShowAbsoluteResetTimeHint;
         ChkKeepPopupAboveTaskbar.Content    = Loc.KeepPopupAboveTaskbar;
@@ -313,7 +313,7 @@ public partial class SettingsWindow : Window, IDisposable
         ChkVisibleGemini.IsChecked   = _vm.IsGeminiEnabled;
         ChkVisibleOpenCode.IsChecked = _vm.IsOpenCodeEnabled;
 
-        ChkShowCodexPlanBadge.IsChecked    = _vm.ShowCodexPlanBadge;
+        ChkShowPlanBadge.IsChecked         = _vm.ShowPlanBadge;
         ChkShowAbsoluteResetTime.IsChecked = _vm.ShowAbsoluteResetTime;
         ChkKeepPopupAboveTaskbar.IsChecked = _vm.KeepPopupAboveTaskbar;
         SliderUsagePanelOpacity.Value      = _vm.UsagePanelOpacity > 0 ? Math.Clamp(_vm.UsagePanelOpacity, 0.5, 1.0) : 0.94;
@@ -378,7 +378,7 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.IsGeminiEnabled   = ChkVisibleGemini.IsChecked == true;
         _vm.IsOpenCodeEnabled = ChkVisibleOpenCode.IsChecked == true;
 
-        _vm.ShowCodexPlanBadge    = ChkShowCodexPlanBadge.IsChecked == true;
+        _vm.ShowPlanBadge         = ChkShowPlanBadge.IsChecked == true;
         _vm.ShowAbsoluteResetTime = ChkShowAbsoluteResetTime.IsChecked == true;
         _vm.KeepPopupAboveTaskbar = ChkKeepPopupAboveTaskbar.IsChecked == true;
         _vm.UsagePanelOpacity     = Math.Clamp(SliderUsagePanelOpacity.Value, 0.5, 1.0);

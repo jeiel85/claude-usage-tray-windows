@@ -525,7 +525,7 @@
                                 <!-- v1.27.0: 표시 옵션 토글 -->
                                 <Border Height="1" Background="#2D2F45" Margin="0,8,0,8"/>
                                 <TextBlock x:Name="LblDisplayOptions" Style="{StaticResource SectionLabel}" Margin="0,0,0,8"/>
-                                <CheckBox x:Name="ChkShowCodexPlanBadge"   Style="{StaticResource CheckStyle}" Margin="0,0,0,4" Click="Setting_Changed"/>
+                                <CheckBox x:Name="ChkShowPlanBadge"        Style="{StaticResource CheckStyle}" Margin="0,0,0,4" Click="Setting_Changed"/>
                                 <CheckBox x:Name="ChkShowAbsoluteResetTime" Style="{StaticResource CheckStyle}" Margin="0,0,0,4" Click="Setting_Changed"/>
                                 <TextBlock x:Name="LblShowAbsoluteResetTimeHint" Foreground="#5A5F7A" FontSize="10" Margin="2,0,0,0" TextWrapping="Wrap"/>
                                 <CheckBox x:Name="ChkKeepPopupAboveTaskbar" Style="{StaticResource CheckStyle}" Margin="0,6,0,2" Click="Setting_Changed"/>

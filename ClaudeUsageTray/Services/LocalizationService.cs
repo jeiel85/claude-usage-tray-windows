@@ -720,12 +720,12 @@ public static class Loc
         _ => "Display options"
     };
 
-    public static string ShowCodexPlanBadge => Lang switch
+    public static string ShowPlanBadge => Lang switch
     {
-        "ko" => "Codex 플랜 배지 표시 (예: ChatGPT Plus)",
-        "zh" => "显示 Codex 套餐徽章 (例: ChatGPT Plus)",
-        "ja" => "Codex プランバッジを表示 (例: ChatGPT Plus)",
-        _ => "Show Codex plan badge (e.g. ChatGPT Plus)"
+        "ko" => "구독 등급 배지 표시 (예: Claude Max 5x, ChatGPT Plus)",
+        "zh" => "显示订阅等级徽章 (例: Claude Max 5x, ChatGPT Plus)",
+        "ja" => "サブスクリプション等級バッジを表示 (例: Claude Max 5x, ChatGPT Plus)",
+        _ => "Show subscription plan badge (e.g. Claude Max 5x, ChatGPT Plus)"
     };
 
     public static string ShowAbsoluteResetTime => Lang switch

@@ -91,8 +91,10 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private bool _hasCodexLongTimeline = false;
     [ObservableProperty] private string _codexShortPaceTip = "";
     [ObservableProperty] private string _codexLongPaceTip = "";
-    // v1.26.0: PlanType 라벨 — 응답에 PlanType 있으면 "ChatGPT Plus" 식으로, 없으면 "ChatGPT plan"
-    [ObservableProperty] private string _codexPlanLabel = "ChatGPT plan";
+    // v1.26.0: PlanType 라벨 ("ChatGPT Plus"). 요금제를 모르면 비워 두고 배지를 숨긴다.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCodexPlanBadgeVisible))]
+    private string _codexPlanLabel = "";
     [ObservableProperty] private string _codexShortWindowLabel = Loc.ShortWindow;
     [ObservableProperty] private string _codexLongWindowLabel = Loc.LongWindow;
     // 오늘의 토큰 4타일 (Input / Output / CacheRead / CacheWrite — Codex는 cache write 개념 없어 "—")
@@ -147,8 +149,37 @@ namespace ClaudeUsageTray.ViewModels;
     public string AntigravityPlanLabel =>
         string.IsNullOrWhiteSpace(AntigravityPaidTierName) ? AntigravityTierName : AntigravityPaidTierName;
 
-    partial void OnAntigravityTierNameChanged(string value) => OnPropertyChanged(nameof(AntigravityPlanLabel));
-    partial void OnAntigravityPaidTierNameChanged(string value) => OnPropertyChanged(nameof(AntigravityPlanLabel));
+    partial void OnAntigravityTierNameChanged(string value)
+    {
+        OnPropertyChanged(nameof(AntigravityPlanLabel));
+        OnPropertyChanged(nameof(IsAntigravityPlanBadgeVisible));
+    }
+
+    partial void OnAntigravityPaidTierNameChanged(string value)
+    {
+        OnPropertyChanged(nameof(AntigravityPlanLabel));
+        OnPropertyChanged(nameof(IsAntigravityPlanBadgeVisible));
+    }
+
+    // 구독 등급 배지 (v1.41.0) — 공급자마다 등급을 알아내는 출처가 다르지만 표시 규칙은 하나다:
+    // 등급을 알아낸 공급자만 배지를 그리고, 모르는 공급자는 자리 자체를 비운다.
+    //   Claude       ~/.claude/.credentials.json 의 subscriptionType + rateLimitTier
+    //   Codex        세션 로그·API 의 rate_limits.plan_type, 없으면 ~/.codex/auth.json 의 id_token
+    //   OpenCode     ~/.local/share/opencode/auth.json 에 저장된 OpenCode 로그인 항목
+    //   Antigravity  loadCodeAssist 응답의 tier 이름
+    //   Gemini CLI   등급을 알 수 있는 로컬 자료가 없어 배지 없음
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsClaudePlanBadgeVisible))]
+    private string _claudePlanLabel = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsOpenCodePlanBadgeVisible))]
+    private string _openCodePlanLabel = "";
+
+    public bool IsClaudePlanBadgeVisible => ShowPlanBadge && !string.IsNullOrWhiteSpace(ClaudePlanLabel);
+    public bool IsCodexPlanBadgeVisible => ShowPlanBadge && !string.IsNullOrWhiteSpace(CodexPlanLabel);
+    public bool IsOpenCodePlanBadgeVisible => ShowPlanBadge && !string.IsNullOrWhiteSpace(OpenCodePlanLabel);
+    public bool IsAntigravityPlanBadgeVisible => ShowPlanBadge && !string.IsNullOrWhiteSpace(AntigravityPlanLabel);
 
     // Weather (v1.29.0)
     [ObservableProperty] private bool _weatherEnabled;
@@ -305,8 +336,13 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private int _usageSyncLocalSnapshotTtlHours = UsageSyncService.DefaultLocalSnapshotTtlHours;
     [ObservableProperty] private string _usageSyncStatusLabel = Loc.UsageSyncDisabled;
 
-    // v1.27.0 표시 옵션 토글
-    [ObservableProperty] private bool _showCodexPlanBadge = true;
+    // v1.27.0 표시 옵션 토글 (v1.41.0: Codex 전용 → 전 공급자 공통)
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsClaudePlanBadgeVisible))]
+    [NotifyPropertyChangedFor(nameof(IsCodexPlanBadgeVisible))]
+    [NotifyPropertyChangedFor(nameof(IsOpenCodePlanBadgeVisible))]
+    [NotifyPropertyChangedFor(nameof(IsAntigravityPlanBadgeVisible))]
+    private bool _showPlanBadge = true;
     [ObservableProperty] private bool _showAbsoluteResetTime = false;
     [ObservableProperty] private bool _keepPopupAboveTaskbar = false;
     [ObservableProperty] private double _usagePanelOpacity = 0.94;
@@ -588,7 +624,7 @@ namespace ClaudeUsageTray.ViewModels;
         EnsureValidFocusedProvider();
 
         // v1.27.0 표시 옵션
-        ShowCodexPlanBadge   = s.ShowCodexPlanBadge;
+        ShowPlanBadge         = s.ShowPlanBadge;
         ShowAbsoluteResetTime = s.ShowAbsoluteResetTime;
         KeepPopupAboveTaskbar = s.KeepPopupAboveTaskbar;
         UsagePanelOpacity = Math.Clamp(s.UsagePanelOpacity <= 0 ? 0.94 : s.UsagePanelOpacity, 0.5, 1.0);
@@ -747,9 +783,10 @@ namespace ClaudeUsageTray.ViewModels;
     /// </summary>
     private void UpdateClaudeSubscription()
     {
-        var subType = _credentials.GetSubscriptionType();
+        var (subType, rateLimitTier) = _credentials.GetSubscriptionInfo();
         ClaudeVm.IsSubscribed = !string.IsNullOrEmpty(subType)
             && !string.Equals(subType, "free", StringComparison.OrdinalIgnoreCase);
+        ClaudePlanLabel = PlanLabels.Claude(subType, rateLimitTier);
     }
 
     [RelayCommand]
@@ -794,7 +831,7 @@ namespace ClaudeUsageTray.ViewModels;
             HideInactiveProviders = HideInactiveProviders,
             VisibleProviders = visibleProviders,
             FocusedProvider = FocusedProvider,
-            ShowCodexPlanBadge = ShowCodexPlanBadge,
+            ShowPlanBadge = ShowPlanBadge,
             ShowAbsoluteResetTime = ShowAbsoluteResetTime,
             KeepPopupAboveTaskbar = KeepPopupAboveTaskbar,
             UsagePanelOpacity = UsagePanelOpacity,
@@ -1809,8 +1846,8 @@ namespace ClaudeUsageTray.ViewModels;
         CodexLongWindowLabel = Loc.CodexWindowLabel(quota.LongWindowMinutes);
         IsCodexLongVisible = quota.HasLongWindow;
 
-        if (!string.IsNullOrWhiteSpace(quota.PlanType))
-            CodexPlanLabel = $"ChatGPT {quota.PlanType}";
+        if (PlanLabels.Codex(quota.PlanType) is { Length: > 0 } planLabel)
+            CodexPlanLabel = planLabel;
 
         CodexDataSource = Loc.UsageSyncQuotaFromDevice(
             snapshot.DeviceName,
@@ -2393,6 +2430,7 @@ namespace ClaudeUsageTray.ViewModels;
             _lastOpenCodeOutputTokens = OpenCodeVm.LastOutputTokens;
             _openCodeHasPeriodUsage = OpenCodeVm.HasPeriodUsage;
             OpenCodeNote = WithSyncNote(OpenCodeVm.Note, mergedTotals);
+            OpenCodePlanLabel = OpenCodeVm.PlanLabel;
 
             if (HasMergedDeviceTotals(mergedTotals))
             {
