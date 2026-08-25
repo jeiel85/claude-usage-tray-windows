@@ -1415,7 +1415,9 @@ namespace ClaudeUsageTray.ViewModels;
         ClaudeVm.IsActive = IsClaudeEnabled && (!hideInactive || TodayInputTokens + TodayOutputTokens > 0 || ClaudeVm.ShortPercent > 0 || ClaudeVm.HasError);
         IsCodexActive = IsCodexEnabled && (!hideInactive || CodexPercent > 0 || CodexHasError);
         IsGeminiActive = IsGeminiEnabled && (!hideInactive || _lastGeminiRequestCount > 0 || GeminiHasError);
-        IsOpenCodeActive = IsOpenCodeEnabled && (!hideInactive || _lastOpenCodeRequestCount > 0 || _openCodeHasPeriodUsage || OpenCodeHasError);
+        IsOpenCodeActive = IsOpenCodeSectionActive(
+            IsOpenCodeEnabled, hideInactive, _lastOpenCodeRequestCount, _openCodeHasPeriodUsage,
+            OpenCodeVm.HasWebQuota, OpenCodeVm.HasStaleSyncedQuota, OpenCodeHasError);
 
         ClaudeVm.IsUsageEmpty = TodayInputTokens + TodayOutputTokens == 0;
         IsCodexUsageEmpty = !_codexHasTokenData;
@@ -1904,6 +1906,28 @@ namespace ClaudeUsageTray.ViewModels;
     /// </summary>
     internal static bool HasMergedDeviceTotals(UsageSyncMergedLocalTotals? merged) =>
         merged is { HasData: true };
+
+    /// <summary>
+    /// OpenCode 섹션을 화면에 남길지 여부.
+    /// 동기화로 받아 온 공식 할당량(<paramref name="hasWebQuota"/>)과, 그 값이 시효를 넘겨 갱신을 기다리는
+    /// 중이라는 안내(<paramref name="hasStaleSyncedQuota"/>)도 "보여 줄 것이 있다" 로 친다.
+    /// 이 PC 에서 OpenCode 를 쓰지 않는 사용자는 오늘 토큰도 이번 달 기록도 없어 나머지 조건이 모두 거짓이라,
+    /// 이 둘을 빼면 다른 PC 의 게이지를 손에 들고도 HideInactiveProviders 와 맞물려 섹션이 통째로 사라진다.
+    /// </summary>
+    internal static bool IsOpenCodeSectionActive(
+        bool isEnabled,
+        bool hideInactive,
+        int requestCount,
+        bool hasPeriodUsage,
+        bool hasWebQuota,
+        bool hasStaleSyncedQuota,
+        bool hasError) =>
+        isEnabled && (!hideInactive
+            || requestCount > 0
+            || hasPeriodUsage
+            || hasWebQuota
+            || hasStaleSyncedQuota
+            || hasError);
 
     /// <summary>
     /// Gemini CLI 처럼 서버 할당량이 없어 "최근 최대 사용일" 대비로 막대를 그리는 provider 의

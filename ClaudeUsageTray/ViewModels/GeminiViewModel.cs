@@ -22,7 +22,6 @@ public partial class GeminiViewModel : ObservableObject
     [ObservableProperty] private string _inputLabel = "—";
     [ObservableProperty] private string _cacheReadLabel = "—";
     [ObservableProperty] private string _cacheWriteLabel = "—";
-    [ObservableProperty] private bool _isActive = false;
     [ObservableProperty] private bool _isUsageEmpty = true;
 
     public int LastRequestCount => _lastRequestCount;
@@ -89,10 +88,5 @@ public partial class GeminiViewModel : ObservableObject
                 ErrorMessage = ex.Message;
             });
         }
-    }
-
-    public void UpdateActiveState(bool isEnabled, bool hideInactive)
-    {
-        IsActive = isEnabled && (!hideInactive || _lastRequestCount > 0 || HasError);
     }
 }

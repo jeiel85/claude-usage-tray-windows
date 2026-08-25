@@ -3,6 +3,26 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.41.1] - 2026-08-25
+
+<!-- ko -->
+### 수정
+- **다른 PC 에서만 OpenCode 를 쓰면 그 게이지가 이 PC 화면에서 사라지던 문제** — 동기화로 받은 OpenCode Go 공식 할당량은 정상적으로 넘어와 적용까지 되는데, 섹션을 화면에 남길지 정하는 조건이 `오늘 요청 수 · 이 PC 의 이번 달 로컬 기록 · 오류` 만 보고 있었습니다. 이 PC 에서 OpenCode 를 쓰지 않으면 셋 다 없어서, `데이터 없는 공급자 자동 숨김`(기본 켜짐)과 맞물려 게이지 값을 손에 들고도 OpenCode 가 팝업에서 통째로 사라졌습니다. 받은 공식 할당량과, 그 값이 시효를 넘겨 `기기명의 15:02 값 · 갱신 대기 중` 안내로 바뀐 경우도 표시 근거로 인정합니다.
+
+### 참고
+- 1.38.9 에서 고친 것은 같은 증상의 다른 경로(다른 PC 의 합산 토큰이 버려지던 문제)로, 관측한 PC 도 그날 토큰이 0 이면 여전히 섹션이 사라졌습니다.
+- 화면에 보이는 값은 달라지지 않습니다. 사라지던 섹션이 그대로 남을 뿐입니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **OpenCode gauges vanished on a PC that only receives them** — The official OpenCode Go quota synchronized from another PC arrived and was applied correctly, but the rule deciding whether to keep the section on screen looked only at today's request count, this PC's local usage for the month, and errors. On a PC where OpenCode is never used none of the three exist, so together with `Hide providers without data` (on by default) the whole OpenCode section disappeared even though the gauge values were already in hand. A received official quota — and the `<device> value from 15:02 · awaiting refresh` notice it turns into once it passes its lifetime — now counts as something to show.
+
+### Notes
+- The 1.38.9 fix covered a different path to the same symptom (another PC's merged token totals being discarded); the section still disappeared whenever the observing PC had no tokens that day.
+- No displayed value changes. The section that used to disappear simply stays.
+<!-- /en -->
+
 ## [1.41.0] - 2026-08-20
 
 <!-- ko -->
