@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using ClaudeUsageTray.Models;
 using ClaudeUsageTray.ViewModels;
 using ClaudeUsageTray.Services;
@@ -425,6 +427,97 @@ public class UsageSyncQuotaPolicyTests
         Assert.Equal(expected, MainViewModel.IsOpenCodeSectionActive(
             isEnabled, hideInactive, requestCount, hasPeriodUsage,
             hasWebQuota, hasStaleSyncedQuota, hasError));
+    }
+
+    // 구독 중인 사용자가 오늘 아직 Claude 를 쓰지 않은 아침. 5시간 창은 정상 조회되어 0% 이고
+    // 오늘 토큰도 0 이다 — 여기서 섹션을 접으면 "0% 남았다"가 아니라 "Claude 가 없다"로 보인다.
+    [Fact]
+    public void PaidSubscriptionBeforeAnyUsage_KeepsTheClaudeSectionVisible()
+    {
+        Assert.True(MainViewModel.IsClaudeSectionActive(
+            isEnabled: true, hideInactive: true, todayTokens: 0, shortPercent: 0,
+            hasQuotaData: false, isSubscribed: true, hasError: false));
+    }
+
+    // API 가 5시간·7일 창을 0% 로 정상 회신한 상태. 게이지 값을 손에 들고 있으므로
+    // 오늘 사용 기록이 없다는 이유로 그 값을 감추면 안 된다.
+    [Fact]
+    public void FetchedQuotaAtZeroPercent_KeepsTheClaudeSectionVisible()
+    {
+        Assert.True(MainViewModel.IsClaudeSectionActive(
+            isEnabled: true, hideInactive: true, todayTokens: 0, shortPercent: 0,
+            hasQuotaData: true, isSubscribed: false, hasError: false));
+    }
+
+    // 실제 자격 파일에서 등급을 읽어 표시 규칙까지 이어지는지 확인한다.
+    // Max 구독으로 로그인만 해 둔 PC(오늘 사용 0, 할당량 조회 실패) 를 재현한다.
+    [Fact]
+    public void SubscriptionTypeFromCredentialsFile_ReachesTheDisplayRule()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "cut-claude-section-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, ".credentials.json");
+        try
+        {
+            File.WriteAllText(path, """
+            {
+              "claudeAiOauth": {
+                "accessToken": "sk-test-token",
+                "expiresAt": 0,
+                "subscriptionType": "max",
+                "rateLimitTier": "default_claude_max_5x"
+              }
+            }
+            """);
+
+            using var credentials = new CredentialService(path);
+            var (subType, _) = credentials.GetSubscriptionInfo();
+
+            Assert.True(MainViewModel.IsPaidClaudeSubscription(subType));
+            Assert.True(MainViewModel.IsClaudeSectionActive(
+                isEnabled: true, hideInactive: true, todayTokens: 0, shortPercent: 0,
+                hasQuotaData: false, isSubscribed: MainViewModel.IsPaidClaudeSubscription(subType),
+                hasError: false));
+        }
+        finally
+        {
+            try { Directory.Delete(dir, recursive: true); } catch { }
+        }
+    }
+
+    [Theory]
+    [InlineData("max", true)]
+    [InlineData("pro", true)]
+    [InlineData("team", true)]
+    [InlineData("Free", false)]
+    [InlineData("free", false)]
+    // 로그아웃·필드 부재를 구독으로 단정하지 않는다.
+    [InlineData(null, false)]
+    [InlineData("", false)]
+    [InlineData("   ", false)]
+    public void PaidSubscriptionCheck_ExcludesFreeAndUnknown(string? subscriptionType, bool expected)
+    {
+        Assert.Equal(expected, MainViewModel.IsPaidClaudeSubscription(subscriptionType));
+    }
+
+    [Theory]
+    // 로그인도 조회 결과도 없으면 종전대로 숨긴다.
+    [InlineData(true, true, 0L, 0.0, false, false, false, false)]
+    // 공급자 표시를 꺼 두었으면 구독 중이어도 숨긴다.
+    [InlineData(false, true, 0L, 0.0, true, true, true, false)]
+    // 자동 숨김이 꺼져 있으면 아무 근거가 없어도 남긴다.
+    [InlineData(true, false, 0L, 0.0, false, false, false, true)]
+    // 오늘 토큰·5시간 창 사용률·오류는 종전 그대로 표시 근거다.
+    [InlineData(true, true, 248_796L, 0.0, false, false, false, true)]
+    [InlineData(true, true, 0L, 0.37, false, false, false, true)]
+    [InlineData(true, true, 0L, 0.0, false, false, true, true)]
+    public void ClaudeSectionVisibility_FollowsTheDisplayRule(
+        bool isEnabled, bool hideInactive, long todayTokens, double shortPercent,
+        bool hasQuotaData, bool isSubscribed, bool hasError, bool expected)
+    {
+        Assert.Equal(expected, MainViewModel.IsClaudeSectionActive(
+            isEnabled, hideInactive, todayTokens, shortPercent,
+            hasQuotaData, isSubscribed, hasError));
     }
 
     [Fact]

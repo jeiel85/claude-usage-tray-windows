@@ -784,10 +784,18 @@ namespace ClaudeUsageTray.ViewModels;
     private void UpdateClaudeSubscription()
     {
         var (subType, rateLimitTier) = _credentials.GetSubscriptionInfo();
-        ClaudeVm.IsSubscribed = !string.IsNullOrEmpty(subType)
-            && !string.Equals(subType, "free", StringComparison.OrdinalIgnoreCase);
+        ClaudeVm.IsSubscribed = IsPaidClaudeSubscription(subType);
         ClaudePlanLabel = PlanLabels.Claude(subType, rateLimitTier);
     }
+
+    /// <summary>
+    /// ~/.claude/.credentials.json 의 <c>claudeAiOauth.subscriptionType</c>("pro"·"max"·"free" …) 이
+    /// 유료 구독을 가리키는지. 값이 없으면(로그아웃·필드 부재) 구독으로 치지 않는다 —
+    /// 모르는 상태를 구독으로 단정하면 쓰지도 않는 공급자 섹션이 계속 남는다.
+    /// </summary>
+    internal static bool IsPaidClaudeSubscription(string? subscriptionType) =>
+        !string.IsNullOrWhiteSpace(subscriptionType)
+        && !string.Equals(subscriptionType, "free", StringComparison.OrdinalIgnoreCase);
 
     [RelayCommand]
     public void SaveSettings()
@@ -1412,7 +1420,9 @@ namespace ClaudeUsageTray.ViewModels;
         var settings = _settingsService.Load();
         var hideInactive = settings.HideInactiveProviders;
 
-        ClaudeVm.IsActive = IsClaudeEnabled && (!hideInactive || TodayInputTokens + TodayOutputTokens > 0 || ClaudeVm.ShortPercent > 0 || ClaudeVm.HasError);
+        ClaudeVm.IsActive = IsClaudeSectionActive(
+            IsClaudeEnabled, hideInactive, TodayInputTokens + TodayOutputTokens,
+            ClaudeVm.ShortPercent, ClaudeVm.HasQuotaData, ClaudeVm.IsSubscribed, ClaudeVm.HasError);
         IsCodexActive = IsCodexEnabled && (!hideInactive || CodexPercent > 0 || CodexHasError);
         IsGeminiActive = IsGeminiEnabled && (!hideInactive || _lastGeminiRequestCount > 0 || GeminiHasError);
         IsOpenCodeActive = IsOpenCodeSectionActive(
@@ -1906,6 +1916,29 @@ namespace ClaudeUsageTray.ViewModels;
     /// </summary>
     internal static bool HasMergedDeviceTotals(UsageSyncMergedLocalTotals? merged) =>
         merged is { HasData: true };
+
+    /// <summary>
+    /// Claude 섹션을 화면에 남길지 여부.
+    /// 받아 둔 공식 할당량(<paramref name="hasQuotaData"/>)과 유료 구독 중이라는 사실
+    /// (<paramref name="isSubscribed"/>, ~/.claude/.credentials.json 의 subscriptionType)도
+    /// "보여 줄 것이 있다" 로 친다. 오늘 아직 Claude 를 쓰지 않은 아침에는 오늘 토큰도 0 이고
+    /// 5시간 창 사용률도 0% 라, 이 둘을 빼면 게이지 값(0%)을 손에 들고도 HideInactiveProviders 와
+    /// 맞물려 섹션이 통째로 사라진다 — 구독자에게는 "0% 남았다"가 아니라 "Claude 가 없다"로 보인다.
+    /// </summary>
+    internal static bool IsClaudeSectionActive(
+        bool isEnabled,
+        bool hideInactive,
+        long todayTokens,
+        double shortPercent,
+        bool hasQuotaData,
+        bool isSubscribed,
+        bool hasError) =>
+        isEnabled && (!hideInactive
+            || todayTokens > 0
+            || shortPercent > 0
+            || hasQuotaData
+            || isSubscribed
+            || hasError);
 
     /// <summary>
     /// OpenCode 섹션을 화면에 남길지 여부.
