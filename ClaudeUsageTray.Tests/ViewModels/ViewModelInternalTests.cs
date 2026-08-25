@@ -159,6 +159,32 @@ public class OpenCodeViewModelTests
         Assert.Same(first, vm.LastSnapshot.OpenCodeDetails?.WebUsage);
     }
 
+    // OpenCode 를 다른 PC 에서만 쓰는 PC — 로컬 근거(오늘 요청·이번 달 기록·오류)가 하나도 없고
+    // 동기화로 받은 값만 있는 상태를 실제 뷰모델 속성으로 표시 규칙에 넣어 본다.
+    [Fact]
+    public void ReceivedQuota_AloneKeepsTheSectionVisible()
+    {
+        var vm = new OpenCodeViewModel(new OpenCodeUsageMonitor(), new HistoryService());
+        Assert.False(vm.HasWebQuota);
+        Assert.False(vm.HasPeriodUsage);
+        Assert.False(vm.HasError);
+
+        vm.ApplySyncedWebUsage(CreateUsage(0.42));
+        Assert.True(IsSectionActive(vm));
+
+        // 값이 시효를 넘겨 게이지가 빠지고 "갱신 대기 중" 안내만 남아도 섹션은 그대로여야 한다.
+        var stale = new OpenCodeViewModel(new OpenCodeUsageMonitor(), new HistoryService());
+        stale.ApplyStaleSyncedQuotaNotice("DESKTOP-V0JCEPJ", DateTimeOffset.Now.AddHours(-1));
+        Assert.False(stale.HasWebQuota);
+        Assert.True(IsSectionActive(stale));
+    }
+
+    private static bool IsSectionActive(OpenCodeViewModel vm) =>
+        MainViewModel.IsOpenCodeSectionActive(
+            isEnabled: true, hideInactive: true, requestCount: vm.LastRequestCount,
+            hasPeriodUsage: vm.HasPeriodUsage, hasWebQuota: vm.HasWebQuota,
+            hasStaleSyncedQuota: vm.HasStaleSyncedQuota, hasError: vm.HasError);
+
     private static OpenCodeWebUsage CreateUsage(double percent)
     {
         var now = DateTimeOffset.Now;
@@ -359,6 +385,46 @@ public class UsageSyncQuotaPolicyTests
     {
         Assert.False(MainViewModel.HasMergedDeviceTotals(null));
         Assert.False(MainViewModel.HasMergedDeviceTotals(new UsageSyncMergedLocalTotals { DeviceCount = 0 }));
+    }
+
+    // 다른 PC 가 공식 할당량만 올린 날(그 PC 도 오늘 토큰은 0) 을 재현한다.
+    // 받는 PC 는 게이지 값을 이미 손에 들고 있으므로, 로컬 사용 기록이 없다는 이유로 섹션을 지우면 안 된다.
+    [Fact]
+    public void SyncedOfficialQuota_KeepsTheOpenCodeSectionVisible()
+    {
+        Assert.True(MainViewModel.IsOpenCodeSectionActive(
+            isEnabled: true, hideInactive: true, requestCount: 0, hasPeriodUsage: false,
+            hasWebQuota: true, hasStaleSyncedQuota: false, hasError: false));
+    }
+
+    // 받아 둔 값이 시효를 넘겨 "기기명의 15:02 값 · 갱신 대기 중" 안내로 바뀐 상태.
+    // 여기서 섹션을 접으면 그 안내를 볼 수 있는 화면 자체가 사라진다.
+    [Fact]
+    public void AwaitingSyncedQuotaRefresh_KeepsTheOpenCodeSectionVisible()
+    {
+        Assert.True(MainViewModel.IsOpenCodeSectionActive(
+            isEnabled: true, hideInactive: true, requestCount: 0, hasPeriodUsage: false,
+            hasWebQuota: false, hasStaleSyncedQuota: true, hasError: false));
+    }
+
+    [Theory]
+    // 보여 줄 것이 하나도 없으면 종전대로 숨긴다.
+    [InlineData(true, true, 0, false, false, false, false, false)]
+    // 공급자 표시를 꺼 두었으면 동기화 값이 있어도 숨긴다.
+    [InlineData(false, true, 0, false, true, true, true, false)]
+    // 자동 숨김이 꺼져 있으면 아무 근거가 없어도 남긴다.
+    [InlineData(true, false, 0, false, false, false, false, true)]
+    // 합산 요청 수·이번 달 로컬 기록·오류는 종전 그대로 표시 근거다.
+    [InlineData(true, true, 179, false, false, false, false, true)]
+    [InlineData(true, true, 0, true, false, false, false, true)]
+    [InlineData(true, true, 0, false, false, false, true, true)]
+    public void OpenCodeSectionVisibility_FollowsTheDisplayRule(
+        bool isEnabled, bool hideInactive, int requestCount, bool hasPeriodUsage,
+        bool hasWebQuota, bool hasStaleSyncedQuota, bool hasError, bool expected)
+    {
+        Assert.Equal(expected, MainViewModel.IsOpenCodeSectionActive(
+            isEnabled, hideInactive, requestCount, hasPeriodUsage,
+            hasWebQuota, hasStaleSyncedQuota, hasError));
     }
 
     [Fact]

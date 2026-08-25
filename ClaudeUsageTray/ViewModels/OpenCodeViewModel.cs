@@ -43,7 +43,6 @@ public partial class OpenCodeViewModel : ObservableObject
     [ObservableProperty] private double _rollingTimePercent = 0;
     [ObservableProperty] private double _weeklyTimePercent = 0;
     [ObservableProperty] private double _monthlyTimePercent = 0;
-    [ObservableProperty] private bool _isActive = false;
     [ObservableProperty] private bool _isUsageEmpty = true;
     [ObservableProperty] private bool _hasStaleSyncedQuota = false;
     [ObservableProperty] private string _syncedQuotaNoticeLabel = "";
@@ -323,10 +322,5 @@ public partial class OpenCodeViewModel : ObservableObject
             ? $" · {Loc.OpenCodeRetryAt(UsageCalculator.FormatResetLabel(retryAt, false, true, DateTimeOffset.Now))}"
             : "";
         return (details.LimitKind == "go" ? Loc.OpenCodeGoLimitReached : Loc.OpenCodeFreeLimitReached) + reset;
-    }
-
-    public void UpdateActiveState(bool isEnabled, bool hideInactive)
-    {
-        IsActive = isEnabled && (!hideInactive || _lastRequestCount > 0 || HasPeriodUsage || HasWebQuota || HasError);
     }
 }

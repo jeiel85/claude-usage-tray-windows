@@ -33,7 +33,6 @@ public partial class CodexViewModel : ObservableObject
     [ObservableProperty] private string _outputLabel = "—";
     [ObservableProperty] private string _cacheReadLabel = "—";
     [ObservableProperty] private string _cacheWriteLabel = "—";
-    [ObservableProperty] private bool _isActive = false;
     [ObservableProperty] private bool _isUsageEmpty = true;
 
     public double PrevPercent => _prevPercent;
@@ -127,11 +126,6 @@ public partial class CodexViewModel : ObservableObject
                 ErrorMessage = ex.Message;
             });
         }
-    }
-
-    public void UpdateActiveState(bool isEnabled, bool hideInactive)
-    {
-        IsActive = isEnabled && (!hideInactive || Percent > 0 || HasError);
     }
 
     public void UpdateResetLabels(bool showAbsoluteResetTime)
