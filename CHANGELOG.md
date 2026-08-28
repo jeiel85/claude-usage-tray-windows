@@ -3,6 +3,28 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.41.3] - 2026-08-28
+
+<!-- ko -->
+### 수정
+- **구독 중이어도 오늘 Codex 를 쓰지 않으면 Codex 섹션이 사라지던 문제** — 섹션을 화면에 남길지 정하는 조건이 `5시간 창 사용률 · 오류` 만 봤습니다. Codex 의 5시간 창은 초기화 시각이 지나면 통째로 버려져 0% 가 되므로, 오늘 Codex 를 쓰지 않은 날에는 두 조건이 모두 거짓이라 `데이터 없는 공급자 자동 숨김`(기본 켜짐)과 맞물려 아직 살아 있는 주간 창(실측 21% · 09-02 초기화)과 `ChatGPT Plus` 배지를 손에 든 채로 Codex 가 팝업에서 통째로 사라졌습니다. 주간 창 사용률, 아직 살아 있는 창을 알고 있다는 사실, 오늘 토큰 기록, 그리고 유료 구독 중이라는 사실(`~/.codex/auth.json` id_token 의 `chatgpt_plan_type`)도 표시 근거로 인정합니다.
+
+### 참고
+- 화면에 보이는 값은 달라지지 않습니다. 사라지던 섹션이 그대로 남을 뿐입니다.
+- `free` 등급과 로그아웃(API 키 모드 포함) 상태는 구독으로 치지 않습니다. 구독 여부는 세션 로그에 남은 과거 요금제가 아니라 **지금 로그인된 계정**(`~/.codex/auth.json`)에서만 읽습니다 — 로그의 `plan_type` 은 날짜와 무관하게 남아 로그아웃 뒤에도 사라지지 않기 때문입니다.
+- 다만 로그아웃 전에 받아 둔 창이 아직 초기화 전이면, 그 창이 끝날 때까지는 게이지가 남습니다(최대 주간 창 하나).
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The Codex section disappeared on a day without Codex use, even on a paid plan** — The rule deciding whether to keep the section on screen looked only at the five-hour window percentage and errors. Codex drops a five-hour window whole once its reset time passes, so it reads 0%; on a day without Codex use both conditions were false, and together with `Hide providers without data` (on by default) the whole Codex section vanished — while a still-live weekly window (measured 21%, resetting 09-02) and the `ChatGPT Plus` badge were sitting right there. The weekly window percentage, knowing a window is still live, today's token record, and an active paid subscription (`chatgpt_plan_type` in the `~/.codex/auth.json` id_token) now count as something to show.
+
+### Notes
+- No displayed value changes. The section that used to disappear simply stays.
+- A `free` plan or a signed-out state (including API-key mode) does not count as a subscription. Subscription status is read only from **the currently signed-in account** (`~/.codex/auth.json`), never from the plan type left in session logs — that one survives sign-out, since it is picked up regardless of date.
+- A window fetched before signing out still shows until it resets, though (at most one weekly window).
+<!-- /en -->
+
 ## [1.41.2] - 2026-08-26
 
 <!-- ko -->

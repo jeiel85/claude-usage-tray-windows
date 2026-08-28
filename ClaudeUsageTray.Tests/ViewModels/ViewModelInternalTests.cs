@@ -520,6 +520,158 @@ public class UsageSyncQuotaPolicyTests
             hasQuotaData, isSubscribed, hasError));
     }
 
+    // 실측 재현(2026-08-28, DESKTOP-V0JCEPJ): ChatGPT Plus 구독 중이고 마지막 Codex 세션은 이틀 전.
+    // 5시간 창은 리셋이 지나 버려져 0% 이지만 주간 창은 2026-09-01 리셋까지 21% 가 살아 있었다.
+    // 종전 판정은 5시간 창만 봐서, 이 21% 와 `ChatGPT Plus` 배지를 손에 들고도 섹션을 통째로 지웠다.
+    [Fact]
+    public void ExpiredShortWindowButLiveWeeklyQuota_KeepsTheCodexSectionVisible()
+    {
+        Assert.True(MainViewModel.IsCodexSectionActive(
+            isEnabled: true, hideInactive: true, hasTodayUsage: false, shortPercent: 0, longPercent: 0.21,
+            hasQuotaData: true, isSubscribed: true, hasError: false));
+    }
+
+    // 두 창 모두 갓 초기화되어 0% 인 순간. 조회에는 성공했으므로 "값이 0" 이지 "값이 없다" 가 아니다.
+    [Fact]
+    public void FreshlyResetCodexWindows_KeepTheSectionVisible()
+    {
+        Assert.True(MainViewModel.IsCodexSectionActive(
+            isEnabled: true, hideInactive: true, hasTodayUsage: false, shortPercent: 0, longPercent: 0,
+            hasQuotaData: true, isSubscribed: false, hasError: false));
+    }
+
+    // 창 정보가 아예 없어도(로그가 오래됐고 동기화도 비어 있음) 유료 구독 사실만으로 섹션을 남긴다.
+    [Fact]
+    public void PaidCodexSubscriptionWithoutAnyQuota_KeepsTheSectionVisible()
+    {
+        Assert.True(MainViewModel.IsCodexSectionActive(
+            isEnabled: true, hideInactive: true, hasTodayUsage: false, shortPercent: 0, longPercent: 0,
+            hasQuotaData: false, isSubscribed: true, hasError: false));
+    }
+
+    // 로그인 파일에서 요금제를 읽어 표시 규칙까지 이어지는지 확인한다 —
+    // 오늘 Codex 를 쓰지 않아 세션 로그의 rate_limits 가 없는 PC 를 재현한다.
+    [Fact]
+    public void PlanTypeFromCodexAuthFile_ReachesTheDisplayRule()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "cut-codex-section-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, "auth.json");
+        try
+        {
+            File.WriteAllText(path, $$"""
+            {
+              "auth_mode": "chatgpt",
+              "OPENAI_API_KEY": null,
+              "tokens": {
+                "id_token": "{{JwtWithPlanType("plus")}}",
+                "account_id": "00000000-0000-0000-0000-000000000000"
+              }
+            }
+            """);
+
+            var planType = CodexUsageMonitor.TryReadPlanTypeFromAuth(path);
+
+            Assert.Equal("plus", planType);
+            Assert.True(MainViewModel.IsPaidCodexSubscription(planType));
+            Assert.True(MainViewModel.IsCodexSectionActive(
+                isEnabled: true, hideInactive: true, hasTodayUsage: false, shortPercent: 0, longPercent: 0,
+                hasQuotaData: false, isSubscribed: MainViewModel.IsPaidCodexSubscription(planType),
+                hasError: false));
+        }
+        finally
+        {
+            try { Directory.Delete(dir, recursive: true); } catch { }
+        }
+    }
+
+    // 리뷰 지적(#155): 로그아웃해도 세션 로그의 rate_limits.plan_type 은 남는다 —
+    // ProcessFile 이 날짜와 무관하게 가장 최근 rate_limits 를 집어오고, DropExpiredWindows 는 창만 버리고
+    // plan_type 은 건드리지 않기 때문이다. 그 값으로 구독을 판정하면 해지·로그아웃한 PC 에서 섹션이
+    // 영영 접히지 않으므로, 근거는 반드시 "지금 로그인된 계정"(GetCurrentPlanType) 에서 와야 한다.
+    [Fact]
+    public void StalePlanTypeInOldSessionLog_DoesNotCountAsSubscription()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "cut-codex-signedout-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            // 사흘 전 세션 로그 — 창은 이미 만료됐지만 plan_type 은 그대로 남아 있다.
+            var expired = DateTimeOffset.Now.AddDays(-3).ToUnixTimeSeconds();
+            File.WriteAllText(Path.Combine(root, "rollout-old.jsonl"),
+                """{"timestamp":"2026-08-25T01:00:00.000Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":999,"cached_input_tokens":0,"output_tokens":9,"reasoning_output_tokens":0,"total_tokens":1008}},"rate_limits":{"limit_id":"codex","primary":{"used_percent":61.0,"window_minutes":300,"resets_at":"""
+                + expired + """},"secondary":null,"plan_type":"plus"}}}""" + Environment.NewLine);
+
+            var snapshot = new CodexUsageMonitor().GetTodaySnapshot(root);
+
+            // 로그에는 남는다(배지 문구는 이 값을 쓴다) — 그래서 판정에 그대로 쓰면 안 된다.
+            Assert.Equal("plus", snapshot.PlanType);
+            Assert.Equal(0, snapshot.ShortUsagePercent);
+            Assert.Null(snapshot.ShortResetAt);
+
+            // 로그아웃 상태 — auth.json 이 없다.
+            var currentPlanType = CodexUsageMonitor.TryReadPlanTypeFromAuth(Path.Combine(root, "auth.json"));
+            Assert.Null(currentPlanType);
+
+            Assert.False(MainViewModel.IsCodexSectionActive(
+                isEnabled: true, hideInactive: true, hasTodayUsage: false,
+                shortPercent: snapshot.ShortUsagePercent, longPercent: snapshot.LongUsagePercent,
+                hasQuotaData: false,
+                isSubscribed: MainViewModel.IsPaidCodexSubscription(currentPlanType),
+                hasError: false));
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { }
+        }
+    }
+
+    /// <summary>서명 없는 표시용 id_token — payload 만 읽는 <c>TryReadPlanTypeFromAuth</c> 의 입력을 만든다.</summary>
+    private static string JwtWithPlanType(string planType)
+    {
+        var payload = "{\"https://api.openai.com/auth\":{\"chatgpt_plan_type\":\"" + planType + "\"}}";
+        var encoded = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(payload))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        return $"header.{encoded}.signature";
+    }
+
+    [Theory]
+    [InlineData("plus", true)]
+    [InlineData("pro", true)]
+    [InlineData("team", true)]
+    [InlineData("enterprise", true)]
+    [InlineData("Free", false)]
+    [InlineData("free", false)]
+    // API 키 모드·로그아웃처럼 요금제를 모르는 상태를 구독으로 단정하지 않는다.
+    [InlineData(null, false)]
+    [InlineData("", false)]
+    [InlineData("   ", false)]
+    public void PaidCodexSubscriptionCheck_ExcludesFreeAndUnknown(string? planType, bool expected)
+    {
+        Assert.Equal(expected, MainViewModel.IsPaidCodexSubscription(planType));
+    }
+
+    [Theory]
+    // 로그인도 조회 결과도 없으면 종전대로 숨긴다.
+    [InlineData(true, true, false, 0.0, 0.0, false, false, false, false)]
+    // 공급자 표시를 꺼 두었으면 구독 중이어도 숨긴다.
+    [InlineData(false, true, true, 0.0, 0.0, true, true, true, false)]
+    // 자동 숨김이 꺼져 있으면 아무 근거가 없어도 남긴다.
+    [InlineData(true, false, false, 0.0, 0.0, false, false, false, true)]
+    // 5시간 창 사용률·오류는 종전 그대로 표시 근거다.
+    [InlineData(true, true, false, 0.37, 0.0, false, false, false, true)]
+    [InlineData(true, true, false, 0.0, 0.0, false, false, true, true)]
+    // 오늘 토큰 기록도 근거다 — 창이 모두 만료돼 버려진 날에도 "오늘 썼다" 는 남는다.
+    [InlineData(true, true, true, 0.0, 0.0, false, false, false, true)]
+    public void CodexSectionVisibility_FollowsTheDisplayRule(
+        bool isEnabled, bool hideInactive, bool hasTodayUsage, double shortPercent, double longPercent,
+        bool hasQuotaData, bool isSubscribed, bool hasError, bool expected)
+    {
+        Assert.Equal(expected, MainViewModel.IsCodexSectionActive(
+            isEnabled, hideInactive, hasTodayUsage, shortPercent, longPercent,
+            hasQuotaData, isSubscribed, hasError));
+    }
+
     [Fact]
     public void DeviceDerivedPercent_IsNeverWrittenToTheSharedFolder()
     {
