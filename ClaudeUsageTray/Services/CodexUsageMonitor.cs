@@ -45,6 +45,14 @@ public class CodexUsageMonitor
     }
 
     /// <summary>
+    /// <b>지금</b> 로그인돼 있는 계정의 요금제. 로그아웃하면(파일이 없거나 id_token 이 사라지면) null 이다.
+    /// 스냅샷의 <see cref="ProviderUsageSnapshot.PlanType"/> 은 날짜와 무관하게 가장 최근 세션 로그의
+    /// <c>rate_limits.plan_type</c> 을 집어오므로 로그아웃 뒤에도 남는다 — "지금 구독 중인가" 를 물을 때는
+    /// 반드시 이쪽을 쓴다(과거 값으로 판단하면 해지·로그아웃 후에도 영영 구독 중으로 보인다).
+    /// </summary>
+    public static string? GetCurrentPlanType() => TryReadPlanTypeFromAuth(AuthPath);
+
+    /// <summary>
     /// 로그인 파일(<c>~/.codex/auth.json</c>)의 id_token 에서 요금제를 읽는다.
     /// 세션 로그의 <c>rate_limits.plan_type</c> 은 오늘 Codex 를 한 번이라도 써야 생기므로,
     /// 요금제 배지가 "쓰기 전에는 안 보이는" 값이 되지 않도록 여기서 보완한다.

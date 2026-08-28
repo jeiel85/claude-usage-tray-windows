@@ -95,9 +95,9 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsCodexPlanBadgeVisible))]
     private string _codexPlanLabel = "";
-    // 배지 문구를 만들기 전의 요금제 원문("plus"·"pro"·"free" …). 표시가 아니라 섹션 표시 판정에 쓴다 —
-    // 배지 문구는 사람이 읽기 좋게 다듬은 값이라 "유료 구독 중인가"를 되짚기에 적합하지 않다.
-    private string _codexPlanType = "";
+    // 지금 유료 ChatGPT 구독으로 로그인돼 있는지. 근거는 배지 문구도 세션 로그의 plan_type 도 아닌
+    // CodexUsageMonitor.GetCurrentPlanType() 이다 — 로그의 plan_type 은 로그아웃 뒤에도 남기 때문이다.
+    private bool _isCodexSubscribed;
     [ObservableProperty] private string _codexShortWindowLabel = Loc.ShortWindow;
     [ObservableProperty] private string _codexLongWindowLabel = Loc.LongWindow;
     // 오늘의 토큰 4타일 (Input / Output / CacheRead / CacheWrite — Codex는 cache write 개념 없어 "—")
@@ -1428,7 +1428,7 @@ namespace ClaudeUsageTray.ViewModels;
             ClaudeVm.ShortPercent, ClaudeVm.HasQuotaData, ClaudeVm.IsSubscribed, ClaudeVm.HasError);
         IsCodexActive = IsCodexSectionActive(
             IsCodexEnabled, hideInactive, _codexHasTokenData, CodexPercent, CodexLongPercent,
-            HasLiveCodexQuota(), IsPaidCodexSubscription(_codexPlanType), CodexHasError);
+            HasLiveCodexQuota(), _isCodexSubscribed, CodexHasError);
         IsGeminiActive = IsGeminiEnabled && (!hideInactive || _lastGeminiRequestCount > 0 || GeminiHasError);
         IsOpenCodeActive = IsOpenCodeSectionActive(
             IsOpenCodeEnabled, hideInactive, _lastOpenCodeRequestCount, _openCodeHasPeriodUsage,
@@ -1864,10 +1864,7 @@ namespace ClaudeUsageTray.ViewModels;
         IsCodexLongVisible = quota.HasLongWindow;
 
         if (PlanLabels.Codex(quota.PlanType) is { Length: > 0 } planLabel)
-        {
             CodexPlanLabel = planLabel;
-            _codexPlanType = quota.PlanType;
-        }
 
         CodexDataSource = Loc.UsageSyncQuotaFromDevice(
             snapshot.DeviceName,
@@ -1951,8 +1948,10 @@ namespace ClaudeUsageTray.ViewModels;
     /// <summary>
     /// Codex 섹션을 화면에 남길지 여부.
     /// 5시간 창 사용률만 보던 종전 판정에, 주간 창 사용률(<paramref name="longPercent"/>)·아직 살아 있는 창을
-    /// 알고 있다는 사실(<paramref name="hasQuotaData"/>)·유료 ChatGPT 구독(<paramref name="isSubscribed"/>,
-    /// 세션 로그의 rate_limits.plan_type 또는 ~/.codex/auth.json 의 id_token 클레임)을 함께 근거로 인정한다.
+    /// 알고 있다는 사실(<paramref name="hasQuotaData"/>)·유료 ChatGPT 구독(<paramref name="isSubscribed"/>)을
+    /// 함께 근거로 인정한다. 구독 여부는 반드시 <see cref="CodexUsageMonitor.GetCurrentPlanType"/>(지금 로그인된
+    /// 계정)에서 와야 한다 — 세션 로그의 <c>rate_limits.plan_type</c> 은 날짜와 무관하게 남아 로그아웃 뒤에도
+    /// 사라지지 않으므로, 그 값으로 판정하면 해지·로그아웃한 PC 에서 섹션이 영영 접히지 않는다.
     /// Codex 의 5시간 창은 리셋이 지나면 통째로 버려져(<c>CodexUsageMonitor.DropExpiredWindows</c>) 0% 가 되므로,
     /// 오늘 Codex 를 쓰지 않은 날에는 주간 창 21% 와 <c>ChatGPT Plus</c> 배지를 손에 들고도 종전 판정이 거짓이었다.
     /// </summary>
@@ -2421,7 +2420,7 @@ namespace ClaudeUsageTray.ViewModels;
             CodexLongSummary = CodexVm.LongSummary;
             IsCodexLongVisible = CodexVm.IsLongVisible;
             CodexPlanLabel = CodexVm.PlanLabel;
-            _codexPlanType = CodexVm.LastSnapshot.PlanType ?? "";
+            _isCodexSubscribed = IsPaidCodexSubscription(CodexUsageMonitor.GetCurrentPlanType());
             CodexShortWindowLabel = CodexVm.ShortWindowLabel;
             CodexLongWindowLabel = CodexVm.LongWindowLabel;
 

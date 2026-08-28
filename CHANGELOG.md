@@ -11,7 +11,8 @@
 
 ### 참고
 - 화면에 보이는 값은 달라지지 않습니다. 사라지던 섹션이 그대로 남을 뿐입니다.
-- `free` 등급과 로그아웃(API 키 모드 포함) 상태는 구독으로 치지 않습니다 — 이 경우 종전대로 숨겨집니다.
+- `free` 등급과 로그아웃(API 키 모드 포함) 상태는 구독으로 치지 않습니다. 구독 여부는 세션 로그에 남은 과거 요금제가 아니라 **지금 로그인된 계정**(`~/.codex/auth.json`)에서만 읽습니다 — 로그의 `plan_type` 은 날짜와 무관하게 남아 로그아웃 뒤에도 사라지지 않기 때문입니다.
+- 다만 로그아웃 전에 받아 둔 창이 아직 초기화 전이면, 그 창이 끝날 때까지는 게이지가 남습니다(최대 주간 창 하나).
 <!-- /ko -->
 
 <!-- en -->
@@ -20,7 +21,8 @@
 
 ### Notes
 - No displayed value changes. The section that used to disappear simply stays.
-- A `free` plan or a signed-out state (including API-key mode) does not count as a subscription — those stay hidden as before.
+- A `free` plan or a signed-out state (including API-key mode) does not count as a subscription. Subscription status is read only from **the currently signed-in account** (`~/.codex/auth.json`), never from the plan type left in session logs — that one survives sign-out, since it is picked up regardless of date.
+- A window fetched before signing out still shows until it resets, though (at most one weekly window).
 <!-- /en -->
 
 ## [1.41.2] - 2026-08-26

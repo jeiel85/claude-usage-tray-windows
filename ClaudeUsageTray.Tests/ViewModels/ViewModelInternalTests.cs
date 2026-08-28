@@ -585,6 +585,47 @@ public class UsageSyncQuotaPolicyTests
         }
     }
 
+    // 리뷰 지적(#155): 로그아웃해도 세션 로그의 rate_limits.plan_type 은 남는다 —
+    // ProcessFile 이 날짜와 무관하게 가장 최근 rate_limits 를 집어오고, DropExpiredWindows 는 창만 버리고
+    // plan_type 은 건드리지 않기 때문이다. 그 값으로 구독을 판정하면 해지·로그아웃한 PC 에서 섹션이
+    // 영영 접히지 않으므로, 근거는 반드시 "지금 로그인된 계정"(GetCurrentPlanType) 에서 와야 한다.
+    [Fact]
+    public void StalePlanTypeInOldSessionLog_DoesNotCountAsSubscription()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "cut-codex-signedout-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            // 사흘 전 세션 로그 — 창은 이미 만료됐지만 plan_type 은 그대로 남아 있다.
+            var expired = DateTimeOffset.Now.AddDays(-3).ToUnixTimeSeconds();
+            File.WriteAllText(Path.Combine(root, "rollout-old.jsonl"),
+                """{"timestamp":"2026-08-25T01:00:00.000Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":999,"cached_input_tokens":0,"output_tokens":9,"reasoning_output_tokens":0,"total_tokens":1008}},"rate_limits":{"limit_id":"codex","primary":{"used_percent":61.0,"window_minutes":300,"resets_at":"""
+                + expired + """},"secondary":null,"plan_type":"plus"}}}""" + Environment.NewLine);
+
+            var snapshot = new CodexUsageMonitor().GetTodaySnapshot(root);
+
+            // 로그에는 남는다(배지 문구는 이 값을 쓴다) — 그래서 판정에 그대로 쓰면 안 된다.
+            Assert.Equal("plus", snapshot.PlanType);
+            Assert.Equal(0, snapshot.ShortUsagePercent);
+            Assert.Null(snapshot.ShortResetAt);
+
+            // 로그아웃 상태 — auth.json 이 없다.
+            var currentPlanType = CodexUsageMonitor.TryReadPlanTypeFromAuth(Path.Combine(root, "auth.json"));
+            Assert.Null(currentPlanType);
+
+            Assert.False(MainViewModel.IsCodexSectionActive(
+                isEnabled: true, hideInactive: true, hasTodayUsage: false,
+                shortPercent: snapshot.ShortUsagePercent, longPercent: snapshot.LongUsagePercent,
+                hasQuotaData: false,
+                isSubscribed: MainViewModel.IsPaidCodexSubscription(currentPlanType),
+                hasError: false));
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { }
+        }
+    }
+
     /// <summary>서명 없는 표시용 id_token — payload 만 읽는 <c>TryReadPlanTypeFromAuth</c> 의 입력을 만든다.</summary>
     private static string JwtWithPlanType(string planType)
     {
