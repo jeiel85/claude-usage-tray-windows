@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.41.4] - 2026-09-07
+
+<!-- ko -->
+### 수정
+- **다중 PC 동기화 중인데도 로컬 API 가 실패하면 무조건 "자동 재시도"만 뜨던 문제** — 동기화된 다른 PC 의 quota 를 폴백으로 쓰는 기능은 이미 있었지만, 신선도 기준(기본 5분, 최대 60분)을 넘기면 무조건 버려졌습니다. 그런데 403 permission_error 쿨다운은 90분이라, 두 PC 가 동시에 이 쿨다운에 걸리면 정작 필요한 순간에 폴백도 못 쓰는 공백이 있었습니다(실측: 한 PC 의 마지막 관측이 87분 전). 사용량 %는 창이 리셋되기 전까지 증가만 하므로, 그 창이 아직 유효하다면 당일 관측치는 오래됐어도 "적어도 이만큼은 썼다"는 유효한 하한입니다 — 창이 이미 리셋된 스냅샷만 걸러내고 최후 폴백으로 씁니다.
+
+### 참고
+- 로컬 API 가 실제로 끊긴 경우(로그인 필요·권한 거부 등)의 안내는 최후 폴백 값이 있어도 그대로 뜹니다 — 폴백은 숫자만 채울 뿐, 실제 문제를 가리지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Multi-PC sync showed only a bare "retrying" message even when another PC's quota was available** — the sync fallback already existed, but any snapshot older than the freshness window (5 min by default, capped at 60) was discarded outright. The 403 permission_error cooldown is 90 minutes, though, so when two PCs hit that cooldown around the same time, the fallback had nothing to use right when it mattered most (observed: one PC's last successful reading was 87 minutes stale). Usage percentage only rises until its window resets, so a same-day reading is still a valid lower bound as long as that window hasn't reset yet — snapshots whose window has already reset are filtered out before being used as a last resort.
+
+### Notes
+- A genuine local failure (needs login, permission denied, etc.) still shows its real notice even when a last-resort value is available — the fallback only fills in the number, it never hides an actual problem.
+<!-- /en -->
+
 ## [1.41.3] - 2026-08-28
 
 <!-- ko -->

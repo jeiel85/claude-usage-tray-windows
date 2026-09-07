@@ -1551,9 +1551,11 @@ namespace ClaudeUsageTray.ViewModels;
         UsageResponse? usage,
         SessionStats sessionStats,
         string errorKind,
-        out UsageSyncMergedLocalTotals? mergedTotals)
+        out UsageSyncMergedLocalTotals? mergedTotals,
+        out UsageSyncSnapshot? lastResortQuota)
     {
         mergedTotals = null;
+        lastResortQuota = null;
         if (!IsUsageSyncReady)
             return null;
 
@@ -1571,6 +1573,12 @@ namespace ClaudeUsageTray.ViewModels;
             var read = _usageSync.ReadSnapshots(UsageSyncFolderPath, UsageProviderKind.Claude, accountKey, today);
             mergedTotals = _usageSync.MergeLocalTotals(read.Snapshots, UsageSyncLocalTtl);
             UsageSyncStatusLabel = Loc.UsageSyncReady;
+            // 로컬 API 가 실패/쿨다운 중일 때만 쓰는 최후 폴백 — 짧은 신선도 기준(UsageSyncApiTtl)을
+            // 넘겼어도 당일 관측치라면 후보로 남긴다. 사용량 %는 창이 끝날 때까지 증가만 하므로
+            // 오래된 값도 "적어도 이만큼은 썼다"는 유효한 하한이다 — 단, 그 창이 이미 리셋됐다면
+            // 부풀려 보일 뿐이니 버린다(ClaudeQuotaWindowStillActive).
+            var candidate = _usageSync.SelectNewestQuotaSnapshot(read.Snapshots, TimeSpan.FromDays(1));
+            lastResortQuota = ClaudeQuotaWindowStillActive(candidate) ? candidate : null;
             return _usageSync.SelectNewestQuotaSnapshot(read.Snapshots, UsageSyncApiTtl);
         }
         catch (Exception ex)
@@ -1581,6 +1589,23 @@ namespace ClaudeUsageTray.ViewModels;
 #endif
             return null;
         }
+    }
+
+    /// <summary>
+    /// 동기화 스냅샷의 5시간·7일 창이 지금도 유효한지 — 둘 중 하나라도 리셋 시각이 지났다면
+    /// 그 창의 %는 실제로는 0%대로 돌아갔을 값이라 오래된 스냅샷을 최후 폴백으로도 쓰면 안 된다.
+    /// 리셋 시각을 모르는 창(구버전 스냅샷 등)은 판단할 수 없으니 있는 그대로 허용한다.
+    /// </summary>
+    internal static bool ClaudeQuotaWindowStillActive(UsageSyncSnapshot? candidate)
+    {
+        if (candidate?.Quota is not { HasData: true } quota)
+            return false;
+        var now = DateTimeOffset.UtcNow;
+        if (quota.ShortResetAt is { } shortResetAt && shortResetAt <= now)
+            return false;
+        if (quota.LongResetAt is { } longResetAt && longResetAt <= now)
+            return false;
+        return true;
     }
 
     /// <summary>
@@ -2045,7 +2070,8 @@ namespace ClaudeUsageTray.ViewModels;
                 usage,
                 sessionStats,
                 syncErrorKind,
-                out var mergedClaudeTotals);
+                out var mergedClaudeTotals,
+                out var lastResortClaudeQuota);
             var hasMergedClaudeTotals = HasMergedDeviceTotals(mergedClaudeTotals);
             var displayInputTokens = hasMergedClaudeTotals ? mergedClaudeTotals!.InputTokens : sessionStats.TotalInputTokens;
             var displayOutputTokens = hasMergedClaudeTotals ? mergedClaudeTotals!.OutputTokens : sessionStats.TotalOutputTokens;
@@ -2229,19 +2255,31 @@ namespace ClaudeUsageTray.ViewModels;
                 }
                 else if (skipApi || _api.LastError != null)
                 {
-                    // 마지막으로 성공한 값이 있으면 유지하고, 한 번도 없으면 0% 로 단정하지 않는다.
-                    ClaudeVm.HasQuotaData = _lastKnownShortPercent.HasValue || _lastKnownLongPercent.HasValue;
+                    // 로컬 API 도 실패했고 신선한 동기화 값도 없다. 최후 폴백(당일 관측치 중 창이
+                    // 아직 유효한 것, ClaudeQuotaWindowStillActive)이 있으면 그 값을 게이지에 쓰고,
+                    // 없으면 이 PC 가 마지막으로 성공했던 값을 유지한다 — 어느 쪽이든 아래 에러
+                    // 분류는 항상 실행한다. 최후 폴백으로 %가 채워졌다고 로그인 필요·권한 거부 같은
+                    // 실제 문제까지 가려서는 안 된다(폴백은 숫자만 채울 뿐 에러 상태를 대체하지 않는다).
+                    if (lastResortClaudeQuota?.Quota is { HasData: true })
+                    {
+                        ApplySyncedClaudeQuota(lastResortClaudeQuota);
+                    }
+                    else
+                    {
+                        // 마지막으로 성공한 값이 있으면 유지하고, 한 번도 없으면 0% 로 단정하지 않는다.
+                        ClaudeVm.HasQuotaData = _lastKnownShortPercent.HasValue || _lastKnownLongPercent.HasValue;
 
-                    ClaudeVm.ShortPercent = _lastKnownShortPercent ?? 0;
-                    ClaudeVm.ShortReset   = _lastKnownShortReset;
-                    ClaudeVm.ShortSummary = _lastKnownShortPercent is { } shortPct
-                        ? Loc.UsageSummary(shortPct)
-                        : Loc.UsageSummaryUnknown;
-                    ClaudeVm.LongPercent  = _lastKnownLongPercent ?? 0;
-                    ClaudeVm.LongReset    = _lastKnownLongReset;
-                    ClaudeVm.LongSummary  = _lastKnownLongPercent is { } longPct
-                        ? Loc.UsageSummary(longPct)
-                        : Loc.UsageSummaryUnknown;
+                        ClaudeVm.ShortPercent = _lastKnownShortPercent ?? 0;
+                        ClaudeVm.ShortReset   = _lastKnownShortReset;
+                        ClaudeVm.ShortSummary = _lastKnownShortPercent is { } shortPct
+                            ? Loc.UsageSummary(shortPct)
+                            : Loc.UsageSummaryUnknown;
+                        ClaudeVm.LongPercent  = _lastKnownLongPercent ?? 0;
+                        ClaudeVm.LongReset    = _lastKnownLongReset;
+                        ClaudeVm.LongSummary  = _lastKnownLongPercent is { } longPct
+                            ? Loc.UsageSummary(longPct)
+                            : Loc.UsageSummaryUnknown;
+                    }
 
                     // 403 permission_error: 두 가지 케이스로 세분
                     //   (a) "currently not allowed for this organization" — 신규 계정 검증/조직 OAuth 미활성 (일시적, 24h내 자동 해소 가능성)
