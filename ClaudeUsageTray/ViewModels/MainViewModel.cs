@@ -1551,9 +1551,11 @@ namespace ClaudeUsageTray.ViewModels;
         UsageResponse? usage,
         SessionStats sessionStats,
         string errorKind,
-        out UsageSyncMergedLocalTotals? mergedTotals)
+        out UsageSyncMergedLocalTotals? mergedTotals,
+        out UsageSyncSnapshot? lastResortQuota)
     {
         mergedTotals = null;
+        lastResortQuota = null;
         if (!IsUsageSyncReady)
             return null;
 
@@ -1571,6 +1573,12 @@ namespace ClaudeUsageTray.ViewModels;
             var read = _usageSync.ReadSnapshots(UsageSyncFolderPath, UsageProviderKind.Claude, accountKey, today);
             mergedTotals = _usageSync.MergeLocalTotals(read.Snapshots, UsageSyncLocalTtl);
             UsageSyncStatusLabel = Loc.UsageSyncReady;
+            // 로컬 API 가 실패/쿨다운 중일 때만 쓰는 최후 폴백 — 짧은 신선도 기준(UsageSyncApiTtl)을
+            // 넘겼어도 당일 관측치라면 후보로 남긴다. 사용량 %는 창이 끝날 때까지 증가만 하므로
+            // 오래된 값도 "적어도 이만큼은 썼다"는 유효한 하한이다 — 단, 그 창이 이미 리셋됐다면
+            // 부풀려 보일 뿐이니 버린다(ClaudeQuotaWindowStillActive).
+            var candidate = _usageSync.SelectNewestQuotaSnapshot(read.Snapshots, TimeSpan.FromDays(1));
+            lastResortQuota = ClaudeQuotaWindowStillActive(candidate) ? candidate : null;
             return _usageSync.SelectNewestQuotaSnapshot(read.Snapshots, UsageSyncApiTtl);
         }
         catch (Exception ex)
@@ -1581,6 +1589,18 @@ namespace ClaudeUsageTray.ViewModels;
 #endif
             return null;
         }
+    }
+
+    /// <summary>
+    /// 동기화 스냅샷의 5시간 창이 지금도 유효한지 — 이미 리셋 시각이 지났다면 그 %는
+    /// 실제로는 0%대로 돌아갔을 값이라 오래된 스냅샷을 최후 폴백으로도 쓰면 안 된다.
+    /// 리셋 시각을 모르는 스냅샷(구버전 등)은 판단할 수 없으니 있는 그대로 허용한다.
+    /// </summary>
+    internal static bool ClaudeQuotaWindowStillActive(UsageSyncSnapshot? candidate)
+    {
+        if (candidate?.Quota is not { HasData: true } quota)
+            return false;
+        return quota.ShortResetAt is not { } resetAt || resetAt > DateTimeOffset.UtcNow;
     }
 
     /// <summary>
@@ -2045,7 +2065,8 @@ namespace ClaudeUsageTray.ViewModels;
                 usage,
                 sessionStats,
                 syncErrorKind,
-                out var mergedClaudeTotals);
+                out var mergedClaudeTotals,
+                out var lastResortClaudeQuota);
             var hasMergedClaudeTotals = HasMergedDeviceTotals(mergedClaudeTotals);
             var displayInputTokens = hasMergedClaudeTotals ? mergedClaudeTotals!.InputTokens : sessionStats.TotalInputTokens;
             var displayOutputTokens = hasMergedClaudeTotals ? mergedClaudeTotals!.OutputTokens : sessionStats.TotalOutputTokens;
@@ -2225,6 +2246,14 @@ namespace ClaudeUsageTray.ViewModels;
                 else if (syncedClaudeQuota?.Quota is { HasData: true })
                 {
                     ApplySyncedClaudeQuota(syncedClaudeQuota);
+                    ClaudeVm.ApiNote = WithSyncNote(ClaudeVm.ApiNote, mergedClaudeTotals);
+                }
+                else if ((skipApi || _api.LastError != null) && lastResortClaudeQuota?.Quota is { HasData: true })
+                {
+                    // 로컬 API 도 실패했고 신선한 동기화 값도 없을 때의 최후 수단 —
+                    // 당일 관측치가 있으면(창은 아직 유효, ClaudeQuotaWindowStillActive) 오래됐더라도
+                    // 관측 시각·기기명을 그대로 밝히고 보여준다. "자동 재시도"만 보이는 것보다 낫다.
+                    ApplySyncedClaudeQuota(lastResortClaudeQuota);
                     ClaudeVm.ApiNote = WithSyncNote(ClaudeVm.ApiNote, mergedClaudeTotals);
                 }
                 else if (skipApi || _api.LastError != null)
