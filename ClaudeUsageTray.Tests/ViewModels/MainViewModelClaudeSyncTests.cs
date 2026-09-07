@@ -62,6 +62,23 @@ public class MainViewModelClaudeSyncTests
     }
 
     [Fact]
+    public void Quota_whose_long_window_reset_already_passed_is_rejected()
+    {
+        // 5시간 창은 아직 안 끝났어도, 7일 창이 그 사이 리셋됐다면 LongUsagePercent 는
+        // 실제로는 0%대로 돌아갔을 값이라 최후 폴백으로 쓰면 안 된다.
+        var snapshot = Snapshot(new UsageSyncQuotaSnapshot
+        {
+            HasData = true,
+            ShortUsagePercent = 0.3,
+            ShortResetAt = DateTimeOffset.UtcNow.AddHours(2),
+            LongUsagePercent = 0.95,
+            LongResetAt = DateTimeOffset.UtcNow.AddMinutes(-1),
+        });
+
+        Assert.False(MainViewModel.ClaudeQuotaWindowStillActive(snapshot));
+    }
+
+    [Fact]
     public void Quota_with_unknown_reset_time_is_allowed()
     {
         // 리셋 시각을 모르는 구버전 스냅샷은 판단할 근거가 없으니 있는 그대로 허용한다.
