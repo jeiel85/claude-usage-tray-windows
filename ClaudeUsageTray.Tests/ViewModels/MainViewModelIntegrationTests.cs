@@ -3,6 +3,7 @@ using ClaudeUsageTray.Services;
 using ClaudeUsageTray.Services.WeatherWarnings;
 using ClaudeUsageTray.ViewModels;
 using ClaudeUsageTray.Views;
+using System.IO;
 using Xunit;
 
 namespace ClaudeUsageTray.Tests.ViewModels;
@@ -11,7 +12,7 @@ namespace ClaudeUsageTray.Tests.ViewModels;
 [Trait("Category", "Integration")]
 public class MainViewModelIntegrationTests
 {
-    private static MainViewModel CreateViewModel()
+    private static MainViewModel CreateViewModel(UsageSyncService? usageSyncOverride = null)
     {
         if (System.Windows.Application.Current == null)
             new System.Windows.Application { ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown };
@@ -27,7 +28,7 @@ public class MainViewModelIntegrationTests
         var notifier = new NotificationService(() => null);
         var updater = new UpdateService();
         var history = new HistoryService();
-        var usageSync = new UsageSyncService();
+        var usageSync = usageSyncOverride ?? new UsageSyncService();
         var weather = new WeatherService();
         var weatherAlert = new WeatherAlertService(
             weather, notifier, () => new NotificationSettings(), Array.Empty<IWeatherWarningProvider>());
@@ -93,6 +94,59 @@ public class MainViewModelIntegrationTests
                 vm.Dispose();
             }
         });
+    }
+
+    [Fact]
+    public async Task RefreshAsync_AppliesOfficialOpenCodeQuotaFromAnotherDevice()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"opencode-sync-integration-{Guid.NewGuid():N}");
+        var syncRoot = Path.Combine(tempRoot, "sync");
+        var now = DateTimeOffset.Now;
+        var source = new UsageSyncService(Path.Combine(tempRoot, "source"), () => now, "source-pc");
+        source.WriteSnapshot(syncRoot, source.CreateSnapshot(
+            UsageProviderKind.OpenCode,
+            null,
+            new UsageSyncQuotaSnapshot
+            {
+                HasData = true,
+                ObservedAtUtc = now,
+                OpenCode = new UsageSyncOpenCodeQuota
+                {
+                    Rolling = new UsageSyncOpenCodeQuotaWindow { UsagePercent = 0.21, ResetAt = now.AddHours(3) },
+                    Weekly = new UsageSyncOpenCodeQuotaWindow { UsagePercent = 0.32, ResetAt = now.AddDays(4) },
+                    Monthly = new UsageSyncOpenCodeQuotaWindow { UsagePercent = 0.43, ResetAt = now.AddDays(20) },
+                },
+            },
+            new UsageSyncLocalTotals { RequestCount = 10 }));
+
+        try
+        {
+            await WpfTestHost.RunAsync(async () =>
+            {
+                var receiver = new UsageSyncService(Path.Combine(tempRoot, "receiver"), () => now, "receiver-pc");
+                var vm = CreateViewModel(receiver);
+                try
+                {
+                    vm.UsageSyncEnabled = true;
+                    vm.UsageSyncFolderPath = syncRoot;
+
+                    await vm.RefreshAsync();
+
+                    Assert.True(vm.OpenCodeVm.HasWebQuota);
+                    Assert.Equal(0.21, vm.OpenCodeVm.RollingPercent, 6);
+                    Assert.Equal(0.32, vm.OpenCodeVm.WeeklyPercent, 6);
+                    Assert.Equal(0.43, vm.OpenCodeVm.MonthlyPercent, 6);
+                }
+                finally
+                {
+                    vm.Dispose();
+                }
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot)) Directory.Delete(tempRoot, true);
+        }
     }
 
     [Fact]
