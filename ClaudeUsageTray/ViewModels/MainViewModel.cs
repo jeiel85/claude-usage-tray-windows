@@ -3097,6 +3097,15 @@ namespace ClaudeUsageTray.ViewModels;
                     snapshot.Quota.TierName,
                     snapshot.Quota.PaidTierName);
 
+                if (AntigravityVm.Models.Count == 0)
+                {
+                    // 스냅샷에 담긴 모델이 전부 리셋을 지나 AntigravityViewModel.ApplyQuota 의
+                    // 필터에서 걸러졌다 — 값은 받았지만 보여줄 게 없다는 뜻이라, 폴백 자체가
+                    // 없었던 것과 같은 상태로 되돌린다. ApplyQuota 는 목록이 비어도 HasData 를
+                    // 무조건 true 로 남기므로, 그대로 두면 빈 섹션·0% 게이지가 뜬다.
+                    AntigravityVm.HasData = false;
+                }
+
                 if (hadGenuineLocalError)
                 {
                     AntigravityVm.HasError = true;
@@ -3104,9 +3113,14 @@ namespace ClaudeUsageTray.ViewModels;
                 }
 
                 // 다른 PC 의 값을 보고 있다는 것은 Codex 와 같은 자리(오른쪽 출처)에 적는다.
-                _antigravityQuotaOrigin = (
-                    snapshot.DeviceName,
-                    snapshot.Quota.ObservedAtUtc ?? snapshot.ObservedAtUtc);
+                // 위에서 HasData 를 되돌린 경우(쓸 수 있는 모델이 없음)는 출처를 밝힐 값 자체가
+                // 없으므로 남기지 않는다.
+                if (AntigravityVm.HasData)
+                {
+                    _antigravityQuotaOrigin = (
+                        snapshot.DeviceName,
+                        snapshot.Quota.ObservedAtUtc ?? snapshot.ObservedAtUtc);
+                }
             }
             RefreshAntigravityDataSourceLabel();
 
