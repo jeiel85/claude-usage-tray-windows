@@ -3060,6 +3060,17 @@ namespace ClaudeUsageTray.ViewModels;
         GC.SuppressFinalize(this);
     }
 
+    /// <summary>
+    /// Antigravity 최후 폴백 적용 후 HasData 를 다시 꺼야 하는지 — 보여줄 모델도 없고 로컬에
+    /// 진짜 에러도 없을 때만 그렇다. 에러가 있으면 HasData 를 켜 둬야 한다 — UsagePopup 의
+    /// Antigravity 섹션은 AntigravityHasData 하나로만 렌더 여부가 갈리고 에러 텍스트도 그
+    /// 섹션 안에 중첩돼 있어(줄 1340/1404-1405), 여기서 꺼버리면 모델뿐 아니라 에러 메시지까지
+    /// 함께 가려진다(2026-09-15 PR #162 리뷰에서 실제로 이 순서로 회귀했다: 모델 0개 → HasData
+    /// 무조건 false → 되살려 둔 HasError 텍스트도 같이 숨음).
+    /// </summary>
+    internal static bool ShouldClearAntigravityFallbackData(bool usedFallbackModels, bool hadGenuineLocalError) =>
+        !usedFallbackModels && !hadGenuineLocalError;
+
     private async Task RefreshAntigravityInternalAsync()
     {
         AntigravityVm.IsEnabled = IsAntigravityEnabled;
@@ -3097,6 +3108,16 @@ namespace ClaudeUsageTray.ViewModels;
                     snapshot.Quota.TierName,
                     snapshot.Quota.PaidTierName);
 
+                // 스냅샷에 담긴 모델이 전부 리셋을 지나 ApplyQuota 의 필터에서 다 걸러졌을 수 있다
+                // (Models.Count == 0). ApplyQuota 는 빈 목록에도 HasData 를 무조건 true 로
+                // 남기므로, 보여줄 모델도 없고 로컬 에러도 없다면 폴백 자체가 없었던 것과 같은
+                // 상태로 되돌린다 — 안 그러면 빈 섹션·0% 게이지만 뜬다.
+                var usedFallbackModels = AntigravityVm.Models.Count > 0;
+                if (ShouldClearAntigravityFallbackData(usedFallbackModels, hadGenuineLocalError))
+                {
+                    AntigravityVm.HasData = false;
+                }
+
                 if (hadGenuineLocalError)
                 {
                     AntigravityVm.HasError = true;
@@ -3104,9 +3125,14 @@ namespace ClaudeUsageTray.ViewModels;
                 }
 
                 // 다른 PC 의 값을 보고 있다는 것은 Codex 와 같은 자리(오른쪽 출처)에 적는다.
-                _antigravityQuotaOrigin = (
-                    snapshot.DeviceName,
-                    snapshot.Quota.ObservedAtUtc ?? snapshot.ObservedAtUtc);
+                // 실제로 보여줄 모델이 있을 때만 남긴다 — 모델이 없으면(위에서 에러만 살린
+                // 경우 포함) 그 기기의 값을 쓰고 있는 게 아니므로 출처를 밝힐 이유가 없다.
+                if (usedFallbackModels)
+                {
+                    _antigravityQuotaOrigin = (
+                        snapshot.DeviceName,
+                        snapshot.Quota.ObservedAtUtc ?? snapshot.ObservedAtUtc);
+                }
             }
             RefreshAntigravityDataSourceLabel();
 
