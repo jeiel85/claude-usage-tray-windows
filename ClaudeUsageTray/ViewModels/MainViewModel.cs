@@ -1576,9 +1576,9 @@ namespace ClaudeUsageTray.ViewModels;
             // 로컬 API 가 실패/쿨다운 중일 때만 쓰는 최후 폴백 — 짧은 신선도 기준(UsageSyncApiTtl)을
             // 넘겼어도 당일 관측치라면 후보로 남긴다. 사용량 %는 창이 끝날 때까지 증가만 하므로
             // 오래된 값도 "적어도 이만큼은 썼다"는 유효한 하한이다 — 단, 그 창이 이미 리셋됐다면
-            // 부풀려 보일 뿐이니 버린다(ClaudeQuotaWindowStillActive).
+            // 부풀려 보일 뿐이니 버린다(IsSyncedQuotaWindowStillActive).
             var candidate = _usageSync.SelectNewestQuotaSnapshot(read.Snapshots, TimeSpan.FromDays(1));
-            lastResortQuota = ClaudeQuotaWindowStillActive(candidate) ? candidate : null;
+            lastResortQuota = IsSyncedQuotaWindowStillActive(candidate) ? candidate : null;
             return _usageSync.SelectNewestQuotaSnapshot(read.Snapshots, UsageSyncApiTtl);
         }
         catch (Exception ex)
@@ -1592,11 +1592,14 @@ namespace ClaudeUsageTray.ViewModels;
     }
 
     /// <summary>
-    /// 동기화 스냅샷의 5시간·7일 창이 지금도 유효한지 — 둘 중 하나라도 리셋 시각이 지났다면
-    /// 그 창의 %는 실제로는 0%대로 돌아갔을 값이라 오래된 스냅샷을 최후 폴백으로도 쓰면 안 된다.
-    /// 리셋 시각을 모르는 창(구버전 스냅샷 등)은 판단할 수 없으니 있는 그대로 허용한다.
+    /// 동기화 스냅샷의 5시간·7일(또는 이에 대응하는) 창이 지금도 유효한지 — 둘 중 하나라도
+    /// 리셋 시각이 지났다면 그 창의 %는 실제로는 0%대로 돌아갔을 값이라 오래된 스냅샷을
+    /// 최후 폴백으로도 쓰면 안 된다. Claude·Codex 처럼 ShortResetAt/LongResetAt 을 채우는
+    /// provider 에만 실질적인 필터로 작동한다 — 이 필드를 안 쓰는 provider(OpenCode·Antigravity)
+    /// 의 스냅샷은 리셋 시각을 모르는 것과 같아 그대로 허용된다(해당 provider 는 각자 다른 방식으로
+    /// 창 유효성을 확인한다 — 예: CreateOpenCodeWebUsage 의 Rolling.ResetAt 검사).
     /// </summary>
-    internal static bool ClaudeQuotaWindowStillActive(UsageSyncSnapshot? candidate)
+    internal static bool IsSyncedQuotaWindowStillActive(UsageSyncSnapshot? candidate)
     {
         if (candidate?.Quota is not { HasData: true } quota)
             return false;
@@ -1607,6 +1610,18 @@ namespace ClaudeUsageTray.ViewModels;
             return false;
         return true;
     }
+
+    /// <summary>
+    /// 신선한 값이 있으면 그걸 쓰고, 없으면 당일 관측치 중 창이 아직 유효한 것을 최후 폴백으로 쓴다.
+    /// Codex·Antigravity 가 공유하는 선택 규칙(Claude 는 로컬 API 성공 여부까지 얽혀 있어
+    /// TrySyncClaudeUsage 가 별도로 처리하고, OpenCode 는 CreateOpenCodeWebUsage 자체에
+    /// Rolling.ResetAt 검사가 있어 이 필터 없이 LastObservedQuota 를 그대로 후보로 쓴다).
+    /// </summary>
+    internal static UsageSyncSnapshot? SelectQuotaWithLastResort(
+        UsageSyncSnapshot? fresh, UsageSyncSnapshot? lastObserved) =>
+        fresh is { Quota.HasData: true }
+            ? fresh
+            : IsSyncedQuotaWindowStillActive(lastObserved) ? lastObserved : null;
 
     /// <summary>
     /// provider 한 개의 스냅샷을 공유 폴더에 쓰고, 다른 PC 것까지 읽어 합산 토큰과 최신 할당량을 돌려준다.
@@ -1668,8 +1683,11 @@ namespace ClaudeUsageTray.ViewModels;
 
     /// <summary>
     /// 동기화 1회 결과 — 기기 합산 토큰과, 계정 단위 provider 라면 가장 최신 할당량.
-    /// <paramref name="LastObservedQuota"/> 는 유효시간을 무시한 오늘의 최신 관측으로,
-    /// 화면에 값을 그리는 용도가 아니라 "언제 마지막으로 관측됐는지" 안내에만 쓴다.
+    /// <paramref name="LastObservedQuota"/> 는 유효시간(신선도)을 무시한 오늘의 최신 관측이다.
+    /// 신선한 값(<paramref name="RemoteQuota"/>)이 없을 때 호출부가 최후 폴백으로 게이지에 쓸 수도
+    /// 있고(창이 아직 유효한지는 provider 마다 다르게 확인 — Codex 는 IsSyncedQuotaWindowStillActive,
+    /// OpenCode 는 CreateOpenCodeWebUsage 의 Rolling.ResetAt 검사), 그럴 수 없을 때는
+    /// "언제 마지막으로 관측됐는지" 안내에만 쓴다.
     /// </summary>
     private readonly record struct UsageSyncProviderResult(
         UsageSyncMergedLocalTotals? MergedTotals,
@@ -1762,7 +1780,16 @@ namespace ClaudeUsageTray.ViewModels;
         DateTimeOffset? now = null)
     {
         var usage = quota?.OpenCode;
-        if (usage is null || usage.Rolling.ResetAt <= (now ?? DateTimeOffset.Now))
+        if (usage is null)
+            return null;
+
+        // 세 창(롤링·주간·월간)은 리셋 시각이 서로 독립적이다 — 최후 폴백으로 최대 24시간 전
+        // 관측치까지 받게 되면서, 롤링 창은 아직 안 끝났어도 그 사이 주간·월간 창만 리셋된
+        // 스냅샷을 그대로 보여줄 가능성이 실제로 생겼다(주말 동안 꺼져 있던 PC가 월요일 아침
+        // 다른 PC 의 금요일 관측치를 받는 경우 등). 셋 중 하나라도 리셋을 지났으면 통째로 버린다 —
+        // 부분적으로만 신선한 값을 조합해 보여주는 것보다, 다음 실제 조회를 기다리는 편이 낫다.
+        var cutoff = now ?? DateTimeOffset.Now;
+        if (usage.Rolling.ResetAt <= cutoff || usage.Weekly.ResetAt <= cutoff || usage.Monthly.ResetAt <= cutoff)
             return null;
 
         return new OpenCodeWebUsage
@@ -2256,7 +2283,7 @@ namespace ClaudeUsageTray.ViewModels;
                 else if (skipApi || _api.LastError != null)
                 {
                     // 로컬 API 도 실패했고 신선한 동기화 값도 없다. 최후 폴백(당일 관측치 중 창이
-                    // 아직 유효한 것, ClaudeQuotaWindowStillActive)이 있으면 그 값을 게이지에 쓰고,
+                    // 아직 유효한 것, IsSyncedQuotaWindowStillActive)이 있으면 그 값을 게이지에 쓰고,
                     // 없으면 이 PC 가 마지막으로 성공했던 값을 유지한다 — 어느 쪽이든 아래 에러
                     // 분류는 항상 실행한다. 최후 폴백으로 %가 채워졌다고 로그인 필요·권한 거부 같은
                     // 실제 문제까지 가려서는 안 된다(폴백은 숫자만 채울 뿐 에러 상태를 대체하지 않는다).
@@ -2464,8 +2491,24 @@ namespace ClaudeUsageTray.ViewModels;
 
             // 이 PC 에 지금 창을 설명하는 데이터가 없으면(오늘 요청이 없거나 로그의 창이 이미 끝남)
             // 다른 PC 가 올린 최신 할당량으로 채운다. Codex 의 rate_limits 는 계정 단위라 그대로 옮겨도 맞다.
-            if (!HasLiveCodexQuota() && sync.RemoteQuota is { Quota.HasData: true } remoteQuota)
-                ApplySyncedCodexQuota(remoteQuota);
+            // 신선도 기준(UsageSyncApiTtl)을 넘겼어도 창이 아직 리셋 전이면(IsSyncedQuotaWindowStillActive)
+            // 당일 관측치를 최후 폴백으로 쓴다 — Claude 와 같은 이유(TrySyncClaudeUsage 참고): 두 PC 가
+            // 동시에 조회 실패·백오프에 걸리면 짧은 신선도 기준만으로는 공백이 생긴다.
+            if (!HasLiveCodexQuota() &&
+                SelectQuotaWithLastResort(sync.RemoteQuota, sync.LastObservedQuota) is { } syncedCodexQuota)
+            {
+                ApplySyncedCodexQuota(syncedCodexQuota);
+
+                // ApplySyncedCodexQuota 는 자기 안에서 CodexHasError 를 무조건 false 로 지운다.
+                // 최후 폴백 창을 24시간까지 넓히면서, 로컬이 실제로 로그인 필요·읽기 실패인 경우까지
+                // 최대 하루 가까이 가릴 위험이 커졌다 — Claude 의 bb6d031 자체 리뷰 수정과 같은 이유로,
+                // 폴백은 숫자만 채울 뿐 이 PC 의 실제 에러 상태를 대체해서는 안 된다.
+                if (CodexVm.HasError)
+                {
+                    CodexHasError = true;
+                    CodexErrorMessage = CodexVm.ErrorMessage;
+                }
+            }
 
             RecomputeCodexTimeProgress(DateTimeOffset.Now);
             CodexInputLabel = CodexVm.InputLabel;
@@ -2547,7 +2590,11 @@ namespace ClaudeUsageTray.ViewModels;
 
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
-            if (!OpenCodeVm.HasWebQuota && CreateOpenCodeWebUsage(syncResult.RemoteQuota?.Quota) is { } syncedUsage)
+            // 신선도 기준을 넘긴 값이라도 CreateOpenCodeWebUsage 가 Rolling.ResetAt 으로 창이 이미
+            // 리셋됐는지 자체 검사하므로, Codex 와 달리 별도 유효성 검사 없이 LastObservedQuota 를
+            // 그대로 최후 폴백 후보로 넘긴다(둘 다 없으면 null 이 되어 지금까지와 동일하게 동작).
+            var openCodeSyncedQuota = syncResult.RemoteQuota?.Quota ?? syncResult.LastObservedQuota?.Quota;
+            if (!OpenCodeVm.HasWebQuota && CreateOpenCodeWebUsage(openCodeSyncedQuota) is { } syncedUsage)
                 OpenCodeVm.ApplySyncedWebUsage(syncedUsage);
 
             ApplyOpenCodeSyncedQuotaNotice(syncResult.LastObservedQuota);
@@ -3018,7 +3065,11 @@ namespace ClaudeUsageTray.ViewModels;
         AntigravityVm.IsEnabled = IsAntigravityEnabled;
         await AntigravityVm.RefreshAsync();
 
-        var remoteQuota = IsAntigravityEnabled ? TrySyncAntigravityQuota() : null;
+        // Codex/OpenCode/Gemini 와 동일하게 무조건 동기화한다 — IsAntigravityEnabled 는 표시 여부
+        // 설정일 뿐 이 provider 를 이 PC 에서 실제로 쓰는지와 무관하다(현재 UI 에 토글도 없어 항상
+        // true). 여기서 조건부로 걸면 "이 PC 는 Antigravity 를 안 쓴다" 상황에서 정작 필요한
+        // 동기화 읽기까지 막혀버린다.
+        var (freshAntigravityQuota, lastObservedAntigravityQuota) = TrySyncAntigravityQuota();
 
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
@@ -3026,13 +3077,31 @@ namespace ClaudeUsageTray.ViewModels;
             _antigravityQuotaOrigin = null;
 
             // 이 PC 에서 Antigravity 에 로그인하지 않았거나 조회가 실패하면 다른 PC 가 올린 값으로 채운다.
-            // 할당량은 구글 계정 단위라 어느 PC 에서 받아도 같은 값이다.
+            // 할당량은 구글 계정 단위라 어느 PC 에서 받아도 같은 값이다. 신선도 기준을 넘겼어도 당일
+            // 관측치가 있으면 최후 폴백으로 쓴다(Codex 와 같은 이유). Antigravity 스냅샷은 모델별
+            // 개별 reset 만 있고 대표 Short/LongResetAt 이 없어 SelectQuotaWithLastResort 의 창
+            // 유효성 검사는 사실상 통과만 하지만, 화면에 항상 관측 기기·시각을 함께 표시하므로
+            // 오래된 값이라는 사실이 가려지지는 않는다.
+            var remoteQuota = SelectQuotaWithLastResort(freshAntigravityQuota, lastObservedAntigravityQuota);
             if (!AntigravityVm.HasData && remoteQuota is { Quota.HasData: true } snapshot)
             {
+                // ApplyQuota 는 자기 안에서 HasError 를 무조건 false 로 지운다 — 이 PC 의 로컬 조회가
+                // 로그인 필요 등 진짜 에러(정보성 아님)로 실패한 경우라면 그 상태를 보존해 뒀다가
+                // 되살린다. 최후 폴백 창이 24시간까지 넓어지면서 이 상태를 최대 하루 가까이 가릴
+                // 위험도 커졌다 — Codex 쪽과 같은 이유(RefreshCodexInternalAsync 참고).
+                var hadGenuineLocalError = AntigravityVm.HasError;
+                var localErrorMessage = AntigravityVm.ErrorMessage;
+
                 AntigravityVm.ApplyQuota(
                     ToAntigravityModelQuotas(snapshot.Quota!.Models),
                     snapshot.Quota.TierName,
                     snapshot.Quota.PaidTierName);
+
+                if (hadGenuineLocalError)
+                {
+                    AntigravityVm.HasError = true;
+                    AntigravityVm.ErrorMessage = localErrorMessage;
+                }
 
                 // 다른 PC 의 값을 보고 있다는 것은 Codex 와 같은 자리(오른쪽 출처)에 적는다.
                 _antigravityQuotaOrigin = (
@@ -3058,11 +3127,14 @@ namespace ClaudeUsageTray.ViewModels;
     /// 계정 키는 두지 않는다(Codex 등 다른 provider 와 동일). 이 기능이 쓰이는 상황이 바로
     /// "이 PC 는 Antigravity 에 로그인하지 않았다" 인데, 그러면 이메일을 몰라 계정 해시가 달라지고
     /// 정작 필요한 PC 가 상대 폴더를 못 읽는다. 공유 폴더 자체가 한 사용자 것이라는 전제로 묶는다.
+    ///
+    /// <see cref="UsageSyncProviderResult"/> 처럼 신선한 값(Fresh)과 유효시간을 무시한 당일 최신
+    /// 관측(LastObserved)을 함께 돌려준다 — 호출부가 Fresh 가 없을 때 후자를 최후 폴백으로 쓴다.
     /// </summary>
-    private UsageSyncSnapshot? TrySyncAntigravityQuota()
+    private (UsageSyncSnapshot? Fresh, UsageSyncSnapshot? LastObserved) TrySyncAntigravityQuota()
     {
         if (!IsUsageSyncReady)
-            return null;
+            return (null, null);
 
         try
         {
@@ -3078,7 +3150,9 @@ namespace ClaudeUsageTray.ViewModels;
             var today = DateOnly.FromDateTime(DateTime.Now);
             var read = _usageSync.ReadSnapshots(UsageSyncFolderPath, UsageProviderKind.Antigravity, null, today);
             UsageSyncStatusLabel = Loc.UsageSyncReady;
-            return _usageSync.SelectNewestQuotaSnapshot(read.Snapshots, UsageSyncApiTtl);
+            var fresh = _usageSync.SelectNewestQuotaSnapshot(read.Snapshots, UsageSyncApiTtl);
+            var lastObserved = _usageSync.SelectNewestQuotaSnapshot(read.Snapshots, TimeSpan.FromDays(1));
+            return (fresh, lastObserved);
         }
         catch (Exception ex)
         {
@@ -3086,7 +3160,7 @@ namespace ClaudeUsageTray.ViewModels;
 #if DEBUG
             Debug.WriteLine($"[MainViewModel] Antigravity usage sync failed: {ex}");
 #endif
-            return null;
+            return (null, null);
         }
     }
 

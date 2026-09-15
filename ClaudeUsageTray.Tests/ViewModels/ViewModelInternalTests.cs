@@ -739,6 +739,30 @@ public class UsageSyncQuotaPolicyTests
         Assert.Null(MainViewModel.CreateOpenCodeWebUsage(quota, now));
     }
 
+    // Rolling·Weekly·Monthly 는 리셋 시각이 서로 독립적이다. 최후 폴백으로 최대 24시간 전
+    // 관측치까지 받을 수 있게 되면서, Rolling 창은 아직 안 끝났어도 그 사이 Weekly 나 Monthly
+    // 만 리셋된 스냅샷을 그대로 보여줄 가능성이 실제로 생겼다 — 셋 중 하나라도 리셋을 지났으면
+    // (Rolling 만 검사하던 예전과 달리) 통째로 버려야 한다.
+    [Theory]
+    [InlineData(-1, 2)]     // Weekly 만 리셋
+    [InlineData(2, -1)]     // Monthly 만 리셋
+    public void OpenCodeSyncedQuota_IsRejectedAfterWeeklyOrMonthlyReset(double weeklyResetInDays, double monthlyResetInDays)
+    {
+        var now = DateTimeOffset.Now;
+        var quota = new UsageSyncQuotaSnapshot
+        {
+            HasData = true,
+            OpenCode = new UsageSyncOpenCodeQuota
+            {
+                Rolling = new UsageSyncOpenCodeQuotaWindow { ResetAt = now.AddHours(3) },
+                Weekly = new UsageSyncOpenCodeQuotaWindow { ResetAt = now.AddDays(weeklyResetInDays) },
+                Monthly = new UsageSyncOpenCodeQuotaWindow { ResetAt = now.AddDays(monthlyResetInDays) },
+            },
+        };
+
+        Assert.Null(MainViewModel.CreateOpenCodeWebUsage(quota, now));
+    }
+
     // 창 길이가 빠지면 받는 PC 가 5시간으로 가정할 수밖에 없어 주간 창에서 시간선이 어긋난다.
     [Fact]
     public void CodexQuota_CarriesWindowLengths()

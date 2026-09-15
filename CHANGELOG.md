@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.41.5] - 2026-09-15
+
+<!-- ko -->
+### 수정
+- **다중 PC 동기화 중 Claude 만 다른 PC 값을 최후 폴백으로 쓸 수 있어, Codex·OpenCode·Antigravity 는 원본 PC 가 잠자기·종료 상태로 신선도 기준(기본 5분)만 지나도 게이지가 사라지던 문제** — v1.41.4 에서 Claude 에만 추가했던 "당일 관측치면 오래됐어도 창이 아직 유효한 한 최후 폴백으로 쓴다" 로직을 세 provider 에도 동일하게 적용했습니다. Codex·Antigravity 는 계정 단위 할당량을, OpenCode 는 공식 웹 콘솔 값을 다른 PC 가 관측한 그대로(최대 24시간) 보여줍니다.
+
+### 참고
+- 최후 폴백을 넓히면서 두 가지를 함께 다잡았습니다. (1) Codex·Antigravity 는 이 PC 의 실제 로그인 필요·조회 실패 같은 에러가 있으면, 폴백 값이 있어도 그 에러 안내를 가리지 않습니다. (2) OpenCode 는 롤링·주간·월간 창 중 하나라도 그 사이 리셋됐으면 스냅샷 전체를 버리고, Antigravity 는 모델별로 리셋 시각이 지난 행만 개별적으로 숨깁니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Only Claude could use another PC's stale-but-still-valid quota as a last resort during multi-PC sync — Codex, OpenCode, and Antigravity gauges would go blank as soon as the source PC had been asleep or off longer than the default 5-minute freshness window** — the "use today's observation even if it's stale, as long as its window hasn't reset" fallback added for Claude in v1.41.4 now applies to all three. Codex/Antigravity show the other PC's account-level quota, and OpenCode shows its official web-console figures, exactly as observed there (up to 24h old).
+
+### Notes
+- Widening the fallback came with two safeguards. (1) For Codex/Antigravity, a genuine local error on this PC (needs login, query failed) is never hidden behind a fallback value. (2) OpenCode discards the whole cached snapshot if any of its rolling/weekly/monthly windows has reset in the meantime, while Antigravity instead hides only the individual model rows whose own reset time has passed.
+<!-- /en -->
+
 ## [1.41.4] - 2026-09-07
 
 <!-- ko -->

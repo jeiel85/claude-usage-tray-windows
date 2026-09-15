@@ -104,6 +104,10 @@ public partial class AntigravityViewModel : ObservableObject
         foreach (var m in models)
         {
             if (m.ResetTime is null) continue;
+            // 다중 PC 동기화 최후 폴백(최대 24시간 전 관측치)을 받는 경우, 그 사이 이 창만
+            // 리셋됐을 수 있다 — remainingFraction 은 리셋 전 값이라 실제보다 적게 남은 것처럼
+            // 보인다. 리셋 시각이 이미 지난 행은 다음 실제 조회 전까지 아예 숨긴다.
+            if (m.ResetTime <= now) continue;
             if (m.ModelId.StartsWith("chat_", StringComparison.Ordinal) ||
                 m.ModelId.StartsWith("tab_",  StringComparison.Ordinal))
                 continue;
