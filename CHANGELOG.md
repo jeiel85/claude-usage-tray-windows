@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.41.6] - 2026-09-15
+
+<!-- ko -->
+### 수정
+- **Antigravity 최후 폴백 스냅샷의 모델이 전부 리셋을 지났을 때 빈 섹션·0% 게이지가 뜨던 문제** — v1.41.5 에서 넓힌 최후 폴백이 최대 24시간 전 관측치를 받다 보니, 그 안의 모델이 전부 리셋된 경우가 실제로 생겼습니다. 보여줄 모델도 없고 로컬에 실제 에러도 없다면 폴백 자체가 없었던 것으로 되돌려 섹션을 숨깁니다. 로컬에 로그인 필요 같은 진짜 에러가 있다면, 모델이 하나도 없어도 그 에러 안내는 계속 보여줍니다(섹션 전체가 하나의 표시 여부 값으로 묶여 있어, 자칫하면 에러까지 함께 가려질 수 있었습니다).
+
+### 참고
+- v1.41.5 의 다중 PC 동기화 최후 폴백 확장에 대한 리뷰 후속 조치입니다. 화면 흐름은 대부분 그대로이고, 위에 적은 좁은 경우(폴백 모델이 전부 만료)만 다듬었습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **An Antigravity last-resort snapshot whose models had all reset could leave an empty section with a misleading 0% gauge** — since v1.41.5's widened fallback can now pull in observations up to 24h old, every model bucket inside one could genuinely have reset by the time it's shown. When there's nothing left to show and no real local error, the fallback is now treated as if it were never available (the section stays hidden). If there IS a genuine local error (e.g. needs login), it still shows even when no model rows survive — the whole section shares one visibility flag, so clearing it unconditionally would have hidden the error message too.
+
+### Notes
+- Follow-up from review on v1.41.5's multi-PC sync last-resort fallback. Most of the user-facing flow is unchanged; only the narrow case above (every fallback model already expired) was refined.
+<!-- /en -->
+
 ## [1.41.5] - 2026-09-15
 
 <!-- ko -->

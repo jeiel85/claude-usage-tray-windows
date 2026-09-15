@@ -364,6 +364,21 @@ public class UsageSyncQuotaPolicyTests
         Assert.Equal(shared, MainViewModel.UsageSyncSharesAccountQuota(provider));
     }
 
+    // Antigravity 최후 폴백 적용 후 HasData 를 되돌릴지 판정 — 보여줄 모델도 없고 로컬 에러도
+    // 없을 때만 되돌린다. 에러가 있으면 HasData 를 켜 둬야 UsagePopup 이 그 에러를 그린다
+    // (섹션 전체가 AntigravityHasData 하나로만 게이트되고 에러 텍스트가 그 안에 중첩돼 있다).
+    [Theory]
+    [InlineData(false, false, true)]  // 모델도 에러도 없음 → 폴백 자체가 없었던 것으로 되돌림
+    [InlineData(true, false, false)]  // 모델이 있음 → 그대로 표시
+    [InlineData(false, true, false)]  // 모델은 없지만 로컬 에러가 있음 → HasData 를 켜 둬 에러를 보여준다
+    [InlineData(true, true, false)]   // 모델도 에러도 있음 → 둘 다 표시
+    public void AntigravityFallback_OnlyClearsDataWhenNothingToShow(
+        bool usedFallbackModels, bool hadGenuineLocalError, bool expectedShouldClear)
+    {
+        Assert.Equal(expectedShouldClear,
+            MainViewModel.ShouldClearAntigravityFallbackData(usedFallbackModels, hadGenuineLocalError));
+    }
+
     // 이 PC 에 로컬 사용량이 없고 다른 PC 에만 있는 경우(예: OpenCode 를 다른 PC 에서만 씀),
     // MergeLocalTotals 는 "사용량이 있는 기기" 만 세므로 DeviceCount 가 1 이 된다.
     // 예전처럼 DeviceCount > 1 을 요구하면 그 값이 통째로 버려져
