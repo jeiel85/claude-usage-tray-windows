@@ -1780,7 +1780,16 @@ namespace ClaudeUsageTray.ViewModels;
         DateTimeOffset? now = null)
     {
         var usage = quota?.OpenCode;
-        if (usage is null || usage.Rolling.ResetAt <= (now ?? DateTimeOffset.Now))
+        if (usage is null)
+            return null;
+
+        // 세 창(롤링·주간·월간)은 리셋 시각이 서로 독립적이다 — 최후 폴백으로 최대 24시간 전
+        // 관측치까지 받게 되면서, 롤링 창은 아직 안 끝났어도 그 사이 주간·월간 창만 리셋된
+        // 스냅샷을 그대로 보여줄 가능성이 실제로 생겼다(주말 동안 꺼져 있던 PC가 월요일 아침
+        // 다른 PC 의 금요일 관측치를 받는 경우 등). 셋 중 하나라도 리셋을 지났으면 통째로 버린다 —
+        // 부분적으로만 신선한 값을 조합해 보여주는 것보다, 다음 실제 조회를 기다리는 편이 낫다.
+        var cutoff = now ?? DateTimeOffset.Now;
+        if (usage.Rolling.ResetAt <= cutoff || usage.Weekly.ResetAt <= cutoff || usage.Monthly.ResetAt <= cutoff)
             return null;
 
         return new OpenCodeWebUsage
@@ -2489,6 +2498,16 @@ namespace ClaudeUsageTray.ViewModels;
                 SelectQuotaWithLastResort(sync.RemoteQuota, sync.LastObservedQuota) is { } syncedCodexQuota)
             {
                 ApplySyncedCodexQuota(syncedCodexQuota);
+
+                // ApplySyncedCodexQuota 는 자기 안에서 CodexHasError 를 무조건 false 로 지운다.
+                // 최후 폴백 창을 24시간까지 넓히면서, 로컬이 실제로 로그인 필요·읽기 실패인 경우까지
+                // 최대 하루 가까이 가릴 위험이 커졌다 — Claude 의 bb6d031 자체 리뷰 수정과 같은 이유로,
+                // 폴백은 숫자만 채울 뿐 이 PC 의 실제 에러 상태를 대체해서는 안 된다.
+                if (CodexVm.HasError)
+                {
+                    CodexHasError = true;
+                    CodexErrorMessage = CodexVm.ErrorMessage;
+                }
             }
 
             RecomputeCodexTimeProgress(DateTimeOffset.Now);
@@ -3066,10 +3085,23 @@ namespace ClaudeUsageTray.ViewModels;
             var remoteQuota = SelectQuotaWithLastResort(freshAntigravityQuota, lastObservedAntigravityQuota);
             if (!AntigravityVm.HasData && remoteQuota is { Quota.HasData: true } snapshot)
             {
+                // ApplyQuota 는 자기 안에서 HasError 를 무조건 false 로 지운다 — 이 PC 의 로컬 조회가
+                // 로그인 필요 등 진짜 에러(정보성 아님)로 실패한 경우라면 그 상태를 보존해 뒀다가
+                // 되살린다. 최후 폴백 창이 24시간까지 넓어지면서 이 상태를 최대 하루 가까이 가릴
+                // 위험도 커졌다 — Codex 쪽과 같은 이유(RefreshCodexInternalAsync 참고).
+                var hadGenuineLocalError = AntigravityVm.HasError;
+                var localErrorMessage = AntigravityVm.ErrorMessage;
+
                 AntigravityVm.ApplyQuota(
                     ToAntigravityModelQuotas(snapshot.Quota!.Models),
                     snapshot.Quota.TierName,
                     snapshot.Quota.PaidTierName);
+
+                if (hadGenuineLocalError)
+                {
+                    AntigravityVm.HasError = true;
+                    AntigravityVm.ErrorMessage = localErrorMessage;
+                }
 
                 // 다른 PC 의 값을 보고 있다는 것은 Codex 와 같은 자리(오른쪽 출처)에 적는다.
                 _antigravityQuotaOrigin = (

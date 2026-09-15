@@ -286,6 +286,27 @@ public sealed class AntigravityApplyQuotaTests
         }
     }
 
+    // 다중 PC 동기화 최후 폴백은 최대 24시간 전 관측치까지 받을 수 있다. 그 사이 이 창만
+    // 리셋됐다면 remainingFraction 은 리셋 전 값이라 실제보다 적게 남은 것처럼 보인다 —
+    // 다음 실제 조회 전까지는 아예 숨기는 편이 낫다. 리셋 전인 다른 행은 그대로 남는다.
+    [Fact]
+    public void ApplyQuota_SkipsRows_WhoseResetTimeAlreadyPassed()
+    {
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            vm.ApplyQuota(
+            [
+                Bucket("gemini-weekly", 0.3, reset: DateTimeOffset.Now.AddHours(2)),
+                Bucket("gemini-5h", 0.03, reset: DateTimeOffset.Now.AddMinutes(-1)),
+            ], null, null);
+
+            Assert.Equal(["gemini-weekly"], vm.Models.Select(m => m.ModelId));
+            // 걸러진 행(97% 사용)이 대표값에 반영되면 안 된다.
+            Assert.Equal(0.7, vm.Percent, 3);
+        }
+    }
+
     [Fact]
     public void ApplyQuota_ClearsPreviousError()
     {
