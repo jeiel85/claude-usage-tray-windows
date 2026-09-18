@@ -238,7 +238,7 @@ public class CodexUsageMonitor
 
         int? windowMinutes = windowEl.TryGetProperty("limit_window_seconds", out var wsEl) &&
                              wsEl.TryGetInt32(out var ws) && ws > 0
-            ? ws / 60
+            ? (int)Math.Round(ws / 60.0, MidpointRounding.AwayFromZero)
             : null;
 
         return new RateWindow(percent, resetAt, windowMinutes);
