@@ -47,6 +47,9 @@ public partial class OpenCodeViewModel : ObservableObject
     [ObservableProperty] private bool _hasStaleSyncedQuota = false;
     [ObservableProperty] private string _syncedQuotaNoticeLabel = "";
     [ObservableProperty] private bool _isWebQuotaUnavailable = false;
+
+    /// <summary>설정 화면의 "초기화 절대 시간 표시" 토글 — Claude·Codex 와 같은 값을 MainViewModel 이 그대로 밀어 넣는다.</summary>
+    [ObservableProperty] private bool _showAbsoluteResetTime = false;
     private OpenCodeWebUsage? _currentWebUsage;
     private string? _staleQuotaDevice;
     private DateTimeOffset? _staleQuotaObservedAt;
@@ -247,11 +250,11 @@ public partial class OpenCodeViewModel : ObservableObject
         WeeklyPercent = usage.Weekly.UsagePercent;
         MonthlyPercent = usage.Monthly.UsagePercent;
         RollingResetLabel = UsageCalculator.FormatResetLabel(
-            usage.Rolling.ResetAt, false, true, now);
+            usage.Rolling.ResetAt, false, ShowAbsoluteResetTime, now);
         WeeklyResetLabel = UsageCalculator.FormatResetLabel(
-            usage.Weekly.ResetAt, false, true, now);
+            usage.Weekly.ResetAt, false, ShowAbsoluteResetTime, now);
         MonthlyResetLabel = UsageCalculator.FormatResetLabel(
-            usage.Monthly.ResetAt, false, true, now);
+            usage.Monthly.ResetAt, false, ShowAbsoluteResetTime, now);
         Percent = RollingPercent;
         UpdateTimeProgress(now);
     }
@@ -298,6 +301,9 @@ public partial class OpenCodeViewModel : ObservableObject
     }
 
     partial void OnIsWebLoginRunningChanged(bool value) => OnPropertyChanged(nameof(WebLoginLabel));
+
+    /// <summary>토글 즉시 반영 — API 재호출 없이 현재 값에서 라벨만 다시 포맷한다.</summary>
+    partial void OnShowAbsoluteResetTimeChanged(bool value) => ApplyWebUsage(_currentWebUsage);
 
     public void RefreshLocalizedLabels()
     {

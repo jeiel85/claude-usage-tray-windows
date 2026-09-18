@@ -405,11 +405,12 @@ public sealed class AntigravityApplyQuotaTests
     }
 
     [Fact]
-    public void ApplyQuota_KeepsAbsoluteResetTime_InTheTooltipOnly()
+    public void ApplyQuota_KeepsAbsoluteResetTime_InTheTooltipOnly_WhenSettingIsOn()
     {
         var vm = CreateVm(out var monitor);
         using (monitor)
         {
+            vm.ShowAbsoluteResetTime = true;
             vm.ApplyQuota([Bucket("3p-5h", 0.5, window: "5h")], null, null);
 
             // 행 이름이 "그룹 · 창"이라 한 줄 라벨에 절대 시각까지 넣으면 이름이 잘린다 — 툴팁으로 뺀다.
@@ -419,11 +420,26 @@ public sealed class AntigravityApplyQuotaTests
     }
 
     [Fact]
+    public void ApplyQuota_OmitsAbsoluteResetTime_FromTooltip_WhenSettingIsOff()
+    {
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            // 기본값(false) — Claude·Codex 와 마찬가지로 설정이 꺼져 있으면 어디에도 절대 시각을 붙이지 않는다.
+            vm.ApplyQuota([Bucket("3p-5h", 0.5, window: "5h")], null, null);
+
+            Assert.DoesNotContain("(", vm.Models[0].ResetAtLabel);
+            Assert.DoesNotContain("(", vm.Models[0].PaceTip);
+        }
+    }
+
+    [Fact]
     public void ApplyQuota_WritesPaceTip_ForTheGaugeTooltip()
     {
         var vm = CreateVm(out var monitor);
         using (monitor)
         {
+            vm.ShowAbsoluteResetTime = true;
             var now = DateTimeOffset.Now;
             vm.ApplyQuota(
             [

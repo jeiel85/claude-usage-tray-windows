@@ -19,6 +19,9 @@ public partial class AntigravityViewModel : ObservableObject
     [ObservableProperty] private bool _isEnabled = true;
     [ObservableProperty] private double _percent = 0.0;
 
+    /// <summary>설정 화면의 "초기화 절대 시간 표시" 토글 — Claude·Codex 와 같은 값을 MainViewModel 이 그대로 밀어 넣는다.</summary>
+    [ObservableProperty] private bool _showAbsoluteResetTime = false;
+
     /// <summary>마지막 조회 결과 원본 — MainViewModel 이 다중 PC 동기화에 쓴다.</summary>
     public AntigravitySnapshot LastSnapshot { get; private set; } = new();
 
@@ -126,7 +129,7 @@ public partial class AntigravityViewModel : ObservableObject
                 ResetAt = m.ResetTime,
                 Window = ResolveWindowLength(m),
             };
-            row.UpdateTimeProgress(now);
+            row.UpdateTimeProgress(now, ShowAbsoluteResetTime);
             rows.Add(row);
         }
         Models = SortLikeOtherProviders(rows, models);
@@ -143,8 +146,11 @@ public partial class AntigravityViewModel : ObservableObject
     public void UpdateTimeProgress(DateTimeOffset now)
     {
         foreach (var row in Models)
-            row.UpdateTimeProgress(now);
+            row.UpdateTimeProgress(now, ShowAbsoluteResetTime);
     }
+
+    /// <summary>토글 즉시 반영 — API 재호출 없이 현재 행을 그대로 다시 포맷한다.</summary>
+    partial void OnShowAbsoluteResetTimeChanged(bool value) => UpdateTimeProgress(DateTimeOffset.Now);
 
     /// <summary>
     /// 게이지 순서를 Claude·Codex 와 맞춘다 — 짧은 창(5시간)이 위, 긴 창(주간)이 아래.
@@ -266,18 +272,19 @@ public sealed partial class AntigravityModelRow : ObservableObject
 
     /// <summary>
     /// 게이지 툴팁 — 첫 줄은 Claude·Codex 게이지 툴팁과 같은 페이스 문구,
-    /// 둘째 줄은 리셋 절대 시각이다.
+    /// 둘째 줄은 "초기화 절대 시간 표시" 설정이 켜졌을 때만 붙는 리셋 절대 시각이다.
     ///
     /// 절대 시각을 다른 provider 처럼 한 줄 라벨에 붙이지 않는 이유: 이 행의 이름은 "그룹 · 창"이라
     /// 320px 팝업에서 절대 시각까지 넣으면 이름이 "Gemini 모..." 로 잘려 어느 창인지 구분되지 않는다.
-    /// (다른 provider 의 행 이름은 "주간 윈도우" 한 덩어리라 같은 문제가 없다.)
+    /// (다른 provider 의 행 이름은 "주간 윈도우" 한 덩어리라 같은 문제가 없다.) 그래서 설정이 켜졌을 때도
+    /// 라벨 자체는 그대로 두고, 대신 툴팁에 절대 시각 줄을 추가하는 것으로 Claude·Codex 와 같은 정보를 준다.
     /// </summary>
     [ObservableProperty] private string _paceTip = "";
 
     [ObservableProperty] private bool _hasTimeline = false;
     [ObservableProperty] private double _timePercent = 0.0;
 
-    internal void UpdateTimeProgress(DateTimeOffset now)
+    internal void UpdateTimeProgress(DateTimeOffset now, bool showAbsoluteResetTime)
     {
         ResetAtLabel = UsageCalculator.FormatResetLabel(ResetAt, false, false, now);
 
@@ -288,6 +295,7 @@ public sealed partial class AntigravityModelRow : ObservableObject
         // 창 초반에는 페이스 판정을 유보한다 — 하한은 Codex 와 같은 창 길이의 1/60(5시간→5분, 주간→2.8시간).
         var pace = Loc.PaceTip(progress, UsagePercent,
             UsageCalculator.IsPaceSettled(progress, window, window / 60));
+        if (!showAbsoluteResetTime) { PaceTip = pace; return; }
         var absolute = UsageCalculator.FormatResetLabel(ResetAt, false, true, now);
         PaceTip = string.IsNullOrEmpty(absolute) ? pace : $"{pace}\n{absolute.TrimStart(' ', '·')}";
     }

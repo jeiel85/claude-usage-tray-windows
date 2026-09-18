@@ -2886,6 +2886,8 @@ namespace ClaudeUsageTray.ViewModels;
     /// <summary>
     /// ShowAbsoluteResetTime 토글 시 4개 reset 라벨을 raw 값에서 즉시 재포맷.
     /// (API 재호출 없이 사용자가 토글한 즉시 반영)
+    /// Antigravity·OpenCode 는 각자 같은 이름의 프로퍼티를 갖고 있어 값만 그대로 밀어 넣으면
+    /// 각 ViewModel 의 OnShowAbsoluteResetTimeChanged 가 자기 라벨을 알아서 재포맷한다.
     /// </summary>
     partial void OnShowAbsoluteResetTimeChanged(bool value)
     {
@@ -2893,6 +2895,8 @@ namespace ClaudeUsageTray.ViewModels;
         ClaudeVm.LongReset  = FormatResetLabel(_rawClaudeLongResetAt);
         CodexReset       = FormatResetLabel(_rawCodexShortResetAt, _rawCodexShortResetEstimated);
         CodexLongReset   = FormatResetLabel(_rawCodexLongResetAt);
+        AntigravityVm.ShowAbsoluteResetTime = value;
+        OpenCodeVm.ShowAbsoluteResetTime    = value;
     }
 
     partial void OnWeatherEnabledChanged(bool value) => NotifyWeatherComputed();

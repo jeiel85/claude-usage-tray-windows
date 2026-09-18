@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.41.8] - 2026-09-18
+
+<!-- ko -->
+### 수정
+- **초기화 절대 시간 표시 설정이 Antigravity·OpenCode 에는 적용되지 않던 문제** — 설정 > "초기화 절대 시간 표시" 토글이 Claude·Codex 리셋 라벨에는 정상 반영되지만, Antigravity·OpenCode 는 토글과 무관하게 항상 같은 방식으로만 표시됐습니다(Antigravity 는 행 라벨이 항상 상대 시간뿐이고 툴팁은 항상 절대 시각을 붙였으며, OpenCode 의 롤링/주간/월간 라벨은 항상 절대 시각을 붙였습니다). 두 ViewModel 이 `FormatResetLabel` 호출 시 절대 시각 여부를 하드코딩해 설정값을 아예 받지 않은 게 원인이었습니다. 이제 두 공급자 모두 같은 설정값을 그대로 전달받습니다.
+
+### 참고
+- Antigravity 는 행 이름이 "그룹 · 창" 형태라 절대 시각까지 붙이면 이름이 잘리는 문제(#139)가 있어, 라벨 자체에는 여전히 절대 시각을 붙이지 않고 설정이 켜졌을 때만 툴팁에 절대 시각 줄을 추가합니다(꺼져 있으면 Claude·Codex 와 마찬가지로 어디에도 절대 시각이 붙지 않습니다). OpenCode 는 Claude·Codex 와 동일하게 라벨에 직접 괄호로 절대 시각을 붙이거나 뗍니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The "show absolute reset time" setting never reached Antigravity or OpenCode** — the toggle in Settings correctly changed Claude's and Codex's reset labels, but Antigravity and OpenCode always displayed the same way regardless of it (Antigravity's row label was always relative-only while its tooltip always showed the absolute time; OpenCode's Rolling/Weekly/Monthly labels always showed the absolute time). Both view models hardcoded whether to show the absolute stamp when calling `FormatResetLabel`, so the setting was never actually read. Both providers now receive the same setting value Claude and Codex do.
+
+### Notes
+- Antigravity's row name is a "group · window" combo (e.g. "Gemini Models · Weekly"), so appending the absolute time would truncate it (#139) — the row label itself still stays relative-only, and the absolute time is added to the tooltip only when the setting is on (when it's off, nothing shows it, same as Claude/Codex). OpenCode matches Claude/Codex exactly: the absolute time is appended in parentheses directly on the label when the setting is on, and omitted when it's off.
+<!-- /en -->
+
 ## [1.41.7] - 2026-09-18
 
 <!-- ko -->
