@@ -1083,9 +1083,9 @@
 
                         <!-- 오늘의 토큰 3타일 — Codex 는 cache write 개념이 없어 항상 "—" 이므로 표시하지 않는다(빈 타일이 스크롤만 늘리는 것을 방지) -->
                         <Border Height="1" Background="#2D2F45" Margin="0,12,0,10"
-                                Visibility="{Binding IsCodexUsageEmpty, Converter={StaticResource BoolToVisibilityInverse}}"/>
+                                Visibility="{Binding IsCodexTokenRowVisible, Converter={StaticResource BoolToVisibility}}"/>
                         <UniformGrid Columns="3" Rows="1"
-                                     Visibility="{Binding IsCodexUsageEmpty, Converter={StaticResource BoolToVisibilityInverse}}">
+                                     Visibility="{Binding IsCodexTokenRowVisible, Converter={StaticResource BoolToVisibility}}">
                             <Border Style="{StaticResource StatBox}" Margin="0,0,4,0"
                                     Visibility="{Binding CodexInputLabel, Converter={StaticResource StringToVisibility}, ConverterParameter=dash}">
                                 <StackPanel>
