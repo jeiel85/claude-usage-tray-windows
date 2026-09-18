@@ -3,6 +3,26 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.41.10] - 2026-09-18
+
+<!-- ko -->
+### 개선
+- **Codex·Gemini CLI "오늘의 토큰" 타일에서 항상 비어 있는 캐시 쓰기 타일 제거** — 두 공급자 모두 API 특성상 cache write 개념이 없어 이 타일은 구조적으로 항상 "—" 만 표시했습니다. 4타일(2×2)에서 입력/출력/캐시 읽기 3타일(1행)로 바꿔 빈 타일이 팝업 스크롤만 늘리던 문제를 없앴습니다.
+- **입력/출력/캐시 읽기 타일도 값이 없을 때(오늘 아직 그 항목이 발생하지 않은 경우) 개별적으로 숨김** — 이전에는 값이 없어도 "—" 로 표시해 자리를 차지했습니다. 이제 셋 중 일부만 비어 있으면 그 타일만 접히고 나머지가 왼쪽으로 붙으며, 전부 비어 있으면 행 전체가 사라집니다.
+
+### 참고
+- Claude 섹션은 값이 없을 때 "—" 대신 "0" 을 표시하는 다른 방식이라 이번 변경에서 제외했습니다. OpenCode 섹션은 Codex·Gemini 와 동일한 "—" 방식을 쓰지만 이번 요청 범위에 포함되지 않아 그대로 두었습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Removed the always-empty cache-write tile from the Codex/Gemini CLI "today's tokens" grid** — neither provider's API exposes a cache-write concept, so that tile structurally always read "—". The grid changed from 4 tiles (2×2) to 3 tiles (Input/Output/Cache Read) in a single row, so the empty tile no longer grows the popup's scroll height.
+- **Input/Output/Cache Read tiles now hide individually when they have nothing to show** (e.g. that metric hasn't happened yet today) — previously an empty metric still rendered as a "—" placeholder taking up space. Now if only some are empty, only those tiles collapse and the rest pack to the left; if all are empty, the whole row disappears.
+
+### Notes
+- The Claude section shows "0" instead of "—" for empty metrics (a different pattern), so it was left out of this change. OpenCode uses the same "—" pattern as Codex/Gemini but wasn't in scope for this request, so it's unchanged for now.
+<!-- /en -->
+
 ## [1.41.9] - 2026-09-18
 
 <!-- ko -->
