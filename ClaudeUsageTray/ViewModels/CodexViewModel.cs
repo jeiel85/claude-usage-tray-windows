@@ -32,7 +32,6 @@ public partial class CodexViewModel : ObservableObject
     [ObservableProperty] private string _inputLabel = "—";
     [ObservableProperty] private string _outputLabel = "—";
     [ObservableProperty] private string _cacheReadLabel = "—";
-    [ObservableProperty] private string _cacheWriteLabel = "—";
     [ObservableProperty] private bool _isUsageEmpty = true;
 
     public double PrevPercent => _prevPercent;
@@ -107,7 +106,6 @@ public partial class CodexViewModel : ObservableObject
                 InputLabel      = snapshot.TotalInputTokens      > 0 ? UsageCalculator.FormatTokenShort(snapshot.TotalInputTokens)      : "—";
                 OutputLabel     = snapshot.TotalOutputTokens     > 0 ? UsageCalculator.FormatTokenShort(snapshot.TotalOutputTokens)     : "—";
                 CacheReadLabel  = snapshot.TotalCacheReadTokens  > 0 ? UsageCalculator.FormatTokenShort(snapshot.TotalCacheReadTokens)  : "—";
-                CacheWriteLabel = snapshot.TotalCacheWriteTokens > 0 ? UsageCalculator.FormatTokenShort(snapshot.TotalCacheWriteTokens) : "—";
 
                 IsUsageEmpty = !snapshot.HasData;
 

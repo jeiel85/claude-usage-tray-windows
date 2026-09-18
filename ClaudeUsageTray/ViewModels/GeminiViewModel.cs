@@ -21,7 +21,6 @@ public partial class GeminiViewModel : ObservableObject
     [ObservableProperty] private string _outputTokensLabel = "";
     [ObservableProperty] private string _inputLabel = "—";
     [ObservableProperty] private string _cacheReadLabel = "—";
-    [ObservableProperty] private string _cacheWriteLabel = "—";
     [ObservableProperty] private bool _isUsageEmpty = true;
 
     public int LastRequestCount => _lastRequestCount;
@@ -61,7 +60,6 @@ public partial class GeminiViewModel : ObservableObject
                 CacheReadLabel = snapshot.TotalCacheReadTokens > 0
                     ? UsageCalculator.FormatTokenShort(snapshot.TotalCacheReadTokens)
                     : "—";
-                CacheWriteLabel = "—";
                 Summary = snapshot.HasData
                     ? Loc.GeminiCliRequestSummary(snapshot.RequestCount, snapshot.TotalOutputTokens)
                     : snapshot.ErrorMessage ?? "";
