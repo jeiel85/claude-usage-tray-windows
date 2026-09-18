@@ -1087,21 +1087,21 @@
                         <UniformGrid Columns="3" Rows="1"
                                      Visibility="{Binding IsCodexUsageEmpty, Converter={StaticResource BoolToVisibilityInverse}}">
                             <Border Style="{StaticResource StatBox}" Margin="0,0,4,0"
-                                    Visibility="{Binding CodexInputLabel, Converter={StaticResource DashToVisibility}}">
+                                    Visibility="{Binding CodexInputLabel, Converter={StaticResource StringToVisibility}, ConverterParameter=dash}">
                                 <StackPanel>
                                     <TextBlock Text="{Binding LblInput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
                                     <TextBlock Text="{Binding CodexInputLabel}" Style="{StaticResource StatValue}" Foreground="#6EE7B7" FontSize="13"/>
                                 </StackPanel>
                             </Border>
-                            <Border Style="{StaticResource StatBox}" Margin="4,0,4,0"
-                                    Visibility="{Binding CodexOutputLabel, Converter={StaticResource DashToVisibility}}">
+                            <Border Style="{StaticResource StatBox}" Margin="0,0,4,0"
+                                    Visibility="{Binding CodexOutputLabel, Converter={StaticResource StringToVisibility}, ConverterParameter=dash}">
                                 <StackPanel>
                                     <TextBlock Text="{Binding LblOutput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
                                     <TextBlock Text="{Binding CodexOutputLabel}" Style="{StaticResource StatValue}" Foreground="#34D399" FontSize="13"/>
                                 </StackPanel>
                             </Border>
-                            <Border Style="{StaticResource StatBox}" Margin="4,0,0,0"
-                                    Visibility="{Binding CodexCacheReadLabel, Converter={StaticResource DashToVisibility}}">
+                            <Border Style="{StaticResource StatBox}" Margin="0,0,0,0"
+                                    Visibility="{Binding CodexCacheReadLabel, Converter={StaticResource StringToVisibility}, ConverterParameter=dash}">
                                 <StackPanel>
                                     <TextBlock Text="{Binding LblCacheRead}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
                                     <TextBlock Text="{Binding CodexCacheReadLabel}" Style="{StaticResource StatValue}" Foreground="#A7F3D0" FontSize="13"/>
@@ -1144,21 +1144,21 @@
                         <UniformGrid Columns="3" Rows="1"
                                      Visibility="{Binding IsGeminiUsageEmpty, Converter={StaticResource BoolToVisibilityInverse}}">
                             <Border Style="{StaticResource StatBox}" Margin="0,0,4,0"
-                                    Visibility="{Binding GeminiInputLabel, Converter={StaticResource DashToVisibility}}">
+                                    Visibility="{Binding GeminiInputLabel, Converter={StaticResource StringToVisibility}, ConverterParameter=dash}">
                                 <StackPanel>
                                     <TextBlock Text="{Binding LblInput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
                                     <TextBlock Text="{Binding GeminiInputLabel}" Style="{StaticResource StatValue}" Foreground="#60A5FA" FontSize="13"/>
                                 </StackPanel>
                             </Border>
-                            <Border Style="{StaticResource StatBox}" Margin="4,0,4,0"
-                                    Visibility="{Binding GeminiOutputTokensLabel, Converter={StaticResource DashToVisibility}}">
+                            <Border Style="{StaticResource StatBox}" Margin="0,0,4,0"
+                                    Visibility="{Binding GeminiOutputTokensLabel, Converter={StaticResource StringToVisibility}, ConverterParameter=dash}">
                                 <StackPanel>
                                     <TextBlock Text="{Binding LblOutput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
                                     <TextBlock Text="{Binding GeminiOutputTokensLabel}" Style="{StaticResource StatValue}" Foreground="#93C5FD" FontSize="13"/>
                                 </StackPanel>
                             </Border>
-                            <Border Style="{StaticResource StatBox}" Margin="4,0,0,0"
-                                    Visibility="{Binding GeminiCacheReadLabel, Converter={StaticResource DashToVisibility}}">
+                            <Border Style="{StaticResource StatBox}" Margin="0,0,0,0"
+                                    Visibility="{Binding GeminiCacheReadLabel, Converter={StaticResource StringToVisibility}, ConverterParameter=dash}">
                                 <StackPanel>
                                     <TextBlock Text="{Binding LblCacheRead}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
                                     <TextBlock Text="{Binding GeminiCacheReadLabel}" Style="{StaticResource StatValue}" Foreground="#BFDBFE" FontSize="13"/>

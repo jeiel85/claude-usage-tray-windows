@@ -100,11 +100,10 @@ namespace ClaudeUsageTray.ViewModels;
     private bool _isCodexSubscribed;
     [ObservableProperty] private string _codexShortWindowLabel = Loc.ShortWindow;
     [ObservableProperty] private string _codexLongWindowLabel = Loc.LongWindow;
-    // 오늘의 토큰 4타일 (Input / Output / CacheRead / CacheWrite — Codex는 cache write 개념 없어 "—")
+    // 오늘의 토큰 3타일 (Input / Output / CacheRead — Codex는 cache write 개념 없어 타일 자체를 두지 않음)
     [ObservableProperty] private string _codexInputLabel = "—";
     [ObservableProperty] private string _codexOutputLabel = "—";
     [ObservableProperty] private string _codexCacheReadLabel = "—";
-    [ObservableProperty] private string _codexCacheWriteLabel = "—";
 
     // Gemini Usage
     [ObservableProperty] private double _geminiPercent = 0;
@@ -115,10 +114,9 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private string _geminiSummary = "";
     [ObservableProperty] private string _geminiRequestsLabel = "";
     [ObservableProperty] private string _geminiOutputTokensLabel = "";
-    // 오늘의 토큰 4타일 (Input / Output / CacheRead / CacheWrite — Gemini는 cache write 없어 "—")
+    // 오늘의 토큰 3타일 (Input / Output / CacheRead — Gemini는 cache write 없어 타일 자체를 두지 않음)
     [ObservableProperty] private string _geminiInputLabel = "—";
     [ObservableProperty] private string _geminiCacheReadLabel = "—";
-    [ObservableProperty] private string _geminiCacheWriteLabel = "—";
 
     // OpenCode Usage
     [ObservableProperty] private bool _openCodeHasError = false;
@@ -1948,7 +1946,7 @@ namespace ClaudeUsageTray.ViewModels;
     }
 
     private static string TokenOrDash(long tokens) =>
-        tokens > 0 ? UsageCalculator.FormatTokenShort(tokens) : "—";
+        tokens > 0 ? UsageCalculator.FormatTokenShort(tokens) : Loc.QuotaUnknownMark;
 
     private static string RequestCountOrDash(int count) =>
         count > 0
@@ -2514,7 +2512,6 @@ namespace ClaudeUsageTray.ViewModels;
             CodexInputLabel = CodexVm.InputLabel;
             CodexOutputLabel = CodexVm.OutputLabel;
             CodexCacheReadLabel = CodexVm.CacheReadLabel;
-            CodexCacheWriteLabel = CodexVm.CacheWriteLabel;
 
             // 토큰 4타일 표시 여부는 퍼센트가 아니라 실제 토큰 데이터 유무로 판단한다(Claude 와 동일 기준).
             var codexHasTokenData = CodexVm.LastSnapshot.HasData;
@@ -2525,7 +2522,6 @@ namespace ClaudeUsageTray.ViewModels;
                 CodexInputLabel = TokenOrDash(mergedTotals!.InputTokens);
                 CodexOutputLabel = TokenOrDash(mergedTotals.OutputTokens);
                 CodexCacheReadLabel = TokenOrDash(mergedTotals.CacheReadTokens);
-                CodexCacheWriteLabel = TokenOrDash(mergedTotals.CacheWriteTokens);
                 CodexDataSource = WithSyncNote(CodexDataSource, mergedTotals);
                 codexHasTokenData = true;
             }
@@ -2555,7 +2551,6 @@ namespace ClaudeUsageTray.ViewModels;
             GeminiOutputTokensLabel = GeminiVm.OutputTokensLabel;
             GeminiInputLabel = GeminiVm.InputLabel;
             GeminiCacheReadLabel = GeminiVm.CacheReadLabel;
-            GeminiCacheWriteLabel = GeminiVm.CacheWriteLabel;
             IsGeminiUsageEmpty = GeminiVm.IsUsageEmpty;
             _lastGeminiRequestCount = GeminiVm.LastRequestCount;
             _lastGeminiOutputTokens = GeminiVm.LastOutputTokens;
@@ -2567,7 +2562,6 @@ namespace ClaudeUsageTray.ViewModels;
                 GeminiInputLabel = TokenOrDash(mergedTotals.InputTokens);
                 GeminiOutputTokensLabel = TokenOrDash(mergedTotals.OutputTokens);
                 GeminiCacheReadLabel = TokenOrDash(mergedTotals.CacheReadTokens);
-                GeminiCacheWriteLabel = TokenOrDash(mergedTotals.CacheWriteTokens);
                 GeminiSummary = Loc.GeminiCliRequestSummary(mergedTotals.RequestCount, mergedTotals.OutputTokens);
                 IsGeminiUsageEmpty = false;
                 _lastGeminiRequestCount = mergedTotals.RequestCount;
