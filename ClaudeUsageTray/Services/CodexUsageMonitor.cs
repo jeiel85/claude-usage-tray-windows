@@ -16,7 +16,12 @@ public class CodexUsageMonitor
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         ".codex", "auth.json");
 
-    private const string UsageApiEndpoint = "https://api.openai-v2.com/backend-api/codex/usage";
+    // 실제 codex CLI(openai/codex 저장소 backend-client/src/client/rate_limit_resets.rs)가 부르는
+    // 계정 단위 사용량 엔드포인트. 예전 값("api.openai-v2.com/backend-api/codex/usage")은 DNS 에
+    // 존재조차 하지 않는 도메인이었다 — 이 경로는 한 번도 실제로 성공한 적이 없었다는 뜻이다
+    // (#148 은 auth.json 경로만 지적했지만, 도메인과 응답 스키마 자체가 잘못돼 있던 건 이번에
+    // 실제 계정으로 실측하며 드러났다. 아래 응답 파싱도 그때 확인한 실제 스키마 기준이다).
+    private const string UsageApiEndpoint = "https://chatgpt.com/backend-api/wham/usage";
     private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(AppConstants.ApiTimeoutSeconds) };
 
     public async Task<ProviderUsageSnapshot> GetTodaySnapshotAsync(bool useDirectApi = true)
@@ -114,33 +119,23 @@ public class CodexUsageMonitor
     {
         try
         {
-            var token = TryGetAccessToken();
+            var (token, accountId) = TryGetApiCredentials();
             if (string.IsNullOrEmpty(token)) return null;
 
             var request = new HttpRequestMessage(HttpMethod.Get, UsageApiEndpoint);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            // 실제 CLI 와 같은 값 — 서버가 User-Agent 로 클라이언트를 가리는지는 불명이지만,
+            // Antigravity 쪽(v1internal 엔드포인트)이 이미 이 방식으로 403 을 겪은 전례가 있어 맞춰 둔다.
+            request.Headers.UserAgent.ParseAdd("codex-cli");
+            if (!string.IsNullOrEmpty(accountId))
+                request.Headers.TryAddWithoutValidation("ChatGPT-Account-Id", accountId);
 
             var response = await _http.SendAsync(request);
             if (!response.IsSuccessStatusCode) return null;
 
             var json = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-
-            // API 응답 구조 파싱 (리뷰 문서의 rate_limits 구조 기반)
-            if (!root.TryGetProperty("rate_limits", out var rateLimitsEl)) return null;
-
-            var snapshot = new ProviderUsageSnapshot
-            {
-                HasData = true,
-                DataSource = "Direct API",
-            };
-            ApplyRateLimits(rateLimitsEl, snapshot);
-            // API 응답이라고 리셋 시각이 항상 미래인 것은 아니다(캐시된 응답·시계 어긋남).
-            DropExpiredWindows(snapshot, DateTimeOffset.Now);
-            snapshot.IsSubscriptionActive = snapshot.PlanType is "Plus" or "Team" or "Enterprise";
-
-            return snapshot;
+            return ParseDirectApiUsage(doc.RootElement, DateTimeOffset.Now);
         }
         catch
         {
@@ -148,19 +143,105 @@ public class CodexUsageMonitor
         }
     }
 
-    private string? TryGetAccessToken()
+    /// <summary>
+    /// <c>~/.codex/auth.json</c> 에서 Direct API 호출에 쓸 자격 증명을 읽는다.
+    /// 실제 파일은 최상위가 아니라 <c>tokens</c> 아래에 담겨 있다(#148) — 최상위에서 읽으면 항상
+    /// null 이 되어 API 경로가 조용히 죽은 채로 로그 폴백만 타게 된다. <c>account_id</c> 도 같은
+    /// 자리에 있으며, 서버가 이 값 없이는 403 을 준다(codex CLI 의 ChatGPT-Account-Id 헤더와 동일).
+    /// </summary>
+    internal static (string? Token, string? AccountId) TryGetApiCredentials(string authPath)
     {
         try
         {
-            if (!File.Exists(AuthPath)) return null;
-            var json = File.ReadAllText(AuthPath);
-            using var doc = JsonDocument.Parse(json);
-            return doc.RootElement.TryGetProperty("access_token", out var tokenEl) ? tokenEl.GetString() : null;
+            if (!File.Exists(authPath)) return (null, null);
+            using var doc = JsonDocument.Parse(File.ReadAllText(authPath));
+            if (!doc.RootElement.TryGetProperty("tokens", out var tokens) || tokens.ValueKind != JsonValueKind.Object)
+                return (null, null);
+
+            var token = tokens.TryGetProperty("access_token", out var t) && t.ValueKind == JsonValueKind.String
+                ? t.GetString() : null;
+            var accountId = tokens.TryGetProperty("account_id", out var a) && a.ValueKind == JsonValueKind.String
+                ? a.GetString() : null;
+            return (token, accountId);
         }
         catch
         {
-            return null;
+            return (null, null);
         }
+    }
+
+    private (string? Token, string? AccountId) TryGetApiCredentials() => TryGetApiCredentials(AuthPath);
+
+    /// <summary>
+    /// Direct API(<c>/backend-api/wham/usage</c>) 응답을 스냅샷으로 편다.
+    /// 로컬 세션 로그(<see cref="ApplyRateLimits"/>)와는 완전히 다른 스키마다 — 창이
+    /// <c>rate_limit.primary_window</c>/<c>secondary_window</c> 로 한 겹 더 감싸여 있고,
+    /// 리셋까지 남은 시간은 <c>limit_window_seconds</c>(초 단위, 로그의 <c>window_minutes</c>
+    /// 는 분 단위)와 <c>reset_at</c>(로그의 <c>resets_at</c>과 이름이 다르다)로 불린다.
+    /// (실측: openai/codex 저장소 codex-backend-openapi-models 의 OpenAPI 모델 기준, 2026-09-18)
+    /// </summary>
+    internal static ProviderUsageSnapshot? ParseDirectApiUsage(JsonElement root, DateTimeOffset now)
+    {
+        if (!root.TryGetProperty("rate_limit", out var rateLimitEl) || rateLimitEl.ValueKind != JsonValueKind.Object)
+            return null;
+
+        var windows = new List<RateWindow>(2);
+        if (ReadDirectApiWindow(rateLimitEl, "primary_window") is { } primary) windows.Add(primary);
+        if (ReadDirectApiWindow(rateLimitEl, "secondary_window") is { } secondary) windows.Add(secondary);
+        if (windows.Count == 0) return null;
+
+        // window_minutes 오름차순(길이를 모르는 창은 뒤로) — 로컬 로그 경로(ApplyRateLimits)와 동일 규칙.
+        windows.Sort((a, b) => (a.WindowMinutes ?? int.MaxValue).CompareTo(b.WindowMinutes ?? int.MaxValue));
+
+        var snapshot = new ProviderUsageSnapshot
+        {
+            HasData = true,
+            DataSource = "Direct API",
+            ShortUsagePercent = windows[0].Percent,
+            ShortResetAt = windows[0].ResetAt,
+            ShortWindowMinutes = windows[0].WindowMinutes,
+        };
+        if (windows.Count > 1)
+        {
+            snapshot.LongUsagePercent = windows[1].Percent;
+            snapshot.LongResetAt = windows[1].ResetAt;
+            snapshot.LongWindowMinutes = windows[1].WindowMinutes;
+        }
+
+        if (root.TryGetProperty("plan_type", out var planEl) && planEl.ValueKind == JsonValueKind.String)
+            snapshot.PlanType = planEl.GetString();
+
+        // API 응답이라고 리셋 시각이 항상 미래인 것은 아니다(캐시된 응답·시계 어긋남).
+        DropExpiredWindows(snapshot, now);
+        snapshot.IsSubscriptionActive = !string.IsNullOrWhiteSpace(snapshot.PlanType) &&
+            !string.Equals(snapshot.PlanType, "free", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(snapshot.PlanType, "guest", StringComparison.OrdinalIgnoreCase);
+
+        return snapshot;
+    }
+
+    // limit_window_seconds 는 초 단위라 분 단위인 로컬 로그 스키마(ReadWindow)와 맞추려면 60 으로 나눈다.
+    private static RateWindow? ReadDirectApiWindow(JsonElement rateLimitEl, string windowName)
+    {
+        if (!rateLimitEl.TryGetProperty(windowName, out var windowEl) || windowEl.ValueKind != JsonValueKind.Object)
+            return null;
+
+        double percent = windowEl.TryGetProperty("used_percent", out var percentEl) &&
+                         percentEl.ValueKind == JsonValueKind.Number
+            ? Math.Clamp(percentEl.GetDouble() / 100.0, 0, 1)
+            : 0;
+
+        DateTimeOffset? resetAt = windowEl.TryGetProperty("reset_at", out var resetEl) &&
+                                  resetEl.TryGetInt64(out var epoch) && epoch > 0
+            ? DateTimeOffset.FromUnixTimeSeconds(epoch)
+            : null;
+
+        int? windowMinutes = windowEl.TryGetProperty("limit_window_seconds", out var wsEl) &&
+                             wsEl.TryGetInt32(out var ws) && ws > 0
+            ? (int)Math.Round(ws / 60.0, MidpointRounding.AwayFromZero)
+            : null;
+
+        return new RateWindow(percent, resetAt, windowMinutes);
     }
 
     public ProviderUsageSnapshot GetTodaySnapshot() => GetTodaySnapshot(SessionsPath);

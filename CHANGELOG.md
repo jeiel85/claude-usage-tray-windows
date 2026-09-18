@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.41.7] - 2026-09-18
+
+<!-- ko -->
+### 수정
+- **Codex Direct API 가 존재하지 않는 도메인·잘못된 스키마로 출시 이래 단 한 번도 성공한 적 없던 문제** — `api.openai-v2.com` 은 DNS 에 등록조차 안 된 도메인이었고, `auth.json` 토큰 경로(#148)와 응답 파싱 스키마도 실제 서버와 달랐습니다. 세 문제가 겹쳐 이 PC 에 유효한 Codex 로그인이 있어도 항상 로컬 세션 로그로만 조용히 폴백했습니다. 실제 codex CLI 가 쓰는 `chatgpt.com/backend-api/wham/usage` 엔드포인트와 `ChatGPT-Account-Id` 헤더, 실제 응답 스키마(`rate_limit.primary_window`/`secondary_window`)에 맞춰 다시 구현했습니다. 이 엔드포인트는 계정 단위 값을 돌려주므로, Claude 와 마찬가지로 다른 PC 에서 쓴 Codex 사용량도 이제 정상적으로 반영됩니다.
+
+### 참고
+- 여러 대의 PC 중 Codex 를 실제로 쓰지 않는 PC 에서도, 이 PC 에 유효한 Codex 로그인만 있으면 이제 계정 전체의 실제 사용량을 직접 보여줍니다(OneDrive 다중 PC 동기화 폴더에 의존하지 않습니다).
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The Codex Direct API path had never succeeded once since it shipped, due to a nonexistent domain and a mismatched response schema** — `api.openai-v2.com` wasn't even registered in DNS, and both the `auth.json` token path (#148) and the response parsing schema didn't match the real server. Combined, this meant the app always fell back silently to the local session log even when this PC had a valid Codex login. Rewrote it against the endpoint the real codex CLI uses (`chatgpt.com/backend-api/wham/usage`), the required `ChatGPT-Account-Id` header, and the actual response schema (`rate_limit.primary_window`/`secondary_window`). Since this endpoint returns account-level data, Codex usage from other PCs now shows up correctly, the same way Claude already does.
+
+### Notes
+- On any PC with a valid Codex login — even one that doesn't actively use Codex — the account's real usage now shows directly, without depending on the OneDrive multi-PC sync folder.
+<!-- /en -->
+
 ## [1.41.6] - 2026-09-15
 
 <!-- ko -->

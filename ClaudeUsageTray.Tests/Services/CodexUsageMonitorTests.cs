@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Text.Json;
 using ClaudeUsageTray.Services;
 using Xunit;
 
@@ -330,6 +331,133 @@ public class CodexUsageMonitorTests
     public void TryReadPlanTypeFromAuth_ReturnsNullWhenFileMissing()
         => Assert.Null(CodexUsageMonitor.TryReadPlanTypeFromAuth(
             Path.Combine(Path.GetTempPath(), $"codex-missing-{Guid.NewGuid():N}", "auth.json")));
+
+    // 회귀 방지(#148): auth.json 의 access_token/account_id 는 최상위가 아니라 tokens 아래에 있다.
+    // 실제 파일(2026-09-18 실측)에는 auth_mode·OPENAI_API_KEY·last_refresh 등 다른 최상위 필드도
+    // 섞여 있으므로, 이들이 있어도 tokens 아래 값을 정확히 골라내는지 함께 확인한다.
+    [Fact]
+    public void TryGetApiCredentials_ReadsFromNestedTokensObject()
+    {
+        var authPath = Path.Combine(CreateTempCodexRoot(), "auth.json");
+        File.WriteAllText(authPath, """
+        {
+            "auth_mode": "chatgpt",
+            "OPENAI_API_KEY": null,
+            "tokens": {
+                "id_token": "header.payload.signature",
+                "access_token": "test-access-token",
+                "refresh_token": "test-refresh-token",
+                "account_id": "test-account-id"
+            },
+            "last_refresh": "2026-09-18T00:00:00.000000000Z"
+        }
+        """);
+
+        var (token, accountId) = CodexUsageMonitor.TryGetApiCredentials(authPath);
+
+        Assert.Equal("test-access-token", token);
+        Assert.Equal("test-account-id", accountId);
+    }
+
+    [Fact]
+    public void TryGetApiCredentials_ReturnsNullWhenTopLevelAccessTokenOnly()
+    {
+        // 예전 버그가 읽으려던(그러나 실제 파일에는 없는) 모양 — 최상위에 access_token 만 있는 경우.
+        var authPath = Path.Combine(CreateTempCodexRoot(), "auth.json");
+        File.WriteAllText(authPath, """{"access_token":"should-not-be-read"}""");
+
+        var (token, accountId) = CodexUsageMonitor.TryGetApiCredentials(authPath);
+
+        Assert.Null(token);
+        Assert.Null(accountId);
+    }
+
+    [Fact]
+    public void TryGetApiCredentials_ReturnsNullWhenFileMissing()
+    {
+        var (token, accountId) = CodexUsageMonitor.TryGetApiCredentials(
+            Path.Combine(Path.GetTempPath(), $"codex-missing-{Guid.NewGuid():N}", "auth.json"));
+
+        Assert.Null(token);
+        Assert.Null(accountId);
+    }
+
+    // 회귀 방지: Direct API(/backend-api/wham/usage) 응답 스키마는 로컬 세션 로그와 완전히 다르다 —
+    // 창이 rate_limit.primary_window/secondary_window 로 한 겹 더 감싸이고, 필드명도
+    // limit_window_seconds(초)/reset_at 으로 다르다(로그는 window_minutes(분)/resets_at).
+    // 실제 openai/codex 저장소의 OpenAPI 모델(RateLimitWindowSnapshot 등, 2026-09-18 실측) 기준.
+    [Fact]
+    public void ParseDirectApiUsage_ReadsRealWhamUsageSchema()
+    {
+        var resetAt = DateTimeOffset.UtcNow.AddHours(3).ToUnixTimeSeconds();
+        var longResetAt = DateTimeOffset.UtcNow.AddDays(5).ToUnixTimeSeconds();
+        using var doc = JsonDocument.Parse($$"""
+        {
+            "plan_type": "plus",
+            "rate_limit": {
+                "allowed": true,
+                "limit_reached": false,
+                "primary_window": {
+                    "used_percent": 42,
+                    "limit_window_seconds": 18000,
+                    "reset_after_seconds": 10800,
+                    "reset_at": {{resetAt}}
+                },
+                "secondary_window": {
+                    "used_percent": 8,
+                    "limit_window_seconds": 604800,
+                    "reset_after_seconds": 432000,
+                    "reset_at": {{longResetAt}}
+                }
+            },
+            "account_id": "acc-1",
+            "user_id": "user-1"
+        }
+        """);
+
+        var snapshot = CodexUsageMonitor.ParseDirectApiUsage(doc.RootElement, DateTimeOffset.UtcNow);
+
+        Assert.NotNull(snapshot);
+        Assert.True(snapshot!.HasData);
+        Assert.Equal("Direct API", snapshot.DataSource);
+        Assert.Equal("plus", snapshot.PlanType);
+        Assert.True(snapshot.IsSubscriptionActive);
+        Assert.Equal(0.42, snapshot.ShortUsagePercent, 3);
+        Assert.Equal(300, snapshot.ShortWindowMinutes); // 18000s / 60 = 5h
+        Assert.Equal(0.08, snapshot.LongUsagePercent, 3);
+        Assert.Equal(10080, snapshot.LongWindowMinutes); // 604800s / 60 = 7d
+    }
+
+    [Fact]
+    public void ParseDirectApiUsage_ReturnsNullWhenRateLimitMissing()
+    {
+        using var doc = JsonDocument.Parse("""{"plan_type":"plus"}""");
+
+        Assert.Null(CodexUsageMonitor.ParseDirectApiUsage(doc.RootElement, DateTimeOffset.UtcNow));
+    }
+
+    [Fact]
+    public void ParseDirectApiUsage_FreePlan_IsNotSubscriptionActive()
+    {
+        using var doc = JsonDocument.Parse($$"""
+        {
+            "plan_type": "free",
+            "rate_limit": {
+                "primary_window": {
+                    "used_percent": 5,
+                    "limit_window_seconds": 18000,
+                    "reset_after_seconds": 100,
+                    "reset_at": {{DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds()}}
+                }
+            }
+        }
+        """);
+
+        var snapshot = CodexUsageMonitor.ParseDirectApiUsage(doc.RootElement, DateTimeOffset.UtcNow);
+
+        Assert.NotNull(snapshot);
+        Assert.False(snapshot!.IsSubscriptionActive);
+    }
 
     /// <summary>서명 없는 표시용 id_token 을 만들어 auth.json 형태로 저장한다(payload 만 base64url).</summary>
     private static void WriteAuthFile(string authPath, string authClaimJson)
