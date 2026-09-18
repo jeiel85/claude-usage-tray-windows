@@ -187,6 +187,27 @@ public class OpenCodeViewModelTests
             hasPeriodUsage: vm.HasPeriodUsage, hasWebQuota: vm.HasWebQuota,
             hasStaleSyncedQuota: vm.HasStaleSyncedQuota, hasError: vm.HasError);
 
+    // Claude·Codex 는 ShowAbsoluteResetTime 설정을 리셋 라벨에 그대로 반영한다 —
+    // OpenCode 도 같은 값을 받아야 한다(전에는 항상 절대 시각이 붙어 설정을 무시했다).
+    [Fact]
+    public void ShowAbsoluteResetTime_TogglesParenthesizedStamp_OnResetLabels()
+    {
+        var vm = new OpenCodeViewModel(new OpenCodeUsageMonitor(), new HistoryService());
+        vm.ApplySyncedWebUsage(CreateUsage(0.25));
+
+        Assert.DoesNotContain("(", vm.RollingResetLabel);
+
+        vm.ShowAbsoluteResetTime = true;
+
+        Assert.Contains("(", vm.RollingResetLabel);
+        Assert.Contains("(", vm.WeeklyResetLabel);
+        Assert.Contains("(", vm.MonthlyResetLabel);
+
+        vm.ShowAbsoluteResetTime = false;
+
+        Assert.DoesNotContain("(", vm.RollingResetLabel);
+    }
+
     private static OpenCodeWebUsage CreateUsage(double percent)
     {
         var now = DateTimeOffset.Now;
