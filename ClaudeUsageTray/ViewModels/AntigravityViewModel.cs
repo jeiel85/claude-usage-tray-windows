@@ -270,33 +270,27 @@ public sealed partial class AntigravityModelRow : ObservableObject
 
     [ObservableProperty] private string _resetAtLabel = "";
 
-    /// <summary>
-    /// 게이지 툴팁 — 첫 줄은 Claude·Codex 게이지 툴팁과 같은 페이스 문구,
-    /// 둘째 줄은 "초기화 절대 시간 표시" 설정이 켜졌을 때만 붙는 리셋 절대 시각이다.
-    ///
-    /// 절대 시각을 다른 provider 처럼 한 줄 라벨에 붙이지 않는 이유: 이 행의 이름은 "그룹 · 창"이라
-    /// 320px 팝업에서 절대 시각까지 넣으면 이름이 "Gemini 모..." 로 잘려 어느 창인지 구분되지 않는다.
-    /// (다른 provider 의 행 이름은 "주간 윈도우" 한 덩어리라 같은 문제가 없다.) 그래서 설정이 켜졌을 때도
-    /// 라벨 자체는 그대로 두고, 대신 툴팁에 절대 시각 줄을 추가하는 것으로 Claude·Codex 와 같은 정보를 준다.
-    /// </summary>
+    /// <summary>게이지 툴팁 — Claude·Codex 게이지 툴팁과 같은 페이스 문구 한 줄.</summary>
     [ObservableProperty] private string _paceTip = "";
 
     [ObservableProperty] private bool _hasTimeline = false;
     [ObservableProperty] private double _timePercent = 0.0;
 
+    /// <summary>
+    /// "초기화 절대 시간 표시" 설정을 Claude·Codex·OpenCode 와 같은 방식으로 라벨에 반영한다.
+    /// 행 이름("그룹 · 창")이 길어 절대 시각과 함께라면 잘릴 수 있지만, 이름 TextBlock 이
+    /// 이미 CharacterEllipsis + 전체 이름 툴팁으로 그 경우를 감당하도록 되어 있다(#139).
+    /// </summary>
     internal void UpdateTimeProgress(DateTimeOffset now, bool showAbsoluteResetTime)
     {
-        ResetAtLabel = UsageCalculator.FormatResetLabel(ResetAt, false, false, now);
+        ResetAtLabel = UsageCalculator.FormatResetLabel(ResetAt, false, showAbsoluteResetTime, now);
 
         var window = Window ?? TimeSpan.Zero;
         var progress = UsageCalculator.TimeProgress(ResetAt, window, now);
         HasTimeline = progress.HasValue;
         TimePercent = progress ?? 0;
         // 창 초반에는 페이스 판정을 유보한다 — 하한은 Codex 와 같은 창 길이의 1/60(5시간→5분, 주간→2.8시간).
-        var pace = Loc.PaceTip(progress, UsagePercent,
+        PaceTip = Loc.PaceTip(progress, UsagePercent,
             UsageCalculator.IsPaceSettled(progress, window, window / 60));
-        if (!showAbsoluteResetTime) { PaceTip = pace; return; }
-        var absolute = UsageCalculator.FormatResetLabel(ResetAt, false, true, now);
-        PaceTip = string.IsNullOrEmpty(absolute) ? pace : $"{pace}\n{absolute.TrimStart(' ', '·')}";
     }
 }

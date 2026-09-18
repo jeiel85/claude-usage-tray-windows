@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.41.9] - 2026-09-18
+
+<!-- ko -->
+### 수정
+- **Antigravity 는 "초기화 절대 시간 표시" 설정을 켜도 눈에 보이는 변화가 없던 문제** — v1.41.8 에서 설정값 자체는 Antigravity 로 전달되게 고쳤지만, 실제로는 게이지 막대에 마우스를 올려야만 뜨는 툴팁에만 절대 시각을 추가해 사용자가 체감할 수 없었습니다(다른 공급자는 모두 눈에 보이는 라벨이 바뀝니다). 이제 Claude·Codex·OpenCode 와 동일하게 리셋 라벨에 직접 괄호로 절대 시각이 붙습니다.
+
+### 참고
+- 라벨에 절대 시각까지 붙으면 "그룹 · 창" 형태의 긴 이름이 잘릴 수 있지만(#139), 이름 칸은 이미 말줄임표 + 전체 이름 툴팁으로 이 경우를 감당하도록 되어 있어 그대로 재사용했습니다. 게이지 툴팁은 다른 공급자와 같은 페이스 문구만 남기고 절대 시각 중복 표시는 제거했습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Turning on "show absolute reset time" produced no visible change for Antigravity** — v1.41.8 fixed the setting value reaching Antigravity's view model, but the absolute time was only added to a tooltip that only appears on hovering the gauge bar, so users couldn't actually see it (every other provider changes a visible label). Antigravity's reset label now appends the absolute time in parentheses directly, matching Claude/Codex/OpenCode.
+
+### Notes
+- Appending the absolute time can now truncate the long "group · window" row name (#139), but the name column already had character-ellipsis trimming plus a full-name tooltip for exactly this case, so it was reused as-is. The gauge tooltip now only shows the same pace text other providers use — the duplicate absolute-time line was removed.
+<!-- /en -->
+
 ## [1.41.8] - 2026-09-18
 
 <!-- ko -->

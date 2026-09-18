@@ -405,7 +405,7 @@ public sealed class AntigravityApplyQuotaTests
     }
 
     [Fact]
-    public void ApplyQuota_KeepsAbsoluteResetTime_InTheTooltipOnly_WhenSettingIsOn()
+    public void ApplyQuota_AddsAbsoluteResetTime_ToTheLabel_WhenSettingIsOn()
     {
         var vm = CreateVm(out var monitor);
         using (monitor)
@@ -413,14 +413,15 @@ public sealed class AntigravityApplyQuotaTests
             vm.ShowAbsoluteResetTime = true;
             vm.ApplyQuota([Bucket("3p-5h", 0.5, window: "5h")], null, null);
 
-            // 행 이름이 "그룹 · 창"이라 한 줄 라벨에 절대 시각까지 넣으면 이름이 잘린다 — 툴팁으로 뺀다.
-            Assert.DoesNotContain("(", vm.Models[0].ResetAtLabel);
-            Assert.Contains("(", vm.Models[0].PaceTip);
+            // Claude·Codex·OpenCode 와 같은 방식 — 설정이 켜지면 라벨에 괄호로 절대 시각이 붙는다.
+            // 이름이 길어 잘리는 경우는 이름 TextBlock 의 CharacterEllipsis + 툴팁이 감당한다(#139).
+            Assert.Contains("(", vm.Models[0].ResetAtLabel);
+            Assert.DoesNotContain("(", vm.Models[0].PaceTip);
         }
     }
 
     [Fact]
-    public void ApplyQuota_OmitsAbsoluteResetTime_FromTooltip_WhenSettingIsOff()
+    public void ApplyQuota_OmitsAbsoluteResetTime_FromTheLabel_WhenSettingIsOff()
     {
         var vm = CreateVm(out var monitor);
         using (monitor)
@@ -439,7 +440,6 @@ public sealed class AntigravityApplyQuotaTests
         var vm = CreateVm(out var monitor);
         using (monitor)
         {
-            vm.ShowAbsoluteResetTime = true;
             var now = DateTimeOffset.Now;
             vm.ApplyQuota(
             [
@@ -452,11 +452,8 @@ public sealed class AntigravityApplyQuotaTests
 
             vm.UpdateTimeProgress(now);
 
-            // 툴팁 첫 줄은 Claude·Codex 와 같은 페이스 문구다 (시간 50% 경과 · 사용 60%).
-            var lines = vm.Models[0].PaceTip.Split('\n');
-            Assert.Equal(Loc.PaceTip(0.5, 0.6, settled: true), lines[0]);
-            // 둘째 줄에 절대 시각이 남는다.
-            Assert.Contains("(", lines[1]);
+            // Claude·Codex 게이지 툴팁과 같은 페이스 문구 (시간 50% 경과 · 사용 60%).
+            Assert.Equal(Loc.PaceTip(0.5, 0.6, settled: true), vm.Models[0].PaceTip);
         }
     }
 
