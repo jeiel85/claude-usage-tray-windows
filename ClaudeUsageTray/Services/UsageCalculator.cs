@@ -78,6 +78,19 @@ public static class UsageCalculator
     }
 
     /// <summary>
+    /// 동기화 스냅샷의 관측 시각 표기. 오늘 관측이면 시각만, 아니면 날짜를 붙인다 —
+    /// 최후 폴백은 최대 24시간 전 관측까지 쓰므로, 시각만 적으면 어제 값이 방금 값처럼 읽힌다.
+    /// 날짜 형식은 <see cref="FormatResetLabel"/> 의 절대 시각 표기와 맞춘다.
+    /// </summary>
+    public static string FormatObservedAt(DateTimeOffset observedAt, DateTimeOffset now)
+    {
+        var local = observedAt.ToOffset(now.Offset);
+        return local.Date == now.Date
+            ? local.ToString("HH:mm")
+            : local.ToString("MM/dd HH:mm");
+    }
+
+    /// <summary>
     /// 리셋 시각과 창 길이로 "시간 진행률"(0~1)을 역산한다.
     /// 창 시작 = 리셋 - 창 길이 이므로, 경과 비율 = 1 - 남은시간 / 창 길이.
     /// 진행 막대 위 시간선 마커의 가로 위치가 이 값이다.

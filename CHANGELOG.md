@@ -3,6 +3,30 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.41.11] - 2026-09-24
+
+<!-- ko -->
+### 수정
+- **자정 직후 다른 PC 의 할당량을 놓치던 문제** — 동기화 폴더가 날짜별로 나뉘어 있어, 자정을 막 넘긴 시점에는 어제 23시대에 다른 PC 가 올린 여전히 유효한 값을 읽지 못했습니다. 오늘 폴더에 할당량이 아직 없을 때만 어제 폴더도 함께 읽어 "24시간 이내" 관측을 날짜 경계에서 놓치지 않습니다.
+- **다른 PC 값의 출처 문구가 어제 값을 방금 값처럼 보여주던 문제** — "○○의 23:40 스냅샷으로 표시 중" 처럼 시각만 적어, 최대 24시간 전 관측을 쓰는 최후 폴백에서 오독될 수 있었습니다. 오늘 관측이 아니면 날짜를 함께 표시합니다(Claude·Codex·Antigravity 출처 문구, OpenCode "갱신 대기 중" 안내).
+- **Antigravity 최후 폴백이 모든 모델이 이미 리셋된 값까지 후보로 삼던 문제** — 이제 아직 리셋되지 않은 모델이 하나라도 있을 때만 다른 PC 값을 씁니다.
+
+### 개선
+- **다중 PC 최후 폴백 선택 규칙을 한 곳으로 통합** — Claude·Codex·OpenCode·Antigravity 가 각자 다른 모양으로 구현하던 "신선한 값, 없으면 창이 유효한 최후 관측" 규칙을 동기화 서비스 하나로 모았습니다. 다음 provider 를 추가하거나 규칙을 고칠 때 일부만 바뀌는 회귀를 막습니다.
+- **Antigravity 표시를 끈 PC 에서 다른 PC 값으로 섹션이 다시 켜지지 않도록 게이트 추가**(현재 설정 UI 에는 토글이 없어 동작 변화 없음).
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Another PC's quota was missed right after midnight** — the sync folder is split by date, so just past midnight the still-valid value another PC uploaded at 23:xx the previous day was not read. When today's folder has no quota yet, yesterday's folder is read as well so observations within the last 24 hours survive the date boundary.
+- **The synced-source caption made yesterday's value look current** — "Showing X snapshot from 23:40" carried only the time, which is misleading now that the last-resort fallback uses observations up to 24 hours old. The date is added when the observation is not from today (Claude/Codex/Antigravity source captions and the OpenCode "awaiting refresh" notice).
+- **The Antigravity last-resort fallback accepted snapshots whose models had all reset** — another PC's value is now used only while at least one model is still inside its window.
+
+### Improved
+- **One shared selection rule for the multi-PC last-resort fallback** — Claude, Codex, OpenCode and Antigravity each implemented "fresh value, else the latest observation whose window is still open" in a different shape; it now lives in the sync service, so future changes or new providers can't update only some of them.
+- **Gate so a PC with Antigravity hidden doesn't re-enable the section from another PC's value** (no behavior change today: the settings UI has no such toggle yet).
+<!-- /en -->
+
 ## [1.41.10] - 2026-09-18
 
 <!-- ko -->

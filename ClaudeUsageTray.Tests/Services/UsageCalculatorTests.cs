@@ -171,4 +171,38 @@ public class UsageCalculatorTests
         var result = UsageCalculator.IsNoUsageInformational("Some message", UsageProviderKind.Claude);
         Assert.False(result);
     }
+
+    [Fact]
+    public void FormatObservedAt_ShowsTimeOnly_ForToday()
+    {
+        var now = new DateTimeOffset(2026, 9, 24, 9, 30, 0, TimeSpan.FromHours(9));
+        var observed = new DateTimeOffset(2026, 9, 24, 0, 5, 0, TimeSpan.FromHours(9));
+
+        Assert.Equal("00:05", UsageCalculator.FormatObservedAt(observed, now));
+    }
+
+    [Fact]
+    public void FormatObservedAt_AddsDate_ForYesterday()
+    {
+        // 최후 폴백은 24시간 전 관측까지 쓴다 — 어제 23:40 값을 "23:40" 으로만 적으면 방금 값처럼 읽힌다.
+        var now = new DateTimeOffset(2026, 9, 24, 0, 10, 0, TimeSpan.FromHours(9));
+        var observed = new DateTimeOffset(2026, 9, 23, 23, 40, 0, TimeSpan.FromHours(9));
+
+        var label = UsageCalculator.FormatObservedAt(observed, now);
+
+        // 날짜 구분자는 문화권을 따른다(ko: "09-23", en: "09/23") — FormatResetLabel 과 같은 형식.
+        Assert.Equal(observed.ToString("MM/dd HH:mm"), label);
+        Assert.StartsWith("09", label);
+        Assert.EndsWith("23 23:40", label);
+    }
+
+    [Fact]
+    public void FormatObservedAt_ComparesDatesInTheViewersOffset()
+    {
+        // UTC 로는 같은 날(15:00Z)이어도 보는 쪽(+09:00) 기준으로는 다음 날 00:00 이다.
+        var now = new DateTimeOffset(2026, 9, 24, 0, 30, 0, TimeSpan.FromHours(9));
+        var observed = new DateTimeOffset(2026, 9, 23, 15, 0, 0, TimeSpan.Zero);
+
+        Assert.Equal("00:00", UsageCalculator.FormatObservedAt(observed, now));
+    }
 }
