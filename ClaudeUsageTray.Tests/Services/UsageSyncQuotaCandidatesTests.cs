@@ -280,6 +280,31 @@ public sealed class UsageSyncQuotaCandidatesTests : IDisposable
     }
 
     [Fact]
+    public void Fresh_value_whose_window_just_reset_is_not_selected()
+    {
+        // 신선도 기준(5분) 안이어도 그 사이 리셋을 지났다면 리셋 전 %라 쓰면 안 된다.
+        var now = Local(24, 14, 1);
+        WriteCodex("laptop", Local(24, 13, 58), 0.97, resetAt: Local(24, 14, 0));
+
+        var candidates = Select("reader", now, UsageProviderKind.Codex, TimeSpan.FromMinutes(5));
+
+        Assert.Null(candidates.Fresh);
+        Assert.Null(candidates.Selected);
+        Assert.Equal("laptop", candidates.LastObserved?.DeviceName);
+    }
+
+    [Fact]
+    public void Fresh_value_in_yesterdays_folder_whose_window_reset_at_midnight_is_not_selected()
+    {
+        var now = Local(24, 0, 1);
+        WriteCodex("laptop", Local(23, 23, 59), 0.9, resetAt: Local(24, 0, 0));
+
+        var candidates = Select("reader", now, UsageProviderKind.Codex, TimeSpan.FromMinutes(5));
+
+        Assert.Null(candidates.Selected);
+    }
+
+    [Fact]
     public void Observation_older_than_a_day_is_ignored_even_in_yesterdays_folder()
     {
         var now = Local(24, 0, 30);

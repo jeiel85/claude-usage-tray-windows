@@ -182,9 +182,14 @@ public class UsageSyncService
                 pool = [.. todaySnapshots, .. yesterday.Snapshots];
         }
 
+        // 신선한 값도 창 검사를 거친다 — 몇 분 전 관측이라도 그 사이 리셋을 지났다면(13:58 관측,
+        // 14:00 리셋, 14:01 조회) 리셋 전 %를 그대로 보여주게 된다.
+        var now = _now();
         var fresh = SelectNewestQuotaSnapshot(pool, freshTtl);
+        if (!IsQuotaWindowStillActive(fresh, now))
+            fresh = null;
         var lastObserved = SelectNewestQuotaSnapshot(pool, LastResortMaxAge);
-        var lastResort = IsQuotaWindowStillActive(lastObserved, _now()) ? lastObserved : null;
+        var lastResort = IsQuotaWindowStillActive(lastObserved, now) ? lastObserved : null;
         return new UsageSyncQuotaCandidates(fresh, lastObserved, lastResort);
     }
 
