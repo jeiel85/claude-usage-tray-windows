@@ -3,6 +3,30 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.41.12] - 2026-09-24
+
+<!-- ko -->
+### 수정
+- **Claude Code 보다 트레이가 먼저 뜬 PC 에서 로그인해도 구독 등급이 재시작 전까지 반영되지 않던 문제** — 자격 파일 감시는 앱 시작 시점에 `~/.claude` 폴더가 있어야 시작되므로, 그 뒤 로그인하면 변경 이벤트가 오지 않아 구독 배지와 "구독 중이면 0% 여도 Claude 섹션 표시" 판정이 옛 상태로 고정됐습니다. 정기 새로고침(기본 2분)마다 구독 상태를 다시 확인합니다. 파일을 쓰는 도중이라 읽지 못한 순간에는 직전 값을 유지해 섹션이 깜빡이지 않습니다.
+- **Codex 요금제가 "guest"(로그인하지 않은 체험)일 때도 유료 구독으로 판정하던 문제** — 무료로 봅니다.
+
+### 개선
+- 자격 파일을 다른 프로그램이 쓰는 중에도 읽을 수 있도록 공유 모드로 엽니다.
+- Gemini CLI 섹션 표시 규칙을 다른 공급자와 같은 형태의 판정 함수로 정리했습니다(동작 변화 없음).
+- 읽는 곳이 없던 `IsSubscriptionActive` 필드와 호출부 없는 `GetSubscriptionType` 을 제거했습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **On a PC where the tray app started before Claude Code was ever used, logging in later didn't update the subscription tier until restart** — the credentials-file watcher only starts if `~/.claude` exists at launch, so no change event arrived and the plan badge plus the "keep the Claude section visible at 0% when subscribed" rule stayed stale. The subscription is now re-checked on every scheduled refresh (2 min by default); if the file can't be read at that moment (mid-write), the previous state is kept so the section doesn't flicker.
+- **A Codex plan type of "guest" (signed-out trial) was treated as a paid subscription** — it now counts as free.
+
+### Improved
+- The credentials file is opened in shared mode so it can be read while another program is writing it.
+- The Gemini CLI section visibility rule is now a standalone predicate shaped like the other providers' (no behavior change).
+- Removed the unread `IsSubscriptionActive` field and the unused `GetSubscriptionType`.
+<!-- /en -->
+
 ## [1.41.11] - 2026-09-24
 
 <!-- ko -->

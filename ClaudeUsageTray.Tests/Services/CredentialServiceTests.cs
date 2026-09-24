@@ -83,5 +83,70 @@ public class CredentialServiceTests : IDisposable
         Assert.Null(await service.GetValidAccessTokenAsync());
     }
 
+    [Fact]
+    public void TryGetSubscriptionInfo_ReadsTierFromFile()
+    {
+        Write("""
+        { "claudeAiOauth": { "accessToken": "t", "subscriptionType": "max", "rateLimitTier": "default_claude_max_5x" } }
+        """);
+
+        using var service = new CredentialService(_path);
+
+        Assert.True(service.TryGetSubscriptionInfo(out var info));
+        Assert.Equal("max", info.SubscriptionType);
+        Assert.Equal("default_claude_max_5x", info.RateLimitTier);
+    }
+
+    // 파일이 없으면 로그아웃이 확정이다 — "판단 가능" 으로 돌려줘야 호출부가 구독 표시를 내린다.
+    [Fact]
+    public void TryGetSubscriptionInfo_MissingFile_IsADefiniteNoSubscription()
+    {
+        using var service = new CredentialService(_path);
+
+        Assert.True(service.TryGetSubscriptionInfo(out var info));
+        Assert.Null(info.SubscriptionType);
+    }
+
+    // Claude Code 가 쓰는 도중이라 반쯤 쓰인 파일 — 이걸 "구독 아님" 으로 확정하면 섹션이 깜빡인다.
+    [Fact]
+    public void TryGetSubscriptionInfo_UnreadableFile_IsUndecided()
+    {
+        Write("""{ "claudeAiOauth": { "subscriptionType": "ma""");
+
+        using var service = new CredentialService(_path);
+
+        Assert.False(service.TryGetSubscriptionInfo(out _));
+    }
+
+    // 회귀 방지(#154): 트레이가 Claude Code 보다 먼저 떠 ~/.claude 가 없던 PC. 감시가 시작되지 않으므로
+    // 나중에 로그인해도 변경 이벤트가 오지 않는다 — 정기 새로고침이 같은 인스턴스로 다시 읽어 반영할 수 있어야 한다.
+    [Fact]
+    public void TryGetSubscriptionInfo_PicksUpLoginAfterServiceStartedWithoutDirectory()
+    {
+        var missingDir = Path.Combine(_dir, "not-yet", ".claude");
+        var path = Path.Combine(missingDir, ".credentials.json");
+        using var service = new CredentialService(path);
+        Assert.True(service.TryGetSubscriptionInfo(out var before));
+        Assert.Null(before.SubscriptionType);
+
+        Directory.CreateDirectory(missingDir);
+        File.WriteAllText(path, """{ "claudeAiOauth": { "accessToken": "t", "subscriptionType": "pro" } }""");
+
+        Assert.True(service.TryGetSubscriptionInfo(out var after));
+        Assert.Equal("pro", after.SubscriptionType);
+    }
+
+    // Claude Code 가 파일을 쓰기 전용으로 열어 둔 순간에도 읽기가 막히지 않아야 한다(FileShare.ReadWrite).
+    [Fact]
+    public void TryGetSubscriptionInfo_ReadsWhileAnotherWriterHoldsTheFile()
+    {
+        Write("""{ "claudeAiOauth": { "accessToken": "t", "subscriptionType": "pro" } }""");
+        using var writer = new FileStream(_path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+        using var service = new CredentialService(_path);
+
+        Assert.True(service.TryGetSubscriptionInfo(out var info));
+        Assert.Equal("pro", info.SubscriptionType);
+    }
+
     private void Write(string json) => File.WriteAllText(_path, json);
 }

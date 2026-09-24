@@ -465,6 +465,24 @@ public class UsageSyncQuotaPolicyTests
             hasWebQuota, hasStaleSyncedQuota, hasError));
     }
 
+    [Theory]
+    // 보여 줄 것이 없으면 숨긴다.
+    [InlineData(true, true, 0, false, false)]
+    // 공급자 표시를 꺼 두었으면 요청·오류가 있어도 숨긴다.
+    [InlineData(false, true, 12, true, false)]
+    [InlineData(false, false, 0, false, false)]
+    // 자동 숨김이 꺼져 있으면 아무 근거가 없어도 남긴다.
+    [InlineData(true, false, 0, false, true)]
+    // 오늘 요청(다중 PC 합산 포함)·오류가 표시 근거다.
+    [InlineData(true, true, 12, false, true)]
+    [InlineData(true, true, 0, true, true)]
+    public void GeminiSectionVisibility_FollowsTheDisplayRule(
+        bool isEnabled, bool hideInactive, int requestCount, bool hasError, bool expected)
+    {
+        Assert.Equal(expected, MainViewModel.IsGeminiSectionActive(
+            isEnabled, hideInactive, requestCount, hasError));
+    }
+
     // 구독 중인 사용자가 오늘 아직 Claude 를 쓰지 않은 아침. 5시간 창은 정상 조회되어 0% 이고
     // 오늘 토큰도 0 이다 — 여기서 섹션을 접으면 "0% 남았다"가 아니라 "Claude 가 없다"로 보인다.
     [Fact]
@@ -507,7 +525,8 @@ public class UsageSyncQuotaPolicyTests
             """);
 
             using var credentials = new CredentialService(path);
-            var (subType, _) = credentials.GetSubscriptionInfo();
+            Assert.True(credentials.TryGetSubscriptionInfo(out var info));
+            var subType = info.SubscriptionType;
 
             Assert.True(MainViewModel.IsPaidClaudeSubscription(subType));
             Assert.True(MainViewModel.IsClaudeSectionActive(
@@ -678,6 +697,9 @@ public class UsageSyncQuotaPolicyTests
     [InlineData("enterprise", true)]
     [InlineData("Free", false)]
     [InlineData("free", false)]
+    // 로그인하지 않은 체험 계정. 삭제된 ProviderUsageSnapshot.IsSubscriptionActive 가 따로 들고 있던 규칙(#154).
+    [InlineData("guest", false)]
+    [InlineData("Guest", false)]
     // API 키 모드·로그아웃처럼 요금제를 모르는 상태를 구독으로 단정하지 않는다.
     [InlineData(null, false)]
     [InlineData("", false)]

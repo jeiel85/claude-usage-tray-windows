@@ -213,9 +213,6 @@ public class CodexUsageMonitor
 
         // API 응답이라고 리셋 시각이 항상 미래인 것은 아니다(캐시된 응답·시계 어긋남).
         DropExpiredWindows(snapshot, now);
-        snapshot.IsSubscriptionActive = !string.IsNullOrWhiteSpace(snapshot.PlanType) &&
-            !string.Equals(snapshot.PlanType, "free", StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(snapshot.PlanType, "guest", StringComparison.OrdinalIgnoreCase);
 
         return snapshot;
     }
