@@ -81,11 +81,15 @@ public static class UsageCalculator
     /// 동기화 스냅샷의 관측 시각 표기. 오늘 관측이면 시각만, 아니면 날짜를 붙인다 —
     /// 최후 폴백은 최대 24시간 전 관측까지 쓰므로, 시각만 적으면 어제 값이 방금 값처럼 읽힌다.
     /// 날짜 형식은 <see cref="FormatResetLabel"/> 의 절대 시각 표기와 맞춘다.
+    /// 두 시각은 각자 시스템 시간대로 변환한다 — 지금의 오프셋을 관측 시각에 그대로 적용하면
+    /// 24시간 안에 서머타임 전환이 끼었을 때 관측 시각이 1시간 어긋난다.
+    /// <paramref name="zone"/> 은 테스트용이며 생략하면 시스템 시간대다.
     /// </summary>
-    public static string FormatObservedAt(DateTimeOffset observedAt, DateTimeOffset now)
+    public static string FormatObservedAt(DateTimeOffset observedAt, DateTimeOffset now, TimeZoneInfo? zone = null)
     {
-        var local = observedAt.ToOffset(now.Offset);
-        return local.Date == now.Date
+        zone ??= TimeZoneInfo.Local;
+        var local = TimeZoneInfo.ConvertTime(observedAt, zone);
+        return local.Date == TimeZoneInfo.ConvertTime(now, zone).Date
             ? local.ToString("HH:mm")
             : local.ToString("MM/dd HH:mm");
     }

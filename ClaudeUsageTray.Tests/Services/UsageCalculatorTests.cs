@@ -172,13 +172,15 @@ public class UsageCalculatorTests
         Assert.False(result);
     }
 
+    private static readonly TimeZoneInfo Kst = TimeZoneInfo.FindSystemTimeZoneById("Korea Standard Time");
+
     [Fact]
     public void FormatObservedAt_ShowsTimeOnly_ForToday()
     {
         var now = new DateTimeOffset(2026, 9, 24, 9, 30, 0, TimeSpan.FromHours(9));
         var observed = new DateTimeOffset(2026, 9, 24, 0, 5, 0, TimeSpan.FromHours(9));
 
-        Assert.Equal("00:05", UsageCalculator.FormatObservedAt(observed, now));
+        Assert.Equal("00:05", UsageCalculator.FormatObservedAt(observed, now, Kst));
     }
 
     [Fact]
@@ -188,7 +190,7 @@ public class UsageCalculatorTests
         var now = new DateTimeOffset(2026, 9, 24, 0, 10, 0, TimeSpan.FromHours(9));
         var observed = new DateTimeOffset(2026, 9, 23, 23, 40, 0, TimeSpan.FromHours(9));
 
-        var label = UsageCalculator.FormatObservedAt(observed, now);
+        var label = UsageCalculator.FormatObservedAt(observed, now, Kst);
 
         // 날짜 구분자는 문화권을 따른다(ko: "09-23", en: "09/23") — FormatResetLabel 과 같은 형식.
         Assert.Equal(observed.ToString("MM/dd HH:mm"), label);
@@ -197,12 +199,26 @@ public class UsageCalculatorTests
     }
 
     [Fact]
-    public void FormatObservedAt_ComparesDatesInTheViewersOffset()
+    public void FormatObservedAt_ComparesDatesInTheViewersZone()
     {
-        // UTC 로는 같은 날(15:00Z)이어도 보는 쪽(+09:00) 기준으로는 다음 날 00:00 이다.
+        // UTC 로는 같은 날(15:00Z)이어도 보는 쪽(KST) 기준으로는 다음 날 00:00 이다.
         var now = new DateTimeOffset(2026, 9, 24, 0, 30, 0, TimeSpan.FromHours(9));
         var observed = new DateTimeOffset(2026, 9, 23, 15, 0, 0, TimeSpan.Zero);
 
-        Assert.Equal("00:00", UsageCalculator.FormatObservedAt(observed, now));
+        Assert.Equal("00:00", UsageCalculator.FormatObservedAt(observed, now, Kst));
+    }
+
+    [Fact]
+    public void FormatObservedAt_UsesTheObservationsOwnOffset_AcrossDaylightSavingChange()
+    {
+        // 미국 태평양 시간은 2026-11-01 02:00 에 PDT(-7) → PST(-8) 로 바뀐다.
+        // 전날 09:00 PDT 관측을 지금 오프셋(-8)으로 바꾸면 08:00 으로 한 시간 어긋난다.
+        var pacific = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
+        var observed = new DateTimeOffset(2026, 10, 31, 9, 0, 0, TimeSpan.FromHours(-7));
+        var now = new DateTimeOffset(2026, 11, 1, 12, 0, 0, TimeSpan.FromHours(-8));
+
+        var label = UsageCalculator.FormatObservedAt(observed, now, pacific);
+
+        Assert.EndsWith("31 09:00", label);
     }
 }
