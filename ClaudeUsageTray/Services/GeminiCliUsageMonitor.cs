@@ -94,7 +94,6 @@ public class GeminiCliUsageMonitor
         if (totalRequests == 0)
         {
             snapshot.ErrorMessage = Loc.GeminiCliNoUsageToday;
-            snapshot.IsSubscriptionActive = false;
             return snapshot;
         }
 

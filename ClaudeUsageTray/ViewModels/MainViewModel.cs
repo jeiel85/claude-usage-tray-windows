@@ -793,14 +793,17 @@ namespace ClaudeUsageTray.ViewModels;
     partial void OnIsCodexLoadingChanged(bool value) => OnPropertyChanged(nameof(LblCodexNoUsage));
 
     /// <summary>
-    /// Reads subscriptionType from local credentials and determines if Claude is a paid plan.
-    /// Paid plans (pro, max, team, etc.) should always show the Claude section even at 0% usage.
+    /// 자격 파일의 subscriptionType 으로 유료 구독 여부와 등급 배지를 갱신한다.
+    /// 유료 구독(pro·max·team …)이면 0% 사용이어도 Claude 섹션을 남긴다.
+    /// 파일이 있는데 읽지 못했으면(Claude Code 가 쓰는 도중 등) 직전 값을 유지한다 — 일시적 실패로
+    /// 구독 중인 섹션이 접혔다 펴지는 깜빡임을 막는다. 파일이 없으면 로그아웃으로 확정해 반영한다.
     /// </summary>
     private void UpdateClaudeSubscription()
     {
-        var (subType, rateLimitTier) = _credentials.GetSubscriptionInfo();
-        ClaudeVm.IsSubscribed = IsPaidClaudeSubscription(subType);
-        ClaudePlanLabel = PlanLabels.Claude(subType, rateLimitTier);
+        if (!_credentials.TryGetSubscriptionInfo(out var info))
+            return;
+        ClaudeVm.IsSubscribed = IsPaidClaudeSubscription(info.SubscriptionType);
+        ClaudePlanLabel = PlanLabels.Claude(info.SubscriptionType, info.RateLimitTier);
     }
 
     /// <summary>
@@ -1441,7 +1444,8 @@ namespace ClaudeUsageTray.ViewModels;
         IsCodexActive = IsCodexSectionActive(
             IsCodexEnabled, hideInactive, _codexHasTokenData, CodexPercent, CodexLongPercent,
             HasLiveCodexQuota(), _isCodexSubscribed, CodexHasError);
-        IsGeminiActive = IsGeminiEnabled && (!hideInactive || _lastGeminiRequestCount > 0 || GeminiHasError);
+        IsGeminiActive = IsGeminiSectionActive(
+            IsGeminiEnabled, hideInactive, _lastGeminiRequestCount, GeminiHasError);
         IsOpenCodeActive = IsOpenCodeSectionActive(
             IsOpenCodeEnabled, hideInactive, _lastOpenCodeRequestCount, _openCodeHasPeriodUsage,
             OpenCodeVm.HasWebQuota, OpenCodeVm.HasStaleSyncedQuota, OpenCodeHasError);
@@ -1991,11 +1995,28 @@ namespace ClaudeUsageTray.ViewModels;
     /// <summary>
     /// Codex 요금제 원문(<c>rate_limits.plan_type</c> 또는 id_token 의 <c>chatgpt_plan_type</c>: "plus"·"pro"·"free" …)이
     /// 유료 구독을 가리키는지. 값이 없으면(로그아웃·API 키 모드·필드 부재) 구독으로 치지 않는다 —
-    /// <see cref="IsPaidClaudeSubscription"/> 와 같은 규칙이다.
+    /// <see cref="IsPaidClaudeSubscription"/> 와 같은 규칙이다. "guest"(로그인하지 않은 체험)도 무료로 본다.
     /// </summary>
     internal static bool IsPaidCodexSubscription(string? planType) =>
         !string.IsNullOrWhiteSpace(planType)
-        && !string.Equals(planType, "free", StringComparison.OrdinalIgnoreCase);
+        && !string.Equals(planType, "free", StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(planType, "guest", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Gemini CLI 섹션을 화면에 남길지 여부.
+    /// 다른 공급자와 달리 서버 할당량도 구독 등급 자료도 없어, 오늘 요청 수(다중 PC 합산 포함)와 오류만이
+    /// 표시 근거다 — 할당량·구독을 근거로 추가한 Claude(#152)·Codex(#155)·OpenCode(#150) 와 같은 결함은
+    /// 이 공급자에는 생길 수 없다. 표시 규칙을 "켜져 있고, 자동 숨김이 꺼져 있거나 근거가 하나라도 있으면"
+    /// 이라는 한 모양으로 모아 두려고 따로 뽑았다(#154).
+    /// </summary>
+    internal static bool IsGeminiSectionActive(
+        bool isEnabled,
+        bool hideInactive,
+        int requestCount,
+        bool hasError) =>
+        isEnabled && (!hideInactive
+            || requestCount > 0
+            || hasError);
 
     /// <summary>
     /// OpenCode 섹션을 화면에 남길지 여부.
@@ -2031,7 +2052,10 @@ namespace ClaudeUsageTray.ViewModels;
 
     private async Task RefreshClaudeAsync()
     {
-        // FileSystemWatcher 미감지 폴백: 정기 새로고침마다 orgUuid 변경 여부 확인
+        // FileSystemWatcher 미감지 폴백: 정기 새로고침마다 orgUuid 변경 여부와 구독 상태를 확인한다.
+        // CredentialService 는 생성 시점에 ~/.claude 가 있어야 감시를 시작하므로, Claude Code 를 한 번도
+        // 쓰지 않은 PC 에서 트레이가 먼저 뜨면 이후 로그인해도 변경 이벤트가 오지 않는다(#154).
+        UpdateClaudeSubscription();
         var currentOrgUuid = _credentials.GetOrganizationUuid();
         if (currentOrgUuid != _lastKnownOrgUuid)
         {

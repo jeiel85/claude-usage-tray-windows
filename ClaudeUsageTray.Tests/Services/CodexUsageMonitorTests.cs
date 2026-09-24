@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using ClaudeUsageTray.Services;
+using ClaudeUsageTray.ViewModels;
 using Xunit;
 
 namespace ClaudeUsageTray.Tests.Services;
@@ -421,7 +422,6 @@ public class CodexUsageMonitorTests
         Assert.True(snapshot!.HasData);
         Assert.Equal("Direct API", snapshot.DataSource);
         Assert.Equal("plus", snapshot.PlanType);
-        Assert.True(snapshot.IsSubscriptionActive);
         Assert.Equal(0.42, snapshot.ShortUsagePercent, 3);
         Assert.Equal(300, snapshot.ShortWindowMinutes); // 18000s / 60 = 5h
         Assert.Equal(0.08, snapshot.LongUsagePercent, 3);
@@ -437,7 +437,7 @@ public class CodexUsageMonitorTests
     }
 
     [Fact]
-    public void ParseDirectApiUsage_FreePlan_IsNotSubscriptionActive()
+    public void ParseDirectApiUsage_FreePlan_IsNotAPaidSubscription()
     {
         using var doc = JsonDocument.Parse($$"""
         {
@@ -456,7 +456,8 @@ public class CodexUsageMonitorTests
         var snapshot = CodexUsageMonitor.ParseDirectApiUsage(doc.RootElement, DateTimeOffset.UtcNow);
 
         Assert.NotNull(snapshot);
-        Assert.False(snapshot!.IsSubscriptionActive);
+        Assert.Equal("free", snapshot!.PlanType);
+        Assert.False(MainViewModel.IsPaidCodexSubscription(snapshot.PlanType));
     }
 
     /// <summary>서명 없는 표시용 id_token 을 만들어 auth.json 형태로 저장한다(payload 만 base64url).</summary>

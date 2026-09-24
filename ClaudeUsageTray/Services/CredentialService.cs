@@ -68,11 +68,24 @@ public class CredentialService : IDisposable
 
     public ClaudeCredentials? Load()
     {
-        if (!File.Exists(_credentialsPath)) return null;
+        TryLoad(out var credentials);
+        return credentials;
+    }
+
+    /// <summary>
+    /// 자격 파일을 읽는다. 반환값은 "판단할 수 있었는가" 다 — 파일이 없으면 true(자격 없음이 확정),
+    /// 파일은 있는데 읽기·파싱에 실패하면 false(Claude Code 가 쓰는 도중일 수 있어 판단 보류).
+    /// 호출부는 false 일 때 직전 판단을 유지해야 한다.
+    /// </summary>
+    private bool TryLoad(out ClaudeCredentials? credentials)
+    {
+        credentials = null;
+        if (!File.Exists(_credentialsPath)) return true;
         try
         {
-            var json = File.ReadAllText(_credentialsPath);
-            return JsonSerializer.Deserialize<ClaudeCredentials>(json);
+            using var stream = new FileStream(_credentialsPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            credentials = JsonSerializer.Deserialize<ClaudeCredentials>(stream);
+            return credentials is not null;
         }
         catch (Exception ex)
         {
@@ -80,7 +93,7 @@ public class CredentialService : IDisposable
             System.Diagnostics.Debug.WriteLine($"[CredentialService] Load failed: {ex.Message}");
 #endif
             GC.KeepAlive(ex);
-            return null;
+            return false;
         }
     }
 
@@ -104,19 +117,16 @@ public class CredentialService : IDisposable
     public bool HasCredentials() => File.Exists(_credentialsPath);
 
     /// <summary>
-    /// Returns the Claude subscription type from stored credentials (e.g. "free", "pro", "max").
-    /// Returns null if credentials don't exist or the field is absent.
-    /// </summary>
-    public string? GetSubscriptionType() => Load()?.ClaudeAiOauth?.SubscriptionType;
-
-    /// <summary>
     /// 구독 등급 표시에 필요한 두 값을 한 번의 파일 읽기로 돌려준다. Max 는 5x/20x 로 한도가 갈리는데
     /// 그 배수는 subscriptionType 이 아니라 rateLimitTier("default_claude_max_5x") 에만 들어 있다.
+    /// 파일이 있는데 읽지 못한 경우(쓰기 도중 등) false 를 돌려준다 — 일시적인 읽기 실패를 "구독 아님" 으로
+    /// 뒤집지 않으려는 것이다. 파일이 없으면 true 와 (null, null) — 로그아웃이 확정이다.
     /// </summary>
-    public (string? SubscriptionType, string? RateLimitTier) GetSubscriptionInfo()
+    public bool TryGetSubscriptionInfo(out (string? SubscriptionType, string? RateLimitTier) info)
     {
-        var oauth = Load()?.ClaudeAiOauth;
-        return (oauth?.SubscriptionType, oauth?.RateLimitTier);
+        var ok = TryLoad(out var credentials);
+        info = (credentials?.ClaudeAiOauth?.SubscriptionType, credentials?.ClaudeAiOauth?.RateLimitTier);
+        return ok;
     }
 
     /// <summary>
