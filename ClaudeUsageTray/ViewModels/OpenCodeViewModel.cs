@@ -205,7 +205,7 @@ public partial class OpenCodeViewModel : ObservableObject
         _staleQuotaDevice = string.IsNullOrWhiteSpace(deviceName) ? "?" : deviceName;
         _staleQuotaObservedAt = observedAt;
         SyncedQuotaNoticeLabel = Loc.UsageSyncQuotaStale(
-            _staleQuotaDevice, observedAt.ToLocalTime().ToString("HH:mm"));
+            _staleQuotaDevice, UsageCalculator.FormatObservedAt(observedAt, DateTimeOffset.Now));
         HasStaleSyncedQuota = true;
     }
 
@@ -318,7 +318,7 @@ public partial class OpenCodeViewModel : ObservableObject
         Note = usage != null ? Loc.ProviderOpenCodeWebNote : Loc.ProviderOpenCodeNote;
         // 언어를 바꿨을 뿐인데 안내 문구만 이전 언어로 남지 않도록 다시 만든다.
         if (usage == null && _staleQuotaDevice is { } device && _staleQuotaObservedAt is { } observedAt)
-            SyncedQuotaNoticeLabel = Loc.UsageSyncQuotaStale(device, observedAt.ToLocalTime().ToString("HH:mm"));
+            SyncedQuotaNoticeLabel = Loc.UsageSyncQuotaStale(device, UsageCalculator.FormatObservedAt(observedAt, DateTimeOffset.Now));
     }
 
     private static string FormatQuotaStatus(OpenCodeUsageDetails? details)

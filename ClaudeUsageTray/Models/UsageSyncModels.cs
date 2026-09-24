@@ -111,6 +111,24 @@ public sealed class UsageSyncLocalTotals
         HourlyTokens.Any(static value => value != 0);
 }
 
+/// <summary>
+/// 할당량 후보 묶음(<c>UsageSyncService.SelectQuotaCandidates</c>).
+/// <paramref name="Fresh"/>: 신선도 기준 안의 최신 값(창이 아직 유효한 것만).
+/// <paramref name="LastObserved"/>: 신선도를 무시한 최근 24시간 안의 최신 관측 — 게이지로 못 쓰더라도
+/// "다른 PC 가 언제 마지막으로 관측했는지" 안내에 쓴다.
+/// <paramref name="LastResort"/>: <paramref name="LastObserved"/> 중 창이 아직 유효해 게이지에 써도 되는 것.
+/// </summary>
+public sealed record UsageSyncQuotaCandidates(
+    UsageSyncSnapshot? Fresh,
+    UsageSyncSnapshot? LastObserved,
+    UsageSyncSnapshot? LastResort)
+{
+    public static UsageSyncQuotaCandidates None { get; } = new(null, null, null);
+
+    /// <summary>신선한 값이 있으면 그것, 없으면 창이 유효한 최후 관측.</summary>
+    public UsageSyncSnapshot? Selected => Fresh ?? LastResort;
+}
+
 public sealed record UsageSyncReadDiagnostic(string Path, string Reason);
 
 public sealed class UsageSyncReadResult
