@@ -159,8 +159,8 @@ public class UsageSyncService
     /// 조회 실패·백오프에 걸렸을 때 공백이 생기는 버그가 재발한다 — #156·#159).
     ///
     /// 공유 폴더는 날짜별로 나뉘어 있어 자정 직후에는 오늘 폴더에 할당량이 아직 없다. 그때만 어제
-    /// 폴더를 추가로 읽어, "24시간 이내" 관측을 날짜 경계에서 놓치지 않게 한다. 오늘 폴더에 관측이
-    /// 하나라도 있으면 그것이 어제 것보다 항상 새롭기 때문에 어제 폴더는 읽지 않는다.
+    /// 폴더를 추가로 읽어, "24시간 이내" 관측을 날짜 경계에서 놓치지 않게 한다. 오늘 자정 이후에
+    /// 관측된 할당량이 하나라도 있으면 그것이 어제 것보다 항상 새롭기 때문에 어제 폴더는 읽지 않는다.
     ///
     /// 전제: 신선도(<c>ObservedAtUtc</c>) 판정은 다른 기기가 기록한 시각을 이 기기의 시계와 그대로
     /// 비교한다. 기기 간 시계가 크게 어긋나면 판정이 틀릴 수 있다(미래 시각은 5분까지만 허용).
@@ -174,8 +174,14 @@ public class UsageSyncService
         IReadOnlyList<UsageSyncSnapshot> todaySnapshots,
         TimeSpan freshTtl)
     {
+        // 오늘 폴더에 있다고 오늘 관측은 아니다 — OpenCode 처럼 캐시된 값의 원래 관측 시각을 보존해
+        // 쓰는 경우 00:05 에 쓴 스냅샷이 어제 23:20 관측을 담을 수 있다. 오늘 자정 이후 관측이
+        // 있어야만 어제 폴더(모두 자정 전 관측)보다 새롭다고 확정할 수 있다.
+        var todayStart = new DateTimeOffset(DateTime.SpecifyKind(today.ToDateTime(TimeOnly.MinValue), DateTimeKind.Local));
         IReadOnlyList<UsageSyncSnapshot> pool = todaySnapshots;
-        if (!todaySnapshots.Any(static snapshot => snapshot.Quota is { HasData: true }))
+        if (!todaySnapshots.Any(snapshot =>
+                snapshot.Quota is { HasData: true } quota &&
+                (quota.ObservedAtUtc ?? snapshot.ObservedAtUtc) >= todayStart))
         {
             var yesterday = ReadSnapshots(syncRoot, provider, accountKey, today.AddDays(-1));
             if (yesterday.Snapshots.Count > 0)

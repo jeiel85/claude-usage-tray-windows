@@ -305,6 +305,23 @@ public sealed class UsageSyncQuotaCandidatesTests : IDisposable
     }
 
     [Fact]
+    public void Cached_pre_midnight_quota_in_todays_folder_does_not_hide_a_newer_one_from_yesterday()
+    {
+        // OpenCode 는 캐시된 웹 할당량의 원래 관측 시각을 보존한다. 00:05 에 오늘 폴더에 쓴 스냅샷이
+        // 어제 23:20 관측을 담고 있어도, 어제 폴더의 23:59 관측이 더 새롭다.
+        var now = Local(24, 0, 10);
+        var cachedQuota = UsageSyncQuotaWindowTests.OpenCodeQuota(now.AddHours(3), now.AddDays(2), now.AddDays(10));
+        cachedQuota.ObservedAtUtc = Local(23, 23, 20);
+        Write("desktop", Local(24, 0, 5), UsageProviderKind.OpenCode, cachedQuota);
+        Write("laptop", Local(23, 23, 59), UsageProviderKind.OpenCode,
+            UsageSyncQuotaWindowTests.OpenCodeQuota(now.AddHours(3), now.AddDays(2), now.AddDays(10)));
+
+        var candidates = Select("reader", now, UsageProviderKind.OpenCode, TimeSpan.FromMinutes(40));
+
+        Assert.Equal("laptop", candidates.Selected?.DeviceName);
+    }
+
+    [Fact]
     public void Observation_older_than_a_day_is_ignored_even_in_yesterdays_folder()
     {
         var now = Local(24, 0, 30);
