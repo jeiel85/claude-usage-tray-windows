@@ -110,6 +110,93 @@ public class NtfyEventKeyTests
         Assert.Equal(expectedSame, pcB.Matches(pcA.SequenceId));
     }
 
+    // ---- 계정 ----
+
+    // Codex 리뷰봇 지적(#176): 회사·개인 계정처럼 서로 다른 계정의 PC 가 같은 토픽을 쓰면, 공급자·창·임계값이 같은 알림이
+    // 같은 키가 되어 뒤에 감지한 쪽의 정당한 알림이 삼켜졌다. 고정 시각 창(Codex 주간 등)에서는 더 그럴듯하다.
+    [Fact]
+    public void Usage_DifferentAccountsWithTheSameWindow_AreDifferentEvents()
+    {
+        var work = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now, accountId: "acct-work|user-1");
+        var personal = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now, accountId: "acct-personal|user-2");
+
+        Assert.False(personal.Matches(work.SequenceId));
+        Assert.False(work.Matches(personal.SequenceId));
+    }
+
+    // 반대로 같은 계정이면 어느 PC 에서든 같은 사건이어야 중복이 걸러진다.
+    [Fact]
+    public void Usage_SameAccountFromTwoPcs_IsStillTheSameEvent()
+    {
+        var pcA = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now, accountId: "acct-work|user-1");
+        var pcB = NtfyEventKey.ForUsage("Codex", "short", 90, Reset.AddSeconds(1), Now.AddMinutes(2), accountId: " acct-work|user-1 ");
+
+        Assert.True(pcB.Matches(pcA.SequenceId));
+    }
+
+    // 같은 워크스페이스(account_id)의 다른 사용자도 구분되어야 한다 — 식별자 원문 전체가 해시에 들어간다.
+    [Fact]
+    public void Usage_SameWorkspaceDifferentUsers_AreDifferentEvents()
+    {
+        var alice = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now, accountId: "workspace-1|alice");
+        var bob = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now, accountId: "workspace-1|bob");
+
+        Assert.False(bob.Matches(alice.SequenceId));
+    }
+
+    [Fact]
+    public void Instant_And_EarlyExhaustion_AreScopedToTheAccountToo()
+    {
+        var reset = NtfyEventKey.ForInstant("reset", "Claude", Now, "org-1");
+        var early = NtfyEventKey.ForEarlyExhaustion("Claude", Now.AddHours(2), Now, "org-1");
+
+        Assert.True(NtfyEventKey.ForInstant("reset", "Claude", Now.AddMinutes(2), "org-1").Matches(reset.SequenceId));
+        Assert.False(NtfyEventKey.ForInstant("reset", "Claude", Now.AddMinutes(2), "org-2").Matches(reset.SequenceId));
+        Assert.True(NtfyEventKey.ForEarlyExhaustion("Claude", Now.AddHours(2).AddMinutes(3), Now, "org-1").Matches(early.SequenceId));
+        Assert.False(NtfyEventKey.ForEarlyExhaustion("Claude", Now.AddHours(2), Now, "org-2").Matches(early.SequenceId));
+    }
+
+    // 계정을 못 읽은 PC(null)는 알려진 PC 와 일치하지 않는다 — 중복이 걸러지지 않을 뿐 알림은 잃지 않는다.
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Usage_UnknownAccount_NeverMatchesAKnownAccount_AndBlankMeansUnknown(string? blank)
+    {
+        var known = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now, accountId: "acct-1");
+        var unknown = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now, accountId: blank);
+
+        Assert.False(unknown.Matches(known.SequenceId));
+        Assert.False(known.Matches(unknown.SequenceId));
+        Assert.Equal(NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now).SequenceId, unknown.SequenceId);
+    }
+
+    // 토픽 캐시는 공개 인프라에 남는다 — 계정 식별자 원문은 절대 sequence_id 에 실리면 안 된다.
+    [Fact]
+    public void SequenceId_NeverContainsTheRawAccountIdentifier()
+    {
+        const string raw = "3f2b1c9e-7a44-4d0e-9d55-0a1b2c3d4e5f";
+
+        var key = NtfyEventKey.ForUsage("Claude", "short", 90, Reset, Now, accountId: raw);
+
+        Assert.DoesNotContain(raw, key.SequenceId);
+        Assert.DoesNotContain("3f2b1c9e", key.SequenceId);
+        Assert.Matches(NtfySequenceId, key.SequenceId);
+    }
+
+    // 접두사가 한도를 넘어 잘려도 계정 구간이 살아 있어야 한다(전체 접두사의 해시로 보완하므로 계정이 다르면 결과도 다르다).
+    [Fact]
+    public void LongNames_StillSeparateAccounts()
+    {
+        var name = new string('a', 100);
+        var a = NtfyEventKey.ForUsage(name, "short", 90, Reset, Now, accountId: "acct-1");
+        var b = NtfyEventKey.ForUsage(name, "short", 90, Reset, Now, accountId: "acct-2");
+
+        Assert.NotEqual(a.SequenceId, b.SequenceId);
+        Assert.False(b.Matches(a.SequenceId));
+        Assert.Matches(NtfySequenceId, a.SequenceId);
+    }
+
     // ---- 초기화·레이트 리밋 ----
 
     [Fact]

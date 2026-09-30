@@ -58,6 +58,70 @@ public class CodexUsageMonitor
     public static string? GetCurrentPlanType() => TryReadPlanTypeFromAuth(AuthPath);
 
     /// <summary>
+    /// <b>지금</b> 로그인돼 있는 Codex 계정의 식별자 원문. 로그아웃이거나 읽지 못하면 null.
+    /// 여러 PC 가 같은 ntfy 토픽을 쓸 때 서로 다른 계정의 알림이 같은 사건으로 오인되지 않도록 알림 키에 섞는다(#175).
+    /// </summary>
+    public static string? GetCurrentAccountIdentity() => TryReadAccountIdentity(AuthPath);
+
+    /// <summary>
+    /// 로그인 파일에서 계정 식별자를 만든다.
+    ///
+    /// Input : <c>~/.codex/auth.json</c> 경로
+    /// Output: <c>"{account_id}|{user_id}"</c> (한쪽만 알면 다른 쪽은 빈 문자열). 둘 다 모르면 null
+    /// 핵심 로직: 같은 계정이면 어느 PC 에서든 같은 값이어야 한다 — 그래서 토큰(갱신 때마다 바뀜)이 아니라
+    ///           계정·사용자 ID 만 쓴다. <c>tokens.account_id</c> 는 #148 에서 실제 파일로 확인된 자리이고,
+    ///           id_token 의 <c>chatgpt_user_id</c>(없으면 <c>user_id</c>)·<c>chatgpt_account_id</c> 는 Codex CLI 소스
+    ///           (openai/codex codex-rs/login/src/token_data.rs)가 읽는 클레임 이름이다. 워크스페이스(계정) ID 만으로는
+    ///           같은 워크스페이스의 다른 사용자가 구분되지 않아 사용자 ID 도 함께 쓴다.
+    ///           id_token 은 서명 검증 없이 payload 만 읽는다 — 표시·식별 전용이며 인증에 쓰지 않는다.
+    /// </summary>
+    internal static string? TryReadAccountIdentity(string authPath)
+    {
+        try
+        {
+            if (!File.Exists(authPath)) return null;
+
+            string json;
+            using (var stream = new FileStream(authPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (var reader = new StreamReader(stream))
+            {
+                json = reader.ReadToEnd();
+            }
+
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("tokens", out var tokens) || tokens.ValueKind != JsonValueKind.Object)
+                return null;
+
+            var accountId = ReadString(tokens, "account_id");
+            string? userId = null;
+
+            if (ReadString(tokens, "id_token") is { } idToken)
+            {
+                using var payload = DecodeJwtPayload(idToken);
+                if (payload is not null &&
+                    payload.RootElement.TryGetProperty("https://api.openai.com/auth", out var auth) &&
+                    auth.ValueKind == JsonValueKind.Object)
+                {
+                    userId = ReadString(auth, "chatgpt_user_id") ?? ReadString(auth, "user_id");
+                    accountId ??= ReadString(auth, "chatgpt_account_id");
+                }
+            }
+
+            return accountId is null && userId is null ? null : $"{accountId}|{userId}";
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? ReadString(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String &&
+        !string.IsNullOrWhiteSpace(value.GetString())
+            ? value.GetString()
+            : null;
+
+    /// <summary>
     /// 로그인 파일(<c>~/.codex/auth.json</c>)의 id_token 에서 요금제를 읽는다.
     /// 세션 로그의 <c>rate_limits.plan_type</c> 은 오늘 Codex 를 한 번이라도 써야 생기므로,
     /// 요금제 배지가 "쓰기 전에는 안 보이는" 값이 되지 않도록 여기서 보완한다.

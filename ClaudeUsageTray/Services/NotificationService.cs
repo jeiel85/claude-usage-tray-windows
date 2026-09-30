@@ -17,17 +17,19 @@ public class NotificationService
         _getIcon = getNotifyIcon;
     }
 
-    // windowId/windowResetAt: 여러 PC 가 같은 토픽을 쓸 때 "같은 사건" 을 가르는 값이다(#175).
+    // windowId/windowResetAt/accountId: 여러 PC 가 같은 토픽을 쓸 때 "같은 사건" 을 가르는 값이다(#175).
     // windowLabel 은 표시 언어에 따라 PC 마다 달라지므로 키에 쓰지 않고, 창의 리셋 시각은 서버 값이라 PC 간에 같다.
+    // accountId 는 모니터링 중인 계정의 식별자 원문(해시는 키 쪽에서 한다) — 계정이 다른 PC 의 알림이 서로를 삼키지 않게 한다.
     public void ShowUsageAlert(int thresholdPercent, string windowLabel, string resetLabel, string ntfyTopic,
-        string agent = "Claude", int priority = 3, string windowId = "short", DateTimeOffset? windowResetAt = null)
+        string agent = "Claude", int priority = 3, string windowId = "short", DateTimeOffset? windowResetAt = null,
+        string? accountId = null)
     {
         var title = Loc.NotificationTitle;
         var body  = Loc.NotificationBody(thresholdPercent, windowLabel, resetLabel, agent);
 
         ShowBalloon(title, body);
         SendNtfy(ntfyTopic, title, body, priority,
-            key: NtfyEventKey.ForUsage(agent, windowId, thresholdPercent, windowResetAt, DateTimeOffset.Now));
+            key: NtfyEventKey.ForUsage(agent, windowId, thresholdPercent, windowResetAt, DateTimeOffset.Now, accountId));
     }
 
     // 테스트 알림은 키를 붙이지 않는다 — 눌러 볼 때마다 실제로 도착해야 "테스트" 가 된다.
@@ -52,36 +54,36 @@ public class NotificationService
         return new NotificationTestResult(true, true, ntfyOk, ntfyOk ? null : Loc.NtfyTestSendFailed);
     }
 
-    public void ShowRateLimitAlert(string ntfyTopic, int priority = 2)
+    public void ShowRateLimitAlert(string ntfyTopic, int priority = 2, string? accountId = null)
     {
         var title = Loc.RateLimitTitle;
         var body  = Loc.RateLimited;
 
         ShowBalloon(title, body);
         SendNtfy(ntfyTopic, title, body, priority,
-            key: NtfyEventKey.ForInstant("ratelimit", "Claude", DateTimeOffset.Now));
+            key: NtfyEventKey.ForInstant("ratelimit", "Claude", DateTimeOffset.Now, accountId));
     }
 
-    public void ShowQuotaResetAlert(string ntfyTopic, string agent = "Claude", int priority = 2)
+    public void ShowQuotaResetAlert(string ntfyTopic, string agent = "Claude", int priority = 2, string? accountId = null)
     {
         var title = Loc.QuotaResetTitle(agent);
         var body  = Loc.QuotaResetBody(agent);
 
         ShowBalloon(title, body);
         SendNtfy(ntfyTopic, title, body, priority,
-            key: NtfyEventKey.ForInstant("reset", agent, DateTimeOffset.Now));
+            key: NtfyEventKey.ForInstant("reset", agent, DateTimeOffset.Now, accountId));
     }
 
     // depletionAt: 예상 소진 시각(문자열 depletionTime 은 표시용이라 키에 쓸 수 없다). PC 마다 몇 분씩 어긋나므로 허용 오차로 흡수한다.
     public void ShowEarlyExhaustionAlert(string depletionTime, string resetTime, string ntfyTopic, int priority = 2,
-        DateTimeOffset? depletionAt = null)
+        DateTimeOffset? depletionAt = null, string? accountId = null)
     {
         var title = Loc.EarlyExhaustionTitle;
         var body  = Loc.EarlyExhaustionBody(depletionTime, resetTime);
 
         ShowBalloon(title, body);
         SendNtfy(ntfyTopic, title, body, priority, [],
-            NtfyEventKey.ForEarlyExhaustion("Claude", depletionAt, DateTimeOffset.Now));
+            NtfyEventKey.ForEarlyExhaustion("Claude", depletionAt, DateTimeOffset.Now, accountId));
     }
 
     // dedupeKey: 날씨 알림이 PC 안에서 이미 쓰는 중복 방지 키(위치·날짜 포함). 없으면(테스트 알림) 중복 확인을 건너뛴다.

@@ -2121,7 +2121,7 @@ namespace ClaudeUsageTray.ViewModels;
                 if (NotificationsEnabled && NotifyRateLimit &&
                     sessionStats.HasRateLimitHit && !_prevHadRateLimit)
                 {
-                    _notifier.ShowRateLimitAlert(NtfyTopicEffective);
+                    _notifier.ShowRateLimitAlert(NtfyTopicEffective, accountId: _credentials.GetOrganizationUuid());
                 }
                 _prevHadRateLimit = sessionStats.HasRateLimitHit;
 
@@ -2170,7 +2170,8 @@ namespace ClaudeUsageTray.ViewModels;
                                                 depletionAt.ToString("HH:mm"),
                                                 FormatResetLabel(currentReset),
                                                 NtfyTopicEffective,
-                                                depletionAt: depletionAt);
+                                                depletionAt: depletionAt,
+                                                accountId: _credentials.GetOrganizationUuid());
                                         }
                                         // 조기 소진 예상이 늦춰졌더라도 기준 시각은 업데이트(다음 비교 기준)
                                         _lastNotifiedEarlyDepletionAt = depletionAt;
@@ -2457,8 +2458,10 @@ namespace ClaudeUsageTray.ViewModels;
                 _notifier.ShowUsageAlert(threshold, windowLabel, resetLabel, topic,
                     codexName,
                     ThresholdToPriority(threshold),
-                    windowResetAt: windowResetAt),
-            () => _notifier.ShowQuotaResetAlert(NtfyTopicEffective, codexName));
+                    windowResetAt: windowResetAt,
+                    accountId: CodexUsageMonitor.GetCurrentAccountIdentity()),
+            () => _notifier.ShowQuotaResetAlert(NtfyTopicEffective, codexName,
+                accountId: CodexUsageMonitor.GetCurrentAccountIdentity()));
 
         var sync = TrySyncProviderSnapshot(UsageProviderKind.Codex, CodexVm.LastSnapshot);
         var mergedTotals = sync.MergedTotals;
@@ -2743,10 +2746,13 @@ namespace ClaudeUsageTray.ViewModels;
     {
         var settings = _settingsService.Load();
 
+        // 같은 토픽을 쓰는 다른 계정의 알림과 키가 겹치지 않도록 계정을 함께 넘긴다(#175).
+        var accountId = _credentials.GetOrganizationUuid();
+
         // 1. 할당량 초기화 감지 (100% -> 100% 미만)
         if (NotifyOnQuotaReset && _prevShortPercent >= 1.0 && newPercent < 1.0)
         {
-            _notifier.ShowQuotaResetAlert(ntfyTopic);
+            _notifier.ShowQuotaResetAlert(ntfyTopic, accountId: accountId);
         }
 
         // 2. 기본 사용량 임계값 알림
@@ -2756,7 +2762,7 @@ namespace ClaudeUsageTray.ViewModels;
             if (_prevShortPercent < tf && newPercent >= tf)
             {
                 _notifier.ShowUsageAlert(t, Loc.FiveHourWindow, resetLabel, ntfyTopic, "Claude", ThresholdToPriority(t),
-                    windowResetAt: _rawClaudeShortResetAt);
+                    windowResetAt: _rawClaudeShortResetAt, accountId: accountId);
             }
         }
 
@@ -2770,7 +2776,7 @@ namespace ClaudeUsageTray.ViewModels;
                 if (_prevExtraPercent < tf && ExtraUsagePercent >= tf)
                 {
                     _notifier.ShowUsageAlert(t, Loc.ExtraUsageTitle, "", ntfyTopic, "Claude", ThresholdToPriority(t),
-                        windowId: "extra");
+                        windowId: "extra", accountId: accountId);
                 }
             }
             _prevExtraPercent = ExtraUsagePercent;

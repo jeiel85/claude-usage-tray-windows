@@ -51,23 +51,35 @@ internal sealed class NtfyEventKey
         ? $"{Prefix}_{Math.Max(0, at.ToUnixTimeSeconds()).ToString(CultureInfo.InvariantCulture)}"
         : Prefix;
 
+    // accountId 를 받는 이유: 같은 토픽을 쓰는 PC 들이 서로 다른 계정으로 로그인해 있으면(회사·개인 등) 공급자·창·임계값이
+    // 같은 알림이 서로 다른 계정의 사건인데도 같은 키가 되어, 뒤에 감지한 쪽의 정당한 알림이 삼켜진다.
+    // 중복을 못 잡는 것은 예전과 같은 동작이지만 알림을 놓치는 것은 회귀이므로, 계정이 다르면 키도 달라야 한다.
+    // 원문은 공개 토픽 캐시에 남으므로 해시만 싣고, 같은 계정이면 어느 PC 에서든 같은 값이 나온다.
+    // null(로그인 정보를 못 읽음)이면 계정 구간이 없는 키가 되어 계정이 알려진 PC 와는 서로 일치하지 않는다 — 중복 쪽으로 어긋날 뿐 알림은 잃지 않는다.
+
     /// <summary>
     /// 임계값 도달 알림. 창의 리셋 시각이 서버 값이면 그것으로 "같은 창" 을 가르고,
     /// 없거나 추정치면(PC 마다 달라짐) 감지 시각으로 대신한다.
     /// </summary>
     public static NtfyEventKey ForUsage(
-        string agent, string windowId, int thresholdPercent, DateTimeOffset? windowResetAt, DateTimeOffset now) =>
-        windowResetAt is { } reset
-            ? new NtfyEventKey($"usage-{Slug(agent)}-{Slug(windowId)}-{thresholdPercent}", reset, WindowResetTolerance)
-            : new NtfyEventKey($"usage-{Slug(agent)}-{Slug(windowId)}-{thresholdPercent}", now, DetectionTolerance);
+        string agent, string windowId, int thresholdPercent, DateTimeOffset? windowResetAt, DateTimeOffset now,
+        string? accountId = null)
+    {
+        var prefix = $"usage-{Slug(agent)}-{Slug(windowId)}-{thresholdPercent}{AccountSegment(accountId)}";
+        return windowResetAt is { } reset
+            ? new NtfyEventKey(prefix, reset, WindowResetTolerance)
+            : new NtfyEventKey(prefix, now, DetectionTolerance);
+    }
 
     /// <summary>초기화·레이트 리밋처럼 "지금 일어난" 사건. 같은 공급자의 같은 종류는 한 번 일어나면 한동안 다시 일어나지 않는다.</summary>
-    public static NtfyEventKey ForInstant(string kind, string agent, DateTimeOffset now) =>
-        new($"{Slug(kind)}-{Slug(agent)}", now, DetectionTolerance);
+    public static NtfyEventKey ForInstant(string kind, string agent, DateTimeOffset now, string? accountId = null) =>
+        new($"{Slug(kind)}-{Slug(agent)}{AccountSegment(accountId)}", now, DetectionTolerance);
 
     /// <summary>조기 소진 알림. 같은 창 안에서 예상이 앞당겨지면(=시각이 크게 달라지면) 새 사건으로 본다.</summary>
-    public static NtfyEventKey ForEarlyExhaustion(string agent, DateTimeOffset? depletionAt, DateTimeOffset now) =>
-        new($"early-{Slug(agent)}", depletionAt ?? now, depletionAt is null ? DetectionTolerance : DepletionTolerance);
+    public static NtfyEventKey ForEarlyExhaustion(
+        string agent, DateTimeOffset? depletionAt, DateTimeOffset now, string? accountId = null) =>
+        new($"early-{Slug(agent)}{AccountSegment(accountId)}", depletionAt ?? now,
+            depletionAt is null ? DetectionTolerance : DepletionTolerance);
 
     /// <summary>
     /// 이미 자체 중복 키가 있는 알림(날씨). 키 문자열 전체가 같아야 같은 사건이다.
@@ -167,6 +179,10 @@ internal sealed class NtfyEventKey
         var head = prefix[..(MaxPrefixLength - HashSuffixLength - 1)].TrimEnd('-');
         return $"{head}-{Hash(prefix)}";
     }
+
+    // 계정 식별자(UUID 등 고엔트로피 값)를 8자리 해시로 줄인다. 접두사에 붙는 조각이라 '-' 로 시작해 앞 조각과 구분한다.
+    private static string AccountSegment(string? accountId) =>
+        string.IsNullOrWhiteSpace(accountId) ? "" : $"-a{Hash(accountId.Trim())[..8]}";
 
     private static string Hash(string text)
     {
