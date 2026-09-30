@@ -14,6 +14,9 @@ public class NtfyEventKeyTests
     // ntfy 서버(server/server.go)의 sequenceIDRegex. 어기면 HTTP 400 으로 알림이 거부된다.
     private static readonly Regex NtfySequenceId = new("^[-_A-Za-z0-9]{1,64}$");
 
+    // 같은 계정으로 로그인한 여러 PC 를 흉내 낼 때 쓴다. 계정을 모르는 PC 끼리는 일치하지 않는 것이 맞는 동작이다.
+    private const string Acct = "acct-shared";
+
     private static string Message(string sequenceId, string text = "x", string ev = "message") =>
         $"{{\"id\":\"abc\",\"time\":1790770431,\"event\":\"{ev}\",\"topic\":\"t\",\"sequence_id\":\"{sequenceId}\",\"message\":\"{text}\"}}";
 
@@ -67,10 +70,10 @@ public class NtfyEventKeyTests
     [Fact]
     public void Usage_SameWindowFromAnotherPc_IsTheSameEvent()
     {
-        var pcA = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now);
+        var pcA = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now, accountId: Acct);
 
         // PC-B 는 2분 늦게 감지했고 서버 리셋 시각을 1초 다르게 읽었다.
-        var pcB = NtfyEventKey.ForUsage("Codex", "short", 90, Reset.AddSeconds(1), Now.AddMinutes(2));
+        var pcB = NtfyEventKey.ForUsage("Codex", "short", 90, Reset.AddSeconds(1), Now.AddMinutes(2), accountId: Acct);
 
         Assert.True(pcB.Matches(pcA.SequenceId));
         Assert.True(pcA.Matches(pcB.SequenceId));
@@ -104,8 +107,8 @@ public class NtfyEventKeyTests
     [InlineData(300, false)]
     public void Usage_WithoutResetTime_FallsBackToDetectionTime(int minutesLater, bool expectedSame)
     {
-        var pcA = NtfyEventKey.ForUsage("Codex", "short", 90, null, Now);
-        var pcB = NtfyEventKey.ForUsage("Codex", "short", 90, null, Now.AddMinutes(minutesLater));
+        var pcA = NtfyEventKey.ForUsage("Codex", "short", 90, null, Now, accountId: Acct);
+        var pcB = NtfyEventKey.ForUsage("Codex", "short", 90, null, Now.AddMinutes(minutesLater), accountId: Acct);
 
         Assert.Equal(expectedSame, pcB.Matches(pcA.SequenceId));
     }
@@ -197,17 +200,97 @@ public class NtfyEventKeyTests
         Assert.Matches(NtfySequenceId, a.SequenceId);
     }
 
+    // Codex 리뷰봇 두 번째 지적(#176): 계정을 모르는 PC 끼리(예: API 키 모드라 auth.json 에 tokens 가 없는 서로 다른 계정)
+    // "모름" 이라는 이유로 같은 키가 되면 뒤에 감지한 쪽의 정당한 알림이 삼켜진다. 모르면 기기 구분자로 갈라야 한다.
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void UnknownAccounts_OnDifferentDevices_NeverMatch(string? unknown)
+    {
+        var pcA = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now, unknown, deviceId: "pc-a|alice");
+        var pcB = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now, unknown, deviceId: "pc-b|bob");
+
+        Assert.False(pcB.Matches(pcA.SequenceId));
+        Assert.False(pcA.Matches(pcB.SequenceId));
+    }
+
+    [Fact]
+    public void UnknownAccounts_OnDifferentDevices_NeverMatch_ForEveryAlertKind()
+    {
+        var resetA = NtfyEventKey.ForInstant("reset", "Codex", Now, null, "pc-a|alice");
+        var resetB = NtfyEventKey.ForInstant("reset", "Codex", Now, null, "pc-b|bob");
+        var earlyA = NtfyEventKey.ForEarlyExhaustion("Claude", Now.AddHours(2), Now, null, "pc-a|alice");
+        var earlyB = NtfyEventKey.ForEarlyExhaustion("Claude", Now.AddHours(2), Now, null, "pc-b|bob");
+
+        Assert.False(resetB.Matches(resetA.SequenceId));
+        Assert.False(earlyB.Matches(earlyA.SequenceId));
+    }
+
+    // 같은 PC 의 반복(앱 재시작·중복 새로고침)은 계정을 몰라도 여전히 걸러진다.
+    [Fact]
+    public void UnknownAccount_OnTheSameDevice_StillDeduplicatesItself()
+    {
+        var first = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now, null, deviceId: "pc-a|alice");
+        var again = NtfyEventKey.ForUsage("Codex", "short", 90, Reset.AddSeconds(1), Now.AddMinutes(2), null, deviceId: "pc-a|alice");
+
+        Assert.True(again.Matches(first.SequenceId));
+    }
+
+    // 계정을 알면 기기와 무관하다 — 같은 계정의 두 PC 는 여전히 같은 사건이어야 중복이 걸러진다.
+    [Fact]
+    public void KnownAccount_IgnoresTheDevice()
+    {
+        var pcA = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now, Acct, deviceId: "pc-a|alice");
+        var pcB = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now, Acct, deviceId: "pc-b|bob");
+
+        Assert.Equal(pcA.SequenceId, pcB.SequenceId);
+        Assert.True(pcB.Matches(pcA.SequenceId));
+    }
+
+    // 계정 조각("-a…")과 기기 조각("-d…")은 접두사가 달라 서로 일치할 수 없다.
+    [Fact]
+    public void KnownAndUnknownAccounts_NeverMatch_EvenWhenTheHashesCouldCollide()
+    {
+        var known = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now, "pc-a|alice", deviceId: "x");
+        var unknown = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now, null, deviceId: "pc-a|alice");
+
+        Assert.False(unknown.Matches(known.SequenceId));
+        Assert.False(known.Matches(unknown.SequenceId));
+    }
+
+    // 기기 식별자 원문(컴퓨터 이름·사용자 이름)도 공개 토픽 캐시에 남기지 않는다.
+    [Fact]
+    public void SequenceId_NeverContainsTheRawDeviceIdentifier()
+    {
+        var key = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now, null, deviceId: "MY-DESKTOP|alice");
+
+        Assert.DoesNotContain("MY-DESKTOP", key.SequenceId, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("alice", key.SequenceId, StringComparison.OrdinalIgnoreCase);
+        Assert.Matches(NtfySequenceId, key.SequenceId);
+    }
+
+    // 기본값(앱이 실제로 쓰는 경로)은 이 PC 의 식별자를 쓰므로 같은 프로세스에서는 항상 같은 키가 나온다.
+    [Fact]
+    public void DefaultDevice_IsStableWithinAProcess()
+    {
+        var a = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now);
+        var b = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now);
+
+        Assert.Equal(a.SequenceId, b.SequenceId);
+    }
+
     // ---- 초기화·레이트 리밋 ----
 
     [Fact]
     public void Instant_SameKindAndAgentNearInTime_IsTheSameEvent_ButNotAcrossKindsOrAgents()
     {
-        var reset = NtfyEventKey.ForInstant("reset", "Codex", Now);
+        var reset = NtfyEventKey.ForInstant("reset", "Codex", Now, Acct);
 
-        Assert.True(NtfyEventKey.ForInstant("reset", "Codex", Now.AddMinutes(3)).Matches(reset.SequenceId));
-        Assert.False(NtfyEventKey.ForInstant("reset", "Claude", Now).Matches(reset.SequenceId));
-        Assert.False(NtfyEventKey.ForInstant("ratelimit", "Codex", Now).Matches(reset.SequenceId));
-        Assert.False(NtfyEventKey.ForInstant("reset", "Codex", Now.AddHours(6)).Matches(reset.SequenceId));
+        Assert.True(NtfyEventKey.ForInstant("reset", "Codex", Now.AddMinutes(3), Acct).Matches(reset.SequenceId));
+        Assert.False(NtfyEventKey.ForInstant("reset", "Claude", Now, Acct).Matches(reset.SequenceId));
+        Assert.False(NtfyEventKey.ForInstant("ratelimit", "Codex", Now, Acct).Matches(reset.SequenceId));
+        Assert.False(NtfyEventKey.ForInstant("reset", "Codex", Now.AddHours(6), Acct).Matches(reset.SequenceId));
     }
 
     // ---- 조기 소진 ----
@@ -216,10 +299,10 @@ public class NtfyEventKeyTests
     public void EarlyExhaustion_SimilarEstimates_AreOneEvent_ButAMuchEarlierEstimateIsNew()
     {
         var depletion = Now.AddHours(2);
-        var first = NtfyEventKey.ForEarlyExhaustion("Claude", depletion, Now);
+        var first = NtfyEventKey.ForEarlyExhaustion("Claude", depletion, Now, Acct);
 
-        Assert.True(NtfyEventKey.ForEarlyExhaustion("Claude", depletion.AddMinutes(6), Now.AddMinutes(1)).Matches(first.SequenceId));
-        Assert.False(NtfyEventKey.ForEarlyExhaustion("Claude", depletion.AddMinutes(-40), Now.AddMinutes(30)).Matches(first.SequenceId));
+        Assert.True(NtfyEventKey.ForEarlyExhaustion("Claude", depletion.AddMinutes(6), Now.AddMinutes(1), Acct).Matches(first.SequenceId));
+        Assert.False(NtfyEventKey.ForEarlyExhaustion("Claude", depletion.AddMinutes(-40), Now.AddMinutes(30), Acct).Matches(first.SequenceId));
     }
 
     // ---- 날씨(정확 일치) ----
@@ -265,8 +348,8 @@ public class NtfyEventKeyTests
     [Fact]
     public void IsAlreadySent_IgnoresMessageText_AndMatchesOnSequenceIdOnly()
     {
-        var key = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now.AddMinutes(2));
-        var fromOtherPc = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now);
+        var key = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now.AddMinutes(2), accountId: Acct);
+        var fromOtherPc = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now, accountId: Acct);
 
         var ndjson = Message(fromOtherPc.SequenceId, "[Codex] 사용량이 90%에 도달했습니다 ·1시간 23분 후 초기화\\n— OTHER-PC");
 

@@ -55,7 +55,11 @@ internal sealed class NtfyEventKey
     // 같은 알림이 서로 다른 계정의 사건인데도 같은 키가 되어, 뒤에 감지한 쪽의 정당한 알림이 삼켜진다.
     // 중복을 못 잡는 것은 예전과 같은 동작이지만 알림을 놓치는 것은 회귀이므로, 계정이 다르면 키도 달라야 한다.
     // 원문은 공개 토픽 캐시에 남으므로 해시만 싣고, 같은 계정이면 어느 PC 에서든 같은 값이 나온다.
-    // null(로그인 정보를 못 읽음)이면 계정 구간이 없는 키가 되어 계정이 알려진 PC 와는 서로 일치하지 않는다 — 중복 쪽으로 어긋날 뿐 알림은 잃지 않는다.
+    //
+    // 계정을 모르면(null·공백: API 키 모드처럼 식별자가 없는 로그인, 일시적 읽기 실패) 기기 구분자를 대신 넣는다.
+    // 모르는 쪽끼리 "모름" 이라는 이유로 같은 키가 되면, 서로 다른 계정일 수 있는 두 PC 의 알림이 서로를 삼킨다.
+    // 기기 구분자를 쓰면 다른 PC 와는 절대 일치하지 않아 중복 쪽으로만 어긋나고, 같은 PC 의 반복 알림은 여전히 걸러진다.
+    // deviceId 는 테스트에서 "서로 다른 PC" 를 흉내 내기 위한 것이고 앱은 넘기지 않는다(기본값 = 이 PC).
 
     /// <summary>
     /// 임계값 도달 알림. 창의 리셋 시각이 서버 값이면 그것으로 "같은 창" 을 가르고,
@@ -63,22 +67,23 @@ internal sealed class NtfyEventKey
     /// </summary>
     public static NtfyEventKey ForUsage(
         string agent, string windowId, int thresholdPercent, DateTimeOffset? windowResetAt, DateTimeOffset now,
-        string? accountId = null)
+        string? accountId = null, string? deviceId = null)
     {
-        var prefix = $"usage-{Slug(agent)}-{Slug(windowId)}-{thresholdPercent}{AccountSegment(accountId)}";
+        var prefix = $"usage-{Slug(agent)}-{Slug(windowId)}-{thresholdPercent}{ScopeSegment(accountId, deviceId)}";
         return windowResetAt is { } reset
             ? new NtfyEventKey(prefix, reset, WindowResetTolerance)
             : new NtfyEventKey(prefix, now, DetectionTolerance);
     }
 
     /// <summary>초기화·레이트 리밋처럼 "지금 일어난" 사건. 같은 공급자의 같은 종류는 한 번 일어나면 한동안 다시 일어나지 않는다.</summary>
-    public static NtfyEventKey ForInstant(string kind, string agent, DateTimeOffset now, string? accountId = null) =>
-        new($"{Slug(kind)}-{Slug(agent)}{AccountSegment(accountId)}", now, DetectionTolerance);
+    public static NtfyEventKey ForInstant(
+        string kind, string agent, DateTimeOffset now, string? accountId = null, string? deviceId = null) =>
+        new($"{Slug(kind)}-{Slug(agent)}{ScopeSegment(accountId, deviceId)}", now, DetectionTolerance);
 
     /// <summary>조기 소진 알림. 같은 창 안에서 예상이 앞당겨지면(=시각이 크게 달라지면) 새 사건으로 본다.</summary>
     public static NtfyEventKey ForEarlyExhaustion(
-        string agent, DateTimeOffset? depletionAt, DateTimeOffset now, string? accountId = null) =>
-        new($"early-{Slug(agent)}{AccountSegment(accountId)}", depletionAt ?? now,
+        string agent, DateTimeOffset? depletionAt, DateTimeOffset now, string? accountId = null, string? deviceId = null) =>
+        new($"early-{Slug(agent)}{ScopeSegment(accountId, deviceId)}", depletionAt ?? now,
             depletionAt is null ? DetectionTolerance : DepletionTolerance);
 
     /// <summary>
@@ -180,9 +185,15 @@ internal sealed class NtfyEventKey
         return $"{head}-{Hash(prefix)}";
     }
 
-    // 계정 식별자(UUID 등 고엔트로피 값)를 8자리 해시로 줄인다. 접두사에 붙는 조각이라 '-' 로 시작해 앞 조각과 구분한다.
-    private static string AccountSegment(string? accountId) =>
-        string.IsNullOrWhiteSpace(accountId) ? "" : $"-a{Hash(accountId.Trim())[..8]}";
+    // 이 PC 를 가리키는 값. 컴퓨터 이름만으로는 이미지 복제 등으로 겹칠 수 있어 로그인 사용자 이름도 함께 쓴다.
+    private static readonly string DefaultDeviceId = $"{Environment.MachineName}|{Environment.UserName}";
+
+    // 계정을 알면 계정 조각("-a" + 해시 8자리), 모르면 기기 조각("-d" + 해시 8자리). 접두사가 서로 달라 둘이 섞여 일치할 수 없다.
+    // 식별자 원문은 공개 토픽 캐시에 남기지 않으려고 해시만 싣는다.
+    private static string ScopeSegment(string? accountId, string? deviceId) =>
+        string.IsNullOrWhiteSpace(accountId)
+            ? $"-d{Hash(string.IsNullOrWhiteSpace(deviceId) ? DefaultDeviceId : deviceId.Trim())[..8]}"
+            : $"-a{Hash(accountId.Trim())[..8]}";
 
     private static string Hash(string text)
     {
