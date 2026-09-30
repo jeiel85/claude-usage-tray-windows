@@ -60,7 +60,8 @@ public class WeatherAlertService
             if (settings.WeatherDailyForecastEnabled && report.Daily.Count > 0)
             {
                 var today = report.Daily[0];
-                var dailyKey = WeatherAlertKeys.Daily(now, loc.Latitude, loc.Longitude);
+                // 키의 날짜는 PC 의 오늘이 아니라 예보 자체의 날짜(위치의 현지 날짜)다 — 시간대가 다른 PC 와 섞이지 않게(#175).
+                var dailyKey = WeatherAlertKeys.Daily(today.Date, loc.Latitude, loc.Longitude);
 
                 if (!cache.Contains(dailyKey) && IsDailyForecastTime(settings))
                 {
@@ -116,7 +117,7 @@ public class WeatherAlertService
         {
             // 비/폭염/한파는 "오늘 예보"(report.Daily[0]) 하나를 보고 판정하므로 하루 안에서는
             // 같은 내용이다. 하루 한 번만 보낸다.
-            var dayWindow = WeatherAlertKeys.Day(now);
+            var dayWindow = WeatherAlertKeys.Day(today.Date);
 
             if (today.PrecipitationProbabilityMax >= settings.WeatherRainProbabilityThreshold
                 && IsSignificantPrecip(today.WeatherCode))
