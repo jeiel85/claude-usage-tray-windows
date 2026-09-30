@@ -237,6 +237,58 @@ public class SessionMonitorTests : IDisposable
 
     // ---------------------------------------------------------------- helpers
 
+    // Codex 리뷰봇 지적(#176): 재시작하면 같은 레이트 리밋 기록을 다시 읽는다. 알림 키를 그 시각에 묶으려면
+    // 스캔이 기록 자체의 시각을 돌려줘야 한다(감지한 "지금" 이 아니라).
+    [Fact]
+    public void ScanTodayUsage_RecordsTheTimeOfTheRateLimitEntry()
+    {
+        var hit = Today(9).AddMinutes(17);
+        WriteSession("proj-a/a.jsonl",
+            AssistantLine(Today(8), input: 1, output: 1, cacheRead: 0, cacheWrite: 0),
+            RateLimitLine(hit));
+
+        var stats = new SessionMonitor(_root).ScanTodayUsage();
+
+        Assert.True(stats.HasRateLimitHit);
+        Assert.Equal(new DateTimeOffset(hit).ToUniversalTime(), stats.RateLimitAt);
+    }
+
+    // 스캔을 몇 번 하든(=앱을 몇 번 다시 켜든) 같은 기록에서는 같은 시각이 나와야 키가 흔들리지 않는다.
+    [Fact]
+    public void ScanTodayUsage_RateLimitTime_IsStableAcrossRepeatedScans()
+    {
+        WriteSession("proj-a/a.jsonl", RateLimitLine(Today(9)));
+
+        var first = new SessionMonitor(_root).ScanTodayUsage().RateLimitAt;
+        var second = new SessionMonitor(_root).ScanTodayUsage().RateLimitAt;
+
+        Assert.NotNull(first);
+        Assert.Equal(first, second);
+    }
+
+    // 하루에 여러 번 걸렸다면 가장 최근 기록이 이긴다(파일·줄 순서와 무관).
+    [Fact]
+    public void ScanTodayUsage_RateLimitTime_IsTheLatestEntryAcrossFiles()
+    {
+        WriteSession("proj-a/a.jsonl", RateLimitLine(Today(11)));
+        WriteSession("proj-b/b.jsonl", RateLimitLine(Today(9)), RateLimitLine(Today(10)));
+
+        var stats = new SessionMonitor(_root).ScanTodayUsage();
+
+        Assert.Equal(new DateTimeOffset(Today(11)).ToUniversalTime(), stats.RateLimitAt);
+    }
+
+    [Fact]
+    public void ScanTodayUsage_RateLimitTime_IsNullWhenThereWasNoRateLimit()
+    {
+        WriteSession("proj-a/a.jsonl", AssistantLine(Today(9), input: 1, output: 1, cacheRead: 0, cacheWrite: 0));
+
+        var stats = new SessionMonitor(_root).ScanTodayUsage();
+
+        Assert.False(stats.HasRateLimitHit);
+        Assert.Null(stats.RateLimitAt);
+    }
+
     private static DateTime Today(int hour) => DateTime.Today.AddHours(hour);
 
     private static string Iso(DateTime local) =>
@@ -253,6 +305,11 @@ public class SessionMonitorTests : IDisposable
         $"{{\"type\":\"assistant\",\"timestamp\":\"{Iso(localTimestamp)}\",\"message\":{{\"usage\":{{" +
         $"\"input_tokens\":{input},\"output_tokens\":{output}," +
         $"\"cache_read_input_tokens\":{cacheRead},\"cache_creation_input_tokens\":{cacheWrite}}}}}}}";
+
+    private static string RateLimitLine(DateTime localTimestamp) =>
+        $"{{\"type\":\"assistant\",\"timestamp\":\"{Iso(localTimestamp)}\",\"error\":\"rate_limit\",\"message\":{{\"usage\":{{" +
+        $"\"input_tokens\":0,\"output_tokens\":0,\"cache_read_input_tokens\":0,\"cache_creation_input_tokens\":0}}," +
+        "\"content\":[{\"type\":\"text\",\"text\":\"You've hit your limit - resets 3pm\"}]}}";
 
     private string WriteSession(string relativePath, params string[] lines)
     {

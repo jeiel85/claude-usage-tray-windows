@@ -2121,7 +2121,8 @@ namespace ClaudeUsageTray.ViewModels;
                 if (NotificationsEnabled && NotifyRateLimit &&
                     sessionStats.HasRateLimitHit && !_prevHadRateLimit)
                 {
-                    _notifier.ShowRateLimitAlert(NtfyTopicEffective, accountId: _credentials.GetOrganizationUuid());
+                    _notifier.ShowRateLimitAlert(NtfyTopicEffective, accountId: _credentials.GetOrganizationUuid(),
+                        eventAt: sessionStats.RateLimitAt);
                 }
                 _prevHadRateLimit = sessionStats.HasRateLimitHit;
 

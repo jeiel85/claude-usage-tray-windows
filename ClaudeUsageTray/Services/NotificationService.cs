@@ -54,14 +54,15 @@ public class NotificationService
         return new NotificationTestResult(true, true, ntfyOk, ntfyOk ? null : Loc.NtfyTestSendFailed);
     }
 
-    public void ShowRateLimitAlert(string ntfyTopic, int priority = 2, string? accountId = null)
+    // eventAt: 로그에 찍힌 레이트 리밋 기록의 시각. 재시작 뒤 같은 기록을 다시 읽어도 같은 사건으로 알아보게 하는 기준이다.
+    public void ShowRateLimitAlert(string ntfyTopic, int priority = 2, string? accountId = null, DateTimeOffset? eventAt = null)
     {
         var title = Loc.RateLimitTitle;
         var body  = Loc.RateLimited;
 
         ShowBalloon(title, body);
         SendNtfy(ntfyTopic, title, body, priority,
-            key: NtfyEventKey.ForInstant("ratelimit", "Claude", DateTimeOffset.Now, accountId));
+            key: NtfyEventKey.ForRateLimit(eventAt, DateTimeOffset.Now, accountId));
     }
 
     // endedWindowResetAt: 초기화로 끝난 창의 서버 리셋 시각. 초기화를 자고 넘겨 늦게 깬 PC 도 다른 PC 가 보낸 같은 초기화를 알아보게 한다.

@@ -465,6 +465,63 @@ public class NtfyEventKeyTests
         Assert.False(NtfyEventKey.ForInstant("reset", "Codex", Now.AddHours(6), Acct).Matches(reset.SequenceId));
     }
 
+    // Codex 리뷰봇 지적(#176): 레이트 리밋 키가 감지한 "지금" 에 묶이면 앱을 30분 넘게 뒤에 다시 켰을 때
+    // 같은 로그 기록이 새 사건으로 보여 ntfy 에 다시 나간다. 로그에 찍힌 사건 시각에 묶어야 재시작 횟수와 무관해진다.
+    [Fact]
+    public void RateLimit_AnchoredToTheLoggedEvent_SurvivesARestartLongAfterwards()
+    {
+        var logged = Now;                                         // 로그에 찍힌 레이트 리밋 시각
+        var firstRun = NtfyEventKey.ForRateLimit(logged, Now.AddMinutes(1), Acct);
+
+        foreach (var hoursLater in new[] { 1, 3, 7, 11 })
+        {
+            var afterRestart = NtfyEventKey.ForRateLimit(logged, Now.AddHours(hoursLater), Acct);
+
+            Assert.Equal(firstRun.SequenceId, afterRestart.SequenceId);
+            Assert.True(afterRestart.Matches(firstRun.SequenceId), $"{hoursLater}h 뒤 재시작");
+        }
+    }
+
+    // 회귀 확인용 대조군 — 예전처럼 감지 시각으로만 만들면 30분 넘게 뒤에는 같은 사건을 알아보지 못한다.
+    [Fact]
+    public void RateLimit_WithoutTheLoggedTime_FallsBackToDetectionTime()
+    {
+        var first = NtfyEventKey.ForRateLimit(null, Now, Acct);
+
+        Assert.True(NtfyEventKey.ForRateLimit(null, Now.AddMinutes(5), Acct).Matches(first.SequenceId));
+        Assert.False(NtfyEventKey.ForRateLimit(null, Now.AddHours(1), Acct).Matches(first.SequenceId));
+    }
+
+    // 로그 시각을 알면 다른 시각에 새로 걸린 레이트 리밋은 여전히 새 사건이다.
+    [Fact]
+    public void RateLimit_ADifferentLoggedEvent_IsANewEvent()
+    {
+        var morning = NtfyEventKey.ForRateLimit(Now, Now, Acct);
+        var afternoon = NtfyEventKey.ForRateLimit(Now.AddHours(5), Now.AddHours(5), Acct);
+
+        Assert.False(afternoon.Matches(morning.SequenceId));
+    }
+
+    // 다른 계정·다른 종류와는 여전히 섞이지 않는다.
+    [Fact]
+    public void RateLimit_StaysScopedToTheAccount_AndNotMixedWithResets()
+    {
+        var rateLimit = NtfyEventKey.ForRateLimit(Now, Now, "org-1");
+
+        Assert.False(NtfyEventKey.ForRateLimit(Now, Now, "org-2").Matches(rateLimit.SequenceId));
+        Assert.False(NtfyEventKey.ForInstant("reset", "Claude", Now, "org-1").Matches(rateLimit.SequenceId));
+        Assert.Matches(NtfySequenceId, rateLimit.SequenceId);
+    }
+
+    // 바뀌기 전 코드가 만들던 키와 같은 모양이어야 이미 캐시에 있는 알림과도 어긋나지 않는다.
+    [Fact]
+    public void RateLimit_UsesTheSameKeyShapeAsBefore()
+    {
+        Assert.Equal(
+            NtfyEventKey.ForInstant("ratelimit", "Claude", Now, "org-1").SequenceId,
+            NtfyEventKey.ForRateLimit(Now, Now.AddHours(9), "org-1").SequenceId);
+    }
+
     // ---- 조기 소진 ----
 
     [Fact]

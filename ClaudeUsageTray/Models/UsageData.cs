@@ -67,6 +67,12 @@ public class SessionStats
     public bool HasRateLimitHit { get; set; }
     public string? RateLimitResetTime { get; set; }
 
+    /// <summary>
+    /// 오늘 로그에 찍힌 가장 최근 레이트 리밋 기록의 시각(UTC). 재시작하면 같은 기록을 다시 읽으므로,
+    /// 알림 키를 "지금" 이 아니라 이 시각에 묶어야 같은 사건이 새 사건으로 둔갑하지 않는다(#175). 기록에 시각이 없으면 null.
+    /// </summary>
+    public DateTimeOffset? RateLimitAt { get; set; }
+
     // 시간대별(0~23시) 전체 토큰 집계
     public long[] HourlyTokens { get; } = new long[24];
 

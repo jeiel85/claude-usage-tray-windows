@@ -91,6 +91,15 @@ internal sealed class NtfyEventKey
         new($"{Slug(kind)}-{Slug(agent)}{ScopeSegment(accountId, deviceId)}", now, DetectionTolerance);
 
     /// <summary>
+    /// 레이트 리밋 알림. <paramref name="eventAt"/>(로그에 찍힌 사건 시각)을 알면 그것을 기준으로 삼는다.
+    /// 감지한 시각(<paramref name="now"/>)만 쓰면, 앱을 다시 켜서 같은 기록을 30분 넘게 뒤에 또 읽었을 때
+    /// 키가 어긋나 이미 보낸 사건을 새 사건으로 착각하고 다시 보낸다. 모르면 감지 시각으로 대신한다.
+    /// </summary>
+    public static NtfyEventKey ForRateLimit(
+        DateTimeOffset? eventAt, DateTimeOffset now, string? accountId = null, string? deviceId = null) =>
+        ForInstant("ratelimit", "Claude", eventAt ?? now, accountId, deviceId);
+
+    /// <summary>
     /// 할당량 초기화 알림. <paramref name="endedWindowResetAt"/>(초기화로 끝난 창의 서버 리셋 시각)을 알면 그것으로 사건을 가른다.
     /// 감지한 시각으로 가르면, 초기화를 자고 넘겨 30분 넘게 늦게 깬 PC 가 다른 PC 가 이미 보낸 같은 초기화를 알아보지 못하고 다시 보낸다.
     /// 모르면(추정 리셋·첫 관측 등) 감지 시각으로 대신한다.
