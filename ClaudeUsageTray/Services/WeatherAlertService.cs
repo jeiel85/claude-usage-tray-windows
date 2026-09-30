@@ -60,8 +60,8 @@ public class WeatherAlertService
             if (settings.WeatherDailyForecastEnabled && report.Daily.Count > 0)
             {
                 var today = report.Daily[0];
-                var dailyKey = $"daily:{DateOnly.FromDateTime(now.DateTime):yyyyMMdd}:" +
-                              $"{loc.Latitude:F2}:{loc.Longitude:F2}";
+                // 키의 날짜는 PC 의 오늘이 아니라 예보 자체의 날짜(위치의 현지 날짜)다 — 시간대가 다른 PC 와 섞이지 않게(#175).
+                var dailyKey = WeatherAlertKeys.Daily(today.Date, loc.Latitude, loc.Longitude);
 
                 if (!cache.Contains(dailyKey) && IsDailyForecastTime(settings))
                 {
@@ -85,7 +85,7 @@ public class WeatherAlertService
                     var clickUrl = BuildWeatherClickUrl(loc);
 
                     _notifier.ShowWeatherAlert(title, ntfyBody, ntfyTopic,
-                        ntfyBody, tags: ["sunny"], clickUrl: clickUrl);
+                        ntfyBody, tags: ["sunny"], clickUrl: clickUrl, dedupeKey: dailyKey);
                     cache.Mark(dailyKey, now);
                 }
             }
@@ -117,47 +117,47 @@ public class WeatherAlertService
         {
             // 비/폭염/한파는 "오늘 예보"(report.Daily[0]) 하나를 보고 판정하므로 하루 안에서는
             // 같은 내용이다. 하루 한 번만 보낸다.
-            var dayWindow = now.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+            var dayWindow = WeatherAlertKeys.Day(today.Date);
 
             if (today.PrecipitationProbabilityMax >= settings.WeatherRainProbabilityThreshold
                 && IsSignificantPrecip(today.WeatherCode))
             {
-                var key = $"condition:rain:{dayWindow}:{settings.WeatherRainProbabilityThreshold}:" +
-                         $"{loc.Latitude:F2}:{loc.Longitude:F2}";
+                var key = WeatherAlertKeys.Condition("rain", dayWindow,
+                    settings.WeatherRainProbabilityThreshold, loc.Latitude, loc.Longitude);
                 if (!cache.Contains(key))
                 {
                     var body = $"{loc.Name}: {Loc.WeatherRainWarning(today.PrecipitationProbabilityMax.Value)}";
                     _notifier.ShowWeatherAlert(
                         Loc.WeatherWarningTitle, body, ntfyTopic, body,
-                        tags: ["umbrella"], clickUrl: clickUrl);
+                        tags: ["umbrella"], clickUrl: clickUrl, dedupeKey: key);
                     cache.Mark(key, now);
                 }
             }
 
             if (today.MaxTemperatureC >= settings.WeatherHighTemperatureThresholdC)
             {
-                var key = $"condition:heat:{dayWindow}:{(int)settings.WeatherHighTemperatureThresholdC}:" +
-                         $"{loc.Latitude:F2}:{loc.Longitude:F2}";
+                var key = WeatherAlertKeys.Condition("heat", dayWindow,
+                    (int)settings.WeatherHighTemperatureThresholdC, loc.Latitude, loc.Longitude);
                 if (!cache.Contains(key))
                 {
                     var body = $"{loc.Name}: {Loc.WeatherHeatWarning(today.MaxTemperatureC.Value)}";
                     _notifier.ShowWeatherAlert(
                         Loc.WeatherWarningTitle, body, ntfyTopic, body,
-                        tags: ["hot"], clickUrl: clickUrl);
+                        tags: ["hot"], clickUrl: clickUrl, dedupeKey: key);
                     cache.Mark(key, now);
                 }
             }
 
             if (today.MinTemperatureC <= settings.WeatherLowTemperatureThresholdC)
             {
-                var key = $"condition:cold:{dayWindow}:{(int)settings.WeatherLowTemperatureThresholdC}:" +
-                         $"{loc.Latitude:F2}:{loc.Longitude:F2}";
+                var key = WeatherAlertKeys.Condition("cold", dayWindow,
+                    (int)settings.WeatherLowTemperatureThresholdC, loc.Latitude, loc.Longitude);
                 if (!cache.Contains(key))
                 {
                     var body = $"{loc.Name}: {Loc.WeatherColdWarning(today.MinTemperatureC.Value)}";
                     _notifier.ShowWeatherAlert(
                         Loc.WeatherWarningTitle, body, ntfyTopic, body,
-                        tags: ["snowflake"], clickUrl: clickUrl);
+                        tags: ["snowflake"], clickUrl: clickUrl, dedupeKey: key);
                     cache.Mark(key, now);
                 }
             }
@@ -167,15 +167,15 @@ public class WeatherAlertService
         {
             // 강풍은 예보가 아니라 현재 관측 풍속으로 판정하므로 하루 안에서도 값이 바뀐다.
             // 설계 문서의 조건 알림 쿨다운(6시간)을 그대로 적용한다.
-            var windWindow = $"{now:yyyyMMdd}-{now.Hour / ConditionCooldownHours}";
-            var key = $"condition:wind:{windWindow}:{(int)settings.WeatherWindSpeedThresholdKmh}:" +
-                     $"{loc.Latitude:F2}:{loc.Longitude:F2}";
+            var windWindow = WeatherAlertKeys.WindWindow(now, ConditionCooldownHours);
+            var key = WeatherAlertKeys.Condition("wind", windWindow,
+                (int)settings.WeatherWindSpeedThresholdKmh, loc.Latitude, loc.Longitude);
             if (!cache.Contains(key))
             {
                 var body = $"{loc.Name}: {Loc.WeatherWindWarning(report.Current.WindSpeedKmh.Value)}";
                 _notifier.ShowWeatherAlert(
                     Loc.WeatherWarningTitle, body, ntfyTopic, body,
-                    tags: ["wind"], clickUrl: clickUrl);
+                    tags: ["wind"], clickUrl: clickUrl, dedupeKey: key);
                 cache.Mark(key, now);
             }
         }
@@ -200,7 +200,7 @@ public class WeatherAlertService
                 var body = $"{alert.Event} · {alert.Severity}\n{alert.Headline}";
                 _notifier.ShowWeatherAlert(
                     Loc.WeatherWarningTitle, body, ntfyTopic, body,
-                    tags: ["warning"], clickUrl: clickUrl);
+                    tags: ["warning"], clickUrl: clickUrl, dedupeKey: key);
                 cache.Mark(key, now);
             }
 

@@ -162,6 +162,13 @@ public class SessionMonitor
                 if (root.TryGetProperty("error", out var errEl) && errEl.GetString() == "rate_limit")
                 {
                     stats.HasRateLimitHit = true;
+                    // 기록 자체의 시각을 남긴다. 앱을 다시 켜면 같은 기록을 또 읽는데, 그때의 "지금" 으로 알림 키를 만들면
+                    // 30분 넘게 뒤에는 같은 사건이 새 사건으로 보여 ntfy 에 다시 나간다. 가장 최근 기록이 이긴다.
+                    if (parsedTs != default)
+                    {
+                        var at = new DateTimeOffset(parsedTs.ToUniversalTime());
+                        if (stats.RateLimitAt is not { } prev || at > prev) stats.RateLimitAt = at;
+                    }
                     // Try to extract reset time from message content
                     if (msgEl.TryGetProperty("content", out var contentEl) && contentEl.ValueKind == JsonValueKind.Array)
                     {

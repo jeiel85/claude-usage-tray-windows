@@ -1,7 +1,12 @@
 namespace ClaudeUsageTray.Services;
 
-/// <summary>한 번의 관측에서 발송해야 할 알림. 발송 여부(알림 설정)는 호출자가 결정한다.</summary>
-internal readonly record struct QuotaAlertResult(IReadOnlyList<int> CrossedThresholds, bool QuotaReset)
+/// <summary>
+/// 한 번의 관측에서 발송해야 할 알림. 발송 여부(알림 설정)는 호출자가 결정한다.
+/// <paramref name="EndedWindowResetAt"/> 은 초기화로 끝난 <b>창</b>의 서버 리셋 시각(추정치면 null)이다 —
+/// 같은 계정의 여러 PC 는 모두 이 창을 지켜봤으므로, 초기화 알림을 언제 감지했든 같은 사건으로 알아볼 수 있는 값이다.
+/// </summary>
+internal readonly record struct QuotaAlertResult(
+    IReadOnlyList<int> CrossedThresholds, bool QuotaReset, DateTimeOffset? EndedWindowResetAt = null)
 {
     public static QuotaAlertResult None { get; } = new(Array.Empty<int>(), false);
 }
@@ -97,7 +102,12 @@ internal sealed class QuotaAlertBaseline
                     crossed.Add(threshold);
             }
 
-            result = new QuotaAlertResult(crossed, notifyOnQuotaReset && Percent >= 1.0 && percent < 1.0);
+            var quotaReset = notifyOnQuotaReset && Percent >= 1.0 && percent < 1.0;
+
+            // 초기화 알림의 사건 식별자는 "감지한 시각" 이 아니라 "끝난 창" 이어야 한다. 초기화를 자고 넘겨 한참 뒤에 깬 PC 는
+            // 다른 PC 가 이미 보낸 같은 초기화를 감지 시각으로는 알아볼 수 없다(허용 오차 30분 밖). 끝난 창의 서버 리셋 시각은
+            // 두 PC 가 똑같이 알고 있다. 추정 리셋은 PC 마다 달라 식별자로 쓰지 않는다.
+            result = new QuotaAlertResult(crossed, quotaReset, quotaReset && !ResetIsEstimated ? ResetAt : null);
         }
 
         Percent = percent;

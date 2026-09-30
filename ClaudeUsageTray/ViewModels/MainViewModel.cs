@@ -2121,7 +2121,8 @@ namespace ClaudeUsageTray.ViewModels;
                 if (NotificationsEnabled && NotifyRateLimit &&
                     sessionStats.HasRateLimitHit && !_prevHadRateLimit)
                 {
-                    _notifier.ShowRateLimitAlert(NtfyTopicEffective);
+                    _notifier.ShowRateLimitAlert(NtfyTopicEffective, accountId: _credentials.GetOrganizationUuid(),
+                        eventAt: sessionStats.RateLimitAt);
                 }
                 _prevHadRateLimit = sessionStats.HasRateLimitHit;
 
@@ -2143,6 +2144,8 @@ namespace ClaudeUsageTray.ViewModels;
                     if (usage!.FiveHour != null)
                     {
                         var newPercent = usage.FiveHour.UsagePercent;
+                        // 초기화 알림의 사건 식별자로 쓸 "끝난 창" 의 리셋 시각 — 아래에서 새 창의 값으로 덮어쓰기 전에 붙잡아 둔다(#175).
+                        var endedWindowResetAt = _rawClaudeShortResetAt;
                         _rawClaudeShortResetAt = usage.FiveHour.ResetsAtParsed;
                         ClaudeVm.ShortReset = FormatResetLabel(_rawClaudeShortResetAt);
                         ClaudeVm.ShortSummary = Loc.UsageSummary(newPercent);
@@ -2169,7 +2172,9 @@ namespace ClaudeUsageTray.ViewModels;
                                             _notifier.ShowEarlyExhaustionAlert(
                                                 depletionAt.ToString("HH:mm"),
                                                 FormatResetLabel(currentReset),
-                                                NtfyTopicEffective);
+                                                NtfyTopicEffective,
+                                                depletionAt: depletionAt,
+                                                accountId: _credentials.GetOrganizationUuid());
                                         }
                                         // 조기 소진 예상이 늦춰졌더라도 기준 시각은 업데이트(다음 비교 기준)
                                         _lastNotifiedEarlyDepletionAt = depletionAt;
@@ -2186,7 +2191,7 @@ namespace ClaudeUsageTray.ViewModels;
 
                         if (NotificationsEnabled && _prevShortPercent >= 0)
                         {
-                            CheckThresholds(newPercent, ClaudeVm.ShortReset, NtfyTopicEffective);
+                            CheckThresholds(newPercent, ClaudeVm.ShortReset, NtfyTopicEffective, endedWindowResetAt);
                         }
 
                         ClaudeVm.ShortPercent = newPercent;
@@ -2452,11 +2457,15 @@ namespace ClaudeUsageTray.ViewModels;
             NotificationsEnabled,
             NotifyOnQuotaReset,
             thresholds,
-            (threshold, windowLabel, resetLabel, topic) =>
+            (threshold, windowLabel, resetLabel, topic, windowResetAt) =>
                 _notifier.ShowUsageAlert(threshold, windowLabel, resetLabel, topic,
                     codexName,
-                    ThresholdToPriority(threshold)),
-            () => _notifier.ShowQuotaResetAlert(NtfyTopicEffective, codexName));
+                    ThresholdToPriority(threshold),
+                    windowResetAt: windowResetAt,
+                    accountId: CodexUsageMonitor.GetCurrentAccountIdentity()),
+            endedWindowResetAt => _notifier.ShowQuotaResetAlert(NtfyTopicEffective, codexName,
+                accountId: CodexUsageMonitor.GetCurrentAccountIdentity(),
+                endedWindowResetAt: endedWindowResetAt));
 
         var sync = TrySyncProviderSnapshot(UsageProviderKind.Codex, CodexVm.LastSnapshot);
         var mergedTotals = sync.MergedTotals;
@@ -2737,14 +2746,17 @@ namespace ClaudeUsageTray.ViewModels;
         });
     }
 
-    private void CheckThresholds(double newPercent, string resetLabel, string ntfyTopic)
+    private void CheckThresholds(double newPercent, string resetLabel, string ntfyTopic, DateTimeOffset? endedWindowResetAt)
     {
         var settings = _settingsService.Load();
+
+        // 같은 토픽을 쓰는 다른 계정의 알림과 키가 겹치지 않도록 계정을 함께 넘긴다(#175).
+        var accountId = _credentials.GetOrganizationUuid();
 
         // 1. 할당량 초기화 감지 (100% -> 100% 미만)
         if (NotifyOnQuotaReset && _prevShortPercent >= 1.0 && newPercent < 1.0)
         {
-            _notifier.ShowQuotaResetAlert(ntfyTopic);
+            _notifier.ShowQuotaResetAlert(ntfyTopic, accountId: accountId, endedWindowResetAt: endedWindowResetAt);
         }
 
         // 2. 기본 사용량 임계값 알림
@@ -2753,7 +2765,8 @@ namespace ClaudeUsageTray.ViewModels;
             double tf = t / 100.0;
             if (_prevShortPercent < tf && newPercent >= tf)
             {
-                _notifier.ShowUsageAlert(t, Loc.FiveHourWindow, resetLabel, ntfyTopic, "Claude", ThresholdToPriority(t));
+                _notifier.ShowUsageAlert(t, Loc.FiveHourWindow, resetLabel, ntfyTopic, "Claude", ThresholdToPriority(t),
+                    windowResetAt: _rawClaudeShortResetAt, accountId: accountId);
             }
         }
 
@@ -2766,7 +2779,8 @@ namespace ClaudeUsageTray.ViewModels;
                 // 이전 값과 현재 값 비교 (초기값 0에서 첫 알림이 가지 않도록)
                 if (_prevExtraPercent < tf && ExtraUsagePercent >= tf)
                 {
-                    _notifier.ShowUsageAlert(t, Loc.ExtraUsageTitle, "", ntfyTopic, "Claude", ThresholdToPriority(t));
+                    _notifier.ShowUsageAlert(t, Loc.ExtraUsageTitle, "", ntfyTopic, "Claude", ThresholdToPriority(t),
+                        windowId: "extra", accountId: accountId);
                 }
             }
             _prevExtraPercent = ExtraUsagePercent;
