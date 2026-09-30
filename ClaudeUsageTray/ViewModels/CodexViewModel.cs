@@ -51,7 +51,8 @@ public partial class CodexViewModel : ObservableObject
     }
 
     // thresholds: 사용자가 설정에서 켠 임계값(%). Claude 와 같은 기준을 따르도록 호출자가 넘긴다.
-    public async Task RefreshAsync(bool showAbsoluteResetTime, string ntfyTopic, bool notificationsEnabled, bool notifyOnQuotaReset, IReadOnlyCollection<int> thresholds, Action<int, string, string, string> showUsageAlert, Action showQuotaResetAlert)
+    // showUsageAlert 의 마지막 인자: 서버가 준 창 리셋 시각(추정치면 null). 여러 PC 의 같은 알림을 가르는 데 쓴다(#175).
+    public async Task RefreshAsync(bool showAbsoluteResetTime, string ntfyTopic, bool notificationsEnabled, bool notifyOnQuotaReset, IReadOnlyCollection<int> thresholds, Action<int, string, string, string, DateTimeOffset?> showUsageAlert, Action showQuotaResetAlert)
     {
         try
         {
@@ -81,8 +82,10 @@ public partial class CodexViewModel : ObservableObject
                     if (alerts.QuotaReset)
                         showQuotaResetAlert();
 
+                    // 추정 리셋은 PC 마다 달라(로그의 첫 활동 시각 기준) 같은 창을 가르는 근거가 못 된다.
+                    var windowResetAt = snapshot.IsShortResetEstimated ? null : snapshot.ShortResetAt;
                     foreach (var t in alerts.CrossedThresholds)
-                        showUsageAlert(t, Loc.Usage, Reset, ntfyTopic);
+                        showUsageAlert(t, Loc.Usage, Reset, ntfyTopic, windowResetAt);
                 }
 
                 Percent = newPercent;

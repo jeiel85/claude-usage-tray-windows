@@ -85,7 +85,7 @@ public class WeatherAlertService
                     var clickUrl = BuildWeatherClickUrl(loc);
 
                     _notifier.ShowWeatherAlert(title, ntfyBody, ntfyTopic,
-                        ntfyBody, tags: ["sunny"], clickUrl: clickUrl);
+                        ntfyBody, tags: ["sunny"], clickUrl: clickUrl, dedupeKey: dailyKey);
                     cache.Mark(dailyKey, now);
                 }
             }
@@ -129,7 +129,7 @@ public class WeatherAlertService
                     var body = $"{loc.Name}: {Loc.WeatherRainWarning(today.PrecipitationProbabilityMax.Value)}";
                     _notifier.ShowWeatherAlert(
                         Loc.WeatherWarningTitle, body, ntfyTopic, body,
-                        tags: ["umbrella"], clickUrl: clickUrl);
+                        tags: ["umbrella"], clickUrl: clickUrl, dedupeKey: key);
                     cache.Mark(key, now);
                 }
             }
@@ -143,7 +143,7 @@ public class WeatherAlertService
                     var body = $"{loc.Name}: {Loc.WeatherHeatWarning(today.MaxTemperatureC.Value)}";
                     _notifier.ShowWeatherAlert(
                         Loc.WeatherWarningTitle, body, ntfyTopic, body,
-                        tags: ["hot"], clickUrl: clickUrl);
+                        tags: ["hot"], clickUrl: clickUrl, dedupeKey: key);
                     cache.Mark(key, now);
                 }
             }
@@ -157,7 +157,7 @@ public class WeatherAlertService
                     var body = $"{loc.Name}: {Loc.WeatherColdWarning(today.MinTemperatureC.Value)}";
                     _notifier.ShowWeatherAlert(
                         Loc.WeatherWarningTitle, body, ntfyTopic, body,
-                        tags: ["snowflake"], clickUrl: clickUrl);
+                        tags: ["snowflake"], clickUrl: clickUrl, dedupeKey: key);
                     cache.Mark(key, now);
                 }
             }
@@ -175,7 +175,7 @@ public class WeatherAlertService
                 var body = $"{loc.Name}: {Loc.WeatherWindWarning(report.Current.WindSpeedKmh.Value)}";
                 _notifier.ShowWeatherAlert(
                     Loc.WeatherWarningTitle, body, ntfyTopic, body,
-                    tags: ["wind"], clickUrl: clickUrl);
+                    tags: ["wind"], clickUrl: clickUrl, dedupeKey: key);
                 cache.Mark(key, now);
             }
         }
@@ -200,7 +200,7 @@ public class WeatherAlertService
                 var body = $"{alert.Event} · {alert.Severity}\n{alert.Headline}";
                 _notifier.ShowWeatherAlert(
                     Loc.WeatherWarningTitle, body, ntfyTopic, body,
-                    tags: ["warning"], clickUrl: clickUrl);
+                    tags: ["warning"], clickUrl: clickUrl, dedupeKey: key);
                 cache.Mark(key, now);
             }
 

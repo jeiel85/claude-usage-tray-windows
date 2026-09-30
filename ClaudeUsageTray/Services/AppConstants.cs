@@ -22,6 +22,19 @@ internal static class AppConstants
     /// <summary>푸시 알림 타임아웃 (5초)</summary>
     public const int PushTimeoutSeconds = 5;
 
+    /// <summary>
+    /// 같은 사건의 알림을 다른 PC 가 이미 보냈는지 확인하기 전의 무작위 대기 상한 (4초).
+    /// ntfy.sh 는 발행한 메시지가 폴링에 보이기까지 1~1.6초쯤 걸린다(2026-09-30 4회 실측).
+    /// 두 PC 가 같은 순간에 감지해도 한쪽이 상대의 발행을 볼 수 있을 만큼 서로의 확인 시점을 벌려 준다.
+    /// </summary>
+    public const int PushDedupeJitterMaxMs = 4_000;
+
+    /// <summary>
+    /// 중복 확인 때 토픽 캐시를 거슬러 볼 기간. ntfy 서버의 기본 캐시 보존(cache-duration)이 12시간이라
+    /// 이보다 길게 물어도 더 나오지 않는다.
+    /// </summary>
+    public const string PushDedupeLookback = "12h";
+
     /// <summary>날씨 API 요청 타임아웃 (10초)</summary>
     public const int WeatherTimeoutSeconds = 10;
 

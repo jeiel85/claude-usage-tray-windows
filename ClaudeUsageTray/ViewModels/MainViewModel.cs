@@ -2169,7 +2169,8 @@ namespace ClaudeUsageTray.ViewModels;
                                             _notifier.ShowEarlyExhaustionAlert(
                                                 depletionAt.ToString("HH:mm"),
                                                 FormatResetLabel(currentReset),
-                                                NtfyTopicEffective);
+                                                NtfyTopicEffective,
+                                                depletionAt: depletionAt);
                                         }
                                         // 조기 소진 예상이 늦춰졌더라도 기준 시각은 업데이트(다음 비교 기준)
                                         _lastNotifiedEarlyDepletionAt = depletionAt;
@@ -2452,10 +2453,11 @@ namespace ClaudeUsageTray.ViewModels;
             NotificationsEnabled,
             NotifyOnQuotaReset,
             thresholds,
-            (threshold, windowLabel, resetLabel, topic) =>
+            (threshold, windowLabel, resetLabel, topic, windowResetAt) =>
                 _notifier.ShowUsageAlert(threshold, windowLabel, resetLabel, topic,
                     codexName,
-                    ThresholdToPriority(threshold)),
+                    ThresholdToPriority(threshold),
+                    windowResetAt: windowResetAt),
             () => _notifier.ShowQuotaResetAlert(NtfyTopicEffective, codexName));
 
         var sync = TrySyncProviderSnapshot(UsageProviderKind.Codex, CodexVm.LastSnapshot);
@@ -2753,7 +2755,8 @@ namespace ClaudeUsageTray.ViewModels;
             double tf = t / 100.0;
             if (_prevShortPercent < tf && newPercent >= tf)
             {
-                _notifier.ShowUsageAlert(t, Loc.FiveHourWindow, resetLabel, ntfyTopic, "Claude", ThresholdToPriority(t));
+                _notifier.ShowUsageAlert(t, Loc.FiveHourWindow, resetLabel, ntfyTopic, "Claude", ThresholdToPriority(t),
+                    windowResetAt: _rawClaudeShortResetAt);
             }
         }
 
@@ -2766,7 +2769,8 @@ namespace ClaudeUsageTray.ViewModels;
                 // 이전 값과 현재 값 비교 (초기값 0에서 첫 알림이 가지 않도록)
                 if (_prevExtraPercent < tf && ExtraUsagePercent >= tf)
                 {
-                    _notifier.ShowUsageAlert(t, Loc.ExtraUsageTitle, "", ntfyTopic, "Claude", ThresholdToPriority(t));
+                    _notifier.ShowUsageAlert(t, Loc.ExtraUsageTitle, "", ntfyTopic, "Claude", ThresholdToPriority(t),
+                        windowId: "extra");
                 }
             }
             _prevExtraPercent = ExtraUsagePercent;
