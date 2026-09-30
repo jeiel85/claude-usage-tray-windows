@@ -8,7 +8,8 @@ public partial class CodexViewModel : ObservableObject
 {
     private readonly CodexUsageMonitor _monitor;
     private readonly HistoryService _history;
-    private double _prevPercent = -1;
+    // 알림용 "이전 값" 은 표시용 Percent 와 분리한다 — 조회 실패 때의 0% 가 기준선을 무너뜨리지 않게 하기 위함.
+    private readonly QuotaAlertBaseline _alertBaseline = new();
     private DateTimeOffset? _rawShortResetAt;
     private bool _rawShortResetEstimated;
     private DateTimeOffset? _rawLongResetAt;
@@ -34,7 +35,7 @@ public partial class CodexViewModel : ObservableObject
     [ObservableProperty] private string _cacheReadLabel = "—";
     [ObservableProperty] private bool _isUsageEmpty = true;
 
-    public double PrevPercent => _prevPercent;
+    public double PrevPercent => _alertBaseline.Percent;
     public DateTimeOffset? RawShortResetAt => _rawShortResetAt;
     public bool RawShortResetEstimated => _rawShortResetEstimated;
     public DateTimeOffset? RawLongResetAt => _rawLongResetAt;
@@ -49,7 +50,8 @@ public partial class CodexViewModel : ObservableObject
         _history = history;
     }
 
-    public async Task RefreshAsync(bool showAbsoluteResetTime, string ntfyTopic, bool notificationsEnabled, bool notifyOnQuotaReset, Action<int, string, string, string> showUsageAlert, Action showQuotaResetAlert)
+    // thresholds: 사용자가 설정에서 켠 임계값(%). Claude 와 같은 기준을 따르도록 호출자가 넘긴다.
+    public async Task RefreshAsync(bool showAbsoluteResetTime, string ntfyTopic, bool notificationsEnabled, bool notifyOnQuotaReset, IReadOnlyCollection<int> thresholds, Action<int, string, string, string> showUsageAlert, Action showQuotaResetAlert)
     {
         try
         {
@@ -69,26 +71,21 @@ public partial class CodexViewModel : ObservableObject
                 ErrorMessage = informational ? "" : (snapshot.ErrorMessage ?? "");
                 Summary = Loc.UsageSummary(newPercent);
 
-                if (notificationsEnabled && _prevPercent >= 0)
-                {
-                    if (notifyOnQuotaReset && _prevPercent >= 1.0 && newPercent < 1.0)
-                    {
-                        showQuotaResetAlert();
-                    }
+                // 알림이 꺼져 있어도 기준선은 갱신한다 — 나중에 켰을 때 낡은 기준선과 비교하지 않도록.
+                var alerts = _alertBaseline.Observe(
+                    newPercent, snapshot.ShortResetAt, snapshot.IsShortResetEstimated,
+                    DateTimeOffset.Now, thresholds, notifyOnQuotaReset);
 
-                    var providerLabel = UsageProviderKind.DisplayName(UsageProviderKind.Codex);
-                    foreach (var t in new[] { 50, 75, 90, 100 }.OrderBy(x => x))
-                    {
-                        double tf = t / 100.0;
-                        if (_prevPercent < tf && newPercent >= tf)
-                        {
-                            showUsageAlert(t, Loc.Usage, Reset, ntfyTopic);
-                        }
-                    }
+                if (notificationsEnabled)
+                {
+                    if (alerts.QuotaReset)
+                        showQuotaResetAlert();
+
+                    foreach (var t in alerts.CrossedThresholds)
+                        showUsageAlert(t, Loc.Usage, Reset, ntfyTopic);
                 }
 
                 Percent = newPercent;
-                _prevPercent = newPercent;
 
                 LongPercent   = snapshot.LongUsagePercent;
                 _rawLongResetAt = snapshot.LongResetAt;

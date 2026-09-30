@@ -86,6 +86,50 @@ public class LocalizationServiceTests
         }
     }
 
+    // 초기화 알림은 공급자 이름을 그대로 써야 한다 — 예전에는 Codex 초기화도 "Claude 할당량 초기화됨" 으로 나갔다.
+    [Theory]
+    [InlineData("ko", "Codex 할당량 초기화됨", "이제 다시 Codex를 사용할 수 있습니다!")]
+    [InlineData("zh", "Codex 配额已重置", "现在可以再次使用 Codex 了！")]
+    [InlineData("ja", "Codex クォータがリセットされました", "Codex を再び使用できるようになりました！")]
+    [InlineData("en", "Codex Quota Reset", "You can use Codex again now!")]
+    public void QuotaReset_UsesTheGivenAgentName(string lang, string expectedTitle, string expectedBody)
+    {
+        var originalLang = Loc.CurrentLang;
+        try
+        {
+            Loc.SetLanguage(lang);
+
+            Assert.Equal(expectedTitle, Loc.QuotaResetTitle("Codex"));
+            Assert.Equal(expectedBody, Loc.QuotaResetBody("Codex"));
+            Assert.DoesNotContain("Claude", Loc.QuotaResetTitle("Codex"));
+            Assert.DoesNotContain("Claude", Loc.QuotaResetBody("Codex"));
+        }
+        finally
+        {
+            Loc.SetLanguage(originalLang);
+        }
+    }
+
+    // Claude 의 초기화 알림 문구는 이번 변경 전과 한 글자도 달라지면 안 된다.
+    [Theory]
+    [InlineData("ko", "Claude 할당량 초기화됨", "이제 다시 Claude를 사용할 수 있습니다!")]
+    [InlineData("en", "Claude Quota Reset", "You can use Claude again now!")]
+    public void QuotaReset_ClaudeTextIsUnchanged(string lang, string expectedTitle, string expectedBody)
+    {
+        var originalLang = Loc.CurrentLang;
+        try
+        {
+            Loc.SetLanguage(lang);
+
+            Assert.Equal(expectedTitle, Loc.QuotaResetTitle("Claude"));
+            Assert.Equal(expectedBody, Loc.QuotaResetBody("Claude"));
+        }
+        finally
+        {
+            Loc.SetLanguage(originalLang);
+        }
+    }
+
     // 창 길이를 모르면(null/0) 기존 "단기 윈도우"로 폴백한다.
     [Fact]
     public void CodexWindowLabel_FallsBackWhenUnknown()
