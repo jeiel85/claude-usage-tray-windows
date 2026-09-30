@@ -599,20 +599,21 @@ public static class Loc
         _ => "Quota reset alert"
     };
 
-    public static string QuotaResetTitle => Lang switch
+    // agent 를 받는 이유: 초기화 알림이 Claude 문구로 고정돼 있어 Codex 초기화도 "Claude 할당량 초기화됨" 으로 발송됐다.
+    public static string QuotaResetTitle(string agent) => Lang switch
     {
-        "ko" => "Claude 할당량 초기화됨",
-        "zh" => "Claude 配额已重置",
-        "ja" => "Claude クォータがリセットされました",
-        _ => "Claude Quota Reset"
+        "ko" => $"{agent} 할당량 초기화됨",
+        "zh" => $"{agent} 配额已重置",
+        "ja" => $"{agent} クォータがリセットされました",
+        _ => $"{agent} Quota Reset"
     };
 
-    public static string QuotaResetBody => Lang switch
+    public static string QuotaResetBody(string agent) => Lang switch
     {
-        "ko" => "이제 다시 Claude를 사용할 수 있습니다!",
-        "zh" => "现在可以再次使用 Claude 了！",
-        "ja" => "Claude を再び使用できるようになりました！",
-        _ => "You can use Claude again now!"
+        "ko" => $"이제 다시 {agent}를 사용할 수 있습니다!",
+        "zh" => $"现在可以再次使用 {agent} 了！",
+        "ja" => $"{agent} を再び使用できるようになりました！",
+        _ => $"You can use {agent} again now!"
     };
 
     public static string NtfyTitle => Lang switch

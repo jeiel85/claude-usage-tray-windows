@@ -55,10 +55,10 @@ public class NotificationService
         SendNtfy(ntfyTopic, title, body, priority);
     }
 
-    public void ShowQuotaResetAlert(string ntfyTopic, int priority = 2)
+    public void ShowQuotaResetAlert(string ntfyTopic, string agent = "Claude", int priority = 2)
     {
-        var title = Loc.QuotaResetTitle;
-        var body  = Loc.QuotaResetBody;
+        var title = Loc.QuotaResetTitle(agent);
+        var body  = Loc.QuotaResetBody(agent);
 
         ShowBalloon(title, body);
         SendNtfy(ntfyTopic, title, body, priority);

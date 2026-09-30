@@ -2439,16 +2439,24 @@ namespace ClaudeUsageTray.ViewModels;
 
     private async Task RefreshCodexInternalAsync()
     {
+        var codexName = UsageProviderKind.DisplayName(UsageProviderKind.Codex);
+
+        // Claude(CheckThresholds)와 같이 저장된 설정의 임계값을 따른다. 알림이 꺼져 있으면 읽을 필요가 없다.
+        IReadOnlyCollection<int> thresholds = NotificationsEnabled
+            ? _settingsService.Load().Thresholds
+            : Array.Empty<int>();
+
         await CodexVm.RefreshAsync(
             ShowAbsoluteResetTime,
             NtfyTopicEffective,
             NotificationsEnabled,
             NotifyOnQuotaReset,
+            thresholds,
             (threshold, windowLabel, resetLabel, topic) =>
                 _notifier.ShowUsageAlert(threshold, windowLabel, resetLabel, topic,
-                    UsageProviderKind.DisplayName(UsageProviderKind.Codex),
+                    codexName,
                     ThresholdToPriority(threshold)),
-            () => _notifier.ShowQuotaResetAlert(NtfyTopicEffective));
+            () => _notifier.ShowQuotaResetAlert(NtfyTopicEffective, codexName));
 
         var sync = TrySyncProviderSnapshot(UsageProviderKind.Codex, CodexVm.LastSnapshot);
         var mergedTotals = sync.MergedTotals;
