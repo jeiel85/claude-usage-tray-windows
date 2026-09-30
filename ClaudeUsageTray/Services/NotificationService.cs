@@ -64,14 +64,16 @@ public class NotificationService
             key: NtfyEventKey.ForInstant("ratelimit", "Claude", DateTimeOffset.Now, accountId));
     }
 
-    public void ShowQuotaResetAlert(string ntfyTopic, string agent = "Claude", int priority = 2, string? accountId = null)
+    // endedWindowResetAt: 초기화로 끝난 창의 서버 리셋 시각. 초기화를 자고 넘겨 늦게 깬 PC 도 다른 PC 가 보낸 같은 초기화를 알아보게 한다.
+    public void ShowQuotaResetAlert(string ntfyTopic, string agent = "Claude", int priority = 2, string? accountId = null,
+        DateTimeOffset? endedWindowResetAt = null)
     {
         var title = Loc.QuotaResetTitle(agent);
         var body  = Loc.QuotaResetBody(agent);
 
         ShowBalloon(title, body);
         SendNtfy(ntfyTopic, title, body, priority,
-            key: NtfyEventKey.ForInstant("reset", agent, DateTimeOffset.Now, accountId));
+            key: NtfyEventKey.ForReset(agent, endedWindowResetAt, DateTimeOffset.Now, accountId));
     }
 
     // depletionAt: 예상 소진 시각(문자열 depletionTime 은 표시용이라 키에 쓸 수 없다). PC 마다 몇 분씩 어긋나므로 허용 오차로 흡수한다.

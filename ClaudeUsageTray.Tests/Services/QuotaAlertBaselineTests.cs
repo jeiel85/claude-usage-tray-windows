@@ -249,6 +249,57 @@ public class QuotaAlertBaselineTests
         Assert.True(result.QuotaReset);
     }
 
+    // 초기화 알림의 사건 식별자(#175, Codex 리뷰봇 4차 지적): 감지 시각이 아니라 "끝난 창" 의 서버 리셋 시각이어야
+    // 초기화를 자고 넘겨 늦게 깬 PC 도 다른 PC 가 이미 보낸 같은 초기화를 알아본다.
+    [Fact]
+    public void QuotaReset_ReportsTheEndedWindowsResetTime_WhenTheWindowEndsByTime()
+    {
+        var baseline = new QuotaAlertBaseline();
+        Observe(baseline, 1.0, ResetA);
+
+        var result = Observe(baseline, 0, null, now: ResetA.AddMinutes(1));
+
+        Assert.True(result.QuotaReset);
+        Assert.Equal(ResetA, result.EndedWindowResetAt);
+    }
+
+    [Fact]
+    public void QuotaReset_ReportsTheEndedWindowsResetTime_WhenAReadingShowsANewWindow()
+    {
+        var baseline = new QuotaAlertBaseline();
+        Observe(baseline, 1.0, ResetA);
+
+        var result = Observe(baseline, 0.03, Now.AddHours(5), now: Now.AddMinutes(2));
+
+        Assert.True(result.QuotaReset);
+        Assert.Equal(ResetA, result.EndedWindowResetAt);
+    }
+
+    // 추정 리셋은 PC 마다 달라 다른 PC 와 같은 창을 가리키는 식별자가 못 된다.
+    [Fact]
+    public void QuotaReset_DoesNotReportAnEstimatedResetTime()
+    {
+        var baseline = new QuotaAlertBaseline();
+        Observe(baseline, 1.0, ResetA, estimated: true);
+
+        var result = Observe(baseline, 0.04, ResetA.AddHours(5), now: ResetA.AddMinutes(1));
+
+        Assert.True(result.QuotaReset);
+        Assert.Null(result.EndedWindowResetAt);
+    }
+
+    [Fact]
+    public void NoQuotaReset_MeansNoEndedWindow()
+    {
+        var baseline = new QuotaAlertBaseline();
+        Observe(baseline, 0.40, ResetA);
+
+        var result = Observe(baseline, 0.60, ResetA, now: Now.AddMinutes(2));
+
+        Assert.False(result.QuotaReset);
+        Assert.Null(result.EndedWindowResetAt);
+    }
+
     // 알림이 꺼져 있어도 기준선은 움직인다(호출자가 발송만 건너뜀) — 켠 직후 낡은 기준선과 비교하지 않도록.
     [Fact]
     public void Baseline_TracksReadings_EvenWithNoThresholds()

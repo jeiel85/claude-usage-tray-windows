@@ -18,6 +18,8 @@ public class NtfyEventKeyTests
     // 같은 계정으로 로그인한 여러 PC 를 흉내 낼 때 쓴다. 계정을 모르는 PC 끼리는 일치하지 않는 것이 맞는 동작이다.
     private const string Acct = "acct-shared";
 
+    private static readonly int[] AllThresholds = [50, 75, 90, 100];
+
     private static string Message(string sequenceId, string text = "x", string ev = "message") =>
         $"{{\"id\":\"abc\",\"time\":1790770431,\"event\":\"{ev}\",\"topic\":\"t\",\"sequence_id\":\"{sequenceId}\",\"message\":\"{text}\"}}";
 
@@ -337,6 +339,117 @@ public class NtfyEventKeyTests
             CultureInfo.CurrentCulture = previous;
             CultureInfo.CurrentUICulture = previousUi;
         }
+    }
+
+    // ---- 초기화 알림의 사건 식별자 ----
+
+    // Codex 리뷰봇 4차 지적(#176): 초기화를 자고 넘겨 30분 넘게 늦게 깬 PC 가 감지 시각으로는 다른 PC 의 같은 초기화 알림을
+    // 알아보지 못하고 한 번 더 보냈다. 기준선이 알려주는 "끝난 창" 의 리셋 시각으로 가르면 캐시 전체(12시간)에서 알아본다.
+    [Fact]
+    public void Reset_ASleepingPcThatWakesHoursLater_StillRecognizesTheSameReset()
+    {
+        // 두 PC 모두 같은 창(ResetA 에 끝남)을 100% 로 지켜보고 있었다. A 는 제때, B 는 3시간 뒤 깨어 초기화를 감지한다.
+        var baselineA = new QuotaAlertBaseline();
+        var baselineB = new QuotaAlertBaseline();
+        baselineA.Observe(1.0, Reset, false, Now, AllThresholds, true);
+        baselineB.Observe(1.0, Reset, false, Now, AllThresholds, true);
+
+        var detectedByA = baselineA.Observe(0.02, Reset.AddHours(5), false, Reset.AddMinutes(1), AllThresholds, true);
+        var wakeUpB = Reset.AddHours(3);
+        var detectedByB = baselineB.Observe(0.10, Reset.AddHours(5), false, wakeUpB, AllThresholds, true);
+
+        Assert.True(detectedByA.QuotaReset);
+        Assert.True(detectedByB.QuotaReset);
+
+        var keyA = NtfyEventKey.ForReset("Codex", detectedByA.EndedWindowResetAt, Reset.AddMinutes(1), Acct);
+        var keyB = NtfyEventKey.ForReset("Codex", detectedByB.EndedWindowResetAt, wakeUpB, Acct);
+
+        Assert.True(keyB.Matches(keyA.SequenceId));
+        Assert.Equal(keyA.SequenceId, keyB.SequenceId);
+    }
+
+    // 예전 방식(감지 시각)이면 이 시나리오가 놓친다는 것을 함께 고정해 둔다.
+    [Fact]
+    public void Reset_WithoutTheEndedWindow_FallsBackToDetectionTime_AndMissesASleepingPc()
+    {
+        var keyA = NtfyEventKey.ForReset("Codex", null, Reset.AddMinutes(1), Acct);
+        var keyB = NtfyEventKey.ForReset("Codex", null, Reset.AddHours(3), Acct);
+
+        Assert.False(keyB.Matches(keyA.SequenceId));
+        Assert.True(NtfyEventKey.ForReset("Codex", null, Reset.AddMinutes(10), Acct).Matches(keyA.SequenceId));
+    }
+
+    // 다음 창의 초기화는 진짜 새 사건이다.
+    [Fact]
+    public void Reset_OfADifferentWindow_IsANewEvent()
+    {
+        var first = NtfyEventKey.ForReset("Codex", Reset, Reset.AddMinutes(1), Acct);
+        var next = NtfyEventKey.ForReset("Codex", Reset.AddHours(5), Reset.AddHours(5).AddMinutes(1), Acct);
+
+        Assert.False(next.Matches(first.SequenceId));
+    }
+
+    [Fact]
+    public void Reset_IsScopedToTheAccountAndTheProvider()
+    {
+        var codex = NtfyEventKey.ForReset("Codex", Reset, Now, "acct-1");
+
+        Assert.False(NtfyEventKey.ForReset("Codex", Reset, Now, "acct-2").Matches(codex.SequenceId));
+        Assert.False(NtfyEventKey.ForReset("Claude", Reset, Now, "acct-1").Matches(codex.SequenceId));
+        Assert.Matches(NtfySequenceId, codex.SequenceId);
+    }
+
+    // ---- 발행하는 sequence_id ----
+
+    // Codex 리뷰봇 4차 지적(#176): 허용 오차로 같은 사건이라 보면서도 발행하는 ID 가 각 PC 의 원시 초 단위 시각이면,
+    // 몇 초 차이로 동시에 감지한 두 PC 가 서로 다른 ID 를 발행해 Android·웹의 알림 합치기(같은 ID 끼리)가 동작하지 않는다.
+    [Fact]
+    public void SequenceId_IsIdentical_ForDetectionsWithinTheSameMinute()
+    {
+        var pcA = NtfyEventKey.ForInstant("ratelimit", "Claude", Now.AddSeconds(5), Acct);
+        var pcB = NtfyEventKey.ForInstant("ratelimit", "Claude", Now.AddSeconds(41), Acct);
+
+        Assert.Equal(pcA.SequenceId, pcB.SequenceId);
+    }
+
+    // 분 경계를 사이에 둔 두 감지는 ID 가 다르더라도 서로 같은 사건으로 알아본다(중복 확인은 그대로 동작).
+    [Fact]
+    public void DetectionsAcrossAMinuteBoundary_HaveDifferentIds_ButStillMatch()
+    {
+        var pcA = NtfyEventKey.ForInstant("ratelimit", "Claude", Now.AddSeconds(59), Acct);
+        var pcB = NtfyEventKey.ForInstant("ratelimit", "Claude", Now.AddSeconds(63), Acct);
+
+        Assert.NotEqual(pcA.SequenceId, pcB.SequenceId);
+        Assert.True(pcB.Matches(pcA.SequenceId));
+        Assert.True(pcA.Matches(pcB.SequenceId));
+    }
+
+    // 내림은 비교를 절대 좁히지 않는다: 원래(초 단위) 허용 오차 안이던 짝은 어떤 초에서 시작해도 계속 맞아야 한다.
+    [Fact]
+    public void MinuteRounding_NeverLosesAMatchThatTheRawToleranceWouldHave()
+    {
+        // ForInstant 의 허용 오차는 30분이다.
+        foreach (var startSecond in new[] { 0, 1, 29, 30, 58, 59, 60, 61, 119 })
+        {
+            foreach (var gapSeconds in new[] { 0, 1, 59, 60, 61, 599, 1799, 1800 })
+            {
+                var first = NtfyEventKey.ForInstant("reset", "Codex", Now.AddSeconds(startSecond), Acct);
+                var later = NtfyEventKey.ForInstant("reset", "Codex", Now.AddSeconds(startSecond + gapSeconds), Acct);
+
+                Assert.True(later.Matches(first.SequenceId), $"start={startSecond}s gap={gapSeconds}s");
+                Assert.True(first.Matches(later.SequenceId), $"start={startSecond}s gap={gapSeconds}s (reverse)");
+            }
+        }
+    }
+
+    // 허용 오차를 한참 넘으면 여전히 다른 사건이다(내림 폭은 1분뿐).
+    [Fact]
+    public void MinuteRounding_DoesNotWidenTheToleranceBeyondOneMinute()
+    {
+        var first = NtfyEventKey.ForInstant("reset", "Codex", Now, Acct);
+
+        Assert.False(NtfyEventKey.ForInstant("reset", "Codex", Now.AddSeconds(1800 + 61), Acct).Matches(first.SequenceId));
+        Assert.False(NtfyEventKey.ForInstant("reset", "Codex", Now.AddMinutes(45), Acct).Matches(first.SequenceId));
     }
 
     // ---- 초기화·레이트 리밋 ----

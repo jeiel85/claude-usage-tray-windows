@@ -2143,6 +2143,8 @@ namespace ClaudeUsageTray.ViewModels;
                     if (usage!.FiveHour != null)
                     {
                         var newPercent = usage.FiveHour.UsagePercent;
+                        // 초기화 알림의 사건 식별자로 쓸 "끝난 창" 의 리셋 시각 — 아래에서 새 창의 값으로 덮어쓰기 전에 붙잡아 둔다(#175).
+                        var endedWindowResetAt = _rawClaudeShortResetAt;
                         _rawClaudeShortResetAt = usage.FiveHour.ResetsAtParsed;
                         ClaudeVm.ShortReset = FormatResetLabel(_rawClaudeShortResetAt);
                         ClaudeVm.ShortSummary = Loc.UsageSummary(newPercent);
@@ -2188,7 +2190,7 @@ namespace ClaudeUsageTray.ViewModels;
 
                         if (NotificationsEnabled && _prevShortPercent >= 0)
                         {
-                            CheckThresholds(newPercent, ClaudeVm.ShortReset, NtfyTopicEffective);
+                            CheckThresholds(newPercent, ClaudeVm.ShortReset, NtfyTopicEffective, endedWindowResetAt);
                         }
 
                         ClaudeVm.ShortPercent = newPercent;
@@ -2460,8 +2462,9 @@ namespace ClaudeUsageTray.ViewModels;
                     ThresholdToPriority(threshold),
                     windowResetAt: windowResetAt,
                     accountId: CodexUsageMonitor.GetCurrentAccountIdentity()),
-            () => _notifier.ShowQuotaResetAlert(NtfyTopicEffective, codexName,
-                accountId: CodexUsageMonitor.GetCurrentAccountIdentity()));
+            endedWindowResetAt => _notifier.ShowQuotaResetAlert(NtfyTopicEffective, codexName,
+                accountId: CodexUsageMonitor.GetCurrentAccountIdentity(),
+                endedWindowResetAt: endedWindowResetAt));
 
         var sync = TrySyncProviderSnapshot(UsageProviderKind.Codex, CodexVm.LastSnapshot);
         var mergedTotals = sync.MergedTotals;
@@ -2742,7 +2745,7 @@ namespace ClaudeUsageTray.ViewModels;
         });
     }
 
-    private void CheckThresholds(double newPercent, string resetLabel, string ntfyTopic)
+    private void CheckThresholds(double newPercent, string resetLabel, string ntfyTopic, DateTimeOffset? endedWindowResetAt)
     {
         var settings = _settingsService.Load();
 
@@ -2752,7 +2755,7 @@ namespace ClaudeUsageTray.ViewModels;
         // 1. 할당량 초기화 감지 (100% -> 100% 미만)
         if (NotifyOnQuotaReset && _prevShortPercent >= 1.0 && newPercent < 1.0)
         {
-            _notifier.ShowQuotaResetAlert(ntfyTopic, accountId: accountId);
+            _notifier.ShowQuotaResetAlert(ntfyTopic, accountId: accountId, endedWindowResetAt: endedWindowResetAt);
         }
 
         // 2. 기본 사용량 임계값 알림

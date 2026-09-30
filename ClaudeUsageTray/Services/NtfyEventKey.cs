@@ -48,8 +48,16 @@ internal sealed class NtfyEventKey
 
     /// <summary>ntfy 에 <c>sequence_id</c> 로 실어 보낼 값. 항상 <c>^[-_A-Za-z0-9]{1,64}$</c> 를 만족한다.</summary>
     public string SequenceId => At is { } at
-        ? $"{Prefix}_{Math.Max(0, at.ToUnixTimeSeconds()).ToString(CultureInfo.InvariantCulture)}"
+        ? $"{Prefix}_{PublishedEpoch(at).ToString(CultureInfo.InvariantCulture)}"
         : Prefix;
+
+    // 발행하는 시각 조각은 분 단위로 내린다. 몇 초 차이로 같은 사건을 감지한 두 PC 가 서로 다른 sequence_id 를 발행하면,
+    // 같은 sequence_id 끼리만 한 알림으로 합치는 Android·웹의 기능을 쓸 수 없다(동시 감지 경합에서 이 기능에 기대고 있다).
+    // 1분 안이면 같은 ID 가 나온다. 비교(Matches)는 이 내림 폭만큼 넉넉하게 봐서, 원래 맞던 것은 그대로 맞는다.
+    private const long PublishedEpochStepSeconds = 60;
+
+    private static long PublishedEpoch(DateTimeOffset at) =>
+        Math.Max(0, at.ToUnixTimeSeconds()) / PublishedEpochStepSeconds * PublishedEpochStepSeconds;
 
     // accountId 를 받는 이유: 같은 토픽을 쓰는 PC 들이 서로 다른 계정으로 로그인해 있으면(회사·개인 등) 공급자·창·임계값이
     // 같은 알림이 서로 다른 계정의 사건인데도 같은 키가 되어, 뒤에 감지한 쪽의 정당한 알림이 삼켜진다.
@@ -82,6 +90,20 @@ internal sealed class NtfyEventKey
         string kind, string agent, DateTimeOffset now, string? accountId = null, string? deviceId = null) =>
         new($"{Slug(kind)}-{Slug(agent)}{ScopeSegment(accountId, deviceId)}", now, DetectionTolerance);
 
+    /// <summary>
+    /// 할당량 초기화 알림. <paramref name="endedWindowResetAt"/>(초기화로 끝난 창의 서버 리셋 시각)을 알면 그것으로 사건을 가른다.
+    /// 감지한 시각으로 가르면, 초기화를 자고 넘겨 30분 넘게 늦게 깬 PC 가 다른 PC 가 이미 보낸 같은 초기화를 알아보지 못하고 다시 보낸다.
+    /// 모르면(추정 리셋·첫 관측 등) 감지 시각으로 대신한다.
+    /// </summary>
+    public static NtfyEventKey ForReset(
+        string agent, DateTimeOffset? endedWindowResetAt, DateTimeOffset now, string? accountId = null, string? deviceId = null)
+    {
+        var prefix = $"reset-{Slug(agent)}{ScopeSegment(accountId, deviceId)}";
+        return endedWindowResetAt is { } ended
+            ? new NtfyEventKey(prefix, ended, WindowResetTolerance)
+            : new NtfyEventKey(prefix, now, DetectionTolerance);
+    }
+
     /// <summary>조기 소진 알림. 같은 창 안에서 예상이 앞당겨지면(=시각이 크게 달라지면) 새 사건으로 본다.</summary>
     public static NtfyEventKey ForEarlyExhaustion(
         string agent, DateTimeOffset? depletionAt, DateTimeOffset now, string? accountId = null, string? deviceId = null) =>
@@ -112,7 +134,11 @@ internal sealed class NtfyEventKey
         if (!long.TryParse(sequenceId.AsSpan(split + 1), NumberStyles.None, CultureInfo.InvariantCulture, out var epoch))
             return false;
 
-        return Math.Abs(epoch - at.ToUnixTimeSeconds()) <= Tolerance.TotalSeconds;
+        // 저장된 값은 분 단위로 내린 것이라 실제 시각은 [epoch, epoch + 59] 안 어딘가다.
+        // 그 안에서 허용 오차 이내인 시각이 하나라도 있으면 같은 사건으로 본다.
+        var seconds = at.ToUnixTimeSeconds();
+        var tolerance = (long)Tolerance.TotalSeconds;
+        return seconds >= epoch - tolerance && seconds <= epoch + (PublishedEpochStepSeconds - 1) + tolerance;
     }
 
     /// <summary>
