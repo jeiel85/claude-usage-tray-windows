@@ -60,8 +60,7 @@ public class WeatherAlertService
             if (settings.WeatherDailyForecastEnabled && report.Daily.Count > 0)
             {
                 var today = report.Daily[0];
-                var dailyKey = $"daily:{DateOnly.FromDateTime(now.DateTime):yyyyMMdd}:" +
-                              $"{loc.Latitude:F2}:{loc.Longitude:F2}";
+                var dailyKey = WeatherAlertKeys.Daily(now, loc.Latitude, loc.Longitude);
 
                 if (!cache.Contains(dailyKey) && IsDailyForecastTime(settings))
                 {
@@ -117,13 +116,13 @@ public class WeatherAlertService
         {
             // 비/폭염/한파는 "오늘 예보"(report.Daily[0]) 하나를 보고 판정하므로 하루 안에서는
             // 같은 내용이다. 하루 한 번만 보낸다.
-            var dayWindow = now.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+            var dayWindow = WeatherAlertKeys.Day(now);
 
             if (today.PrecipitationProbabilityMax >= settings.WeatherRainProbabilityThreshold
                 && IsSignificantPrecip(today.WeatherCode))
             {
-                var key = $"condition:rain:{dayWindow}:{settings.WeatherRainProbabilityThreshold}:" +
-                         $"{loc.Latitude:F2}:{loc.Longitude:F2}";
+                var key = WeatherAlertKeys.Condition("rain", dayWindow,
+                    settings.WeatherRainProbabilityThreshold, loc.Latitude, loc.Longitude);
                 if (!cache.Contains(key))
                 {
                     var body = $"{loc.Name}: {Loc.WeatherRainWarning(today.PrecipitationProbabilityMax.Value)}";
@@ -136,8 +135,8 @@ public class WeatherAlertService
 
             if (today.MaxTemperatureC >= settings.WeatherHighTemperatureThresholdC)
             {
-                var key = $"condition:heat:{dayWindow}:{(int)settings.WeatherHighTemperatureThresholdC}:" +
-                         $"{loc.Latitude:F2}:{loc.Longitude:F2}";
+                var key = WeatherAlertKeys.Condition("heat", dayWindow,
+                    (int)settings.WeatherHighTemperatureThresholdC, loc.Latitude, loc.Longitude);
                 if (!cache.Contains(key))
                 {
                     var body = $"{loc.Name}: {Loc.WeatherHeatWarning(today.MaxTemperatureC.Value)}";
@@ -150,8 +149,8 @@ public class WeatherAlertService
 
             if (today.MinTemperatureC <= settings.WeatherLowTemperatureThresholdC)
             {
-                var key = $"condition:cold:{dayWindow}:{(int)settings.WeatherLowTemperatureThresholdC}:" +
-                         $"{loc.Latitude:F2}:{loc.Longitude:F2}";
+                var key = WeatherAlertKeys.Condition("cold", dayWindow,
+                    (int)settings.WeatherLowTemperatureThresholdC, loc.Latitude, loc.Longitude);
                 if (!cache.Contains(key))
                 {
                     var body = $"{loc.Name}: {Loc.WeatherColdWarning(today.MinTemperatureC.Value)}";
@@ -167,9 +166,9 @@ public class WeatherAlertService
         {
             // 강풍은 예보가 아니라 현재 관측 풍속으로 판정하므로 하루 안에서도 값이 바뀐다.
             // 설계 문서의 조건 알림 쿨다운(6시간)을 그대로 적용한다.
-            var windWindow = $"{now:yyyyMMdd}-{now.Hour / ConditionCooldownHours}";
-            var key = $"condition:wind:{windWindow}:{(int)settings.WeatherWindSpeedThresholdKmh}:" +
-                     $"{loc.Latitude:F2}:{loc.Longitude:F2}";
+            var windWindow = WeatherAlertKeys.WindWindow(now, ConditionCooldownHours);
+            var key = WeatherAlertKeys.Condition("wind", windWindow,
+                (int)settings.WeatherWindSpeedThresholdKmh, loc.Latitude, loc.Longitude);
             if (!cache.Contains(key))
             {
                 var body = $"{loc.Name}: {Loc.WeatherWindWarning(report.Current.WindSpeedKmh.Value)}";

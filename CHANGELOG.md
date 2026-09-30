@@ -14,7 +14,7 @@
 - **여러 PC 가 같은 ntfy 토픽으로 같은 알림을 각자 발송하던 문제 (#175)** — 기존 중복 검사는 PC 이름이 붙은 본문을 비교해서 다른 PC 의 알림과는 절대 일치하지 않았습니다. 이제 공급자·종류·임계값·창 리셋 시각·계정으로 만든 사건 키를 ntfy `sequence_id` 로 발행하고, 발송 전에 토픽 캐시(12시간)에서 같은 사건이 있는지 확인합니다. 서로 다른 계정의 알림이 서로를 막지 않도록 계정 식별자의 해시를 키에 넣습니다(원문은 남기지 않습니다). 계정을 알 수 없으면(API 키 모드 등) 이 PC 의 식별자 해시를 대신 넣어 다른 PC 와는 중복을 걸러내지 않습니다. 확인이 실패하거나 서버가 키를 거부하면 알림을 잃지 않도록 그대로 발송합니다.
 
 ### 개선
-- 날씨 알림도 같은 방식으로 다른 PC 와의 중복을 걸러냅니다(위치·날짜가 같은 알림).
+- 날씨 알림도 같은 방식으로 다른 PC 와의 중복을 걸러냅니다(위치·날짜가 같은 알림). 중복 방지 키는 PC 의 지역 설정과 무관하게 만듭니다(예전 문자열 서식은 독일어·프랑스어 설정에서 좌표가 "37,57", 태국어 설정에서 연도가 불교력으로 달라졌습니다. 영어·한국어 설정에서는 글자 하나 달라지지 않아 기존 발송 기록이 그대로 유효합니다).
 - 테스트 알림은 중복 확인 없이 누를 때마다 발송됩니다(예전에는 3분 안에 다시 누르면 건너뛰었습니다).
 - 알림 확인을 위해 ntfy 발송 전에 0~4초 무작위 대기가 있어 최대 4초 늦게 도착할 수 있습니다(Windows 알림은 즉시 표시).
 - 한계: 두 PC 가 약 2초 안에 동시에 감지하면 둘 다 보낼 수 있습니다(Android·웹 ntfy 앱은 한 알림으로 합치고 iOS 는 해당 없음). 완전히 막으려면 한 PC 에서만 "이 PC에서 ntfy 알림 발송"을 켜세요.
@@ -29,7 +29,7 @@
 - **Several PCs sharing one ntfy topic each sent the same alert (#175)** — the old duplicate check compared the message body, which carries the PC name, so it never matched another PC's alert. An event key built from provider, kind, threshold, window reset time and account is now published as the ntfy `sequence_id`, and the topic's cache (12 h) is checked for the same event before sending. A hash of the account identifier is part of the key so alerts from different accounts never suppress each other (the raw identifier is never sent). If the account can't be determined (e.g. API-key mode), a hash of this PC's identity is used instead, so such a PC is never de-duplicated against other PCs. If the check fails or the server rejects the key, the alert is sent anyway so it is never lost.
 
 ### Improved
-- Weather alerts are de-duplicated across PCs the same way (same location and date).
+- Weather alerts are de-duplicated across PCs the same way (same location and date). The de-duplication key no longer depends on the PC's regional settings (the old string format turned coordinates into "37,57" under German/French settings and the year into the Buddhist era under Thai settings; under English/Korean settings it is unchanged character for character, so existing sent-alert records stay valid).
 - Test notifications skip the duplicate check and are sent every time you press the button (previously a second press within 3 minutes was skipped).
 - A random 0–4 s wait before sending to ntfy means alerts can arrive up to 4 s later (the Windows toast is immediate).
 - Limitation: if two PCs detect the same event within about 2 seconds, both can send (Android and web ntfy apps merge them into one notification; iOS does not). To rule it out completely, enable "Send ntfy notifications from this PC" on one PC only.

@@ -69,7 +69,9 @@ internal sealed class NtfyEventKey
         string agent, string windowId, int thresholdPercent, DateTimeOffset? windowResetAt, DateTimeOffset now,
         string? accountId = null, string? deviceId = null)
     {
-        var prefix = $"usage-{Slug(agent)}-{Slug(windowId)}-{thresholdPercent}{ScopeSegment(accountId, deviceId)}";
+        // 키는 PC 간에 같아야 하므로 숫자 서식도 문화권을 따르지 않게 한다.
+        var prefix = string.Create(CultureInfo.InvariantCulture,
+            $"usage-{Slug(agent)}-{Slug(windowId)}-{thresholdPercent}{ScopeSegment(accountId, deviceId)}");
         return windowResetAt is { } reset
             ? new NtfyEventKey(prefix, reset, WindowResetTolerance)
             : new NtfyEventKey(prefix, now, DetectionTolerance);
@@ -185,8 +187,12 @@ internal sealed class NtfyEventKey
         return $"{head}-{Hash(prefix)}";
     }
 
-    // 이 PC 를 가리키는 값. 컴퓨터 이름만으로는 이미지 복제 등으로 겹칠 수 있어 로그인 사용자 이름도 함께 쓴다.
-    private static readonly string DefaultDeviceId = $"{Environment.MachineName}|{Environment.UserName}";
+    // 이 실행 중인 앱을 가리키는 값 — 프로세스마다 새로 뽑는 무작위 값이다.
+    // 컴퓨터 이름·사용자 이름 같은 눈에 보이는 이름은 이미지 복제·같은 이름 설정 등으로 서로 다른 PC 에서 겹칠 수 있고,
+    // 겹치면 계정을 모르는 두 PC 가 다시 같은 키가 되어 서로의 알림을 삼킨다(Codex 리뷰봇 3차 지적).
+    // 영속 ID 는 필요 없다: 알림은 실행 중인 프로세스가 직접 본 전환에서만 나가고(시작 직후의 첫 관측은 기준선만 만든다),
+    // 그래서 재시작을 넘어 "같은 PC 의 이전 알림" 과 맞출 일이 없다. 같은 실행 안의 반복만 걸러지면 충분하다.
+    private static readonly string DefaultDeviceId = Guid.NewGuid().ToString("N");
 
     // 계정을 알면 계정 조각("-a" + 해시 8자리), 모르면 기기 조각("-d" + 해시 8자리). 접두사가 서로 달라 둘이 섞여 일치할 수 없다.
     // 식별자 원문은 공개 토픽 캐시에 남기지 않으려고 해시만 싣는다.

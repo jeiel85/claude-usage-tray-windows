@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using ClaudeUsageTray.Services;
 using Xunit;
@@ -270,7 +271,7 @@ public class NtfyEventKeyTests
         Assert.Matches(NtfySequenceId, key.SequenceId);
     }
 
-    // 기본값(앱이 실제로 쓰는 경로)은 이 PC 의 식별자를 쓰므로 같은 프로세스에서는 항상 같은 키가 나온다.
+    // 기본값(앱이 실제로 쓰는 경로)은 같은 프로세스에서는 항상 같은 키가 나온다 — 같은 실행 안의 반복은 계속 걸러진다.
     [Fact]
     public void DefaultDevice_IsStableWithinAProcess()
     {
@@ -278,6 +279,64 @@ public class NtfyEventKeyTests
         var b = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now);
 
         Assert.Equal(a.SequenceId, b.SequenceId);
+    }
+
+    // Codex 리뷰봇 세 번째 지적(#176): 컴퓨터 이름 + 사용자 이름은 이미지 복제나 같은 이름 설정으로 서로 다른 PC 에서 겹칠 수 있다.
+    // 기본 기기 구분자는 눈에 보이는 이름에서 만들어져서는 안 된다.
+    [Fact]
+    public void DefaultDevice_IsNotDerivedFromTheVisibleMachineOrUserNames()
+    {
+        var byNames = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now, null,
+            deviceId: $"{Environment.MachineName}|{Environment.UserName}");
+        var byDefault = NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now);
+
+        Assert.NotEqual(byNames.SequenceId, byDefault.SequenceId);
+        Assert.False(byDefault.Matches(byNames.SequenceId));
+    }
+
+    // 키는 PC 간에 같아야 하므로 PC 의 지역 설정(숫자·날짜 서식)에 따라 달라지면 안 된다.
+    [Theory]
+    [InlineData("ko-KR")]
+    [InlineData("de-DE")]
+    [InlineData("fr-FR")]
+    [InlineData("th-TH")]
+    [InlineData("ar-SA")]
+    [InlineData("sv-SE")]
+    [InlineData("fa-IR")]
+    public void SequenceId_DoesNotDependOnTheCurrentCulture(string culture)
+    {
+        var expected = WithCulture(CultureInfo.InvariantCulture, () => new[]
+        {
+            NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now, "acct-1").SequenceId,
+            NtfyEventKey.ForInstant("reset", "Claude", Now, "org-1").SequenceId,
+            NtfyEventKey.ForEarlyExhaustion("Claude", Now.AddHours(2), Now, "org-1").SequenceId,
+        });
+
+        var actual = WithCulture(CultureInfo.GetCultureInfo(culture), () => new[]
+        {
+            NtfyEventKey.ForUsage("Codex", "short", 90, Reset, Now, "acct-1").SequenceId,
+            NtfyEventKey.ForInstant("reset", "Claude", Now, "org-1").SequenceId,
+            NtfyEventKey.ForEarlyExhaustion("Claude", Now.AddHours(2), Now, "org-1").SequenceId,
+        });
+
+        Assert.Equal(expected, actual);
+    }
+
+    private static T WithCulture<T>(CultureInfo culture, Func<T> action)
+    {
+        var previous = CultureInfo.CurrentCulture;
+        var previousUi = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentCulture = culture;
+            CultureInfo.CurrentUICulture = culture;
+            return action();
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previous;
+            CultureInfo.CurrentUICulture = previousUi;
+        }
     }
 
     // ---- 초기화·레이트 리밋 ----
