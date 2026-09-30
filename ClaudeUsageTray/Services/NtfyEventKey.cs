@@ -213,18 +213,18 @@ internal sealed class NtfyEventKey
         return $"{head}-{Hash(prefix)}";
     }
 
-    // 이 실행 중인 앱을 가리키는 값 — 프로세스마다 새로 뽑는 무작위 값이다.
+    // 이 설치를 가리키는 값 — 처음 한 번 만들어 저장한 무작위 ID(DeviceIdentity)다. 처음 쓸 때 읽는다.
     // 컴퓨터 이름·사용자 이름 같은 눈에 보이는 이름은 이미지 복제·같은 이름 설정 등으로 서로 다른 PC 에서 겹칠 수 있고,
     // 겹치면 계정을 모르는 두 PC 가 다시 같은 키가 되어 서로의 알림을 삼킨다(Codex 리뷰봇 3차 지적).
-    // 영속 ID 는 필요 없다: 알림은 실행 중인 프로세스가 직접 본 전환에서만 나가고(시작 직후의 첫 관측은 기준선만 만든다),
-    // 그래서 재시작을 넘어 "같은 PC 의 이전 알림" 과 맞출 일이 없다. 같은 실행 안의 반복만 걸러지면 충분하다.
-    private static readonly string DefaultDeviceId = Guid.NewGuid().ToString("N");
+    // 실행마다 새로 뽑으면 재시작 뒤에 같은 PC 의 직전 알림을 알아보지 못한다 — 레이트 리밋 알림은 오늘 기록에 발생 흔적이 있으면
+    // 시작 직후 첫 관측에서도 나가므로 실제로 일어난다(5차 지적). 그래서 재시작을 넘어 유지되는 ID 를 쓴다.
+    private static readonly Lazy<string> DefaultDeviceId = new(() => DeviceIdentity.Current);
 
     // 계정을 알면 계정 조각("-a" + 해시 8자리), 모르면 기기 조각("-d" + 해시 8자리). 접두사가 서로 달라 둘이 섞여 일치할 수 없다.
     // 식별자 원문은 공개 토픽 캐시에 남기지 않으려고 해시만 싣는다.
     private static string ScopeSegment(string? accountId, string? deviceId) =>
         string.IsNullOrWhiteSpace(accountId)
-            ? $"-d{Hash(string.IsNullOrWhiteSpace(deviceId) ? DefaultDeviceId : deviceId.Trim())[..8]}"
+            ? $"-d{Hash(string.IsNullOrWhiteSpace(deviceId) ? DefaultDeviceId.Value : deviceId.Trim())[..8]}"
             : $"-a{Hash(accountId.Trim())[..8]}";
 
     private static string Hash(string text)
