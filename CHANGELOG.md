@@ -3,6 +3,38 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.41.13] - 2026-09-30
+
+<!-- ko -->
+### 수정
+- **Codex 푸시 알림이 엉뚱한 때, 엉뚱한 내용으로 발송되던 문제 (#173)** — 세 가지를 고쳤습니다.
+  - 할당량 초기화 알림이 Codex 인데도 "Claude 할당량 초기화됨" 문구로 나갔습니다. 이제 공급자 이름을 씁니다(4개 언어). Claude 문구는 그대로입니다.
+  - 설정에서 끈 임계값(50/75/90/100%)도 Codex 는 발송했습니다. 이제 Claude 처럼 켠 임계값만 발송합니다.
+  - 조회 실패 뒤 로그 폴백(0% 또는 옛 값)이 알림 기준값을 무너뜨려, 다음 정상 조회 때 50/75/90 알림이 한꺼번에 다시 나가거나 가짜 "초기화" 알림이 나갔습니다. 이제 사용량 창을 설명하는 실제 관측으로만 기준값을 갱신하고, 같은 창 안에서 값이 내려가는 폴백은 무시하며, 서버가 준 리셋 시각이 지났을 때만 초기화로 봅니다(로그에 리셋 시각이 없어 추정한 값의 경과는 증거로 쓰지 않습니다).
+- **여러 PC 가 같은 ntfy 토픽으로 같은 알림을 각자 발송하던 문제 (#175)** — 기존 중복 검사는 PC 이름이 붙은 본문을 비교해서 다른 PC 의 알림과는 절대 일치하지 않았습니다. 이제 공급자·종류·임계값·창 리셋 시각·계정으로 만든 사건 키를 ntfy `sequence_id` 로 발행하고, 발송 전에 토픽 캐시(12시간)에서 같은 사건이 있는지 확인합니다. 서로 다른 계정의 알림이 서로를 막지 않도록 계정 식별자의 해시를 키에 넣습니다(원문은 남기지 않습니다). 확인이 실패하거나 서버가 키를 거부하면 알림을 잃지 않도록 그대로 발송합니다.
+
+### 개선
+- 날씨 알림도 같은 방식으로 다른 PC 와의 중복을 걸러냅니다(위치·날짜가 같은 알림).
+- 테스트 알림은 중복 확인 없이 누를 때마다 발송됩니다(예전에는 3분 안에 다시 누르면 건너뛰었습니다).
+- 알림 확인을 위해 ntfy 발송 전에 0~4초 무작위 대기가 있어 최대 4초 늦게 도착할 수 있습니다(Windows 알림은 즉시 표시).
+- 한계: 두 PC 가 약 2초 안에 동시에 감지하면 둘 다 보낼 수 있습니다(Android·웹 ntfy 앱은 한 알림으로 합치고 iOS 는 해당 없음). 완전히 막으려면 한 PC 에서만 "이 PC에서 ntfy 알림 발송"을 켜세요.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Codex push notifications were sent at the wrong time with the wrong content (#173)** — three fixes:
+  - The quota-reset alert said "Claude quota reset" even for Codex. It now uses the provider's name (4 languages). The Claude wording is unchanged.
+  - Codex sent every threshold (50/75/90/100%) even the ones turned off in settings. It now sends only the enabled thresholds, like Claude.
+  - After a failed fetch, the log fallback (0% or a stale value) broke the alert baseline, so the next good fetch re-sent 50/75/90 all at once or sent a false "quota reset". The baseline now moves only on observations that actually describe the usage window, ignores fallback values that go down inside the same window, and treats a window as reset only once the server-provided reset time has passed (an elapsed estimated reset time is not evidence).
+- **Several PCs sharing one ntfy topic each sent the same alert (#175)** — the old duplicate check compared the message body, which carries the PC name, so it never matched another PC's alert. An event key built from provider, kind, threshold, window reset time and account is now published as the ntfy `sequence_id`, and the topic's cache (12 h) is checked for the same event before sending. A hash of the account identifier is part of the key so alerts from different accounts never suppress each other (the raw identifier is never sent). If the check fails or the server rejects the key, the alert is sent anyway so it is never lost.
+
+### Improved
+- Weather alerts are de-duplicated across PCs the same way (same location and date).
+- Test notifications skip the duplicate check and are sent every time you press the button (previously a second press within 3 minutes was skipped).
+- A random 0–4 s wait before sending to ntfy means alerts can arrive up to 4 s later (the Windows toast is immediate).
+- Limitation: if two PCs detect the same event within about 2 seconds, both can send (Android and web ntfy apps merge them into one notification; iOS does not). To rule it out completely, enable "Send ntfy notifications from this PC" on one PC only.
+<!-- /en -->
+
 ## [1.41.12] - 2026-09-24
 
 <!-- ko -->
