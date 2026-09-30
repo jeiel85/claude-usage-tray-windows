@@ -27,6 +27,12 @@ internal sealed class QuotaAlertBaseline
     public DateTimeOffset? ResetAt { get; private set; }
 
     /// <summary>
+    /// <see cref="ResetAt"/> 이 서버 값이 아니라 추정치인지. 추정 시각의 경과는 창이 끝났다는 증거가 못 되므로
+    /// (실제 리셋과 몇 시간씩 어긋날 수 있다) "데이터 없음 → 진짜 초기화" 판정에서 제외하는 데 쓴다.
+    /// </summary>
+    public bool ResetIsEstimated { get; private set; }
+
+    /// <summary>
     /// 관측 1건을 반영하고, 그 결과로 발송할 알림을 돌려준다.
     ///
     /// Input : percent/resetAt/isResetEstimated = 스냅샷의 단기 창 값, now = 판정 기준 시각,
@@ -42,6 +48,8 @@ internal sealed class QuotaAlertBaseline
     ///  - 창이 바뀌었다면(리셋 시각이 다르거나 이전 창이 끝남) 낮은 값도 진짜다 → 초기화로 본다.
     ///  - 추정 리셋(isResetEstimated)은 창의 정체성을 바꾸지 못한다. 추정치는 실제 리셋과 몇 시간씩
     ///    어긋날 수 있어, 그대로 쓰면 같은 창이 다른 창으로 오인된다.
+    ///  - 같은 이유로 추정 리셋이 지났다는 사실만으로는 초기화를 확정하지 않는다. 데이터가 없을 때
+    ///    "창이 끝났다" 고 볼 수 있는 근거는 서버가 준 리셋 시각의 경과뿐이다(추정 여부는 기준선이 기억한다).
     /// </summary>
     public QuotaAlertResult Observe(
         double percent,
@@ -52,11 +60,13 @@ internal sealed class QuotaAlertBaseline
         bool notifyOnQuotaReset)
     {
         var previousWindowEnded = ResetAt is { } previousReset && previousReset <= now;
+        var resetEstimated = isResetEstimated;
 
         if (resetAt is null)
         {
             // 첫 관측이 비었으면 기준선을 만들지 않는다 — 0% 로 시작하면 다음 정상 조회가 전부 "새로 넘은 것" 이 된다.
-            if (Percent < 0 || !previousWindowEnded)
+            // 기준선의 리셋이 추정치면 그 경과는 증거가 아니다 → 기준선 유지(진짜 관측이 오면 그때 갈아탄다).
+            if (Percent < 0 || !previousWindowEnded || ResetIsEstimated)
                 return QuotaAlertResult.None;
 
             percent = 0;
@@ -67,9 +77,13 @@ internal sealed class QuotaAlertBaseline
             if (percent < Percent)
                 return QuotaAlertResult.None;
 
-            // 추정 리셋으로 실제 리셋 시각을 덮어쓰지 않는다.
+            // 추정 리셋으로 기존 리셋 시각을 덮어쓰지 않는다. 기존 값의 추정 여부도 함께 물려받아야
+            // 서버 값이 추정으로, 추정 값이 서버 값으로 둔갑하지 않는다.
             if (isResetEstimated)
+            {
                 resetAt = known;
+                resetEstimated = ResetIsEstimated;
+            }
         }
 
         var result = QuotaAlertResult.None;
@@ -88,6 +102,7 @@ internal sealed class QuotaAlertBaseline
 
         Percent = percent;
         ResetAt = resetAt;
+        ResetIsEstimated = resetAt is not null && resetEstimated;
         return result;
     }
 }

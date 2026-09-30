@@ -186,6 +186,69 @@ public class QuotaAlertBaselineTests
         Assert.Equal(ResetA, baseline.ResetAt);
     }
 
+    // 첫 관측이 추정 리셋(로그에 resets_at 없음)이면, 그 시각이 지나 창이 버려져도(resetAt=null) 초기화 증거가 아니다.
+    // 추정치는 실제 리셋과 몇 시간씩 어긋날 수 있어 이때 "초기화됨" 을 보내면 가짜 알림이다.
+    [Fact]
+    public void EstimatedBaseline_ExpiryWithoutData_IsNotProofOfReset()
+    {
+        var baseline = new QuotaAlertBaseline();
+        Observe(baseline, 1.0, ResetA, estimated: true);
+        Assert.True(baseline.ResetIsEstimated);
+
+        var afterEstimate = ResetA.AddMinutes(1);
+        var result = Observe(baseline, 0, null, now: afterEstimate);
+
+        Assert.False(result.QuotaReset);
+        Assert.Empty(result.CrossedThresholds);
+        Assert.Equal(1.0, baseline.Percent);
+    }
+
+    // 추정 기준선이 남아 있어도, 이후 진짜 관측(서버가 준 리셋 시각)이 낮은 값을 주면 그것은 진짜 초기화다.
+    [Fact]
+    public void EstimatedBaseline_RealLowerReading_IsARealReset()
+    {
+        var baseline = new QuotaAlertBaseline();
+        Observe(baseline, 1.0, ResetA, estimated: true);
+
+        var afterEstimate = ResetA.AddMinutes(1);
+        Observe(baseline, 0, null, now: afterEstimate);
+        var result = Observe(baseline, 0.04, afterEstimate.AddHours(5), now: afterEstimate.AddMinutes(2));
+
+        Assert.True(result.QuotaReset);
+        Assert.False(baseline.ResetIsEstimated);
+    }
+
+    // 추정 관측이 이어져도 기준선의 리셋 시각·추정 여부는 그대로 물려받는다 —
+    // 추정 여부가 사라지면 나중에 그 시각의 경과가 "진짜 만료" 로 오인된다.
+    [Fact]
+    public void EstimatedStatus_IsInheritedAcrossEstimatedReadings()
+    {
+        var baseline = new QuotaAlertBaseline();
+        Observe(baseline, 0.92, ResetA, estimated: true);
+
+        Observe(baseline, 0.95, Now.AddHours(1), estimated: true, now: Now.AddMinutes(2));
+        Assert.Equal(ResetA, baseline.ResetAt);
+        Assert.True(baseline.ResetIsEstimated);
+
+        var result = Observe(baseline, 0, null, now: ResetA.AddMinutes(1));
+        Assert.False(result.QuotaReset);
+        Assert.Equal(0.95, baseline.Percent);
+    }
+
+    // 서버가 준 리셋 시각 위에 추정 관측이 겹쳐도 서버 값으로 남는다 → 그 시각이 지나면 진짜 초기화로 본다.
+    [Fact]
+    public void RealBaseline_StaysAuthoritative_WhenEstimatedReadingOverlaps()
+    {
+        var baseline = new QuotaAlertBaseline();
+        Observe(baseline, 1.0, ResetA);
+        Observe(baseline, 1.0, Now.AddHours(1), estimated: true, now: Now.AddMinutes(2));
+        Assert.False(baseline.ResetIsEstimated);
+
+        var result = Observe(baseline, 0, null, now: ResetA.AddMinutes(1));
+
+        Assert.True(result.QuotaReset);
+    }
+
     // 알림이 꺼져 있어도 기준선은 움직인다(호출자가 발송만 건너뜀) — 켠 직후 낡은 기준선과 비교하지 않도록.
     [Fact]
     public void Baseline_TracksReadings_EvenWithNoThresholds()
