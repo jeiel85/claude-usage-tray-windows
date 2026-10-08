@@ -96,4 +96,16 @@ internal static class AppConstants
     /// 6시간(이전 값) 보다 짧게 잡는다. 90분이면 24시간 활성화 윈도우에서 ~6% 미만 지연 보장.
     /// </summary>
     public const int PermissionDeniedBackoffSeconds = 5_400;
+
+    /// <summary>
+    /// OAuth 토큰 갱신이 서버에서 실패했을 때의 첫 backoff (5분). 실패가 이어질 때마다 두 배로 늘린다.
+    /// 백오프 없이 폴링마다 갱신을 두드리면 토큰 엔드포인트가 429 로 계속 막힌다(#177).
+    /// </summary>
+    public const int TokenRefreshBackoffBaseSeconds = 300;
+
+    /// <summary>OAuth 토큰 갱신 backoff 상한 (60분)</summary>
+    public const int TokenRefreshBackoffMaxSeconds = 3_600;
+
+    /// <summary>네트워크 오류로 토큰 갱신 응답을 받지 못했을 때의 재시도 간격 (1분) — 서버에 닿지 않았으므로 짧게.</summary>
+    public const int TokenRefreshNetworkRetrySeconds = 60;
 }

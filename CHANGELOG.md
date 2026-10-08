@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.41.14] - 2026-10-08
+
+<!-- ko -->
+### 수정
+- **Claude 로그인 토큰이 만료된 뒤 사용량이 "아직 확인하지 못했습니다" 에 계속 머물던 문제 (#177)** — Claude Code CLI 를 한동안 쓰지 않아 토큰이 만료되면 앱이 직접 갱신하는데, 갱신이 실패해도 2분마다 쉬지 않고 다시 시도해 토큰 서버가 요청을 계속 거절(429)하는 상태에 빠졌습니다. 이제 갱신이 실패하면 5분부터 시작해 최대 60분까지 간격을 늘려 기다리고, 서버가 알려준 대기 시간도 지킵니다. 다시 로그인하면 기다리지 않고 바로 갱신합니다. 갱신 요청도 Claude Code 와 같은 형식(scope 포함)으로 보냅니다.
+- 갱신이 막힌 동안에는 영문 원문 오류 대신 이유와 다음 재시도 시각을 표시합니다(일시 제한 · 갱신 실패 · 재로그인 필요, 4개 언어).
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Claude usage stayed at "Usage not retrieved yet" after the login token expired (#177)** — when the token expires (e.g. Claude Code CLI hasn't run for a while) the app refreshes it itself, but on failure it retried every 2 minutes without pause, which kept the token server rejecting requests (429). Failed refreshes now back off from 5 minutes up to 60 minutes and honor the server's Retry-After. Signing in again refreshes immediately without waiting. The refresh request now matches Claude Code's (includes scope).
+- While refresh is blocked, the reason and next retry time are shown instead of the raw English error (rate-limited · refresh failed · sign-in required, 4 languages).
+<!-- /en -->
+
 ## [1.41.13] - 2026-09-30
 
 <!-- ko -->
