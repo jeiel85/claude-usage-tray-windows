@@ -62,6 +62,8 @@ namespace ClaudeUsageTray.ViewModels;
     private DateTimeOffset _apiRetryAfter = DateTimeOffset.MinValue;
     // "터미널에서 로그인" 뒤 자격 파일 변경을 기다리는 감시(#180). 새로 누르거나 종료하면 취소한다.
     private CancellationTokenSource? _claudeLoginWatchCts;
+    // 버튼 문구용 CLI 설치 확인이 진행 중인지(0/1) — 막힌 탐색이 새로고침마다 쌓이지 않게 한다.
+    private int _claudeCliProbeRunning;
     private DateTimeOffset _weatherLastRefresh = DateTimeOffset.MinValue;
 
     [ObservableProperty] private string _statusText = "Loading...";
@@ -1396,12 +1398,21 @@ namespace ClaudeUsageTray.ViewModels;
     }
 
     // PATH 에 응답 없는 네트워크 경로가 있으면 File.Exists 가 오래 걸릴 수 있어 UI 스레드 밖에서 찾는다.
+    // 그런 탐색이 폴링 간격보다 오래 막혀도 새로고침마다 탐색이 쌓이지 않도록, 진행 중이면 새로 시작하지 않는다.
     private void RefreshClaudeCliInstalled()
     {
+        if (Interlocked.CompareExchange(ref _claudeCliProbeRunning, 1, 0) != 0) return;
         _ = Task.Run(() =>
         {
-            var installed = ClaudeLoginLauncher.FindCli() is not null;
-            System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => ClaudeVm.IsCliInstalled = installed);
+            try
+            {
+                var installed = ClaudeLoginLauncher.FindCli() is not null;
+                System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => ClaudeVm.IsCliInstalled = installed);
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _claudeCliProbeRunning, 0);
+            }
         });
     }
 
