@@ -60,6 +60,8 @@ namespace ClaudeUsageTray.ViewModels;
 
     // Rate limit backoff — skip API calls until this time
     private DateTimeOffset _apiRetryAfter = DateTimeOffset.MinValue;
+    // "터미널에서 로그인" 뒤 자격 파일 변경을 기다리는 감시(#180). 새로 누르거나 종료하면 취소한다.
+    private CancellationTokenSource? _claudeLoginWatchCts;
     private DateTimeOffset _weatherLastRefresh = DateTimeOffset.MinValue;
 
     [ObservableProperty] private string _statusText = "Loading...";
@@ -1319,12 +1321,57 @@ namespace ClaudeUsageTray.ViewModels;
     /// 로그인 만료·토큰 없음 상태에서 새 콘솔 창으로 <c>claude auth login</c> 을 띄운다(#180).
     /// 로그인이 끝나 자격 파일이 바뀌면 <see cref="OnCredentialsChanged"/> 가 새로고침을 이어받는다.
     /// </summary>
+    // CLI 탐색은 PATH 의 네트워크 경로에서 오래 걸릴 수 있어 스레드풀에서 하고, 분기는 클릭 시점의 결과로 정한다.
+    // 비동기 명령은 실행 중 다시 눌리지 않으므로 연타해도 창이 여러 개 뜨지 않는다.
     [RelayCommand]
-    public void LaunchClaudeLogin()
+    public async Task LaunchClaudeLoginAsync()
     {
-        ClaudeVm.LoginLaunchError = ClaudeLoginLauncher.TryLaunch(out var error)
-            ? ""
-            : Loc.ClaudeLoginLaunchFailed(error ?? "");
+        var cliPath = await Task.Run(ClaudeLoginLauncher.FindCli);
+        ClaudeVm.IsCliInstalled = cliPath is not null;
+        if (!ClaudeLoginLauncher.TryLaunch(cliPath, out var error))
+        {
+            ClaudeVm.LoginLaunchError = Loc.ClaudeLoginLaunchFailed(error ?? "");
+            return;
+        }
+        ClaudeVm.LoginLaunchError = "";
+        WatchForClaudeLogin();
+        // 창이 뜨기까지 1~2초 걸려 다시 누르기 쉽다 — 그동안 명령을 붙잡아 창이 여러 개 뜨지 않게 한다
+        // (설치 분기 두 개가 동시에 돌면 같은 다운로드 파일을 다퉈 한쪽이 실패한다).
+        await Task.Delay(TimeSpan.FromSeconds(3));
+    }
+
+    /// <summary>
+    /// 터미널을 띄운 뒤 로그인이 끝나 자격 파일이 바뀌면 다음 폴링을 기다리지 않고 바로 새로고침한다(최대 15분).
+    /// 앱 시작 때 ~/.claude 가 없던 PC(설치 후 로그인 대상)는 파일 감시자가 없어 CredentialsChanged 가 오지 않고,
+    /// 감시자가 있어도 트레이 공급자가 Claude 가 아니면 즉시 새로고침하지 않기 때문이다.
+    /// </summary>
+    private void WatchForClaudeLogin()
+    {
+        _claudeLoginWatchCts?.Cancel();
+        _claudeLoginWatchCts?.Dispose();
+        var cts = new CancellationTokenSource(TimeSpan.FromMinutes(15));
+        _claudeLoginWatchCts = cts;
+        var token = cts.Token;
+        var before = _credentials.GetLastWriteTimeUtc();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (true)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(3), token);
+                    if (_credentials.GetLastWriteTimeUtc() == before) continue;
+                    // 쓰는 도중에 읽지 않도록 감시자와 같은 만큼 기다린 뒤 새로고침한다.
+                    await Task.Delay(AppConstants.FileWriteDebounceMs, token);
+                    await RefreshAsync();
+                    return;
+                }
+            }
+            catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException)
+            {
+                // 시간 초과·새 로그인 시도·종료 — 정기 폴링이 이어받는다.
+            }
+        });
     }
 
     /// <summary>
@@ -3126,6 +3173,8 @@ namespace ClaudeUsageTray.ViewModels;
         _timer.Dispose();
         _countdownTimer.Dispose();
         _updateTimer.Dispose();
+        _claudeLoginWatchCts?.Cancel();
+        _claudeLoginWatchCts?.Dispose();
         GC.SuppressFinalize(this);
     }
 

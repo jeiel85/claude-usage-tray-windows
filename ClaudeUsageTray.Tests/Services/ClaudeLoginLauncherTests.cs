@@ -89,6 +89,15 @@ public class ClaudeLoginLauncherTests
         Assert.DoesNotContain("-EncodedCommand", script);
     }
 
+    // PowerShell 은 곡선 따옴표(U+2018~U+201B)도 작은따옴표로 읽는다 — 이스케이프하지 않으면 문자열이 거기서 끝난다.
+    [Fact]
+    public void BuildLoginScript_EscapesCurlyQuotesInPath()
+    {
+        var script = ClaudeLoginLauncher.BuildLoginScript("C:\\Users\\O\u2019Brien \u2018x\u201A\u201B\\claude.exe", Messages);
+
+        Assert.Contains("& 'C:\\Users\\O\u2019\u2019Brien \u2018\u2018x\u201A\u201A\u201B\u201B\\claude.exe' auth login", script);
+    }
+
     // 설치 스크립트는 실패 시 exit 1 을 부르므로 자식 프로세스로 돌리고 종료 코드로 판단해야 창이 닫히지 않는다.
     [Fact]
     public void BuildLoginScript_WithoutCli_InstallsInChildProcessThenLogsIn()
@@ -121,6 +130,7 @@ public class ClaudeLoginLauncherTests
     [Trait("Category", "Integration")]
     [InlineData(null)]
     [InlineData(@"C:\Users\it's 용 은\.local\bin\claude.exe")]
+    [InlineData("C:\\Users\\O\u2019Brien\\.local\\bin\\claude.exe")]
     public void GeneratedScript_ParsesWithoutErrors_InWindowsPowerShell(string? cliPath)
     {
         var script = ClaudeLoginLauncher.BuildLoginScript(cliPath, Messages);
@@ -135,14 +145,14 @@ public class ClaudeLoginLauncherTests
     }
 
     /// <summary>
-    /// 찾은 CLI 경로에 공백·한글·작은따옴표가 있어도 그대로 실행돼 "auth login" 인자를 받는지 —
-    /// 가짜 claude.cmd 가 받은 인자를 파일로 남기게 해 실제로 돌려 본다.
+    /// 찾은 CLI 경로에 공백·한글·작은따옴표·곡선 따옴표가 있어도 그 경로 그대로 실행돼 "auth login" 인자를 받는지 —
+    /// 가짜 claude.cmd 가 받은 인자를 파일로 남기게 해 실제로 돌려 본다(경로가 한 글자라도 바뀌면 실행되지 않는다).
     /// </summary>
     [Fact]
     [Trait("Category", "Integration")]
     public void LoginScript_RunsResolvedCli_WithAuthLoginArguments_EvenWithUnusualPath()
     {
-        var dir = Path.Combine(Path.GetTempPath(), $"claude login it's 용 은 {Guid.NewGuid():N}");
+        var dir = Path.Combine(Path.GetTempPath(), $"claude login it's O’Brien 용 은 {Guid.NewGuid():N}");
         Directory.CreateDirectory(dir);
         try
         {

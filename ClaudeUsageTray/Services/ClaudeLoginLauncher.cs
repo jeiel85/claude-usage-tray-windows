@@ -18,15 +18,31 @@ public static class ClaudeLoginLauncher
     // PATHEXT 우선순위대로 — 네이티브 설치는 claude.exe, npm 전역 설치는 claude.cmd 셸 스크립트를 둔다.
     private static readonly string[] CliFileNames = ["claude.exe", "claude.cmd"];
 
-    /// <summary>설치된 claude CLI 의 전체 경로. 찾지 못하면 null.</summary>
-    public static string? FindCli() => ResolveCliPath(GetSearchDirectories(), File.Exists);
-
-    /// <summary>새 터미널 창에서 (필요하면 설치 후) 로그인을 시작한다. 실패하면 false 와 원인을 돌려준다.</summary>
-    public static bool TryLaunch(out string? error)
+    /// <summary>
+    /// 설치된 claude CLI 의 전체 경로. 찾지 못하면 null — 탐색 중 오류도 "못 찾음" 으로 본다(설치 경로로 이어질 뿐).
+    /// PATH 에 응답 없는 네트워크 경로가 있으면 오래 걸릴 수 있으므로 UI 스레드에서 부르지 않는다.
+    /// </summary>
+    public static string? FindCli()
     {
         try
         {
-            var script = BuildLoginScript(FindCli(), new LoginScriptMessages(
+            return ResolveCliPath(GetSearchDirectories(), File.Exists);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 새 터미널 창에서 로그인을 시작한다. <paramref name="cliPath"/> 가 null 이면 공식 설치 스크립트로 먼저 설치한다.
+    /// 실패하면 false 와 원인을 돌려준다.
+    /// </summary>
+    public static bool TryLaunch(string? cliPath, out string? error)
+    {
+        try
+        {
+            var script = BuildLoginScript(cliPath, new LoginScriptMessages(
                 Installing: Loc.ClaudeCliInstalling,
                 InstallFailed: Loc.ClaudeCliInstallFailed,
                 NotFoundAfterInstall: Loc.ClaudeCliNotFoundAfterInstall,
@@ -113,8 +129,18 @@ public static class ClaudeLoginLauncher
 
     private static string Encode(string script) => Convert.ToBase64String(Encoding.Unicode.GetBytes(script));
 
-    // PowerShell 작은따옴표 문자열 — 내부의 ' 는 '' 로 이스케이프한다($ 등은 해석되지 않는다).
-    private static string PsQuote(string value) => $"'{value.Replace("'", "''")}'";
+    // PowerShell 작은따옴표 문자열($ 등은 해석되지 않는다). PowerShell 은 ' 뿐 아니라 곡선 따옴표(U+2018~U+201B)도
+    // 작은따옴표로 읽으므로(O’Brien 같은 사용자 폴더) 모두 두 번 써서 이스케이프한다.
+    private static string PsQuote(string value)
+    {
+        var sb = new StringBuilder(value.Length + 2).Append('\'');
+        foreach (var ch in value)
+        {
+            if (ch is '\'' or '‘' or '’' or '‚' or '‛') sb.Append(ch);
+            sb.Append(ch);
+        }
+        return sb.Append('\'').ToString();
+    }
 
     /// <summary>
     /// 이 프로세스의 PATH 는 앱 시작 시점에 고정돼 그 뒤 설치한 CLI 를 모른다. 레지스트리의 사용자·시스템

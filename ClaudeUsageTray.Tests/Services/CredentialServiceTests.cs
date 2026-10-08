@@ -87,6 +87,21 @@ public class CredentialServiceTests : IDisposable
         Assert.Null(await service.GetValidAccessTokenAsync());
     }
 
+    // "터미널에서 로그인" 뒤 재로그인 완료 감지(#180) — 파일이 없으면 null, 생기거나 바뀌면 시각이 달라진다.
+    [Fact]
+    public void GetLastWriteTimeUtc_ReturnsNullWhenMissing_AndTimestampWhenPresent()
+    {
+        using var service = new CredentialService(_path);
+        Assert.Null(service.GetLastWriteTimeUtc());
+
+        Write("""{ "claudeAiOauth": { "accessToken": "t" } }""");
+        var first = service.GetLastWriteTimeUtc();
+        Assert.NotNull(first);
+
+        File.SetLastWriteTimeUtc(_path, first!.Value.AddMinutes(5));
+        Assert.Equal(first.Value.AddMinutes(5), service.GetLastWriteTimeUtc());
+    }
+
     [Fact]
     public void TryGetSubscriptionInfo_ReadsTierFromFile()
     {
