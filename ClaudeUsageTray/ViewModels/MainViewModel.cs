@@ -60,6 +60,10 @@ namespace ClaudeUsageTray.ViewModels;
 
     // Rate limit backoff — skip API calls until this time
     private DateTimeOffset _apiRetryAfter = DateTimeOffset.MinValue;
+    // "터미널에서 로그인" 뒤 자격 파일 변경을 기다리는 감시(#180). 새로 누르거나 종료하면 취소한다.
+    private CancellationTokenSource? _claudeLoginWatchCts;
+    // 버튼 문구용 CLI 설치 확인이 진행 중인지(0/1) — 막힌 탐색이 새로고침마다 쌓이지 않게 한다.
+    private int _claudeCliProbeRunning;
     private DateTimeOffset _weatherLastRefresh = DateTimeOffset.MinValue;
 
     [ObservableProperty] private string _statusText = "Loading...";
@@ -591,6 +595,8 @@ namespace ClaudeUsageTray.ViewModels;
         UpdateClaudeSubscription();
         
         if (SelectedProvider != UsageProviderKind.Claude) return;
+        // 아래에서 바로 새로고침하므로 "터미널에서 로그인" 뒤의 폴링 감시는 중복이다(#180).
+        CancelClaudeLoginWatch();
         // 계정 전환 감지 — 히스토리를 새 계정으로 전환하고 즉시 새로고침
         var orgUuid = _credentials.GetOrganizationUuid();
         _history.SetScope(UsageProviderKind.Claude, orgUuid);
@@ -1313,6 +1319,101 @@ namespace ClaudeUsageTray.ViewModels;
         _history.ExportCsv(filePath);
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
             "explorer.exe", $"/select,\"{filePath}\"") { UseShellExecute = true });
+    }
+
+    /// <summary>
+    /// 로그인 만료·토큰 없음 상태에서 새 콘솔 창으로 <c>claude auth login</c> 을 띄운다(#180).
+    /// 로그인이 끝나 자격 파일이 바뀌면 <see cref="OnCredentialsChanged"/> 가 새로고침을 이어받는다.
+    /// </summary>
+    // CLI 탐색은 PATH 의 네트워크 경로에서 오래 걸릴 수 있어 스레드풀에서 하고, 분기는 클릭 시점의 결과로 정한다.
+    // 비동기 명령은 실행 중 다시 눌리지 않으므로 연타해도 창이 여러 개 뜨지 않는다.
+    [RelayCommand]
+    public async Task LaunchClaudeLoginAsync()
+    {
+        var cliPath = await Task.Run(ClaudeLoginLauncher.FindCli);
+        ClaudeVm.IsCliInstalled = cliPath is not null;
+        if (!ClaudeLoginLauncher.TryLaunch(cliPath, out var error))
+        {
+            ClaudeVm.LoginLaunchError = Loc.ClaudeLoginLaunchFailed(error ?? "");
+            return;
+        }
+        ClaudeVm.LoginLaunchError = "";
+        WatchForClaudeLogin();
+        // 창이 뜨기까지 1~2초 걸려 다시 누르기 쉽다 — 그동안 명령을 붙잡아 창이 여러 개 뜨지 않게 한다
+        // (설치 분기 두 개가 동시에 돌면 같은 다운로드 파일을 다퉈 한쪽이 실패한다).
+        await Task.Delay(TimeSpan.FromSeconds(3));
+    }
+
+    /// <summary>
+    /// 터미널을 띄운 뒤 로그인이 끝나 자격 파일이 바뀌면 다음 폴링을 기다리지 않고 바로 새로고침한다(최대 15분).
+    /// 앱 시작 때 ~/.claude 가 없던 PC(설치 후 로그인 대상)는 파일 감시자가 없어 CredentialsChanged 가 오지 않고,
+    /// 감시자가 있어도 트레이 공급자가 Claude 가 아니면 즉시 새로고침하지 않기 때문이다.
+    /// </summary>
+    private void WatchForClaudeLogin()
+    {
+        CancelClaudeLoginWatch();
+        var cts = new CancellationTokenSource(TimeSpan.FromMinutes(15));
+        var token = cts.Token;
+        var before = _credentials.GetLastWriteTimeUtc();
+        Interlocked.Exchange(ref _claudeLoginWatchCts, cts)?.Dispose();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (true)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(3), token);
+                    if (_credentials.GetLastWriteTimeUtc() == before) continue;
+                    // 감시자가 있으면 OnCredentialsChanged 가 디바운스 뒤 먼저 새로고침하고 이 감시를 취소한다 —
+                    // 그 여유를 두고 기다려 같은 변경으로 두 번 새로고침하지 않게 한다(쓰는 도중에 읽지 않는 효과도 있다).
+                    await Task.Delay(TimeSpan.FromSeconds(2), token);
+                    await RefreshAsync();
+                    return;
+                }
+            }
+            catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException)
+            {
+                // 감시자가 새로고침을 맡음·시간 초과·새 로그인 시도·종료 — 정기 폴링이 이어받는다.
+            }
+        });
+    }
+
+    // 감시 취소·정리는 이 한 곳으로 — 타이머 스레드(OnCredentialsChanged)와 UI 스레드가 겹쳐도 한쪽만 정리하게 한다.
+    private void CancelClaudeLoginWatch()
+    {
+        var cts = Interlocked.Exchange(ref _claudeLoginWatchCts, null);
+        if (cts is null) return;
+        cts.Cancel();
+        cts.Dispose();
+    }
+
+    /// <summary>
+    /// 재로그인 필요 여부를 기록하고, 필요한 동안은 새로고침마다 CLI 설치 여부를 다시 확인한다 —
+    /// 버튼 문구("터미널에서 로그인" / "설치 후 로그인")가 설치 직후에도 맞게 바뀌도록.
+    /// </summary>
+    private void SetClaudeNeedsLogin(bool needsLogin)
+    {
+        ClaudeVm.NeedsLogin = needsLogin;
+        if (needsLogin) RefreshClaudeCliInstalled();
+    }
+
+    // PATH 에 응답 없는 네트워크 경로가 있으면 File.Exists 가 오래 걸릴 수 있어 UI 스레드 밖에서 찾는다.
+    // 그런 탐색이 폴링 간격보다 오래 막혀도 새로고침마다 탐색이 쌓이지 않도록, 진행 중이면 새로 시작하지 않는다.
+    private void RefreshClaudeCliInstalled()
+    {
+        if (Interlocked.CompareExchange(ref _claudeCliProbeRunning, 1, 0) != 0) return;
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var installed = ClaudeLoginLauncher.FindCli() is not null;
+                System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => ClaudeVm.IsCliInstalled = installed);
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _claudeCliProbeRunning, 0);
+            }
+        });
     }
 
     [RelayCommand]
@@ -2326,6 +2427,7 @@ namespace ClaudeUsageTray.ViewModels;
                         if (refreshFailure.Kind == TokenRefreshFailureKind.Rejected)
                         {
                             ClaudeVm.HasError = true;
+                            SetClaudeNeedsLogin(true);
                             ClaudeVm.ErrorMessage = Loc.ClaudeTokenRefreshRejected;
                             ClaudeVm.ApiNote = "";
                         }
@@ -2365,7 +2467,8 @@ namespace ClaudeUsageTray.ViewModels;
                     {
                         ClaudeVm.HasError = true;
                         // 토큰 자체가 없어 네트워크 호출 전에 실패한 경우 — 막연한 원문 대신 로그인 안내로.
-                        ClaudeVm.ErrorMessage = _api.LastError == UsageApiService.NoTokenError
+                        SetClaudeNeedsLogin(_api.LastError == UsageApiService.NoTokenError);
+                        ClaudeVm.ErrorMessage = ClaudeVm.NeedsLogin
                             ? Loc.NoToken
                             : _api.LastError != null
                                 ? ParseFriendlyError(_api.LastError)
@@ -2385,6 +2488,7 @@ namespace ClaudeUsageTray.ViewModels;
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 ClaudeVm.HasError = true;
+                SetClaudeNeedsLogin(false);
                 ClaudeVm.ErrorMessage = ex.Message;
                 ClaudeVm.ApiNote = "";
                 UpdateOverallStatus();
@@ -3070,6 +3174,7 @@ namespace ClaudeUsageTray.ViewModels;
         // 종료 중이면 Application.Current 가 이미 null 이다 — 갱신할 화면도 없으므로 그냥 넘어간다.
         System.Windows.Application.Current?.Dispatcher.Invoke(() =>
         {
+            ClaudeVm.RefreshLocalizedLabels();
             OpenCodeVm.RefreshLocalizedLabels();
             AntigravityVm.RefreshLocalizedLabels();
             // 행 객체가 새로 만들어지므로 미러 프로퍼티도 다시 가리켜야 화면이 바뀐다.
@@ -3090,6 +3195,7 @@ namespace ClaudeUsageTray.ViewModels;
         _timer.Dispose();
         _countdownTimer.Dispose();
         _updateTimer.Dispose();
+        CancelClaudeLoginWatch();
         GC.SuppressFinalize(this);
     }
 

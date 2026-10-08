@@ -38,8 +38,39 @@ public partial class ClaudeViewModel : ObservableObject
     [ObservableProperty] private string _longSummary = "";
     [ObservableProperty] private string _shortDepletion = "";
     [ObservableProperty] private string _longDepletion = "";
-    [ObservableProperty] private bool _hasError = false;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(ShowLoginAction))] private bool _hasError = false;
     [ObservableProperty] private string _errorMessage = "";
+
+    // 재로그인만이 해결책인 에러(refresh 토큰 거절·토큰 없음)인지 — 팝업에 "터미널에서 로그인" 버튼을 띄운다(#180).
+    // HasError 와 함께 봐서, 에러를 지우는 경로가 이 값을 따로 내리지 않아도 버튼이 남지 않게 한다.
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(ShowLoginAction))] private bool _needsLogin = false;
+    [ObservableProperty] private string _loginLaunchError = "";
+    public bool ShowLoginAction => HasError && NeedsLogin;
+
+    // claude CLI 가 이 PC 에 있는지 — 없으면 버튼이 "설치 후 로그인" 으로 바뀌어, 누르기 전에 설치가 진행된다는 걸 알린다.
+    // 실제 분기는 클릭 시점에 다시 찾으므로 이 값은 문구용 힌트다. 모르는 동안은 설치돼 있다고 본다.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LoginActionLabel))]
+    [NotifyPropertyChangedFor(nameof(LoginActionTooltip))]
+    private bool _isCliInstalled = true;
+
+    public string LoginActionLabel   => IsCliInstalled ? Loc.ClaudeLoginInTerminal : Loc.ClaudeInstallAndLogin;
+    public string LoginActionTooltip => IsCliInstalled ? Loc.ClaudeLoginInTerminalTooltip : Loc.ClaudeInstallAndLoginTooltip;
+
+    public void RefreshLocalizedLabels()
+    {
+        OnPropertyChanged(nameof(LoginActionLabel));
+        OnPropertyChanged(nameof(LoginActionTooltip));
+        OnPropertyChanged(nameof(ShortPercentLabel));
+        OnPropertyChanged(nameof(LongPercentLabel));
+        OnPropertyChanged(nameof(HistoryChartTitle));
+    }
+
+    // 에러가 풀리면 지난 실행 실패 문구도 함께 지운다 — 다음에 다시 로그인이 필요해질 때 옛 실패가 보이지 않게.
+    partial void OnHasErrorChanged(bool value)
+    {
+        if (!value) LoginLaunchError = "";
+    }
     [ObservableProperty] private string _apiNote = "";
     [ObservableProperty] private long _todayInputTokens = 0;
     [ObservableProperty] private long _todayOutputTokens = 0;

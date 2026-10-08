@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.42.0] - 2026-10-08
+
+<!-- ko -->
+### 추가
+- **Claude 로그인이 만료되면 팝업에서 바로 다시 로그인할 수 있습니다 (#180)** — "로그인이 만료됐습니다" 또는 "액세스 토큰이 없습니다" 안내 아래에 `터미널에서 로그인` 버튼이 나옵니다. 누르면 새 터미널 창에서 `claude auth login` 이 실행되고, 브라우저에서 로그인을 마치면 사용량이 자동으로 다시 표시됩니다.
+- 이 PC 에 Claude Code CLI 가 설치되어 있지 않으면 버튼이 `Claude Code 설치 후 로그인` 으로 바뀝니다. 누르면 공식 설치 스크립트(`irm https://claude.ai/install.ps1 | iex`, 관리자 권한 불필요)로 설치한 뒤 이어서 로그인합니다. 설치가 실패하면 창이 닫히지 않고 원인과 도움말 링크를 보여줍니다.
+- 로그인을 마치면 다음 자동 갱신을 기다리지 않고 바로 사용량을 다시 불러옵니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Sign back in to Claude right from the popup when your login expires (#180)** — A `Sign in via terminal` button now appears under the "Login expired" / "No access token" message. It runs `claude auth login` in a new terminal window; once you finish signing in in the browser, usage shows up again automatically.
+- If the Claude Code CLI isn't installed on this PC, the button becomes `Install Claude Code and sign in`. It installs the CLI with the official script (`irm https://claude.ai/install.ps1 | iex`, no admin rights needed) and then signs you in. If the install fails, the window stays open with the error and a help link.
+- Once you finish signing in, usage reloads right away instead of waiting for the next auto-refresh.
+<!-- /en -->
+
 ## [1.41.15] - 2026-10-08
 
 <!-- ko -->

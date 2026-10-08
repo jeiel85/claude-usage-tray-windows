@@ -133,6 +133,13 @@ public class CredentialService : IDisposable
     public bool HasCredentials() => File.Exists(_credentialsPath);
 
     /// <summary>
+    /// 자격 파일의 마지막 수정 시각(UTC). 파일이 없으면 null. 파일 감시자가 없는 PC 에서도 재로그인 완료를
+    /// 알아챌 수 있도록 "터미널에서 로그인" 뒤의 변경 감지에 쓴다(#180).
+    /// </summary>
+    public DateTime? GetLastWriteTimeUtc() =>
+        File.Exists(_credentialsPath) ? File.GetLastWriteTimeUtc(_credentialsPath) : null;
+
+    /// <summary>
     /// 구독 등급 표시에 필요한 두 값을 한 번의 파일 읽기로 돌려준다. Max 는 5x/20x 로 한도가 갈리는데
     /// 그 배수는 subscriptionType 이 아니라 rateLimitTier("default_claude_max_5x") 에만 들어 있다.
     /// 파일이 있는데 읽지 못한 경우(쓰기 도중 등) false 를 돌려준다 — 일시적인 읽기 실패를 "구독 아님" 으로

@@ -797,13 +797,14 @@ public static class Loc
     // Errors
     // 액세스 토큰 파일(.credentials.json 의 claudeAiOauth)이 없어 usage API 호출 전에 실패한 경우.
     // 데스크톱 앱만 쓰거나 새 PC라 CLI 로그인을 한 적 없는 환경에서 발생 — 재로그인이 유일한 해결책이라
-    // 막연한 에러 대신 구체적 조치(터미널에서 claude 로그인)를 안내한다.
+    // 막연한 에러 대신 구체적 조치(터미널에서 claude 로그인)를 안내한다. 새로고침마다 자격 파일을 다시 읽으므로
+    // 로그인 후 재시작은 필요 없다(#180 — 버튼으로 로그인하면 완료 즉시 갱신된다).
     public static string NoToken => Lang switch
     {
-        "ko" => "액세스 토큰이 없습니다 — 터미널에서 claude auth login 으로 로그인한 뒤 앱을 다시 시작하세요",
-        "zh" => "未找到访问令牌 — 请在终端执行 claude auth login 登录后重启本应用",
-        "ja" => "アクセストークンがありません — ターミナルで claude auth login を実行してログイン後、アプリを再起動してください",
-        _ => "No access token — run `claude auth login` in a terminal, then restart the app"
+        "ko" => "액세스 토큰이 없습니다 — 터미널에서 claude auth login 으로 로그인하면 자동으로 갱신됩니다",
+        "zh" => "未找到访问令牌 — 请在终端执行 claude auth login 登录，登录后会自动刷新",
+        "ja" => "アクセストークンがありません — ターミナルで claude auth login を実行してログインすると自動的に更新されます",
+        _ => "No access token — run `claude auth login` in a terminal to sign in; usage refreshes automatically"
     };
 
     /// <summary>만료된 로그인 토큰의 갱신이 토큰 서버에서 일시 제한(429)됐을 때의 안내(#177).</summary>
@@ -831,6 +832,79 @@ public static class Loc
         "zh" => "登录已过期 — 请在终端执行 claude auth login 重新登录",
         "ja" => "ログインの有効期限が切れました — ターミナルで claude auth login を実行して再ログインしてください",
         _ => "Login expired — run `claude auth login` in a terminal to sign in again"
+    };
+
+    // 로그인 만료·토큰 없음 상태의 "터미널에서 로그인" 버튼과 그 터미널 안내(#180).
+    public static string ClaudeLoginInTerminal => Lang switch
+    {
+        "ko" => "터미널에서 로그인",
+        "zh" => "在终端中登录",
+        "ja" => "ターミナルでログイン",
+        _ => "Sign in via terminal"
+    };
+
+    public static string ClaudeInstallAndLogin => Lang switch
+    {
+        "ko" => "Claude Code 설치 후 로그인",
+        "zh" => "安装 Claude Code 并登录",
+        "ja" => "Claude Code をインストールしてログイン",
+        _ => "Install Claude Code and sign in"
+    };
+
+    public static string ClaudeLoginInTerminalTooltip => Lang switch
+    {
+        "ko" => "새 터미널 창에서 claude auth login 을 실행합니다",
+        "zh" => "在新的终端窗口中运行 claude auth login",
+        "ja" => "新しいターミナルウィンドウで claude auth login を実行します",
+        _ => "Runs `claude auth login` in a new terminal window"
+    };
+
+    public static string ClaudeInstallAndLoginTooltip => Lang switch
+    {
+        "ko" => "Claude Code CLI 가 없어 공식 설치 스크립트(claude.ai/install.ps1)로 설치한 뒤 claude auth login 을 실행합니다",
+        "zh" => "未找到 Claude Code CLI — 将通过官方安装脚本 (claude.ai/install.ps1) 安装后运行 claude auth login",
+        "ja" => "Claude Code CLI が見つからないため、公式インストールスクリプト (claude.ai/install.ps1) でインストールしてから claude auth login を実行します",
+        _ => "Claude Code CLI not found — installs it with the official script (claude.ai/install.ps1), then runs `claude auth login`"
+    };
+
+    public static string ClaudeCliInstalling => Lang switch
+    {
+        "ko" => "Claude Code CLI 가 설치되어 있지 않아 공식 설치 스크립트(https://claude.ai/install.ps1)로 설치합니다. 다운로드 중에는 진행 표시가 없으니 잠시 기다려 주세요...",
+        "zh" => "未安装 Claude Code CLI — 正在通过官方安装脚本 (https://claude.ai/install.ps1) 安装。下载期间不显示进度，请稍候...",
+        "ja" => "Claude Code CLI がインストールされていないため、公式インストールスクリプト (https://claude.ai/install.ps1) でインストールします。ダウンロード中は進捗が表示されません。しばらくお待ちください...",
+        _ => "Claude Code CLI is not installed — installing with the official script (https://claude.ai/install.ps1). No progress is shown while downloading; please wait..."
+    };
+
+    public static string ClaudeCliInstallFailed => Lang switch
+    {
+        "ko" => "Claude Code 설치에 실패했습니다. 위 메시지를 확인하세요 (도움말: https://code.claude.com/docs/en/troubleshoot-install)",
+        "zh" => "Claude Code 安装失败。请查看上方信息 (帮助: https://code.claude.com/docs/en/troubleshoot-install)",
+        "ja" => "Claude Code のインストールに失敗しました。上のメッセージを確認してください (ヘルプ: https://code.claude.com/docs/en/troubleshoot-install)",
+        _ => "Claude Code installation failed. Check the messages above (help: https://code.claude.com/docs/en/troubleshoot-install)"
+    };
+
+    public static string ClaudeCliNotFoundAfterInstall => Lang switch
+    {
+        "ko" => "설치는 끝났지만 claude 실행 파일을 찾지 못했습니다. 새 터미널을 열어 claude auth login 을 실행하세요",
+        "zh" => "安装已完成，但未找到 claude 可执行文件。请打开新的终端运行 claude auth login",
+        "ja" => "インストールは完了しましたが claude の実行ファイルが見つかりません。新しいターミナルで claude auth login を実行してください",
+        _ => "Installation finished but the claude executable was not found. Open a new terminal and run `claude auth login`"
+    };
+
+    public static string ClaudeLoginTerminalDone => Lang switch
+    {
+        "ko" => "로그인을 마쳤으면 이 창을 닫아도 됩니다. 사용량은 자동으로 갱신됩니다.",
+        "zh" => "登录完成后即可关闭此窗口，用量会自动刷新。",
+        "ja" => "ログインが完了したら、このウィンドウを閉じて構いません。使用量は自動的に更新されます。",
+        _ => "Once you're signed in, you can close this window. Usage refreshes automatically."
+    };
+
+    public static string ClaudeLoginLaunchFailed(string error) => Lang switch
+    {
+        "ko" => $"터미널을 열지 못했습니다: {error}",
+        "zh" => $"无法打开终端：{error}",
+        "ja" => $"ターミナルを開けませんでした: {error}",
+        _ => $"Couldn't open a terminal: {error}"
     };
 
     public static string RateLimited => Lang switch

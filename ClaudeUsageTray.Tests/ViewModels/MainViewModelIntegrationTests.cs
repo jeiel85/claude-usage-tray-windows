@@ -180,6 +180,50 @@ public class MainViewModelIntegrationTests
     }
 
     /// <summary>
+    /// 재로그인이 필요한 에러에서만 "터미널에서 로그인" 버튼이 보이고, CLI 가 없으면 "설치 후 로그인" 으로 바뀌며,
+    /// 에러가 풀리면 사라지는지(#180). 버튼을 누르면 실제 터미널이 뜨므로 명령은 실행하지 않고 바인딩만 본다.
+    /// </summary>
+    [Fact]
+    public async Task UsagePopup_ClaudeLoginAction_FollowsLoginState()
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            UsagePopup? popup = null;
+            try
+            {
+                // 띄우지 않은 창은 바인딩 연결이 미뤄지므로 화면 밖에 띄운다.
+                popup = new UsagePopup(vm) { Left = -10000 };
+                popup.Show();
+                popup.UpdateLayout();
+                var panel = Assert.IsType<System.Windows.Controls.StackPanel>(popup.FindName("ClaudeLoginAction"));
+                var button = Assert.IsType<System.Windows.Controls.Button>(panel.Children[0]);
+
+                vm.ClaudeVm.HasError = true;
+                vm.ClaudeVm.NeedsLogin = false;
+                Assert.Equal(System.Windows.Visibility.Collapsed, panel.Visibility);
+
+                vm.ClaudeVm.NeedsLogin = true;
+                vm.ClaudeVm.IsCliInstalled = false;
+                Assert.Equal(System.Windows.Visibility.Visible, panel.Visibility);
+                Assert.Same(vm.LaunchClaudeLoginCommand, button.Command);
+                Assert.Equal(Loc.ClaudeInstallAndLogin, button.Content);
+
+                vm.ClaudeVm.IsCliInstalled = true;
+                Assert.Equal(Loc.ClaudeLoginInTerminal, button.Content);
+
+                vm.ClaudeVm.HasError = false;
+                Assert.Equal(System.Windows.Visibility.Collapsed, panel.Visibility);
+            }
+            finally
+            {
+                popup?.Close();
+                vm.Dispose();
+            }
+        });
+    }
+
+    /// <summary>
     /// Antigravity 창 목록이 다른 provider 와 같은 게이지 구조로 그려지는지 — 실제 화면 트리로 확인한다.
     /// 행이 DataTemplate 안에 있어 이름으로 찾을 수 없으므로, 생성된 컨테이너를 훑어
     /// (1) provider 색 게이지 스타일, (2) 시간선 마커, (3) 창 길이를 모르는 행의 마커 숨김을 본다.

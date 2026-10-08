@@ -820,6 +820,18 @@
 
                             <TextBlock Text="{Binding ClaudeVm.ErrorMessage}" Foreground="#EF4444" FontSize="10" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="{Binding ClaudeVm.HasError, Converter={StaticResource BoolToVisibility}}"/>
 
+                            <!-- 재로그인이 필요할 때 새 터미널에서 claude auth login 실행 (CLI 가 없으면 설치 후 로그인) — #180 -->
+                            <StackPanel x:Name="ClaudeLoginAction" Margin="0,6,0,0"
+                                        Visibility="{Binding ClaudeVm.ShowLoginAction, Converter={StaticResource BoolToVisibility}}">
+                                <Button Command="{Binding LaunchClaudeLoginCommand}" HorizontalAlignment="Left" Padding="10,5" Cursor="Hand"
+                                        Background="#5B21B6" Foreground="#EDE9FE" BorderBrush="#7C3AED" BorderThickness="1"
+                                        Content="{Binding ClaudeVm.LoginActionLabel}"
+                                        ToolTip="{Binding ClaudeVm.LoginActionTooltip}"/>
+                                <TextBlock Text="{Binding ClaudeVm.LoginLaunchError}" Foreground="#EF4444" FontSize="9"
+                                           TextWrapping="Wrap" Margin="0,4,0,0"
+                                           Visibility="{Binding ClaudeVm.LoginLaunchError, Converter={StaticResource StringToVisibility}}"/>
+                            </StackPanel>
+
                             <!-- API 쿨다운 안내(에러 아님) — 회색 톤으로 자동 재시도 시점만 표시 -->
                             <TextBlock Text="{Binding ClaudeVm.ApiNote}" Foreground="#8B92B3" FontSize="10" FontStyle="Italic" TextWrapping="Wrap" Margin="0,4,0,0"
                                        Visibility="{Binding ClaudeVm.ApiNote, Converter={StaticResource StringToVisibility}}"/>
