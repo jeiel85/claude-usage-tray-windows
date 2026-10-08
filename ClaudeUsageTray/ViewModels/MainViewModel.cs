@@ -593,6 +593,8 @@ namespace ClaudeUsageTray.ViewModels;
         UpdateClaudeSubscription();
         
         if (SelectedProvider != UsageProviderKind.Claude) return;
+        // 아래에서 바로 새로고침하므로 "터미널에서 로그인" 뒤의 폴링 감시는 중복이다(#180).
+        CancelClaudeLoginWatch();
         // 계정 전환 감지 — 히스토리를 새 계정으로 전환하고 즉시 새로고침
         var orgUuid = _credentials.GetOrganizationUuid();
         _history.SetScope(UsageProviderKind.Claude, orgUuid);
@@ -1347,12 +1349,11 @@ namespace ClaudeUsageTray.ViewModels;
     /// </summary>
     private void WatchForClaudeLogin()
     {
-        _claudeLoginWatchCts?.Cancel();
-        _claudeLoginWatchCts?.Dispose();
+        CancelClaudeLoginWatch();
         var cts = new CancellationTokenSource(TimeSpan.FromMinutes(15));
-        _claudeLoginWatchCts = cts;
         var token = cts.Token;
         var before = _credentials.GetLastWriteTimeUtc();
+        Interlocked.Exchange(ref _claudeLoginWatchCts, cts)?.Dispose();
         _ = Task.Run(async () =>
         {
             try
@@ -1361,17 +1362,27 @@ namespace ClaudeUsageTray.ViewModels;
                 {
                     await Task.Delay(TimeSpan.FromSeconds(3), token);
                     if (_credentials.GetLastWriteTimeUtc() == before) continue;
-                    // 쓰는 도중에 읽지 않도록 감시자와 같은 만큼 기다린 뒤 새로고침한다.
-                    await Task.Delay(AppConstants.FileWriteDebounceMs, token);
+                    // 감시자가 있으면 OnCredentialsChanged 가 디바운스 뒤 먼저 새로고침하고 이 감시를 취소한다 —
+                    // 그 여유를 두고 기다려 같은 변경으로 두 번 새로고침하지 않게 한다(쓰는 도중에 읽지 않는 효과도 있다).
+                    await Task.Delay(TimeSpan.FromSeconds(2), token);
                     await RefreshAsync();
                     return;
                 }
             }
             catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException)
             {
-                // 시간 초과·새 로그인 시도·종료 — 정기 폴링이 이어받는다.
+                // 감시자가 새로고침을 맡음·시간 초과·새 로그인 시도·종료 — 정기 폴링이 이어받는다.
             }
         });
+    }
+
+    // 감시 취소·정리는 이 한 곳으로 — 타이머 스레드(OnCredentialsChanged)와 UI 스레드가 겹쳐도 한쪽만 정리하게 한다.
+    private void CancelClaudeLoginWatch()
+    {
+        var cts = Interlocked.Exchange(ref _claudeLoginWatchCts, null);
+        if (cts is null) return;
+        cts.Cancel();
+        cts.Dispose();
     }
 
     /// <summary>
@@ -3173,8 +3184,7 @@ namespace ClaudeUsageTray.ViewModels;
         _timer.Dispose();
         _countdownTimer.Dispose();
         _updateTimer.Dispose();
-        _claudeLoginWatchCts?.Cancel();
-        _claudeLoginWatchCts?.Dispose();
+        CancelClaudeLoginWatch();
         GC.SuppressFinalize(this);
     }
 
