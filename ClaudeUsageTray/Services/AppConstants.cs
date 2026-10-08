@@ -106,6 +106,9 @@ internal static class AppConstants
     /// <summary>OAuth 토큰 갱신 backoff 상한 (60분)</summary>
     public const int TokenRefreshBackoffMaxSeconds = 3_600;
 
+    /// <summary>토큰 엔드포인트의 Retry-After 를 따르는 상한 (6시간) — 비정상적으로 긴 값에 하루 넘게 묶이지 않도록.</summary>
+    public const int TokenRefreshRetryAfterMaxSeconds = 21_600;
+
     /// <summary>네트워크 오류로 토큰 갱신 응답을 받지 못했을 때의 재시도 간격 (1분) — 서버에 닿지 않았으므로 짧게.</summary>
     public const int TokenRefreshNetworkRetrySeconds = 60;
 }

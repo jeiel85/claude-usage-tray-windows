@@ -3,6 +3,26 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.41.15] - 2026-10-08
+
+<!-- ko -->
+### 개선
+- **Claude 토큰 갱신 보강 (#177 후속, 코드 리뷰 반영)**
+  - 서버가 저장된 scope 를 거부(400)하면 이전처럼 scope 없이 한 번 더 요청해, 갱신이 영구히 막히지 않게 했습니다.
+  - 서버가 비정상적으로 긴 대기 시간을 줘도 최대 6시간까지만 기다립니다.
+  - 재로그인이 필요한 상태에서 다음 재시도가 일시 제한으로 막혀도 "다시 로그인하세요" 안내를 유지합니다.
+  - 자격 파일의 scope 형식이 예상과 달라도 로그인이 풀린 것으로 오인하지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Claude token refresh hardening (#177 follow-up, from code review)**
+  - If the server rejects the stored scope (400), the request is retried once without scope as before, so refresh can't get stuck permanently.
+  - An abnormally long server Retry-After is capped at 6 hours.
+  - The "sign in again" message stays when a later retry is rate-limited after the refresh token was rejected.
+  - An unexpected `scopes` format in the credentials file no longer makes the login look missing.
+<!-- /en -->
+
 ## [1.41.14] - 2026-10-08
 
 <!-- ko -->

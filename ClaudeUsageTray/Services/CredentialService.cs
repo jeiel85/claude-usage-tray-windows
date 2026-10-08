@@ -272,20 +272,34 @@ public class CredentialService : IDisposable
             // 서버에 닿지 못한 실패(네트워크 끊김 등)는 서버 부하가 없으므로 짧게 다시 시도한다.
             delaySeconds = AppConstants.TokenRefreshNetworkRetrySeconds;
         }
+        var kind = ResolveFailureKind(_refreshFailure?.Kind, _failedRefreshToken, refreshToken, attempt.Kind);
         _failedRefreshToken = refreshToken;
-        _refreshFailure = new TokenRefreshFailure(attempt.Kind, DateTimeOffset.UtcNow.AddSeconds(delaySeconds));
+        _refreshFailure = new TokenRefreshFailure(kind, DateTimeOffset.UtcNow.AddSeconds(delaySeconds));
     }
 
     /// <summary>
+    /// 같은 refresh 토큰이 한 번 invalid_grant 로 거절됐으면, 이후 재시도가 429 등으로 실패해도 Rejected 를 유지한다
+    /// — 영구적인 문제(재로그인 필요)가 일시 제한 안내로 가려지지 않도록.
+    /// </summary>
+    internal static TokenRefreshFailureKind ResolveFailureKind(
+        TokenRefreshFailureKind? previousKind, string? previousToken, string? refreshToken, TokenRefreshFailureKind newKind) =>
+        previousKind == TokenRefreshFailureKind.Rejected && previousToken == refreshToken
+            ? TokenRefreshFailureKind.Rejected
+            : newKind;
+
+    /// <summary>
     /// 서버가 거절한 갱신의 다음 재시도까지 대기 시간(초). 5분에서 시작해 연속 실패마다 두 배, 60분 상한.
-    /// 서버가 Retry-After 를 주면 그보다 일찍 재시도하지 않는다.
+    /// 서버가 Retry-After 를 주면 그보다 일찍 재시도하지 않되, 6시간을 넘겨 기다리지는 않는다
+    /// (안내는 HH:mm 만 표시하므로 하루 넘는 대기는 오늘 시각처럼 읽힌다).
     /// </summary>
     internal static int ComputeRefreshBackoffSeconds(int consecutiveFailures, int? retryAfterSeconds)
     {
         var exponent = Math.Clamp(consecutiveFailures - 1, 0, 10);
         var backoff = (int)Math.Min((long)AppConstants.TokenRefreshBackoffBaseSeconds << exponent,
             AppConstants.TokenRefreshBackoffMaxSeconds);
-        return retryAfterSeconds is > 0 ? Math.Max(backoff, retryAfterSeconds.Value) : backoff;
+        return retryAfterSeconds is > 0
+            ? Math.Max(backoff, Math.Min(retryAfterSeconds.Value, AppConstants.TokenRefreshRetryAfterMaxSeconds))
+            : backoff;
     }
 
     internal static TokenRefreshFailureKind ClassifyRefreshFailure(int statusCode, string? body)
@@ -304,6 +318,26 @@ public class CredentialService : IDisposable
         return null;
     }
 
+    private async Task<(int Status, string Body, int? RetryAfterSeconds)> PostRefreshAsync(
+        string refreshToken, string[]? scopes)
+    {
+        var payload = new Dictionary<string, string>
+        {
+            ["grant_type"]    = "refresh_token",
+            ["refresh_token"] = refreshToken,
+            ["client_id"]     = ClientId
+        };
+        if (scopes is { Length: > 0 })
+            payload["scope"] = string.Join(' ', scopes);
+
+        using var response = await _http.SendAsync(new HttpRequestMessage(HttpMethod.Post, TokenUrl)
+        {
+            Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+        });
+        var body = await response.Content.ReadAsStringAsync();
+        return ((int)response.StatusCode, body, ParseRetryAfterSeconds(response.Headers.RetryAfter));
+    }
+
     private async Task<(RefreshResult? Result, RefreshAttemptFailure? Failure)> TryRefreshAsync(
         string? refreshToken, string[]? scopes)
     {
@@ -311,27 +345,21 @@ public class CredentialService : IDisposable
         var reachedServer = false;
         try
         {
-            var payload = new Dictionary<string, string>
-            {
-                ["grant_type"]    = "refresh_token",
-                ["refresh_token"] = refreshToken,
-                ["client_id"]     = ClientId
-            };
             // Claude Code 와 같은 요청 모양 — 저장된 scope 를 그대로 다시 요청한다.
-            if (scopes is { Length: > 0 })
-                payload["scope"] = string.Join(' ', scopes);
-
-            using var response = await _http.SendAsync(new HttpRequestMessage(HttpMethod.Post, TokenUrl)
-            {
-                Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
-            });
+            var reply = await PostRefreshAsync(refreshToken, scopes);
             reachedServer = true;
 
-            var json = await response.Content.ReadAsStringAsync();
-            if (!response.IsSuccessStatusCode)
+            // scope 를 실어 보낸 요청이 400(invalid_grant 아님)으로 거부되면 #177 이전처럼 scope 없이 한 번 더 —
+            // 서버가 저장된 scope 조합을 받지 않게 돼도 갱신이 영구히 막히지 않게 한다.
+            if (scopes is { Length: > 0 } && reply.Status == 400
+                && ClassifyRefreshFailure(reply.Status, reply.Body) != TokenRefreshFailureKind.Rejected)
+                reply = await PostRefreshAsync(refreshToken, null);
+
+            var json = reply.Body;
+            if (reply.Status is < 200 or > 299)
             {
-                var kind = ClassifyRefreshFailure((int)response.StatusCode, json);
-                return (null, new RefreshAttemptFailure(kind, ParseRetryAfterSeconds(response.Headers.RetryAfter), true));
+                var kind = ClassifyRefreshFailure(reply.Status, json);
+                return (null, new RefreshAttemptFailure(kind, reply.RetryAfterSeconds, true));
             }
 
             using var doc = JsonDocument.Parse(json);
