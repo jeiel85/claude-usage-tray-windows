@@ -231,9 +231,69 @@ public class CredentialServiceTests : IDisposable
     [InlineData(50, null, 3600)]
     [InlineData(1, 900, 900)]
     [InlineData(3, 60, 1200)]
+    [InlineData(1, 86400, 21600)]
     public void ComputeRefreshBackoffSeconds_DoublesUpToCapAndHonorsRetryAfter(int failures, int? retryAfter, int expected)
     {
         Assert.Equal(expected, CredentialService.ComputeRefreshBackoffSeconds(failures, retryAfter));
+    }
+
+    // 서버가 저장된 scope 조합을 400 으로 거부해도, scope 없는 요청(#177 이전 모양)으로 한 번 더 시도해 갱신한다.
+    [Fact]
+    public async Task GetValidAccessTokenAsync_RetriesWithoutScope_WhenScopeRejected()
+    {
+        WriteExpired("rt-1");
+        var handler = new StubHandler(request =>
+        {
+            var body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return body.Contains("\"scope\"")
+                ? Respond(HttpStatusCode.BadRequest, """{"error":"invalid_scope"}""")
+                : Respond(HttpStatusCode.OK, """{"access_token":"new-token","expires_in":28800}""");
+        });
+        using var service = new CredentialService(_path, handler);
+
+        Assert.Equal("new-token", await service.GetValidAccessTokenAsync());
+        Assert.Equal(2, handler.Calls);
+        Assert.Null(service.RefreshFailure);
+    }
+
+    // invalid_grant 는 scope 와 무관한 토큰 폐기라 scope 없이 다시 보내지 않는다.
+    [Fact]
+    public async Task GetValidAccessTokenAsync_DoesNotRetryWithoutScope_OnInvalidGrant()
+    {
+        WriteExpired("rt-1");
+        var handler = new StubHandler(_ => Respond(HttpStatusCode.BadRequest, """{"error":"invalid_grant"}"""));
+        using var service = new CredentialService(_path, handler);
+
+        await service.GetValidAccessTokenAsync();
+
+        Assert.Equal(1, handler.Calls);
+    }
+
+    // scopes 형식이 예상과 달라도 자격 파일 전체가 "토큰 없음"으로 무너지지 않아야 한다.
+    [Theory]
+    [InlineData("\"user:inference user:profile\"")]
+    [InlineData("42")]
+    [InlineData("{ \"a\": 1 }")]
+    public async Task GetValidAccessTokenAsync_ToleratesUnexpectedScopesShape(string scopesJson)
+    {
+        var expiresAt = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeMilliseconds();
+        Write($$"""
+        { "claudeAiOauth": { "accessToken": "sk-test-token", "refreshToken": "rt", "expiresAt": {{expiresAt}}, "scopes": {{scopesJson}} } }
+        """);
+        using var service = new CredentialService(_path);
+
+        Assert.Equal("sk-test-token", await service.GetValidAccessTokenAsync());
+    }
+
+    [Fact]
+    public void ResolveFailureKind_KeepsRejected_ForSameRefreshToken()
+    {
+        Assert.Equal(TokenRefreshFailureKind.Rejected, CredentialService.ResolveFailureKind(
+            TokenRefreshFailureKind.Rejected, "rt-1", "rt-1", TokenRefreshFailureKind.RateLimited));
+        Assert.Equal(TokenRefreshFailureKind.RateLimited, CredentialService.ResolveFailureKind(
+            TokenRefreshFailureKind.Rejected, "rt-1", "rt-2", TokenRefreshFailureKind.RateLimited));
+        Assert.Equal(TokenRefreshFailureKind.Rejected, CredentialService.ResolveFailureKind(
+            TokenRefreshFailureKind.RateLimited, "rt-1", "rt-1", TokenRefreshFailureKind.Rejected));
     }
 
     private void WriteExpired(string refreshToken)
