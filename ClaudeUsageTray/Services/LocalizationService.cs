@@ -797,13 +797,14 @@ public static class Loc
     // Errors
     // 액세스 토큰 파일(.credentials.json 의 claudeAiOauth)이 없어 usage API 호출 전에 실패한 경우.
     // 데스크톱 앱만 쓰거나 새 PC라 CLI 로그인을 한 적 없는 환경에서 발생 — 재로그인이 유일한 해결책이라
-    // 막연한 에러 대신 구체적 조치(터미널에서 claude 로그인)를 안내한다.
+    // 막연한 에러 대신 구체적 조치(터미널에서 claude 로그인)를 안내한다. 새로고침마다 자격 파일을 다시 읽으므로
+    // 로그인 후 재시작은 필요 없다(#180 — 버튼으로 로그인하면 완료 즉시 갱신된다).
     public static string NoToken => Lang switch
     {
-        "ko" => "액세스 토큰이 없습니다 — 터미널에서 claude auth login 으로 로그인한 뒤 앱을 다시 시작하세요",
-        "zh" => "未找到访问令牌 — 请在终端执行 claude auth login 登录后重启本应用",
-        "ja" => "アクセストークンがありません — ターミナルで claude auth login を実行してログイン後、アプリを再起動してください",
-        _ => "No access token — run `claude auth login` in a terminal, then restart the app"
+        "ko" => "액세스 토큰이 없습니다 — 터미널에서 claude auth login 으로 로그인하면 자동으로 갱신됩니다",
+        "zh" => "未找到访问令牌 — 请在终端执行 claude auth login 登录，登录后会自动刷新",
+        "ja" => "アクセストークンがありません — ターミナルで claude auth login を実行してログインすると自動的に更新されます",
+        _ => "No access token — run `claude auth login` in a terminal to sign in; usage refreshes automatically"
     };
 
     /// <summary>만료된 로그인 토큰의 갱신이 토큰 서버에서 일시 제한(429)됐을 때의 안내(#177).</summary>

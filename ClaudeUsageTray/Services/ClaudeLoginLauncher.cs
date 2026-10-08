@@ -111,7 +111,11 @@ public static class ClaudeLoginLauncher
     internal static string BuildPowerShellArguments(string script, bool keepOpen) =>
         $"-NoProfile{(keepOpen ? " -NoExit" : "")} -EncodedCommand {Encode(script)}";
 
-    /// <summary>검색 디렉터리를 순서대로 훑어 처음 발견한 claude 실행 파일의 전체 경로. 없으면 null.</summary>
+    /// <summary>
+    /// 검색 디렉터리를 순서대로 훑어 처음 발견한 claude 실행 파일의 절대 경로. 없으면 null.
+    /// PATH 의 상대 항목(".", "tools")은 이 프로세스의 현재 폴더 기준으로 찾아지지만 터미널은 사용자 폴더에서 열리므로,
+    /// 찾은 경로를 절대 경로로 바꿔 돌려준다.
+    /// </summary>
     internal static string? ResolveCliPath(IEnumerable<string> directories, Func<string, bool> fileExists)
     {
         foreach (var raw in directories)
@@ -121,7 +125,7 @@ public static class ClaudeLoginLauncher
             foreach (var name in CliFileNames)
             {
                 var candidate = Path.Combine(dir, name);
-                if (fileExists(candidate)) return candidate;
+                if (fileExists(candidate)) return Path.GetFullPath(candidate);
             }
         }
         return null;

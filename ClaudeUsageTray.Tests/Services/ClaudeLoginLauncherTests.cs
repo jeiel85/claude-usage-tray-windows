@@ -60,6 +60,18 @@ public class ClaudeLoginLauncherTests
         Assert.All(probed, candidate => Assert.DoesNotContain("\"", candidate));
     }
 
+    // 터미널은 사용자 폴더에서 열리므로 PATH 의 상대 항목으로 찾은 경로도 절대 경로로 넘겨야 실행된다.
+    [Fact]
+    public void ResolveCliPath_ReturnsAbsolutePath_ForRelativePathEntry()
+    {
+        var relative = Path.Combine("tools", "claude.exe");
+
+        var path = ClaudeLoginLauncher.ResolveCliPath(["tools"], candidate => candidate == relative);
+
+        Assert.Equal(Path.GetFullPath(relative), path);
+        Assert.True(Path.IsPathFullyQualified(path!));
+    }
+
     [Fact]
     public void ResolveCliPath_ReturnsNull_WhenNoCandidateExists()
     {
