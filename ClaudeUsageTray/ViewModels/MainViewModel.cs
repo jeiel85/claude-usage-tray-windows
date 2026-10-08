@@ -1315,6 +1315,38 @@ namespace ClaudeUsageTray.ViewModels;
             "explorer.exe", $"/select,\"{filePath}\"") { UseShellExecute = true });
     }
 
+    /// <summary>
+    /// 로그인 만료·토큰 없음 상태에서 새 콘솔 창으로 <c>claude auth login</c> 을 띄운다(#180).
+    /// 로그인이 끝나 자격 파일이 바뀌면 <see cref="OnCredentialsChanged"/> 가 새로고침을 이어받는다.
+    /// </summary>
+    [RelayCommand]
+    public void LaunchClaudeLogin()
+    {
+        ClaudeVm.LoginLaunchError = ClaudeLoginLauncher.TryLaunch(out var error)
+            ? ""
+            : Loc.ClaudeLoginLaunchFailed(error ?? "");
+    }
+
+    /// <summary>
+    /// 재로그인 필요 여부를 기록하고, 필요한 동안은 새로고침마다 CLI 설치 여부를 다시 확인한다 —
+    /// 버튼 문구("터미널에서 로그인" / "설치 후 로그인")가 설치 직후에도 맞게 바뀌도록.
+    /// </summary>
+    private void SetClaudeNeedsLogin(bool needsLogin)
+    {
+        ClaudeVm.NeedsLogin = needsLogin;
+        if (needsLogin) RefreshClaudeCliInstalled();
+    }
+
+    // PATH 에 응답 없는 네트워크 경로가 있으면 File.Exists 가 오래 걸릴 수 있어 UI 스레드 밖에서 찾는다.
+    private void RefreshClaudeCliInstalled()
+    {
+        _ = Task.Run(() =>
+        {
+            var installed = ClaudeLoginLauncher.FindCli() is not null;
+            System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => ClaudeVm.IsCliInstalled = installed);
+        });
+    }
+
     [RelayCommand]
     public async Task<NotificationTestResult> SendTestNotificationAsync()
     {
@@ -2326,6 +2358,7 @@ namespace ClaudeUsageTray.ViewModels;
                         if (refreshFailure.Kind == TokenRefreshFailureKind.Rejected)
                         {
                             ClaudeVm.HasError = true;
+                            SetClaudeNeedsLogin(true);
                             ClaudeVm.ErrorMessage = Loc.ClaudeTokenRefreshRejected;
                             ClaudeVm.ApiNote = "";
                         }
@@ -2365,7 +2398,8 @@ namespace ClaudeUsageTray.ViewModels;
                     {
                         ClaudeVm.HasError = true;
                         // 토큰 자체가 없어 네트워크 호출 전에 실패한 경우 — 막연한 원문 대신 로그인 안내로.
-                        ClaudeVm.ErrorMessage = _api.LastError == UsageApiService.NoTokenError
+                        SetClaudeNeedsLogin(_api.LastError == UsageApiService.NoTokenError);
+                        ClaudeVm.ErrorMessage = ClaudeVm.NeedsLogin
                             ? Loc.NoToken
                             : _api.LastError != null
                                 ? ParseFriendlyError(_api.LastError)
@@ -2385,6 +2419,7 @@ namespace ClaudeUsageTray.ViewModels;
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 ClaudeVm.HasError = true;
+                SetClaudeNeedsLogin(false);
                 ClaudeVm.ErrorMessage = ex.Message;
                 ClaudeVm.ApiNote = "";
                 UpdateOverallStatus();
@@ -3070,6 +3105,7 @@ namespace ClaudeUsageTray.ViewModels;
         // 종료 중이면 Application.Current 가 이미 null 이다 — 갱신할 화면도 없으므로 그냥 넘어간다.
         System.Windows.Application.Current?.Dispatcher.Invoke(() =>
         {
+            ClaudeVm.RefreshLocalizedLabels();
             OpenCodeVm.RefreshLocalizedLabels();
             AntigravityVm.RefreshLocalizedLabels();
             // 행 객체가 새로 만들어지므로 미러 프로퍼티도 다시 가리켜야 화면이 바뀐다.
