@@ -17,10 +17,16 @@ public class CredentialService : IDisposable
 
     private const string TokenUrl = "https://platform.claude.com/v1/oauth/token";
     private const string ClientId = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(AppConstants.AuthTimeoutSeconds) };
+    private static readonly HttpClient SharedHttp = new() { Timeout = TimeSpan.FromSeconds(AppConstants.AuthTimeoutSeconds) };
 
     private readonly string _credentialsPath;
+    private readonly HttpClient _http;
     private readonly FileSystemWatcher? _watcher;
+
+    // 토큰 갱신 실패 백오프 상태(#177). 실패한 refresh 토큰을 기억해, 재로그인으로 파일의 토큰이 바뀌면 즉시 푼다.
+    private volatile TokenRefreshFailure? _refreshFailure;
+    private string? _failedRefreshToken;
+    private int _consecutiveRefreshFailures;
 
     /// <summary>
     /// credentials.json 이 변경되면 발생 (계정 전환 감지용).
@@ -28,10 +34,20 @@ public class CredentialService : IDisposable
     /// </summary>
     public event Action? CredentialsChanged;
 
+    /// <summary>
+    /// 마지막 토큰 갱신 실패와 다음 재시도 시각. 유효한 토큰을 읽었거나 갱신에 성공하면 null.
+    /// 만료 토큰으로 401 을 받은 호출부가 원인(일시 제한·재로그인 필요)을 안내하는 데 쓴다.
+    /// </summary>
+    public TokenRefreshFailure? RefreshFailure => _refreshFailure;
+
     /// <param name="credentialsPath">자격 파일 경로. null 이면 ~/.claude/.credentials.json (테스트용 주입점).</param>
-    public CredentialService(string? credentialsPath = null)
+    /// <param name="tokenHandler">토큰 엔드포인트 HTTP 핸들러. null 이면 공유 클라이언트 (테스트용 주입점).</param>
+    public CredentialService(string? credentialsPath = null, HttpMessageHandler? tokenHandler = null)
     {
         _credentialsPath = credentialsPath ?? DefaultCredentialsPath;
+        _http = tokenHandler is null
+            ? SharedHttp
+            : new HttpClient(tokenHandler) { Timeout = TimeSpan.FromSeconds(AppConstants.AuthTimeoutSeconds) };
 
         var dir = Path.GetDirectoryName(_credentialsPath)!;
         if (Directory.Exists(dir))
@@ -131,7 +147,8 @@ public class CredentialService : IDisposable
 
     /// <summary>
     /// Returns a valid access token, refreshing it first if it has expired.
-    /// Returns null if no credentials exist or refresh failed.
+    /// Returns null if no credentials exist. If refresh fails (or is backing off after a failure),
+    /// falls back to the stored token and records the reason in <see cref="RefreshFailure"/>.
     /// Thread-safe: serializes concurrent refresh attempts.
     /// </summary>
     public async Task<string?> GetValidAccessTokenAsync()
@@ -145,11 +162,27 @@ public class CredentialService : IDisposable
             // Token still valid (with 60s buffer)
             if (!oauth.IsExpired &&
                 DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() < oauth.ExpiresAt - 60_000)
+            {
+                ClearRefreshFailure();
+                return NullIfBlank(oauth.AccessToken);
+            }
+
+            // 재로그인 등으로 refresh 토큰이 바뀌었으면 이전 실패의 백오프는 이 토큰과 무관하다.
+            if (_failedRefreshToken is not null && _failedRefreshToken != oauth.RefreshToken)
+                ClearRefreshFailure();
+
+            // 백오프 중에는 토큰 엔드포인트를 두드리지 않는다 — 매 폴링마다 재시도하면 429 가 풀리지 않는다(#177).
+            if (_refreshFailure is { } pending && DateTimeOffset.UtcNow < pending.RetryAtUtc)
                 return NullIfBlank(oauth.AccessToken);
 
             // Try to refresh
-            var refreshed = await TryRefreshAsync(oauth.RefreshToken);
-            if (refreshed is null) return NullIfBlank(oauth.AccessToken); // fall back to existing token
+            var (refreshed, failure) = await TryRefreshAsync(oauth.RefreshToken, oauth.Scopes);
+            if (refreshed is null)
+            {
+                if (failure is not null) RecordRefreshFailure(failure.Value, oauth.RefreshToken);
+                return NullIfBlank(oauth.AccessToken); // fall back to existing token
+            }
+            ClearRefreshFailure();
 
             // Persist updated credentials
             try
@@ -219,29 +252,93 @@ public class CredentialService : IDisposable
         _isSelfWriting = false;
     }
 
-    private static async Task<RefreshResult?> TryRefreshAsync(string? refreshToken)
+    private void ClearRefreshFailure()
     {
-        if (string.IsNullOrEmpty(refreshToken)) return null;
+        _refreshFailure = null;
+        _failedRefreshToken = null;
+        _consecutiveRefreshFailures = 0;
+    }
+
+    private void RecordRefreshFailure(RefreshAttemptFailure attempt, string? refreshToken)
+    {
+        int delaySeconds;
+        if (attempt.ReachedServer)
+        {
+            _consecutiveRefreshFailures++;
+            delaySeconds = ComputeRefreshBackoffSeconds(_consecutiveRefreshFailures, attempt.RetryAfterSeconds);
+        }
+        else
+        {
+            // 서버에 닿지 못한 실패(네트워크 끊김 등)는 서버 부하가 없으므로 짧게 다시 시도한다.
+            delaySeconds = AppConstants.TokenRefreshNetworkRetrySeconds;
+        }
+        _failedRefreshToken = refreshToken;
+        _refreshFailure = new TokenRefreshFailure(attempt.Kind, DateTimeOffset.UtcNow.AddSeconds(delaySeconds));
+    }
+
+    /// <summary>
+    /// 서버가 거절한 갱신의 다음 재시도까지 대기 시간(초). 5분에서 시작해 연속 실패마다 두 배, 60분 상한.
+    /// 서버가 Retry-After 를 주면 그보다 일찍 재시도하지 않는다.
+    /// </summary>
+    internal static int ComputeRefreshBackoffSeconds(int consecutiveFailures, int? retryAfterSeconds)
+    {
+        var exponent = Math.Clamp(consecutiveFailures - 1, 0, 10);
+        var backoff = (int)Math.Min((long)AppConstants.TokenRefreshBackoffBaseSeconds << exponent,
+            AppConstants.TokenRefreshBackoffMaxSeconds);
+        return retryAfterSeconds is > 0 ? Math.Max(backoff, retryAfterSeconds.Value) : backoff;
+    }
+
+    internal static TokenRefreshFailureKind ClassifyRefreshFailure(int statusCode, string? body)
+    {
+        if (statusCode == 429) return TokenRefreshFailureKind.RateLimited;
+        // invalid_grant: refresh 토큰이 폐기·만료됨 — 다시 로그인해야 한다.
+        if (statusCode is 400 or 401 && body?.Contains("invalid_grant", StringComparison.Ordinal) == true)
+            return TokenRefreshFailureKind.Rejected;
+        return TokenRefreshFailureKind.Failed;
+    }
+
+    private static int? ParseRetryAfterSeconds(System.Net.Http.Headers.RetryConditionHeaderValue? retryAfter)
+    {
+        if (retryAfter?.Delta is { } delta) return (int)Math.Ceiling(delta.TotalSeconds);
+        if (retryAfter?.Date is { } date) return (int)Math.Ceiling((date - DateTimeOffset.UtcNow).TotalSeconds);
+        return null;
+    }
+
+    private async Task<(RefreshResult? Result, RefreshAttemptFailure? Failure)> TryRefreshAsync(
+        string? refreshToken, string[]? scopes)
+    {
+        if (string.IsNullOrEmpty(refreshToken)) return (null, null);
+        var reachedServer = false;
         try
         {
-            var body = JsonSerializer.Serialize(new
+            var payload = new Dictionary<string, string>
             {
-                grant_type    = "refresh_token",
-                refresh_token = refreshToken,
-                client_id     = ClientId
-            });
-            var response = await Http.SendAsync(new HttpRequestMessage(HttpMethod.Post, TokenUrl)
+                ["grant_type"]    = "refresh_token",
+                ["refresh_token"] = refreshToken,
+                ["client_id"]     = ClientId
+            };
+            // Claude Code 와 같은 요청 모양 — 저장된 scope 를 그대로 다시 요청한다.
+            if (scopes is { Length: > 0 })
+                payload["scope"] = string.Join(' ', scopes);
+
+            using var response = await _http.SendAsync(new HttpRequestMessage(HttpMethod.Post, TokenUrl)
             {
-                Content = new StringContent(body, Encoding.UTF8, "application/json")
+                Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
             });
+            reachedServer = true;
 
-            if (!response.IsSuccessStatusCode) return null;
+            var json = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
+            {
+                var kind = ClassifyRefreshFailure((int)response.StatusCode, json);
+                return (null, new RefreshAttemptFailure(kind, ParseRetryAfterSeconds(response.Headers.RetryAfter), true));
+            }
 
-            var json  = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(json);
             var root  = doc.RootElement;
 
-            if (!root.TryGetProperty("access_token", out var at)) return null;
+            if (!root.TryGetProperty("access_token", out var at))
+                return (null, new RefreshAttemptFailure(TokenRefreshFailureKind.Failed, null, true));
 
             long expiresAt;
             if (root.TryGetProperty("expires_in", out var expiresIn))
@@ -251,7 +348,7 @@ public class CredentialService : IDisposable
 
             string? newRefresh = root.TryGetProperty("refresh_token", out var rt) ? rt.GetString() : null;
 
-            return new RefreshResult(at.GetString()!, expiresAt, newRefresh);
+            return (new RefreshResult(at.GetString()!, expiresAt, newRefresh), null);
         }
         catch (Exception ex)
         {
@@ -259,7 +356,7 @@ public class CredentialService : IDisposable
             System.Diagnostics.Debug.WriteLine($"[CredentialService] Refresh failed: {ex.Message}");
 #endif
             GC.KeepAlive(ex);
-            return null;
+            return (null, new RefreshAttemptFailure(TokenRefreshFailureKind.Failed, null, reachedServer));
         }
     }
 
@@ -267,8 +364,25 @@ public class CredentialService : IDisposable
     {
         _watcher?.Dispose();
         _debounceTimer?.Dispose();
+        if (!ReferenceEquals(_http, SharedHttp)) _http.Dispose();
         GC.SuppressFinalize(this);
     }
 
     private record RefreshResult(string AccessToken, long ExpiresAt, string? RefreshToken);
+
+    private readonly record struct RefreshAttemptFailure(
+        TokenRefreshFailureKind Kind, int? RetryAfterSeconds, bool ReachedServer);
 }
+
+public enum TokenRefreshFailureKind
+{
+    /// <summary>토큰 엔드포인트가 429 로 일시 제한.</summary>
+    RateLimited,
+    /// <summary>refresh 토큰이 거절됨(invalid_grant) — 다시 로그인해야 한다.</summary>
+    Rejected,
+    /// <summary>그 밖의 실패(서버 오류·네트워크 오류 등).</summary>
+    Failed
+}
+
+/// <summary>토큰 갱신 실패 종류와, 백오프가 끝나 다시 갱신을 시도할 시각(UTC).</summary>
+public sealed record TokenRefreshFailure(TokenRefreshFailureKind Kind, DateTimeOffset RetryAtUtc);

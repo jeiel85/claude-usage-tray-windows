@@ -806,6 +806,33 @@ public static class Loc
         _ => "No access token — run `claude auth login` in a terminal, then restart the app"
     };
 
+    /// <summary>만료된 로그인 토큰의 갱신이 토큰 서버에서 일시 제한(429)됐을 때의 안내(#177).</summary>
+    public static string ClaudeTokenRefreshRateLimited(string time) => Lang switch
+    {
+        "ko" => $"로그인 토큰이 만료됐고 갱신이 일시 제한됐습니다 · {time} 이후 자동 재시도",
+        "zh" => $"登录令牌已过期，刷新暂时受限 · {time} 后自动重试",
+        "ja" => $"ログイントークンの有効期限が切れ、更新が一時的に制限されています · {time} 以降に自動再試行",
+        _ => $"Login token expired and refresh is temporarily rate-limited · retrying after {time}"
+    };
+
+    /// <summary>만료된 로그인 토큰의 갱신이 그 밖의 이유로 실패했을 때의 안내(#177).</summary>
+    public static string ClaudeTokenRefreshRetrying(string time) => Lang switch
+    {
+        "ko" => $"로그인 토큰이 만료됐고 갱신에 실패했습니다 · {time} 이후 자동 재시도",
+        "zh" => $"登录令牌已过期，刷新失败 · {time} 后自动重试",
+        "ja" => $"ログイントークンの有効期限が切れ、更新に失敗しました · {time} 以降に自動再試行",
+        _ => $"Login token expired and refresh failed · retrying after {time}"
+    };
+
+    /// <summary>refresh 토큰이 거절(invalid_grant)돼 다시 로그인해야 할 때의 안내(#177).</summary>
+    public static string ClaudeTokenRefreshRejected => Lang switch
+    {
+        "ko" => "로그인이 만료됐습니다 — 터미널에서 claude auth login 으로 다시 로그인하세요",
+        "zh" => "登录已过期 — 请在终端执行 claude auth login 重新登录",
+        "ja" => "ログインの有効期限が切れました — ターミナルで claude auth login を実行して再ログインしてください",
+        _ => "Login expired — run `claude auth login` in a terminal to sign in again"
+    };
+
     public static string RateLimited => Lang switch
     {
         "ko" => "일시적으로 사용량이 많아 제한되었습니다 — 잠시 후 갱신됩니다",

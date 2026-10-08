@@ -1,5 +1,9 @@
 using System;
 using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Threading;
 using System.Threading.Tasks;
 using ClaudeUsageTray.Services;
 using Xunit;
@@ -146,6 +150,125 @@ public class CredentialServiceTests : IDisposable
 
         Assert.True(service.TryGetSubscriptionInfo(out var info));
         Assert.Equal("pro", info.SubscriptionType);
+    }
+
+    // 회귀 방지(#177): 만료 토큰의 갱신이 429 로 막히면 폴링(2분)마다 다시 두드려 제한이 풀리지 않았다.
+    // Retry-After 동안은 토큰 엔드포인트를 다시 부르지 않고 기존 토큰으로 폴백해야 한다.
+    [Fact]
+    public async Task GetValidAccessTokenAsync_BacksOffAfterRateLimitedRefresh()
+    {
+        WriteExpired("rt-1");
+        var handler = new StubHandler(_ => Respond(HttpStatusCode.TooManyRequests,
+            """{"error":{"type":"rate_limit_error","message":"Rate limited."}}""", retryAfterSeconds: 600));
+        using var service = new CredentialService(_path, handler);
+
+        Assert.Equal("expired-token", await service.GetValidAccessTokenAsync());
+        Assert.Equal("expired-token", await service.GetValidAccessTokenAsync());
+
+        Assert.Equal(1, handler.Calls);
+        var failure = Assert.IsType<TokenRefreshFailure>(service.RefreshFailure);
+        Assert.Equal(TokenRefreshFailureKind.RateLimited, failure.Kind);
+        Assert.InRange(failure.RetryAtUtc, DateTimeOffset.UtcNow.AddSeconds(590), DateTimeOffset.UtcNow.AddSeconds(610));
+    }
+
+    // 다시 로그인해 refresh 토큰이 바뀌면 이전 토큰의 백오프를 기다리지 않고 바로 갱신한다.
+    [Fact]
+    public async Task GetValidAccessTokenAsync_RetriesImmediately_WhenRefreshTokenChanges()
+    {
+        WriteExpired("rt-1");
+        var handler = new StubHandler(_ => Respond(HttpStatusCode.TooManyRequests, "{}"));
+        using var service = new CredentialService(_path, handler);
+        await service.GetValidAccessTokenAsync();
+
+        WriteExpired("rt-2");
+        await service.GetValidAccessTokenAsync();
+
+        Assert.Equal(2, handler.Calls);
+    }
+
+    [Fact]
+    public async Task GetValidAccessTokenAsync_ClassifiesInvalidGrantAsRejected()
+    {
+        WriteExpired("rt-1");
+        var handler = new StubHandler(_ => Respond(HttpStatusCode.BadRequest,
+            """{"error":"invalid_grant","error_description":"Refresh token revoked"}"""));
+        using var service = new CredentialService(_path, handler);
+
+        await service.GetValidAccessTokenAsync();
+
+        Assert.Equal(TokenRefreshFailureKind.Rejected, service.RefreshFailure?.Kind);
+    }
+
+    // 성공하면 새 토큰을 저장하고 실패 상태를 지운다. 요청에는 Claude Code 처럼 저장된 scope 를 싣는다.
+    [Fact]
+    public async Task GetValidAccessTokenAsync_PersistsRefreshedTokenAndSendsScope()
+    {
+        WriteExpired("rt-1");
+        string? requestBody = null;
+        var handler = new StubHandler(request =>
+        {
+            requestBody = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return Respond(HttpStatusCode.OK,
+                """{"access_token":"new-token","refresh_token":"rt-new","expires_in":28800}""");
+        });
+        using var service = new CredentialService(_path, handler);
+
+        Assert.Equal("new-token", await service.GetValidAccessTokenAsync());
+
+        Assert.Null(service.RefreshFailure);
+        Assert.Contains("\"scope\":\"user:inference user:profile\"", requestBody);
+        var saved = File.ReadAllText(_path);
+        Assert.Contains("new-token", saved);
+        Assert.Contains("rt-new", saved);
+        Assert.Contains("\"subscriptionType\": \"max\"", saved);
+    }
+
+    [Theory]
+    [InlineData(1, null, 300)]
+    [InlineData(2, null, 600)]
+    [InlineData(4, null, 2400)]
+    [InlineData(5, null, 3600)]
+    [InlineData(50, null, 3600)]
+    [InlineData(1, 900, 900)]
+    [InlineData(3, 60, 1200)]
+    public void ComputeRefreshBackoffSeconds_DoublesUpToCapAndHonorsRetryAfter(int failures, int? retryAfter, int expected)
+    {
+        Assert.Equal(expected, CredentialService.ComputeRefreshBackoffSeconds(failures, retryAfter));
+    }
+
+    private void WriteExpired(string refreshToken)
+    {
+        var expiresAt = DateTimeOffset.UtcNow.AddHours(-1).ToUnixTimeMilliseconds();
+        Write($$"""
+        {
+          "claudeAiOauth": {
+            "accessToken": "expired-token",
+            "refreshToken": "{{refreshToken}}",
+            "expiresAt": {{expiresAt}},
+            "scopes": ["user:inference", "user:profile"],
+            "subscriptionType": "max"
+          }
+        }
+        """);
+    }
+
+    private static HttpResponseMessage Respond(HttpStatusCode status, string body, int? retryAfterSeconds = null)
+    {
+        var response = new HttpResponseMessage(status) { Content = new StringContent(body) };
+        if (retryAfterSeconds is { } seconds)
+            response.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.FromSeconds(seconds));
+        return response;
+    }
+
+    private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
+    {
+        public int Calls { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Calls++;
+            return Task.FromResult(respond(request));
+        }
     }
 
     private void Write(string json) => File.WriteAllText(_path, json);

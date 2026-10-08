@@ -2313,7 +2313,32 @@ namespace ClaudeUsageTray.ViewModels;
                     // 쿨다운 판정은 호출 "후" _apiRetryAfter 기준으로 — 첫 429부터 즉시 회색 톤 라우팅
                     bool isCooldown = _apiRetryAfter > DateTimeOffset.UtcNow;
 
-                    if (isPermissionDenied)
+                    // 만료 토큰으로 401 을 받았고 갱신도 실패한 상태 — 원문("OAuth access token has expired")
+                    // 대신 갱신이 막힌 이유와 다음 재시도 시각을 안내한다(#177).
+                    var refreshFailure = _api.LastError?.StartsWith("HTTP 401", StringComparison.Ordinal) == true
+                        ? _credentials.RefreshFailure
+                        : null;
+
+                    if (refreshFailure is not null)
+                    {
+                        ClearOAuthNotAllowedFirstSeenIfNeeded();
+                        var retryAt = refreshFailure.RetryAtUtc.ToLocalTime().ToString("HH:mm");
+                        if (refreshFailure.Kind == TokenRefreshFailureKind.Rejected)
+                        {
+                            ClaudeVm.HasError = true;
+                            ClaudeVm.ErrorMessage = Loc.ClaudeTokenRefreshRejected;
+                            ClaudeVm.ApiNote = "";
+                        }
+                        else
+                        {
+                            ClaudeVm.HasError = false;
+                            ClaudeVm.ErrorMessage = "";
+                            ClaudeVm.ApiNote = refreshFailure.Kind == TokenRefreshFailureKind.RateLimited
+                                ? Loc.ClaudeTokenRefreshRateLimited(retryAt)
+                                : Loc.ClaudeTokenRefreshRetrying(retryAt);
+                        }
+                    }
+                    else if (isPermissionDenied)
                     {
                         ClaudeVm.HasError = false;
                         ClaudeVm.ErrorMessage = "";

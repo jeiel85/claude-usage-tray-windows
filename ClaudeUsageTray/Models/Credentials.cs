@@ -22,6 +22,9 @@ public class ClaudeAiOauth
     [JsonPropertyName("expiresAt")]
     public long ExpiresAt { get; set; }
 
+    [JsonPropertyName("scopes")]
+    public string[]? Scopes { get; set; }
+
     // Non-serialized mutable fields used during refresh
     [System.Text.Json.Serialization.JsonIgnore]
     public string? NewAccessToken { get; set; }
