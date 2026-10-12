@@ -56,6 +56,7 @@ public sealed class OpenCodeWebUsageService : IDisposable
     private Window? _window;
     private WebView2? _webView;
     private bool _allowClose;
+    private volatile bool _disposed;
     private CancellationTokenSource? _activeRead;
     private OpenCodeWebUsage? _cachedUsage;
     private DateTimeOffset _cacheExpiresAt;
@@ -130,7 +131,8 @@ public sealed class OpenCodeWebUsageService : IDisposable
         }
         finally
         {
-            _gate.Release();
+            // 진행 중이던 조회는 Dispose 의 취소로 끝나며 여기에 늦게 도착할 수 있다.
+            if (!_disposed) _gate.Release();
         }
     }
 
@@ -224,7 +226,8 @@ public sealed class OpenCodeWebUsageService : IDisposable
             _activeRead = null;
             foreach (var pending in _pendingFetches.Values) pending.TrySetResult(ConsoleResponse.NoResponse);
             _pendingFetches.Clear();
-            if (_window.IsVisible) _window.Hide();
+            // 앱 종료(Dispose)로 취소됐으면 창은 이미 닫혀 null 이다.
+            if (_window is { IsVisible: true } window) window.Hide();
         }
     }
 
@@ -355,7 +358,17 @@ public sealed class OpenCodeWebUsageService : IDisposable
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(ConsoleFetchTimeout);
             using var registration = timeout.Token.Register(() => completion.TrySetResult(ConsoleResponse.NoResponse));
-            await core.ExecuteScriptAsync(BuildFetchScript(id, ConsoleApiBase + path, orgId));
+            try
+            {
+                await core.ExecuteScriptAsync(BuildFetchScript(id, ConsoleApiBase + path, orgId));
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // 문서 교체·렌더러 재시작 중 실행이 거절될 수 있다. 로그인 창이 이 한 번 때문에 닫히지 않도록
+                // 응답 없음으로 돌려 다음 확인에서 다시 본다.
+                Trace.TraceWarning($"OpenCode console script could not run: {ex.Message}");
+                return ConsoleResponse.NoResponse;
+            }
             var response = await completion.Task;
             cancellationToken.ThrowIfCancellationRequested();
             return response;
@@ -433,7 +446,9 @@ public sealed class OpenCodeWebUsageService : IDisposable
 
     /// <summary>
     /// 콘솔 API 로 Go 할당량을 읽는다. 저장된 작업공간이 있으면 먼저 보고, 없거나 더 이상 Go 가 없으면
-    /// 작업공간 목록에서 Go 할당량이 있는 곳을 찾는다. 어느 단계든 401 이면 로그인이 풀린 것이다.
+    /// 작업공간 목록에서 Go 할당량이 있는 곳을 찾는다. 로그아웃 판정은 작업공간 헤더 없이 부르는
+    /// 작업공간 목록의 401 로만 한다 — 특정 작업공간의 401 은 그 작업공간에서 빠졌거나 다른 계정으로
+    /// 로그인한 경우일 수 있어, 멀쩡한 세션을 로그아웃으로 오판하지 않도록 목록으로 다시 확인한다.
     /// </summary>
     internal static async Task<ConsoleReadOutcome> ReadQuotaAsync(
         Func<string, string?, Task<ConsoleResponse>> fetch, string? savedOrgId, DateTimeOffset now)
@@ -444,13 +459,13 @@ public sealed class OpenCodeWebUsageService : IDisposable
         if (savedOrgId != null)
         {
             var saved = await fetch(GoStatusPath, savedOrgId);
-            if (saved.Status == 401) return ConsoleReadOutcome.SignedOut;
             if (saved.Status == 200)
             {
                 if (ParseGoStatus(saved.Body, now) is { } usage) return ConsoleReadOutcome.Success(usage, savedOrgId);
                 sawUnreadableQuota |= HasGoAccess(saved.Body);
-                checkedOrgs.Add(savedOrgId);
             }
+            // 일시 오류(응답 없음·5xx)였다면 목록을 받은 뒤 한 번 더 묻는다.
+            if (saved.Status is 200 or 401 or 403 or 404) checkedOrgs.Add(savedOrgId);
         }
 
         var orgs = await fetch(OrgsPath, null);
@@ -463,7 +478,6 @@ public sealed class OpenCodeWebUsageService : IDisposable
             if (checkedOrgs.Count > MaxOrgsToProbe) break;
 
             var status = await fetch(GoStatusPath, orgId);
-            if (status.Status == 401) return ConsoleReadOutcome.SignedOut;
             if (status.Status != 200)
             {
                 failure ??= DescribeFailure(status.Status);
@@ -720,6 +734,7 @@ public sealed class OpenCodeWebUsageService : IDisposable
 
     public void Dispose()
     {
+        _disposed = true;
         _gate.Dispose();
         var dispatcher = System.Windows.Application.Current?.Dispatcher;
         if (dispatcher == null || dispatcher.HasShutdownStarted) return;

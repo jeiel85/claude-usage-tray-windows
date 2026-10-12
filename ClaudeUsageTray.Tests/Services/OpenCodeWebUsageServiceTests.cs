@@ -157,18 +157,70 @@ public sealed class OpenCodeWebUsageServiceTests
         Assert.Single(fetch.Requests, request => request == ("/go/status", "org_PERSONAL"));
     }
 
-    // 로그아웃 판정은 콘솔 API 의 401 로만 한다 — 어느 단계에서 오든 같다.
+    // 로그아웃 판정은 작업공간 헤더 없이 부르는 작업공간 목록의 401 로만 한다.
     [Theory]
-    [InlineData("org_PERSONAL", "/go/status")]
-    [InlineData(null, "/orgs")]
-    public async Task ReadQuota_TreatsUnauthorizedAsSignedOut(string? savedOrgId, string unauthorizedPath)
+    [InlineData("org_PERSONAL")]
+    [InlineData(null)]
+    public async Task ReadQuota_TreatsUnauthorizedWorkspaceListAsSignedOut(string? savedOrgId)
     {
-        var fetch = new FakeConsole { Fallback = new ConsoleResponse(200, OrgsJson) };
-        fetch[(unauthorizedPath, unauthorizedPath == "/orgs" ? null : savedOrgId)] = new ConsoleResponse(401, "");
+        var fetch = new FakeConsole { Fallback = new ConsoleResponse(401, "") };
 
         var outcome = await OpenCodeWebUsageService.ReadQuotaAsync(fetch.FetchAsync, savedOrgId, Now);
 
         Assert.Equal(ConsoleReadKind.SignedOut, outcome.Kind);
+    }
+
+    // 저장된 작업공간만 401 이면 그 작업공간에서 빠졌거나 다른 계정으로 로그인한 것일 수 있다 —
+    // 세션은 살아 있으므로 목록에서 다시 찾고, 이미 거절당한 작업공간은 다시 묻지 않는다.
+    [Fact]
+    public async Task ReadQuota_DoesNotTreatAWorkspaceScopedUnauthorizedAsSignOut()
+    {
+        var fetch = new FakeConsole
+        {
+            [("/go/status", "org_PERSONAL")] = new ConsoleResponse(401, ""),
+            [("/orgs", null)] = Ok(OrgsJson),
+            [("/go/status", "wrk_TEAM123")] = Ok(GoStatusJson()),
+        };
+
+        var outcome = await OpenCodeWebUsageService.ReadQuotaAsync(fetch.FetchAsync, "org_PERSONAL", Now);
+
+        Assert.Equal(ConsoleReadKind.Success, outcome.Kind);
+        Assert.Equal("wrk_TEAM123", outcome.OrgId);
+        Assert.Single(fetch.Requests, request => request == ("/go/status", "org_PERSONAL"));
+    }
+
+    [Fact]
+    public async Task ReadQuota_ReportsAWorkspaceScopedUnauthorizedDuringDiscoveryAsFailure()
+    {
+        var fetch = new FakeConsole
+        {
+            [("/orgs", null)] = Ok("[{\"id\":\"org_PERSONAL\"}]"),
+            [("/go/status", "org_PERSONAL")] = new ConsoleResponse(401, ""),
+        };
+
+        var outcome = await OpenCodeWebUsageService.ReadQuotaAsync(fetch.FetchAsync, null, Now);
+
+        Assert.Equal(ConsoleReadKind.Failed, outcome.Kind);
+    }
+
+    // 저장된 작업공간의 일시 오류는 목록을 받은 뒤 한 번 더 묻는다.
+    [Fact]
+    public async Task ReadQuota_RetriesTheSavedWorkspaceAfterATransientFailure()
+    {
+        var calls = 0;
+        var fetch = new FakeConsole { [("/orgs", null)] = Ok(OrgsJson) };
+        Task<ConsoleResponse> FetchAsync(string path, string? orgId)
+        {
+            if (path == "/go/status" && orgId == "org_PERSONAL")
+                return Task.FromResult(++calls == 1 ? new ConsoleResponse(0, "") : Ok(GoStatusJson()));
+            return fetch.FetchAsync(path, orgId);
+        }
+
+        var outcome = await OpenCodeWebUsageService.ReadQuotaAsync(FetchAsync, "org_PERSONAL", Now);
+
+        Assert.Equal(ConsoleReadKind.Success, outcome.Kind);
+        Assert.Equal("org_PERSONAL", outcome.OrgId);
+        Assert.Equal(2, calls);
     }
 
     // 응답을 못 받은 것(부팅 직후 네트워크 미준비 등)은 로그아웃이 아니다(#130).
