@@ -162,6 +162,8 @@ public partial class SettingsWindow : Window, IDisposable
         ChkShowPlanBadge.Content            = Loc.ShowPlanBadge;
         ChkShowAbsoluteResetTime.Content    = Loc.ShowAbsoluteResetTime;
         LblShowAbsoluteResetTimeHint.Text   = Loc.ShowAbsoluteResetTimeHint;
+        ChkShowAntigravityThirdPartyQuota.Content   = Loc.AntigravityShowThirdPartyQuota;
+        LblShowAntigravityThirdPartyQuotaHint.Text  = Loc.AntigravityShowThirdPartyQuotaHint;
         ChkKeepPopupAboveTaskbar.Content    = Loc.KeepPopupAboveTaskbar;
         LblKeepPopupAboveTaskbarHint.Text   = Loc.KeepPopupAboveTaskbarHint;
         LblUsagePanelOpacity.Text           = Loc.UsagePanelOpacity;
@@ -315,6 +317,7 @@ public partial class SettingsWindow : Window, IDisposable
 
         ChkShowPlanBadge.IsChecked         = _vm.ShowPlanBadge;
         ChkShowAbsoluteResetTime.IsChecked = _vm.ShowAbsoluteResetTime;
+        ChkShowAntigravityThirdPartyQuota.IsChecked = _vm.ShowAntigravityThirdPartyQuota;
         ChkKeepPopupAboveTaskbar.IsChecked = _vm.KeepPopupAboveTaskbar;
         SliderUsagePanelOpacity.Value      = _vm.UsagePanelOpacity > 0 ? Math.Clamp(_vm.UsagePanelOpacity, 0.5, 1.0) : 0.94;
 
@@ -380,6 +383,7 @@ public partial class SettingsWindow : Window, IDisposable
 
         _vm.ShowPlanBadge         = ChkShowPlanBadge.IsChecked == true;
         _vm.ShowAbsoluteResetTime = ChkShowAbsoluteResetTime.IsChecked == true;
+        _vm.ShowAntigravityThirdPartyQuota = ChkShowAntigravityThirdPartyQuota.IsChecked == true;
         _vm.KeepPopupAboveTaskbar = ChkKeepPopupAboveTaskbar.IsChecked == true;
         _vm.UsagePanelOpacity     = Math.Clamp(SliderUsagePanelOpacity.Value, 0.5, 1.0);
 

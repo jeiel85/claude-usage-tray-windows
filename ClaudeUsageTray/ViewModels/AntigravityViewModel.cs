@@ -26,15 +26,19 @@ public partial class AntigravityViewModel : ObservableObject
     /// <summary>설정 화면의 "초기화 절대 시간 표시" 토글 — Claude·Codex 와 같은 값을 MainViewModel 이 그대로 밀어 넣는다.</summary>
     [ObservableProperty] private bool _showAbsoluteResetTime = false;
 
+    /// <summary>
+    /// 설정의 "Claude·GPT 한도도 표시" 토글. 꺼져 있으면(기본) Claude·GPT 그룹(3p) 창을 행에서도,
+    /// 트레이 대표값(<see cref="Percent"/>)에서도 뺀다 — 팝업과 트레이 숫자가 어긋나지 않게 한 곳에서 거른다.
+    /// 다른 PC 에서 받은 값도 같은 경로(<see cref="ApplyQuota"/>)를 타므로 같이 걸러진다.
+    /// </summary>
+    [ObservableProperty] private bool _showThirdPartyQuota = false;
+
     /// <summary>마지막 조회 결과 원본 — MainViewModel 이 다중 PC 동기화에 쓴다.</summary>
     public AntigravitySnapshot LastSnapshot { get; private set; } = new();
 
-    // 화면에 올린 마지막 입력. 언어가 바뀌면 이 값으로 행을 다시 만든다
+    // 화면에 올린 마지막 입력. 언어·표시 설정이 바뀌면 이 값으로 행을 다시 만든다
     // (LastSnapshot 과 별개다 — 다른 PC 에서 받은 값을 표시 중일 수 있다).
     private IReadOnlyList<AntigravityModelQuota> _appliedQuota = System.Array.Empty<AntigravityModelQuota>();
-    private string? _appliedTierName;
-    private string? _appliedPaidTierName;
-    private long? _appliedAiCredits;
 
     public AntigravityViewModel(AntigravityUsageMonitor monitor)
     {
@@ -98,9 +102,6 @@ public partial class AntigravityViewModel : ObservableObject
                            long? aiCredits = null)
     {
         _appliedQuota = models;
-        _appliedTierName = tierName;
-        _appliedPaidTierName = paidTierName;
-        _appliedAiCredits = aiCredits;
 
         HasData = true;
         HasError = false;
@@ -110,6 +111,16 @@ public partial class AntigravityViewModel : ObservableObject
         // 0 도 보여준다 — 크레딧을 다 써서 한도 소진 뒤 이어 쓸 수 없다는 뜻이다(gemini-cli /stats 와 같은 규칙).
         AiCreditsText = aiCredits is long credits ? credits.ToString("N0", System.Globalization.CultureInfo.CurrentCulture) : "";
 
+        RebuildRows();
+    }
+
+    /// <summary>
+    /// 마지막으로 올린 할당량으로 행과 트레이 대표값만 다시 만든다. 오류·배지·크레딧 같은 상태는 건드리지 않는다 —
+    /// 언어나 표시 설정이 바뀌었을 뿐인데 다른 PC 값 위에 살려 둔 로컬 오류까지 지워지면 안 된다.
+    /// </summary>
+    private void RebuildRows()
+    {
+        var models = _appliedQuota;
         double worstUsed = 0;
         var now = DateTimeOffset.Now;
         var rows = new List<QuotaGaugeRow>(models.Count);
@@ -123,11 +134,13 @@ public partial class AntigravityViewModel : ObservableObject
             if (m.ModelId.StartsWith("chat_", StringComparison.Ordinal) ||
                 m.ModelId.StartsWith("tab_",  StringComparison.Ordinal))
                 continue;
+            if (!ShowThirdPartyQuota && IsThirdPartyBucket(m.ModelId))
+                continue;
 
             double used = Math.Clamp(1.0 - m.RemainingFraction, 0.0, 1.0);
             if (used > worstUsed) worstUsed = used;
 
-            // 아직 쓰지 않은 창도 남겨 둔다. Antigravity 화면과 같은 네 칸(그룹 × 주간·5시간)이
+            // 아직 쓰지 않은 창도 남겨 둔다. 보여 주기로 한 그룹의 주간·5시간 칸이
             // 항상 보여야 지금 무엇이 얼마나 남았는지 읽을 수 있다.
             var row = new QuotaGaugeRow
             {
@@ -160,6 +173,19 @@ public partial class AntigravityViewModel : ObservableObject
 
     /// <summary>토글 즉시 반영 — API 재호출 없이 현재 행을 그대로 다시 포맷한다.</summary>
     partial void OnShowAbsoluteResetTimeChanged(bool value) => UpdateTimeProgress(DateTimeOffset.Now);
+
+    /// <summary>토글 즉시 반영 — API 재호출 없이 마지막 값으로 행과 대표값을 다시 만든다.</summary>
+    partial void OnShowThirdPartyQuotaChanged(bool value)
+    {
+        if (HasData && _appliedQuota.Count > 0) RebuildRows();
+    }
+
+    /// <summary>
+    /// Claude·GPT 그룹(Google 이 자사 모델과 구분해 third-party 라 부르는 3p)의 창인가.
+    /// 버킷 식별자는 "그룹-창" 형식이므로 창을 뗀 그룹 키가 정확히 3p 인 것만 본다.
+    /// </summary>
+    internal static bool IsThirdPartyBucket(string modelId) =>
+        string.Equals(GroupKey(modelId), "3p", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// 게이지 순서를 Claude·Codex 와 맞춘다 — 짧은 창(5시간)이 위, 긴 창(주간)이 아래.
@@ -225,7 +251,7 @@ public partial class AntigravityViewModel : ObservableObject
     public void RefreshLocalizedLabels()
     {
         if (!HasData || _appliedQuota.Count == 0) return;
-        ApplyQuota(_appliedQuota, _appliedTierName, _appliedPaidTierName, _appliedAiCredits);
+        RebuildRows();
     }
 
     /// <summary>
