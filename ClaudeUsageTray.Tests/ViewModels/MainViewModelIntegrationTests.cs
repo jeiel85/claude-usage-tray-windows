@@ -1,3 +1,4 @@
+using System.IO;
 using ClaudeUsageTray.Models;
 using ClaudeUsageTray.Services;
 using ClaudeUsageTray.Services.WeatherWarnings;
@@ -9,15 +10,33 @@ namespace ClaudeUsageTray.Tests.ViewModels;
 
 [Collection("WpfTests")]
 [Trait("Category", "Integration")]
-public class MainViewModelIntegrationTests
+public class MainViewModelIntegrationTests : IDisposable
 {
-    private static MainViewModel CreateViewModel()
+    // ~/.claude 대신 쓰는 테스트별 폴더(#186). 실제 서비스를 그대로 쓰면 설정 저장·RefreshAsync 가
+    // 개발자 PC 의 설정·히스토리를 다시 쓰고, 만료된 Claude 토큰을 갱신해 자격 파일까지 덮어쓴다.
+    // 실제 설정에 다중 PC 동기화가 켜져 있으면 공유 폴더에 이 PC 의 스냅샷도 남긴다.
+    private readonly string _dir;
+
+    public MainViewModelIntegrationTests()
+    {
+        _dir = Path.Combine(Path.GetTempPath(), "cut-mainvm-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_dir);
+    }
+
+    public void Dispose()
+    {
+        try { Directory.Delete(_dir, recursive: true); } catch { }
+        GC.SuppressFinalize(this);
+    }
+
+    private MainViewModel CreateViewModel()
     {
         if (System.Windows.Application.Current == null)
             new System.Windows.Application { ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown };
 
-        var settingsService = new SettingsService();
-        var credService = new CredentialService();
+        var settingsService = new SettingsService(Path.Combine(_dir, "claude-usage-tray.json"));
+        // 없는 자격 파일 — 로그인 전 PC 와 같은 상태(CI 와 같다)로 돌고, 토큰 갱신·저장이 일어나지 않는다.
+        var credService = new CredentialService(Path.Combine(_dir, ".credentials.json"));
         var apiService = new UsageApiService(credService);
         var sessionMonitor = new SessionMonitor();
         var codexMonitor = new CodexUsageMonitor();
@@ -25,8 +44,8 @@ public class MainViewModelIntegrationTests
         var antigravityMonitor = new AntigravityUsageMonitor();
         var notifier = new NotificationService(() => null);
         var updater = new UpdateService();
-        var history = new HistoryService();
-        var usageSync = new UsageSyncService();
+        var history = new HistoryService(_dir);
+        var usageSync = new UsageSyncService(Path.Combine(_dir, "appdata"));
         var weather = new WeatherService();
         var weatherAlert = new WeatherAlertService(
             weather, notifier, () => new NotificationSettings(), Array.Empty<IWeatherWarningProvider>());
@@ -581,6 +600,8 @@ public class MainViewModelIntegrationTests
             {
                 var exception = Record.Exception(() => vm.SaveSettingsCommand.Execute(null));
                 Assert.Null(exception);
+                // 저장이 실제 사용자 설정이 아니라 테스트 폴더로 갔는지(#186).
+                Assert.True(File.Exists(Path.Combine(_dir, "claude-usage-tray.json")));
             }
             finally
             {

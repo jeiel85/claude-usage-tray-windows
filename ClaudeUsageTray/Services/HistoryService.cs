@@ -19,8 +19,10 @@ public record DailyStats(
 /// </summary>
 public class HistoryService
 {
-    private static readonly string ClaudeDir = Path.Combine(
+    private static readonly string DefaultDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude");
+
+    private readonly string _directory;
 
     // scopeKey ("provider|accountKey") -> (dateKey -> stats)
     private readonly Dictionary<string, Dictionary<string, DailyStats>> _scopes = new();
@@ -28,8 +30,10 @@ public class HistoryService
 
     private string _activeScopeKey;
 
-    public HistoryService()
+    /// <param name="directory">history 파일 폴더. null 이면 ~/.claude (테스트용 주입점).</param>
+    public HistoryService(string? directory = null)
     {
+        _directory = directory ?? DefaultDirectory;
         _activeScopeKey = MakeKey(Models.UsageProviderKind.Claude, null);
         EnsureLoaded(_activeScopeKey);
     }
@@ -171,13 +175,13 @@ public class HistoryService
         return (provider, account);
     }
 
-    private static string ScopeKeyToPath(string scopeKey)
+    private string ScopeKeyToPath(string scopeKey)
     {
         var (provider, accountKey) = ParseKey(scopeKey);
         var suffix = string.IsNullOrEmpty(accountKey)
             ? ""
             : $"-{accountKey![..Math.Min(8, accountKey.Length)]}";
-        return Path.Combine(ClaudeDir, $"claude-usage-tray-history-{provider}{suffix}.json");
+        return Path.Combine(_directory, $"claude-usage-tray-history-{provider}{suffix}.json");
     }
 
     private void EnsureLoaded(string scopeKey)

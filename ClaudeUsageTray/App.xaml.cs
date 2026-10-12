@@ -30,9 +30,26 @@ public partial class App : Application
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool DestroyIcon(IntPtr hIcon);
 
+    private readonly bool _startsTrayApp;
+
+    public App() : this(startsTrayApp: true)
+    {
+    }
+
+    /// <param name="startsTrayApp">
+    /// false 면 App.xaml 리소스만 올리고 트레이 앱은 띄우지 않는다 (테스트용 주입점, #186).
+    /// WPF 는 Application 생성자에서 Startup 을 디스패처에 올려 두므로, Run() 없이 디스패처만 돌려도
+    /// OnStartup 이 실행돼 실제 설정·히스토리·OpenCode 웹 세션을 쓰는 앱이 통째로 뜬다.
+    /// </param>
+    internal App(bool startsTrayApp)
+    {
+        _startsTrayApp = startsTrayApp;
+    }
+
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        if (!_startsTrayApp) return;
 
         // SQLitePCLRaw 네이티브 라이브러리 초기화 (OpenCode DB 접근 전 필수)
         SQLitePCL.Batteries.Init();
