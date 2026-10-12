@@ -30,7 +30,35 @@ public class ProviderUsageSnapshot
 
     public long[] HourlyTokens { get; set; } = new long[24];
 
+    /// <summary>
+    /// 기본 창(Short/Long) 말고 공급자가 따로 거는 한도의 창들 — 예: Codex 의 이미지 생성 한도(#182).
+    /// 한도 하나가 창을 둘(5시간·주간) 가질 수 있어 창 단위로 펴서 담는다. 같은 한도의 창은 붙어 있고,
+    /// 한도끼리는 서버가 준 순서, 한도 안에서는 짧은 창이 먼저다.
+    /// </summary>
+    public List<AdditionalQuotaWindow> AdditionalQuotas { get; set; } = [];
+
     public OpenCodeUsageDetails? OpenCodeDetails { get; set; }
+}
+
+/// <summary>추가 한도의 창 하나(계정 단위 값).</summary>
+public sealed class AdditionalQuotaWindow
+{
+    /// <summary>한도 식별자 (Codex: API 의 <c>metered_feature</c>, 세션 로그의 <c>limit_id</c>).</summary>
+    public string LimitId { get; init; } = "";
+
+    /// <summary>서버가 준 한도 이름 (Codex: <c>limit_name</c>). 없으면 빈 문자열.</summary>
+    public string LimitName { get; init; } = "";
+
+    public double UsagePercent { get; init; }   // 0..1
+    public DateTimeOffset? ResetAt { get; init; }
+    public int? WindowMinutes { get; init; }
+
+    /// <summary>
+    /// 이 값을 관측한 시각 (Direct API: 조회 시각, 세션 로그: 그 줄의 기록 시각).
+    /// 이 PC 로그와 다른 PC 동기화 값이 함께 있을 때 더 최근 것을 고르는 근거다 — 며칠 전 로그 값이
+    /// 다른 PC 가 방금 본 값을 가리지 않게.
+    /// </summary>
+    public DateTimeOffset? ObservedAt { get; init; }
 }
 
 public class OpenCodeUsageDetails

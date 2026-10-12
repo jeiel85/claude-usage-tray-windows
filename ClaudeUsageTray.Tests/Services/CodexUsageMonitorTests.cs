@@ -269,6 +269,22 @@ public class CodexUsageMonitorTests
             ts, input, cached, output, reasoning, total, primary, secondaryJson);
     }
 
+    /// <summary>
+    /// 토큰 집계 없이 rate_limits 만 있는 줄(info: null) — 한도별 줄을 흉내 낸다.
+    /// <paramref name="limitId"/> 가 null 이면 limit_id 필드 자체를 빼서 그 필드가 없던 버전의 로그를 만든다.
+    /// </summary>
+    private static string RateLimitsOnlyLine(string ts, string? limitId, double primaryPercent, int primaryWindowMinutes,
+        long? primaryResetsAt = 1900000000)
+    {
+        var resetsAtField = primaryResetsAt is null ? "" : string.Format(CultureInfo.InvariantCulture, @",""resets_at"":{0}", primaryResetsAt);
+        var primary = string.Format(CultureInfo.InvariantCulture,
+            @"{{""used_percent"":{0},""window_minutes"":{1}{2}}}", primaryPercent, primaryWindowMinutes, resetsAtField);
+        var limitIdField = limitId is null ? "" : $@"""limit_id"":""{limitId}"",""limit_name"":null,";
+        return string.Format(CultureInfo.InvariantCulture,
+            @"{{""timestamp"":""{0}"",""type"":""event_msg"",""payload"":{{""type"":""token_count"",""info"":null,""rate_limits"":{{{1}""primary"":{2},""secondary"":null}}}}}}",
+            ts, limitIdField, primary);
+    }
+
     /// <summary>resets_at 이 아예 없는 라인 — 리셋 추정 폴백 경로를 태운다.</summary>
     private static string TokenCountLineWithoutResetTime(string ts, long input, long output, long total,
         int primaryWindowMinutes)
@@ -426,6 +442,157 @@ public class CodexUsageMonitorTests
         Assert.Equal(300, snapshot.ShortWindowMinutes); // 18000s / 60 = 5h
         Assert.Equal(0.08, snapshot.LongUsagePercent, 3);
         Assert.Equal(10080, snapshot.LongWindowMinutes); // 604800s / 60 = 7d
+        Assert.Empty(snapshot.AdditionalQuotas); // additional_rate_limits 가 없으면 추가 게이지도 없다
+    }
+
+    // #182: 이미지 생성 같은 추가 한도는 응답 최상위 additional_rate_limits 에 따로 온다
+    // (openai/codex codex-backend-openapi-models 의 AdditionalRateLimitDetails). 창마다 한 줄로 펴되
+    // 한도 안에서는 짧은 창이 먼저, 기본 한도(codex)가 다시 실려 오면 두 번 그리지 않고, 이미 리셋된 창은 버린다.
+    [Fact]
+    public void ParseDirectApiUsage_ReadsAdditionalRateLimits()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var fiveHourReset = now.AddHours(2).ToUnixTimeSeconds();
+        var weeklyReset = now.AddDays(3).ToUnixTimeSeconds();
+        var expiredReset = now.AddMinutes(-5).ToUnixTimeSeconds();
+        using var doc = JsonDocument.Parse($$"""
+        {
+            "plan_type": "plus",
+            "rate_limit": {
+                "primary_window": { "used_percent": 10, "limit_window_seconds": 18000, "reset_after_seconds": 100, "reset_at": {{fiveHourReset}} }
+            },
+            "additional_rate_limits": [
+                {
+                    "limit_name": "image_gen",
+                    "metered_feature": "codex_image_gen",
+                    "rate_limit": {
+                        "allowed": true,
+                        "limit_reached": false,
+                        "primary_window": { "used_percent": 70, "limit_window_seconds": 604800, "reset_after_seconds": 100, "reset_at": {{weeklyReset}} },
+                        "secondary_window": { "used_percent": 25, "limit_window_seconds": 18000, "reset_after_seconds": 100, "reset_at": {{fiveHourReset}} }
+                    }
+                },
+                {
+                    "limit_name": "codex",
+                    "metered_feature": "codex",
+                    "rate_limit": { "primary_window": { "used_percent": 99, "limit_window_seconds": 18000, "reset_after_seconds": 100, "reset_at": {{fiveHourReset}} } }
+                },
+                {
+                    "limit_name": "gpt-5.3-codex-spark",
+                    "metered_feature": "codex_bengalfox",
+                    "rate_limit": { "primary_window": { "used_percent": 50, "limit_window_seconds": 18000, "reset_after_seconds": 0, "reset_at": {{expiredReset}} } }
+                },
+                "not-an-object"
+            ]
+        }
+        """);
+
+        var snapshot = CodexUsageMonitor.ParseDirectApiUsage(doc.RootElement, now);
+
+        Assert.NotNull(snapshot);
+        Assert.Equal(0.10, snapshot!.ShortUsagePercent, 3); // 기본 게이지는 그대로
+        Assert.Collection(snapshot.AdditionalQuotas,
+            fiveHour =>
+            {
+                Assert.Equal("codex_image_gen", fiveHour.LimitId);
+                Assert.Equal("image_gen", fiveHour.LimitName);
+                Assert.Equal(300, fiveHour.WindowMinutes);
+                Assert.Equal(0.25, fiveHour.UsagePercent, 3);
+            },
+            weekly =>
+            {
+                Assert.Equal("codex_image_gen", weekly.LimitId);
+                Assert.Equal(10080, weekly.WindowMinutes);
+                Assert.Equal(0.70, weekly.UsagePercent, 3);
+                Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(weeklyReset), weekly.ResetAt);
+            });
+        // Direct API 값의 관측 시각은 조회 시각이다 — 다른 PC 의 로그 값과 겨룰 때 쓴다.
+        Assert.All(snapshot.AdditionalQuotas, window => Assert.Equal(now, window.ObservedAt));
+    }
+
+    // #182: 최신 CLI 는 한도마다 rate_limits 줄을 따로 남기고 limit_id 로 구분한다. limit_id 를 안 보면
+    // 더 늦게 찍힌 추가 한도 줄이 기본 게이지를 덮어써 5시간 창 자리에 이미지 한도 값이 뜬다.
+    // 같은 한도의 줄이 여럿이면 가장 늦은 줄을 쓴다.
+    [Fact]
+    public void LocalLog_AdditionalLimitLine_DoesNotOverwriteMainGauge()
+    {
+        var root = CreateTempCodexRoot();
+        try
+        {
+            var dir = Path.Combine(root, "s");
+            Directory.CreateDirectory(dir);
+            var latestImageTs = MakeTodayLocalIsoUtc(9, 30);
+            File.WriteAllLines(Path.Combine(dir, "rollout-today-limits.jsonl"), new[]
+            {
+                RateLimitsOnlyLine(MakeTodayLocalIsoUtc(8, 0), "codex_image_gen", primaryPercent: 30.0, primaryWindowMinutes: 10080),
+                TokenCountLine(MakeTodayLocalIsoUtc(9, 0), input: 1000, cached: 0, output: 10, reasoning: 0,
+                    total: 1010, primaryPercent: 12.0, primaryWindowMinutes: 300, secondaryJson: "null"),
+                RateLimitsOnlyLine(latestImageTs, "codex_image_gen", primaryPercent: 80.0, primaryWindowMinutes: 10080),
+            });
+
+            var snap = new CodexUsageMonitor().GetTodaySnapshot(root);
+
+            Assert.Equal(0.12, snap.ShortUsagePercent, 3);
+            Assert.Equal(300, snap.ShortWindowMinutes);
+            var image = Assert.Single(snap.AdditionalQuotas);
+            Assert.Equal("codex_image_gen", image.LimitId);
+            Assert.Equal("", image.LimitName); // 로그 줄의 limit_name 은 null 일 수 있다
+            Assert.Equal(0.80, image.UsagePercent, 3);
+            Assert.Equal(10080, image.WindowMinutes);
+            // 다른 PC 값과 겨룰 때 쓰는 관측 시각은 그 줄의 기록 시각이다.
+            Assert.Equal(DateTimeOffset.Parse(latestImageTs, CultureInfo.InvariantCulture), image.ObservedAt);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    // 리셋 시각이 없는 추가 한도 창은 지금 창인지 가릴 수 없어 버린다. 그래서 창이 하나도 남지 않는 더 늦은 줄이
+    // 앞서 읽은 정상 값을 지워서도 안 된다.
+    [Fact]
+    public void LocalLog_AdditionalLimit_IgnoresWindowsWithoutReset_AndKeepsTheLastUsableLine()
+    {
+        var root = CreateTempCodexRoot();
+        try
+        {
+            var dir = Path.Combine(root, "s");
+            Directory.CreateDirectory(dir);
+            File.WriteAllLines(Path.Combine(dir, "rollout-today-noreset.jsonl"), new[]
+            {
+                RateLimitsOnlyLine(MakeTodayLocalIsoUtc(8, 0), "codex_image_gen", primaryPercent: 30.0, primaryWindowMinutes: 10080),
+                RateLimitsOnlyLine(MakeTodayLocalIsoUtc(9, 0), "codex_image_gen", primaryPercent: 99.0, primaryWindowMinutes: 10080,
+                    primaryResetsAt: null),
+                RateLimitsOnlyLine(MakeTodayLocalIsoUtc(9, 0), "codex_other", primaryPercent: 50.0, primaryWindowMinutes: 300,
+                    primaryResetsAt: null),
+            });
+
+            var snap = new CodexUsageMonitor().GetTodaySnapshot(root);
+
+            var image = Assert.Single(snap.AdditionalQuotas);
+            Assert.Equal("codex_image_gen", image.LimitId);
+            Assert.Equal(0.30, image.UsagePercent, 3);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    // limit_id 가 생기기 전 버전의 로그(필드 없음)는 기본 한도로 읽어야 한다 — 추가 한도로 빠지면 기본 게이지가 빈다.
+    [Fact]
+    public void LocalLog_LineWithoutLimitId_IsTheMainLimit()
+    {
+        var root = CreateTempCodexRoot();
+        try
+        {
+            var dir = Path.Combine(root, "s");
+            Directory.CreateDirectory(dir);
+            File.WriteAllLines(Path.Combine(dir, "rollout-today-legacy.jsonl"), new[]
+            {
+                RateLimitsOnlyLine(MakeTodayLocalIsoUtc(9, 0), limitId: null, primaryPercent: 44.0, primaryWindowMinutes: 300),
+            });
+
+            var snap = new CodexUsageMonitor().GetTodaySnapshot(root);
+
+            Assert.Equal(0.44, snap.ShortUsagePercent, 3);
+            Assert.Empty(snap.AdditionalQuotas);
+        }
+        finally { Directory.Delete(root, true); }
     }
 
     [Fact]

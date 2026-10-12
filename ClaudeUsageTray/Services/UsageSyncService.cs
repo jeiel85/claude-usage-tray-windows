@@ -125,7 +125,10 @@ public class UsageSyncService
 
                 snapshot!.LocalTotals = NormalizeTotals(snapshot.LocalTotals);
                 if (snapshot.Quota is { } quota)
+                {
                     quota.Models ??= [];
+                    quota.AdditionalQuotas = NormalizeAdditionalQuotas(quota.AdditionalQuotas);
+                }
                 snapshots.Add(snapshot);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
@@ -282,6 +285,25 @@ public class UsageSyncService
 
     private static string GetSnapshotDirectory(string syncRoot, string accountHash, string provider, string localDate) =>
         Path.Combine(syncRoot, SanitizePathPart(accountHash), SanitizePathPart(provider), SanitizePathPart(localDate));
+
+    /// <summary>
+    /// 공유 폴더 파일은 외부 입력이다 — 목록·요소·문자열이 null 로 적혀 있어도(손으로 고친 파일 등)
+    /// 받는 쪽이 null 을 만나지 않게 고친다. 화면 갱신 도중 예외가 나면 그 뒤 상태 갱신이 통째로 멈춘다.
+    /// </summary>
+    private static UsageSyncAdditionalQuota[] NormalizeAdditionalQuotas(UsageSyncAdditionalQuota?[]? quotas)
+    {
+        if (quotas is null) return [];
+
+        var normalized = new List<UsageSyncAdditionalQuota>(quotas.Length);
+        foreach (var quota in quotas)
+        {
+            if (quota is null) continue;
+            quota.LimitId ??= "";
+            quota.LimitName ??= "";
+            normalized.Add(quota);
+        }
+        return [.. normalized];
+    }
 
     private static bool IsValidSnapshot(UsageSyncSnapshot? snapshot, string accountHash, string provider, string dateText) =>
         snapshot is not null &&

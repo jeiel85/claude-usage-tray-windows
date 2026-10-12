@@ -22,6 +22,9 @@ public class CodexUsageMonitor
     // (#148 은 auth.json 경로만 지적했지만, 도메인과 응답 스키마 자체가 잘못돼 있던 건 이번에
     // 실제 계정으로 실측하며 드러났다. 아래 응답 파싱도 그때 확인한 실제 스키마 기준이다).
     private const string UsageApiEndpoint = "https://chatgpt.com/backend-api/wham/usage";
+
+    /// <summary>Direct API 로 읽은 스냅샷의 <see cref="ProviderUsageSnapshot.DataSource"/> 값.</summary>
+    public const string DirectApiSource = "Direct API";
     private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(AppConstants.ApiTimeoutSeconds) };
 
     public async Task<ProviderUsageSnapshot> GetTodaySnapshotAsync(bool useDirectApi = true)
@@ -249,18 +252,13 @@ public class CodexUsageMonitor
         if (!root.TryGetProperty("rate_limit", out var rateLimitEl) || rateLimitEl.ValueKind != JsonValueKind.Object)
             return null;
 
-        var windows = new List<RateWindow>(2);
-        if (ReadDirectApiWindow(rateLimitEl, "primary_window") is { } primary) windows.Add(primary);
-        if (ReadDirectApiWindow(rateLimitEl, "secondary_window") is { } secondary) windows.Add(secondary);
+        var windows = ReadDirectApiWindows(rateLimitEl);
         if (windows.Count == 0) return null;
-
-        // window_minutes 오름차순(길이를 모르는 창은 뒤로) — 로컬 로그 경로(ApplyRateLimits)와 동일 규칙.
-        windows.Sort((a, b) => (a.WindowMinutes ?? int.MaxValue).CompareTo(b.WindowMinutes ?? int.MaxValue));
 
         var snapshot = new ProviderUsageSnapshot
         {
             HasData = true,
-            DataSource = "Direct API",
+            DataSource = DirectApiSource,
             ShortUsagePercent = windows[0].Percent,
             ShortResetAt = windows[0].ResetAt,
             ShortWindowMinutes = windows[0].WindowMinutes,
@@ -275,11 +273,82 @@ public class CodexUsageMonitor
         if (root.TryGetProperty("plan_type", out var planEl) && planEl.ValueKind == JsonValueKind.String)
             snapshot.PlanType = planEl.GetString();
 
+        ReadAdditionalRateLimits(root, snapshot.AdditionalQuotas, now);
+
         // API 응답이라고 리셋 시각이 항상 미래인 것은 아니다(캐시된 응답·시계 어긋남).
         DropExpiredWindows(snapshot, now);
 
         return snapshot;
     }
+
+    /// <summary>
+    /// 기본 한도 말고 따로 걸린 한도들(이미지 생성 등, #182)을 창 단위로 편다.
+    /// 응답 최상위의 <c>additional_rate_limits: [{limit_name, metered_feature, rate_limit}]</c> 이고,
+    /// <c>rate_limit</c> 은 기본 한도와 같은 <c>primary_window</c>/<c>secondary_window</c> 구조다.
+    /// 공식 CLI 는 <c>metered_feature</c> 를 한도 ID 로, <c>limit_name</c> 을 표시 이름으로 쓴다
+    /// (openai/codex backend-client/src/client.rs, codex-backend-openapi-models 의 AdditionalRateLimitDetails).
+    /// 이미지 생성 한도의 실제 이름은 공개 자료로 확인되지 않아 이름으로 고르지 않고 전부 받는다.
+    /// </summary>
+    private static void ReadAdditionalRateLimits(JsonElement root, List<AdditionalQuotaWindow> target, DateTimeOffset observedAt)
+    {
+        if (!root.TryGetProperty("additional_rate_limits", out var limitsEl) || limitsEl.ValueKind != JsonValueKind.Array)
+            return;
+
+        foreach (var limitEl in limitsEl.EnumerateArray())
+        {
+            if (limitEl.ValueKind != JsonValueKind.Object) continue;
+
+            var limitName = ReadString(limitEl, "limit_name") ?? "";
+            var limitId = ReadString(limitEl, "metered_feature") ?? limitName;
+            // 기본 한도가 여기 한 번 더 실려 오면 같은 게이지가 두 번 그려진다.
+            if (limitId.Length == 0 || IsDefaultLimit(limitId)) continue;
+            if (!limitEl.TryGetProperty("rate_limit", out var rateLimitEl) || rateLimitEl.ValueKind != JsonValueKind.Object)
+                continue;
+
+            AddAdditionalWindows(target, limitId, limitName, ReadDirectApiWindows(rateLimitEl), observedAt);
+        }
+    }
+
+    // primary/secondary 를 창 길이 오름차순으로 — 기본 한도·추가 한도가 같은 규칙을 쓴다.
+    private static List<RateWindow> ReadDirectApiWindows(JsonElement rateLimitEl)
+    {
+        var windows = new List<RateWindow>(2);
+        if (ReadDirectApiWindow(rateLimitEl, "primary_window") is { } primary) windows.Add(primary);
+        if (ReadDirectApiWindow(rateLimitEl, "secondary_window") is { } secondary) windows.Add(secondary);
+        windows.Sort(CompareByWindowLength);
+        return windows;
+    }
+
+    private static void AddAdditionalWindows(
+        List<AdditionalQuotaWindow> target, string limitId, string limitName, List<RateWindow> windows,
+        DateTimeOffset observedAt)
+    {
+        foreach (var window in windows)
+        {
+            target.Add(new AdditionalQuotaWindow
+            {
+                LimitId = limitId,
+                LimitName = limitName,
+                UsagePercent = window.Percent,
+                ResetAt = window.ResetAt,
+                WindowMinutes = window.WindowMinutes,
+                ObservedAt = observedAt,
+            });
+        }
+    }
+
+    /// <summary>
+    /// 기본 한도 ID. 세션 로그의 <c>limit_id</c> 가 이 값이거나 비어 있으면(이 필드가 생기기 전 로그) 기본 한도다
+    /// (openai/codex codex-api/src/rate_limits.rs 가 기본 헤더 묶음을 이 ID 로 부른다).
+    /// </summary>
+    private const string DefaultLimitId = "codex";
+
+    private static bool IsDefaultLimit(string limitId) =>
+        string.Equals(limitId, DefaultLimitId, StringComparison.OrdinalIgnoreCase);
+
+    // window_minutes 오름차순(길이를 모르는 창은 뒤로)
+    private static int CompareByWindowLength(RateWindow a, RateWindow b) =>
+        (a.WindowMinutes ?? int.MaxValue).CompareTo(b.WindowMinutes ?? int.MaxValue);
 
     // limit_window_seconds 는 초 단위라 분 단위인 로컬 로그 스키마(ReadWindow)와 맞추려면 60 으로 나눈다.
     private static RateWindow? ReadDirectApiWindow(JsonElement rateLimitEl, string windowName)
@@ -320,19 +389,24 @@ public class CodexUsageMonitor
 
         var today = reference.LocalDateTime.Date;
         var latestRateTs = DateTimeOffset.MinValue;
+        var latestAdditional = new Dictionary<string, LoggedLimit>(StringComparer.OrdinalIgnoreCase);
         var files = Directory.GetFiles(sessionsPath, "rollout-*.jsonl", SearchOption.AllDirectories);
 
         foreach (var file in files)
         {
             try
             {
-                ProcessFile(file, today, snapshot, ref latestRateTs);
+                ProcessFile(file, today, snapshot, ref latestRateTs, latestAdditional);
             }
             catch
             {
                 // Skip unreadable files
             }
         }
+
+        // 로그에는 서버의 한도 순서가 없어 ID 순으로 고정한다 — 파일 순서에 따라 게이지가 자리를 바꾸지 않게.
+        foreach (var limit in latestAdditional.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
+            snapshot.AdditionalQuotas.AddRange(limit.Value.Windows);
 
         DropExpiredWindows(snapshot, reference);
 
@@ -365,10 +439,12 @@ public class CodexUsageMonitor
             snapshot.LongResetAt = null;
             snapshot.LongWindowMinutes = null;
         }
+
+        snapshot.AdditionalQuotas.RemoveAll(window => window.ResetAt is { } reset && reset <= now);
     }
 
     private static void ProcessFile(string filePath, DateTime today, ProviderUsageSnapshot snapshot,
-        ref DateTimeOffset latestRateTs)
+        ref DateTimeOffset latestRateTs, Dictionary<string, LoggedLimit> latestAdditional)
     {
         using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         using var reader = new StreamReader(fs);
@@ -404,10 +480,28 @@ public class CodexUsageMonitor
                 if (ts != DateTimeOffset.MinValue && ts.ToLocalTime().Date == today)
                     firstTodayActivityTs ??= ts;
 
-                if (payloadEl.TryGetProperty("rate_limits", out var rateLimitsEl) && ts > latestRateTs)
+                if (payloadEl.TryGetProperty("rate_limits", out var rateLimitsEl) &&
+                    rateLimitsEl.ValueKind == JsonValueKind.Object)
                 {
-                    latestRateTs = ts;
-                    ApplyRateLimits(rateLimitsEl, snapshot);
+                    // 최신 CLI 는 한도마다 rate_limits 줄을 따로 남기고 limit_id 로 구분한다. 이 값을 안 보면
+                    // 추가 한도(이미지 생성 등) 줄이 기본 게이지를 덮어쓴다 — 기본 한도 줄만 기본 게이지에 쓰고,
+                    // 나머지는 한도별 최신 줄을 추가 한도로 모은다(#182).
+                    var limitId = ReadString(rateLimitsEl, "limit_id");
+                    if (limitId is null || IsDefaultLimit(limitId))
+                    {
+                        if (ts > latestRateTs)
+                        {
+                            latestRateTs = ts;
+                            ApplyRateLimits(rateLimitsEl, snapshot);
+                        }
+                    }
+                    else if (!latestAdditional.TryGetValue(limitId, out var known) || ts > known.Timestamp)
+                    {
+                        // 읽을 창이 없는 줄이 앞서 읽은 정상 값을 지우지 않게 한다.
+                        var windows = ReadLoggedAdditionalWindows(rateLimitsEl, limitId, ts);
+                        if (windows.Count > 0)
+                            latestAdditional[limitId] = new LoggedLimit(ts, windows);
+                    }
                 }
 
                 if (!TryReadTotals(payloadEl, out var totals))
@@ -468,12 +562,7 @@ public class CodexUsageMonitor
     // 길이를 바꿔도(예: primary가 5시간→주간) 라벨/위치가 어긋나지 않는다.
     private static void ApplyRateLimits(JsonElement rateLimitsEl, ProviderUsageSnapshot snapshot)
     {
-        var windows = new List<RateWindow>(2);
-        if (ReadWindow(rateLimitsEl, "primary") is { } primary) windows.Add(primary);
-        if (ReadWindow(rateLimitsEl, "secondary") is { } secondary) windows.Add(secondary);
-
-        // window_minutes 오름차순(길이를 모르는 창은 뒤로)
-        windows.Sort((a, b) => (a.WindowMinutes ?? int.MaxValue).CompareTo(b.WindowMinutes ?? int.MaxValue));
+        var windows = ReadLoggedWindows(rateLimitsEl);
 
         snapshot.ShortUsagePercent = 0;
         snapshot.ShortResetAt = null;
@@ -499,6 +588,30 @@ public class CodexUsageMonitor
         if (rateLimitsEl.TryGetProperty("plan_type", out var planEl) && planEl.ValueKind == JsonValueKind.String)
             snapshot.PlanType = planEl.GetString();
     }
+
+    // primary/secondary 를 창 길이 오름차순으로 — Direct API 경로(ReadDirectApiWindows)와 같은 규칙.
+    private static List<RateWindow> ReadLoggedWindows(JsonElement rateLimitsEl)
+    {
+        var windows = new List<RateWindow>(2);
+        if (ReadWindow(rateLimitsEl, "primary") is { } primary) windows.Add(primary);
+        if (ReadWindow(rateLimitsEl, "secondary") is { } secondary) windows.Add(secondary);
+        windows.Sort(CompareByWindowLength);
+        return windows;
+    }
+
+    // 로그 줄의 limit_name 은 비어 있을 수 있다(공식 TUI 도 그때는 limit_id 로 부른다).
+    // 리셋 시각이 없는 창은 버린다 — 로그는 날짜와 무관하게 최신 줄을 집어오므로, 리셋 시각 없이는
+    // 그 값이 지금 창을 설명하는지 가릴 수 없어 며칠 전 사용률이 그대로 남는다.
+    private static List<AdditionalQuotaWindow> ReadLoggedAdditionalWindows(
+        JsonElement rateLimitsEl, string limitId, DateTimeOffset observedAt)
+    {
+        var windows = new List<AdditionalQuotaWindow>(2);
+        AddAdditionalWindows(windows, limitId, ReadString(rateLimitsEl, "limit_name") ?? "",
+            [.. ReadLoggedWindows(rateLimitsEl).Where(window => window.ResetAt is not null)], observedAt);
+        return windows;
+    }
+
+    private readonly record struct LoggedLimit(DateTimeOffset Timestamp, List<AdditionalQuotaWindow> Windows);
 
     // 창(primary/secondary)이 객체가 아니면(JSON null 포함) null 반환.
     private static RateWindow? ReadWindow(JsonElement rateLimitsEl, string windowName)

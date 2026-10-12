@@ -415,21 +415,75 @@ public static class Loc
     /// </summary>
     private static string? AntigravityWindowName(string window) => window switch
     {
-        "weekly" => Lang switch
-        {
-            "ko" => "주간",
-            "zh" => "每周",
-            "ja" => "週間",
-            _ => "Weekly"
-        },
-        "5h" => Lang switch
-        {
-            "ko" => "5시간",
-            "zh" => "5 小时",
-            "ja" => "5時間",
-            _ => "5-hour"
-        },
+        "weekly" => QuotaWindowShortName(10080),
+        "5h" => QuotaWindowShortName(300),
         _ => null
+    };
+
+    /// <summary>
+    /// 게이지 행 이름 뒤에 붙는 짧은 창 이름 ("주간", "5시간") — Antigravity 행과 Codex 추가 한도 행이 같이 쓴다.
+    /// 창 길이를 모르면 null — 이름만 쓰고 창을 지어내지 않는다.
+    /// </summary>
+    public static string? QuotaWindowShortName(int? windowMinutes)
+    {
+        if (windowMinutes is not int m || m <= 0)
+            return null;
+
+        if (m % 10080 == 0)
+        {
+            int weeks = m / 10080;
+            return Lang switch
+            {
+                "ko" => weeks == 1 ? "주간" : $"{weeks}주",
+                "zh" => weeks == 1 ? "每周" : $"{weeks} 周",
+                "ja" => weeks == 1 ? "週間" : $"{weeks}週間",
+                _ => weeks == 1 ? "Weekly" : $"{weeks}-week"
+            };
+        }
+        if (m % 1440 == 0)
+        {
+            int days = m / 1440;
+            return Lang switch
+            {
+                "ko" => $"{days}일",
+                "zh" => $"{days} 天",
+                "ja" => $"{days}日",
+                _ => $"{days}-day"
+            };
+        }
+        // 시간으로 나누어떨어지지 않으면 분으로 — 90분 창을 "1시간"으로 내려 부르지 않는다.
+        if (m % 60 != 0)
+        {
+            return Lang switch
+            {
+                "ko" => $"{m}분",
+                "zh" => $"{m} 分钟",
+                "ja" => $"{m}分",
+                _ => $"{m}-minute"
+            };
+        }
+
+        int hours = m / 60;
+        return Lang switch
+        {
+            "ko" => $"{hours}시간",
+            "zh" => $"{hours} 小时",
+            "ja" => $"{hours}時間",
+            _ => $"{hours}-hour"
+        };
+    }
+
+    /// <summary>추가 한도 행 이름 — "이미지 생성 · 주간". 창 길이를 모르면 한도 이름만.</summary>
+    public static string AdditionalQuotaLabel(string limitName, int? windowMinutes) =>
+        QuotaWindowShortName(windowMinutes) is { } window ? $"{limitName} · {window}" : limitName;
+
+    /// <summary>Codex 의 이미지 생성 한도 이름(#182). 서버는 한도 이름을 영어 식별자로만 준다.</summary>
+    public static string CodexImageGenerationLimit => Lang switch
+    {
+        "ko" => "이미지 생성",
+        "zh" => "图像生成",
+        "ja" => "画像生成",
+        _ => "Image generation"
     };
 
     public static string ResetsIn(string time) => Lang switch
@@ -1531,8 +1585,8 @@ public static class Loc
 
     public static string TrayStatusCodex(double percent, string? dataSource) => Lang switch
     {
-        "ko" => dataSource == "Direct API" ? $"Codex {percent:P0}" : $"Codex {percent:P0} (Log)",
-        _ => dataSource == "Direct API" ? $"Codex {percent:P0}" : $"Codex {percent:P0} (Log)"
+        "ko" => dataSource == CodexUsageMonitor.DirectApiSource ? $"Codex {percent:P0}" : $"Codex {percent:P0} (Log)",
+        _ => dataSource == CodexUsageMonitor.DirectApiSource ? $"Codex {percent:P0}" : $"Codex {percent:P0} (Log)"
     };
 
     public static string TrayStatusGemini(int requests, long outputTokens) => Lang switch

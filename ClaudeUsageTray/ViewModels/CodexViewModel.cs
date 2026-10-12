@@ -135,4 +135,59 @@ public partial class CodexViewModel : ObservableObject
         if (_rawLongResetAt.HasValue && (_rawLongResetAt.Value - now).TotalMinutes < 10)
             LongReset = UsageCalculator.FormatResetLabel(_rawLongResetAt, false, showAbsoluteResetTime, now);
     }
+
+    /// <summary>
+    /// 추가 한도(이미지 생성 등, #182)를 게이지 행으로 만든다. 이 PC 가 읽은 값과 다른 PC 에서 받은 값이
+    /// 같은 규칙을 타도록 정적으로 둔다. 리셋 시각이 이미 지난 창은 지금 창을 설명하지 않으므로 뺀다.
+    /// </summary>
+    internal static IReadOnlyList<QuotaGaugeRow> BuildAdditionalLimitRows(
+        IEnumerable<AdditionalQuotaWindow> windows, DateTimeOffset now, bool showAbsoluteResetTime)
+    {
+        var rows = new List<QuotaGaugeRow>();
+        foreach (var window in windows)
+        {
+            if (window.ResetAt is { } reset && reset <= now) continue;
+
+            var row = new QuotaGaugeRow
+            {
+                Key = window.LimitId,
+                DisplayName = Loc.AdditionalQuotaLabel(ResolveLimitName(window.LimitId, window.LimitName), window.WindowMinutes),
+                UsagePercent = window.UsagePercent,
+                Summary = Loc.UsageSummary(window.UsagePercent),
+                ResetAt = window.ResetAt,
+                Window = window.WindowMinutes is int minutes && minutes > 0 ? TimeSpan.FromMinutes(minutes) : null,
+            };
+            row.UpdateTimeProgress(now, showAbsoluteResetTime);
+            rows.Add(row);
+        }
+        return rows;
+    }
+
+    /// <summary>
+    /// 한도 이름. 이미지 생성 한도는 앱 언어로 부르고, 모르는 한도는 서버가 준 이름을 다듬어 쓴다.
+    /// 이미지 한도의 실제 식별자는 공개 자료로 확인되지 않아 "image" 가 들어 있는지로 가린다
+    /// (ID·이름 어느 쪽이든 — 로그 줄에는 이름이 비어 있을 수 있다).
+    /// </summary>
+    internal static string ResolveLimitName(string limitId, string limitName)
+    {
+        if (limitName.Contains("image", StringComparison.OrdinalIgnoreCase) ||
+            limitId.Contains("image", StringComparison.OrdinalIgnoreCase))
+            return Loc.CodexImageGenerationLimit;
+
+        return FormatLimitName(string.IsNullOrWhiteSpace(limitName) ? limitId : limitName);
+    }
+
+    /// <summary>서버 식별자를 읽을 만한 이름으로 ("gpt-5.3-codex-spark" → "GPT-5.3-Codex-Spark", "codex_other" → "Codex Other").</summary>
+    internal static string FormatLimitName(string raw)
+    {
+        var words = raw.Split(['_', ' '], StringSplitOptions.RemoveEmptyEntries);
+        return string.Join(' ', words.Select(word => string.Join('-', word.Split('-').Select(FormatNameSegment))));
+    }
+
+    private static string FormatNameSegment(string segment)
+    {
+        if (segment.Length == 0) return segment;
+        if (segment.Equals("gpt", StringComparison.OrdinalIgnoreCase)) return "GPT";
+        return char.ToUpperInvariant(segment[0]) + segment[1..];
+    }
 }

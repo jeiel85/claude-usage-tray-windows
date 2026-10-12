@@ -876,7 +876,7 @@ public class UsageSyncQuotaPolicyTests
         Assert.True(vm.HasData);
         Assert.Equal("Gemini Code Assist", vm.TierName);
         Assert.Equal(2, vm.Models.Count);
-        Assert.Equal("gemini-3-pro", vm.Models[0].ModelId);   // 사용률 내림차순
+        Assert.Equal("gemini-3-pro", vm.Models[0].Key);   // 사용률 내림차순
         Assert.Equal(0.75, vm.Models[0].UsagePercent, 6);
         Assert.Equal(0.10, vm.Models[1].UsagePercent, 6);
         // 한도는 창마다 따로 걸리므로 평균이 아니라 가장 많이 쓴 쪽을 대표값으로 쓴다.
