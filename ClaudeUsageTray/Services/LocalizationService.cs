@@ -1663,6 +1663,15 @@ public static class Loc
         "ja" => $"OpenCode ページで割り当てを見つけられませんでした（{detail}）",
         _ => $"Could not find the quota on the OpenCode page ({detail})"
     };
+
+    /// <summary>콘솔에 로그인은 됐지만 Go 할당량이 있는 작업공간이 없다(미구독·일시정지·결제 대기).</summary>
+    public static string OpenCodeWebNoGoQuota => Lang switch
+    {
+        "ko" => "OpenCode 콘솔에서 Go 할당량을 찾지 못했습니다 — Go 를 구독한 계정으로 로그인하세요",
+        "zh" => "未在 OpenCode 控制台中找到 Go 配额 — 请使用订阅了 Go 的账户登录",
+        "ja" => "OpenCode コンソールで Go の割り当てが見つかりませんでした — Go を購読しているアカウントでログインしてください",
+        _ => "No OpenCode Go quota found in the console — sign in with the account that subscribes to Go"
+    };
     public static string OpenCodeResetAt(string value) => Lang switch
     {
         "ko" => $"초기화 {value}",
