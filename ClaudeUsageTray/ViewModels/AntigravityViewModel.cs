@@ -15,6 +15,10 @@ public partial class AntigravityViewModel : ObservableObject
     [ObservableProperty] private string _errorMessage = "";
     [ObservableProperty] private string _tierName = "";
     [ObservableProperty] private string _paidTierName = "";
+
+    /// <summary>Google AI 크레딧 잔액(천 단위 구분). 크레딧 대상이 아닌 계정이면 빈 문자열이라 줄 자체가 접힌다.</summary>
+    [ObservableProperty] private string _aiCreditsText = "";
+
     [ObservableProperty] private IReadOnlyList<QuotaGaugeRow> _models = System.Array.Empty<QuotaGaugeRow>();
     [ObservableProperty] private bool _isEnabled = true;
     [ObservableProperty] private double _percent = 0.0;
@@ -30,6 +34,7 @@ public partial class AntigravityViewModel : ObservableObject
     private IReadOnlyList<AntigravityModelQuota> _appliedQuota = System.Array.Empty<AntigravityModelQuota>();
     private string? _appliedTierName;
     private string? _appliedPaidTierName;
+    private long? _appliedAiCredits;
 
     public AntigravityViewModel(AntigravityUsageMonitor monitor)
     {
@@ -81,7 +86,7 @@ public partial class AntigravityViewModel : ObservableObject
                 return;
             }
 
-            ApplyQuota(snap.Models, snap.TierName, snap.PaidTierName);
+            ApplyQuota(snap.Models, snap.TierName, snap.PaidTierName, snap.AiCredits);
         });
     }
 
@@ -89,17 +94,21 @@ public partial class AntigravityViewModel : ObservableObject
     /// 모델별 할당량을 화면 상태로 옮긴다. 로컬 조회 결과와, 다중 PC 동기화로 받은 다른 PC 의 결과가
     /// 같은 경로를 타도록 분리해 둔 것 — 표시 규칙(내부 모델 제외·정렬·평균)이 어긋나지 않게 한다.
     /// </summary>
-    public void ApplyQuota(IReadOnlyList<AntigravityModelQuota> models, string? tierName, string? paidTierName)
+    public void ApplyQuota(IReadOnlyList<AntigravityModelQuota> models, string? tierName, string? paidTierName,
+                           long? aiCredits = null)
     {
         _appliedQuota = models;
         _appliedTierName = tierName;
         _appliedPaidTierName = paidTierName;
+        _appliedAiCredits = aiCredits;
 
         HasData = true;
         HasError = false;
         ErrorMessage = "";
         TierName = tierName ?? "";
         PaidTierName = paidTierName ?? "";
+        // 0 도 보여준다 — 크레딧을 다 써서 한도 소진 뒤 이어 쓸 수 없다는 뜻이다(gemini-cli /stats 와 같은 규칙).
+        AiCreditsText = aiCredits is long credits ? credits.ToString("N0", System.Globalization.CultureInfo.CurrentCulture) : "";
 
         double worstUsed = 0;
         var now = DateTimeOffset.Now;
@@ -216,7 +225,7 @@ public partial class AntigravityViewModel : ObservableObject
     public void RefreshLocalizedLabels()
     {
         if (!HasData || _appliedQuota.Count == 0) return;
-        ApplyQuota(_appliedQuota, _appliedTierName, _appliedPaidTierName);
+        ApplyQuota(_appliedQuota, _appliedTierName, _appliedPaidTierName, _appliedAiCredits);
     }
 
     /// <summary>

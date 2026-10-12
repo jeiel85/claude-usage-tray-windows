@@ -23,7 +23,7 @@ namespace ClaudeUsageTray.Services;
 ///     사용자가 적어 둔 파일이 없으면 설치된 language_server.exe 에서 찾아낸다.
 ///  4. v1internal:retrieveUserQuotaSummary 로 그룹별(Gemini / Claude·GPT) 주간·5시간 잔여량을 받는다.
 ///     Antigravity 앱의 "Models &amp; Usage" 화면이 그리는 값이 이것이다.
-///  5. v1internal:loadCodeAssist 로 tier 표기를 함께 받는다.
+///  5. v1internal:loadCodeAssist 로 tier 표기와 Google AI 크레딧 잔액을 함께 받는다.
 ///
 /// Antigravity 를 실행하지 않아도 동작한다. 앱의 로컬 서버가 아니라 Google 백엔드를 직접 부르기 때문이다.
 ///
@@ -130,23 +130,16 @@ public sealed class AntigravityUsageMonitor : IDisposable
 
         var buckets = ParseSummary(summaryDoc);
         if (buckets.Count == 0)
-            return Failure("retrieveUserQuotaSummary returned no buckets");
+            return Failure("retrieveUserQuotaSummary returned no usable buckets");
 
-        string? tierName = null, paidTierName = null;
-        if (tierDoc is not null)
-        {
-            var root = tierDoc.RootElement;
-            if (root.TryGetProperty("currentTier", out var current) && current.TryGetProperty("name", out var currentName))
-                tierName = currentName.GetString();
-            if (root.TryGetProperty("paidTier", out var paid) && paid.TryGetProperty("name", out var paidName))
-                paidTierName = paidName.GetString();
-        }
+        var tier = tierDoc is null ? CodeAssistTier.Empty : ParseCodeAssistTier(tierDoc);
 
         return new AntigravitySnapshot
         {
             HasData = true,
-            TierName = tierName,
-            PaidTierName = paidTierName,
+            TierName = tier.TierName,
+            PaidTierName = tier.PaidTierName,
+            AiCredits = tier.AiCredits,
             Models = buckets,
         };
     }
@@ -163,6 +156,9 @@ public sealed class AntigravityUsageMonitor : IDisposable
     /// retrieveUserQuotaSummary 응답을 버킷 목록으로 편다.
     /// 구조: groups[] → buckets[]. 그룹 이름과 버킷 이름을 합쳐 표시 이름을 만든다
     /// ("Gemini Models" + "Weekly Limit" → "Gemini Models · Weekly Limit").
+    /// 응답 최상위에도 그룹에 속하지 않는 buckets[] 자리가 있다(proto 의 RetrieveUserQuotaSummaryResponse.buckets).
+    /// 실제 응답에서 채워진 사례는 없고, 같은 버킷을 그룹 없이 다시 실은 것일 수 있어 그룹에서 아무것도 못 얻었을 때만 쓴다
+    /// (이 자리를 읽는 다른 클라이언트들도 같은 규칙이다).
     /// </summary>
     internal static IReadOnlyList<AntigravityModelQuota> ParseSummary(JsonDocument doc)
     {
@@ -177,49 +173,147 @@ public sealed class AntigravityUsageMonitor : IDisposable
             root = wrapped;
         }
 
-        if (root.ValueKind != JsonValueKind.Object ||
-            !root.TryGetProperty("groups", out var groups) ||
-            groups.ValueKind != JsonValueKind.Array)
-        {
+        if (root.ValueKind != JsonValueKind.Object)
             return list;
-        }
 
-        foreach (var group in groups.EnumerateArray())
+        if (root.TryGetProperty("groups", out var groups) && groups.ValueKind == JsonValueKind.Array)
         {
-            string groupName = group.TryGetProperty("displayName", out var gn) ? (gn.GetString() ?? "") : "";
-            if (!group.TryGetProperty("buckets", out var buckets) || buckets.ValueKind != JsonValueKind.Array)
-                continue;
-
-            foreach (var bucket in buckets.EnumerateArray())
+            foreach (var group in groups.EnumerateArray())
             {
-                string bucketId = bucket.TryGetProperty("bucketId", out var id) ? (id.GetString() ?? "") : "";
-                string window = bucket.TryGetProperty("window", out var w) ? (w.GetString() ?? "") : "";
-                string bucketName = bucket.TryGetProperty("displayName", out var bn) ? (bn.GetString() ?? "") : "";
-
-                double remaining = 1.0;
-                if (bucket.TryGetProperty("remainingFraction", out var frac) && frac.ValueKind == JsonValueKind.Number)
-                    frac.TryGetDouble(out remaining);
-
-                DateTimeOffset? reset = null;
-                if (bucket.TryGetProperty("resetTime", out var rt) && rt.ValueKind == JsonValueKind.String &&
-                    DateTimeOffset.TryParse(rt.GetString(), null,
-                        System.Globalization.DateTimeStyles.AssumeUniversal, out var parsed))
-                {
-                    reset = parsed;
-                }
-
-                list.Add(new AntigravityModelQuota
-                {
-                    ModelId = bucketId,
-                    TokenType = window,
-                    RemainingFraction = Math.Clamp(remaining, 0.0, 1.0),
-                    ResetTime = reset,
-                    DisplayName = ComposeDisplayName(groupName, bucketName),
-                });
+                if (group.ValueKind != JsonValueKind.Object) continue;
+                string groupName = ReadString(group, "displayName");
+                if (group.TryGetProperty("buckets", out var buckets) && buckets.ValueKind == JsonValueKind.Array)
+                    AddBuckets(list, buckets, groupName);
             }
         }
 
+        if (list.Count == 0 &&
+            root.TryGetProperty("buckets", out var ungrouped) && ungrouped.ValueKind == JsonValueKind.Array)
+        {
+            AddBuckets(list, ungrouped, "");
+        }
+
         return list;
+    }
+
+    private static void AddBuckets(List<AntigravityModelQuota> list, JsonElement buckets, string groupName)
+    {
+        foreach (var bucket in buckets.EnumerateArray())
+        {
+            if (bucket.ValueKind != JsonValueKind.Object) continue;
+
+            var quota = ParseBucket(bucket, groupName);
+            if (quota is not null) list.Add(quota);
+        }
+    }
+
+    private static AntigravityModelQuota? ParseBucket(JsonElement bucket, string groupName)
+    {
+        // disabled 는 이 tier 가 계량하지 않는 창이다. 이런 버킷도 remainingFraction 1 을 달고 와서 그대로 그리면
+        // "0% 사용" 게이지가 된다 — 주간 한도를 다 써 막힌 순간(gemini-weekly 0, gemini-5h disabled)에도 그렇다.
+        if (bucket.TryGetProperty("disabled", out var disabled) && disabled.ValueKind == JsonValueKind.True)
+            return null;
+
+        // 잔여량은 remainingFraction 과 remainingAmount 중 하나만 온다(proto 의 oneof remaining).
+        // 수량형(remainingAmount)은 한도를 모르니 사용률로 바꿀 수 없고, 비율이 없을 때 "다 남았다" 로 두면
+        // 소진된 버킷이 0% 로 그려진다. 사용률을 지어내지 않고 행을 만들지 않는다 —
+        // gemini-cli 도 retrieveUserQuota 에서 remainingFraction 이 없는 버킷은 건너뛴다.
+        if (!bucket.TryGetProperty("remainingFraction", out var frac) ||
+            frac.ValueKind != JsonValueKind.Number ||
+            !frac.TryGetDouble(out var remaining))
+        {
+            return null;
+        }
+
+        DateTimeOffset? reset = null;
+        if (bucket.TryGetProperty("resetTime", out var rt) && rt.ValueKind == JsonValueKind.String &&
+            DateTimeOffset.TryParse(rt.GetString(), null,
+                System.Globalization.DateTimeStyles.AssumeUniversal, out var parsed))
+        {
+            reset = parsed;
+        }
+
+        return new AntigravityModelQuota
+        {
+            ModelId = ReadString(bucket, "bucketId"),
+            TokenType = ReadString(bucket, "window"),
+            RemainingFraction = Math.Clamp(remaining, 0.0, 1.0),
+            ResetTime = reset,
+            DisplayName = ComposeDisplayName(groupName, ReadString(bucket, "displayName")),
+        };
+    }
+
+    private static string ReadString(JsonElement obj, string name) =>
+        obj.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? ""
+            : "";
+
+    /// <summary>
+    /// loadCodeAssist 응답에서 tier 이름과 Google AI 크레딧 잔액을 읽는다.
+    /// tier 가 객체가 아니어도 예외 없이 빈 값으로 넘어간다 — 배지·크레딧은 부가 정보라 게이지를 막으면 안 된다.
+    /// </summary>
+    internal static CodeAssistTier ParseCodeAssistTier(JsonDocument doc)
+    {
+        var root = doc.RootElement;
+        if (root.ValueKind != JsonValueKind.Object)
+            return CodeAssistTier.Empty;
+
+        root.TryGetProperty("currentTier", out var current);
+        root.TryGetProperty("paidTier", out var paid);
+
+        return new CodeAssistTier(
+            TierName: ReadTierName(current),
+            PaidTierName: ReadTierName(paid),
+            AiCredits: ParseAiCredits(paid));
+    }
+
+    private static string? ReadTierName(JsonElement tier) =>
+        tier.ValueKind == JsonValueKind.Object &&
+        tier.TryGetProperty("name", out var name) &&
+        name.ValueKind == JsonValueKind.String
+            ? name.GetString()
+            : null;
+
+    /// <summary>
+    /// <c>paidTier.availableCredits[]</c> 에서 GOOGLE_ONE_AI 항목의 <c>creditAmount</c> 를 더한다.
+    /// gemini-cli 의 <c>getG1CreditBalance</c> 와 같은 규칙이다 — 항목이 없으면 null(크레딧 대상 아님),
+    /// 있으면 0 이어도 값으로 돌려준다. creditAmount 는 int64 라 JSON 에서 문자열로 오고, 못 읽으면 0 으로 센다.
+    /// </summary>
+    internal static long? ParseAiCredits(JsonElement tier)
+    {
+        if (tier.ValueKind != JsonValueKind.Object ||
+            !tier.TryGetProperty("availableCredits", out var credits) ||
+            credits.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        long? total = null;
+        foreach (var credit in credits.EnumerateArray())
+        {
+            if (credit.ValueKind != JsonValueKind.Object ||
+                ReadString(credit, "creditType") != GoogleOneAiCreditType)
+            {
+                continue;
+            }
+
+            total = (total ?? 0) + ReadInt64(credit, "creditAmount");
+        }
+        return total;
+    }
+
+    private const string GoogleOneAiCreditType = "GOOGLE_ONE_AI";
+
+    private static long ReadInt64(JsonElement obj, string name)
+    {
+        if (!obj.TryGetProperty(name, out var value)) return 0;
+        return value.ValueKind switch
+        {
+            JsonValueKind.String when long.TryParse(value.GetString(), System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out var parsed) => parsed,
+            JsonValueKind.Number when value.TryGetInt64(out var number) => number,
+            _ => 0,
+        };
     }
 
     internal static string ComposeDisplayName(string groupName, string bucketName)
@@ -515,3 +609,9 @@ public sealed class AntigravityUsageMonitor : IDisposable
 
 /// <summary>자격 증명 관리자에 Antigravity 가 저장해 둔 토큰 묶음.</summary>
 internal sealed record StoredCredential(string? AccessToken, string? RefreshToken, DateTimeOffset? ExpiresAt);
+
+/// <summary>loadCodeAssist 응답에서 쓰는 값 — tier 이름과 Google AI 크레딧 잔액.</summary>
+internal sealed record CodeAssistTier(string? TierName, string? PaidTierName, long? AiCredits)
+{
+    public static CodeAssistTier Empty { get; } = new(null, null, null);
+}

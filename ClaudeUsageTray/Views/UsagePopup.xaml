@@ -1385,6 +1385,17 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
+                            <!-- Google AI 크레딧 잔액 — 한도를 다 쓴 뒤 이어 쓸 수 있는 양. 크레딧 대상이 아닌 계정은 줄이 접힌다 -->
+                            <Grid x:Name="AntigravityAiCreditsRow" Margin="0,0,0,10" ToolTip="{Binding LblAntigravityAiCreditsTip}"
+                                  Visibility="{Binding AntigravityAiCreditsText, Converter={StaticResource StringToVisibility}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{Binding LblAntigravityAiCredits}" Foreground="#F1F5F9" FontSize="10.5" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding AntigravityAiCreditsText}" Foreground="#A5B4FC" FontSize="11" FontWeight="Bold" Margin="6,0,0,0"/>
+                            </Grid>
+
                             <TextBlock Text="{Binding AntigravityErrorMessage}" Foreground="#EF4444" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0"
                                        Visibility="{Binding AntigravityHasError, Converter={StaticResource BoolToVisibility}}"/>
 

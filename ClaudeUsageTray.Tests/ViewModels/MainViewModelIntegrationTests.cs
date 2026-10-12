@@ -303,6 +303,61 @@ public class MainViewModelIntegrationTests
     }
 
     /// <summary>
+    /// Google AI 크레딧 잔액이 Antigravity 게이지 아래 한 줄로 그려지고, 크레딧 대상이 아니면 줄이 접히는지 — 실제 화면 트리로 확인한다.
+    /// </summary>
+    [Theory]
+    [InlineData(1234L)]
+    [InlineData(null)]
+    public async Task UsagePopup_AntigravityShowsAiCreditsBelowGauges_OnlyWhenEligible(long? credits)
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            UsagePopup? popup = null;
+            try
+            {
+                vm.AntigravityVm.ApplyQuota(
+                [
+                    new AntigravityModelQuota
+                    {
+                        ModelId = "gemini-weekly", TokenType = "weekly",
+                        RemainingFraction = 0.4, ResetTime = DateTimeOffset.Now.AddDays(3.5),
+                    },
+                ], "Antigravity", "Google AI Pro", credits);
+
+                vm.IsAntigravityEnabled = true;
+                vm.AntigravityHasData = true;
+                vm.AntigravityModels = vm.AntigravityVm.Models;
+                vm.AntigravityAiCreditsText = vm.AntigravityVm.AiCreditsText;
+                vm.FocusedProvider = UsageProviderKind.Antigravity;
+
+                popup = new UsagePopup(vm);
+                popup.Left = -10000;
+                popup.Show();
+                popup.UpdateLayout();
+
+                var row = Assert.IsType<System.Windows.Controls.Grid>(popup.FindName("AntigravityAiCreditsRow"));
+                if (credits is null)
+                {
+                    Assert.Equal(System.Windows.Visibility.Collapsed, row.Visibility);
+                    return;
+                }
+
+                Assert.Equal(System.Windows.Visibility.Visible, row.Visibility);
+                var texts = FindChildren<System.Windows.Controls.TextBlock>(row).Select(t => t.Text).ToList();
+                Assert.Contains(Loc.AntigravityAiCredits, texts);
+                Assert.Contains(1234L.ToString("N0", System.Globalization.CultureInfo.CurrentCulture), texts);
+                Assert.Equal(Loc.AntigravityAiCreditsTip, row.ToolTip);
+            }
+            finally
+            {
+                popup?.Close();
+                vm.Dispose();
+            }
+        });
+    }
+
+    /// <summary>
     /// Codex 추가 한도(이미지 생성 등, #182)가 기본 창과 같은 게이지 구조(Codex 색 · 시간선 · 요약 한 줄)로
     /// 기본 창 아래에 그려지는지 — 실제 화면 트리로 확인한다.
     /// </summary>

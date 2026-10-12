@@ -10,7 +10,13 @@
 1. **토큰 읽기** — Windows 자격 증명 관리자의 `gemini:antigravity` 항목에서 Antigravity 가 저장해 둔 토큰을 읽습니다.
 2. **그대로 사용** — 저장된 access token 이 아직 유효하면(발급 후 약 1시간) 그대로 씁니다. 이 경로에는 OAuth client 자격 증명이 **필요 없습니다.**
 3. **만료 시 갱신** — 토큰이 만료됐으면 refresh token 으로 갱신합니다. 이때만 client_id/secret 이 필요하며, 설치된 `language_server.exe` 에서 자동으로 찾습니다(약 2초). 통한 조합은 `%APPDATA%\ClaudeUsageTray\antigravity-oauth-client.json` 에 저장해 다음부터는 다시 훑지 않습니다.
-4. **조회** — `v1internal:retrieveUserQuotaSummary` 로 그룹별(Gemini / Claude·GPT) 주간·5시간 잔여량을 받습니다. Antigravity 앱의 `Models & Usage` 화면이 보여주는 값과 같습니다.
+4. **조회** — `v1internal:retrieveUserQuotaSummary` 로 그룹별(Gemini / Claude·GPT) 주간·5시간 잔여량을 받습니다. Antigravity 앱의 `Models & Usage` 화면이 보여주는 값과 같습니다. 같은 때 `v1internal:loadCodeAssist` 로 요금제 이름과 Google AI 크레딧 잔액(`paidTier.availableCredits`)을 받습니다.
+
+받아 온 값이 화면과 다르면 Antigravity 에 로그인한 PC 에서 진단 도구로 실제 값을 확인할 수 있습니다.
+
+```powershell
+dotnet run --project test-antigravity
+```
 
 로그인하지 않았거나, 세션이 만료됐는데 갱신에 실패하면 오류 대신 섹션이 숨겨집니다. **Antigravity 를 한 번 실행하면** 앱이 토큰을 새로 발급해 두므로 다시 표시됩니다. 대개 이것으로 해결됩니다.
 
