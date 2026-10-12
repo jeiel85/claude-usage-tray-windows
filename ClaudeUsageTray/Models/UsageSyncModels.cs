@@ -61,6 +61,20 @@ public sealed class UsageSyncQuotaSnapshot
     // OpenCode Go 전용 — 공식 웹 콘솔이 제공한 계정 단위 할당량만 담는다.
     // 인증 쿠키·워크스페이스 URL 같은 로그인 정보는 동기화하지 않는다.
     public UsageSyncOpenCodeQuota? OpenCode { get; set; }
+
+    // Codex 전용 — 기본 창 말고 따로 걸린 한도(이미지 생성 등, #182)의 창 목록. 다른 provider 에서는 비어 있다.
+    public UsageSyncAdditionalQuota[] AdditionalQuotas { get; set; } = [];
+}
+
+/// <summary>추가 한도의 창 하나(계정 단위) — <see cref="AdditionalQuotaWindow"/> 와 같은 값.</summary>
+public sealed class UsageSyncAdditionalQuota
+{
+    public string LimitId { get; set; } = "";
+    public string LimitName { get; set; } = "";
+    public double UsagePercent { get; set; }
+    public DateTimeOffset? ResetAt { get; set; }
+    public int? WindowMinutes { get; set; }
+    public DateTimeOffset? ObservedAt { get; set; }
 }
 
 /// <summary>Antigravity 의 모델 한 개짜리 할당량 행(계정 단위).</summary>

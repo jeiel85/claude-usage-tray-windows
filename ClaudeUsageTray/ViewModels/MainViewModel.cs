@@ -111,6 +111,12 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsCodexTokenRowVisible))]
     private string _codexCacheReadLabel = "—";
+    // 기본 창 말고 따로 걸린 한도(이미지 생성 등, #182) — 창마다 한 줄.
+    [ObservableProperty] private System.Collections.Generic.IReadOnlyList<QuotaGaugeRow> _codexAdditionalLimits =
+        System.Array.Empty<QuotaGaugeRow>();
+    // 행 이름은 만들 때 정해지므로, 언어가 바뀌면 이 원본으로 다시 만든다.
+    private System.Collections.Generic.IReadOnlyList<AdditionalQuotaWindow> _codexAdditionalSource =
+        System.Array.Empty<AdditionalQuotaWindow>();
 
     // OpenCode Usage
     [ObservableProperty] private bool _openCodeHasError = false;
@@ -130,8 +136,8 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private string _antigravityErrorMessage = "";
     [ObservableProperty] private string _antigravityTierName = "";       // e.g. "Gemini Code Assist"
     [ObservableProperty] private string _antigravityPaidTierName = "";   // e.g. "Gemini Code Assist in Google One AI Pro"
-    [ObservableProperty] private System.Collections.Generic.IReadOnlyList<AntigravityModelRow> _antigravityModels =
-        System.Array.Empty<AntigravityModelRow>();
+    [ObservableProperty] private System.Collections.Generic.IReadOnlyList<QuotaGaugeRow> _antigravityModels =
+        System.Array.Empty<QuotaGaugeRow>();
     [ObservableProperty] private double _antigravityPercent = 0.0;
     // 상세 하단 안내 + 출처 — Codex 상세의 같은 자리(왼쪽 안내 / 오른쪽 출처)와 같은 구성.
     [ObservableProperty] private string _antigravityNote = Loc.ProviderAntigravityNote;
@@ -1598,7 +1604,7 @@ namespace ClaudeUsageTray.ViewModels;
     /// Codex 가 5시간 창 사용률(<see cref="CodexPercent"/>)을 보는 것과 같은 기준이다.
     /// 리셋이 지난 창은 <see cref="AntigravityViewModel.ApplyQuota"/> 가 이미 걸러 낸다.
     /// </summary>
-    internal static bool HasRecentAntigravityUsage(IReadOnlyList<AntigravityModelRow> models) =>
+    internal static bool HasRecentAntigravityUsage(IReadOnlyList<QuotaGaugeRow> models) =>
         models.Any(m => m.Window is { } window && window <= TimeSpan.FromHours(5) && m.UsagePercent > 0);
 
     private bool IsUsageSyncReady =>
@@ -1691,7 +1697,8 @@ namespace ClaudeUsageTray.ViewModels;
                 UsageSyncSharesAccountQuota(provider)
                     ? _usageSync.SelectQuotaCandidates(
                         UsageSyncFolderPath, provider, null, today, read.Snapshots, UsageSyncQuotaTtl(provider))
-                    : UsageSyncQuotaCandidates.None);
+                    : UsageSyncQuotaCandidates.None,
+                read.Snapshots);
         }
         catch (Exception ex)
         {
@@ -1714,13 +1721,15 @@ namespace ClaudeUsageTray.ViewModels;
 
     /// <summary>
     /// 동기화 1회 결과 — 기기 합산 토큰과, 계정 단위 provider 라면 할당량 후보
-    /// (<see cref="UsageSyncQuotaCandidates"/>: 신선한 값 · 최후 폴백 · 안내용 최신 관측).
+    /// (<see cref="UsageSyncQuotaCandidates"/>: 신선한 값 · 최후 폴백 · 안내용 최신 관측),
+    /// 그리고 오늘 폴더에서 읽은 스냅샷 전부(이 PC 것 포함 — 후보 하나로 고를 수 없는 값을 따로 고를 때 쓴다).
     /// </summary>
     private readonly record struct UsageSyncProviderResult(
         UsageSyncMergedLocalTotals? MergedTotals,
-        UsageSyncQuotaCandidates Quota)
+        UsageSyncQuotaCandidates Quota,
+        IReadOnlyList<UsageSyncSnapshot> Snapshots)
     {
-        public static UsageSyncProviderResult Empty => new(null, UsageSyncQuotaCandidates.None);
+        public static UsageSyncProviderResult Empty => new(null, UsageSyncQuotaCandidates.None, []);
     }
 
     private UsageSyncQuotaSnapshot? CreateClaudeQuotaSnapshot(UsageResponse? usage)
@@ -1795,7 +1804,72 @@ namespace ClaudeUsageTray.ViewModels;
             LongWindowMinutes = snapshot.LongWindowMinutes,
             HasLongWindow = snapshot.LongWindowMinutes is not null || snapshot.LongResetAt is not null,
             PlanType = snapshot.PlanType ?? "",
+            AdditionalQuotas = [.. snapshot.AdditionalQuotas.Select(window => new UsageSyncAdditionalQuota
+            {
+                LimitId = window.LimitId,
+                LimitName = window.LimitName,
+                UsagePercent = window.UsagePercent,
+                ResetAt = window.ResetAt,
+                WindowMinutes = window.WindowMinutes,
+                ObservedAt = window.ObservedAt,
+            })],
         };
+    }
+
+    /// <summary>
+    /// Codex 추가 한도(#182)를 어디서 가져올지 정한다.
+    /// 추가 한도는 Direct API 만 빠짐없이 주므로, 이 PC 가 API 로 읽었으면 비어 있어도 그 값이 정답이다
+    /// (지금 걸린 추가 한도가 없다는 뜻 — 다른 PC 의 옛 값으로 채우면 이미 없어진 한도가 되살아난다).
+    /// 그렇지 않으면(로그 폴백·조회 실패) 이 PC 로그 값과 동기화 폴더 스냅샷의 값을 모아, 한도마다 가장 최근에
+    /// 관측된 출처를 쓴다 — 계정 단위 값이라 옮겨도 맞고, 며칠 전 로그 값이 다른 PC 가 방금 본 값을 가리지 않는다.
+    /// 기본 창용 할당량 후보(<see cref="UsageSyncQuotaCandidates"/>)를 쓰지 않는 이유: 가장 최근 스냅샷 하나만 고르므로
+    /// 방금 쓴 이 PC 스냅샷(추가 한도 없음)이 거의 항상 뽑혀 다른 PC 의 값이 버려진다.
+    /// </summary>
+    internal static IReadOnlyList<AdditionalQuotaWindow> SelectCodexAdditionalQuotas(
+        ProviderUsageSnapshot local, IEnumerable<UsageSyncSnapshot> syncedSnapshots, DateTimeOffset now)
+    {
+        if (local.DataSource == CodexUsageMonitor.DirectApiSource)
+            return local.AdditionalQuotas;
+
+        var candidates = local.AdditionalQuotas
+            .Concat(syncedSnapshots.SelectMany(ToAdditionalQuotaWindows))
+            .Where(window => window.ResetAt is { } reset && reset > now);
+
+        return [.. candidates
+            .GroupBy(window => window.LimitId, StringComparer.OrdinalIgnoreCase)
+            .SelectMany(limit =>
+            {
+                var newest = limit.Max(window => window.ObservedAt ?? DateTimeOffset.MinValue);
+                return limit
+                    .Where(window => (window.ObservedAt ?? DateTimeOffset.MinValue) == newest)
+                    // 같은 관측이 이 PC 로그 값과 이 PC 가 방금 쓴 스냅샷에 겹쳐 있다.
+                    .DistinctBy(window => window.WindowMinutes)
+                    .OrderBy(window => window.WindowMinutes ?? int.MaxValue);
+            })];
+    }
+
+    private static IEnumerable<AdditionalQuotaWindow> ToAdditionalQuotaWindows(UsageSyncSnapshot snapshot)
+    {
+        if (snapshot.Quota is not { } quota)
+            return [];
+
+        // 창마다 관측 시각을 싣지만, 비어 있으면 그 스냅샷의 관측 시각으로 대신한다.
+        var snapshotObservedAt = quota.ObservedAtUtc ?? snapshot.ObservedAtUtc;
+        return quota.AdditionalQuotas.Select(window => new AdditionalQuotaWindow
+        {
+            LimitId = window.LimitId,
+            LimitName = window.LimitName,
+            UsagePercent = window.UsagePercent,
+            ResetAt = window.ResetAt,
+            WindowMinutes = window.WindowMinutes,
+            ObservedAt = window.ObservedAt ?? snapshotObservedAt,
+        });
+    }
+
+    private void ApplyCodexAdditionalLimits(IReadOnlyList<AdditionalQuotaWindow> windows)
+    {
+        _codexAdditionalSource = windows;
+        CodexAdditionalLimits = CodexViewModel.BuildAdditionalLimitRows(windows, DateTimeOffset.Now, ShowAbsoluteResetTime);
     }
 
     private static UsageSyncOpenCodeQuotaWindow CreateOpenCodeQuotaWindow(OpenCodeQuotaWindow window) =>
@@ -2572,6 +2646,7 @@ namespace ClaudeUsageTray.ViewModels;
                 }
             }
 
+            ApplyCodexAdditionalLimits(SelectCodexAdditionalQuotas(CodexVm.LastSnapshot, sync.Snapshots, DateTimeOffset.Now));
             RecomputeCodexTimeProgress(DateTimeOffset.Now);
             CodexInputLabel = CodexVm.InputLabel;
             CodexOutputLabel = CodexVm.OutputLabel;
@@ -2850,8 +2925,22 @@ namespace ClaudeUsageTray.ViewModels;
         // 시간 진행률은 리셋 시각만 있으면 매 순간 계산 가능 — 매초 갱신해 막대가 부드럽게 흐르게 한다.
         RecomputeClaudeTimeProgress(now);
         RecomputeCodexTimeProgress(now);
+        UpdateCodexAdditionalTimeProgress(now);
         OpenCodeVm.UpdateTimeProgress(now);
         AntigravityVm.UpdateTimeProgress(now);
+    }
+
+    private void UpdateCodexAdditionalTimeProgress(DateTimeOffset now)
+    {
+        // 리셋이 지난 창은 다음 조회를 기다리지 않고 바로 뺀다 — 남겨 두면 리셋 전 사용률이 그대로 보인다.
+        if (CodexAdditionalLimits.Any(row => row.ResetAt is { } reset && reset <= now))
+        {
+            ApplyCodexAdditionalLimits(_codexAdditionalSource);
+            return;
+        }
+
+        foreach (var row in CodexAdditionalLimits)
+            row.UpdateTimeProgress(now, ShowAbsoluteResetTime);
     }
 
     /// <summary>
@@ -2898,7 +2987,7 @@ namespace ClaudeUsageTray.ViewModels;
             IsPaceSettled(longTime, _rawCodexLongWindow, _rawCodexLongWindow / 60));
     }
 
-    // 페이스 판정 기준은 Antigravity 행(AntigravityModelRow)도 같이 쓰므로 UsageCalculator 에 둔다.
+    // 페이스 판정 기준은 Antigravity 행(QuotaGaugeRow)도 같이 쓰므로 UsageCalculator 에 둔다.
     private static bool IsPaceSettled(double? timeProgress, TimeSpan window, TimeSpan minElapsed)
         => UsageCalculator.IsPaceSettled(timeProgress, window, minElapsed);
 
@@ -2914,6 +3003,7 @@ namespace ClaudeUsageTray.ViewModels;
         ClaudeVm.LongReset  = FormatResetLabel(_rawClaudeLongResetAt);
         CodexReset       = FormatResetLabel(_rawCodexShortResetAt, _rawCodexShortResetEstimated);
         CodexLongReset   = FormatResetLabel(_rawCodexLongResetAt);
+        UpdateCodexAdditionalTimeProgress(DateTimeOffset.Now);
         AntigravityVm.ShowAbsoluteResetTime = value;
         OpenCodeVm.ShowAbsoluteResetTime    = value;
     }
@@ -3065,6 +3155,7 @@ namespace ClaudeUsageTray.ViewModels;
             AntigravityVm.RefreshLocalizedLabels();
             // 행 객체가 새로 만들어지므로 미러 프로퍼티도 다시 가리켜야 화면이 바뀐다.
             AntigravityModels = AntigravityVm.Models;
+            ApplyCodexAdditionalLimits(_codexAdditionalSource);
             // 안내·출처 문구는 값이 필드에 담겨 있어 다시 만들어야 바뀐다(다음 조회까지 기다리지 않도록).
             AntigravityNote = Loc.ProviderAntigravityNote;
             RefreshAntigravityDataSourceLabel();

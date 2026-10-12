@@ -302,6 +302,59 @@ public class MainViewModelIntegrationTests
         });
     }
 
+    /// <summary>
+    /// Codex 추가 한도(이미지 생성 등, #182)가 기본 창과 같은 게이지 구조(Codex 색 · 시간선 · 요약 한 줄)로
+    /// 기본 창 아래에 그려지는지 — 실제 화면 트리로 확인한다.
+    /// </summary>
+    [Fact]
+    public async Task UsagePopup_CodexAdditionalLimitsUseTheSameGaugeStructureAsTheMainWindows()
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            UsagePopup? popup = null;
+            try
+            {
+                var now = DateTimeOffset.Now;
+                vm.CodexAdditionalLimits = CodexViewModel.BuildAdditionalLimitRows(
+                [
+                    new AdditionalQuotaWindow { LimitId = "codex_image_gen", LimitName = "image_gen", UsagePercent = 0.25, ResetAt = now.AddHours(2), WindowMinutes = 300 },
+                    new AdditionalQuotaWindow { LimitId = "codex_image_gen", LimitName = "image_gen", UsagePercent = 0.7, ResetAt = now.AddDays(3), WindowMinutes = 10080 },
+                ], now, showAbsoluteResetTime: false);
+                vm.IsCodexActive = true;
+                vm.FocusedProvider = UsageProviderKind.Codex;
+
+                popup = new UsagePopup(vm) { Left = -10000 };
+                popup.Show();
+                popup.UpdateLayout();
+
+                var list = Assert.IsType<System.Windows.Controls.ItemsControl>(popup.FindName("CodexAdditionalLimitList"));
+                list.UpdateLayout();
+                Assert.Equal(2, list.Items.Count);
+
+                var bars = FindChildren<System.Windows.Controls.ProgressBar>(list).ToList();
+                Assert.Equal(2, bars.Count);
+                Assert.All(bars, bar => Assert.Same(popup.FindResource("CodexBarStyle"), bar.Style));
+
+                var markers = FindChildren<System.Windows.Controls.Border>(list)
+                    .Where(border => Math.Abs(border.Width - 1.5) < 0.01)
+                    .ToList();
+                Assert.Equal(2, markers.Count);
+                Assert.All(markers, marker => Assert.Equal(System.Windows.Visibility.Visible, marker.Visibility));
+
+                var texts = FindChildren<System.Windows.Controls.TextBlock>(list).Select(t => t.Text).ToList();
+                Assert.Contains(Loc.AdditionalQuotaLabel(Loc.CodexImageGenerationLimit, 300), texts);
+                Assert.Contains(Loc.AdditionalQuotaLabel(Loc.CodexImageGenerationLimit, 10080), texts);
+                Assert.Contains(Loc.UsageSummary(0.7), texts);
+            }
+            finally
+            {
+                popup?.Close();
+                vm.Dispose();
+            }
+        });
+    }
+
     [Fact]
     public async Task SettingsWindow_ConstructsWithoutOpacitySliderException()
     {

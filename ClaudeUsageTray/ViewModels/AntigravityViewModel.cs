@@ -15,7 +15,7 @@ public partial class AntigravityViewModel : ObservableObject
     [ObservableProperty] private string _errorMessage = "";
     [ObservableProperty] private string _tierName = "";
     [ObservableProperty] private string _paidTierName = "";
-    [ObservableProperty] private IReadOnlyList<AntigravityModelRow> _models = System.Array.Empty<AntigravityModelRow>();
+    [ObservableProperty] private IReadOnlyList<QuotaGaugeRow> _models = System.Array.Empty<QuotaGaugeRow>();
     [ObservableProperty] private bool _isEnabled = true;
     [ObservableProperty] private double _percent = 0.0;
 
@@ -45,7 +45,7 @@ public partial class AntigravityViewModel : ObservableObject
                 HasData = false;
                 HasError = false;
                 ErrorMessage = "";
-                Models = System.Array.Empty<AntigravityModelRow>();
+                Models = System.Array.Empty<QuotaGaugeRow>();
             });
             return;
         }
@@ -63,7 +63,7 @@ public partial class AntigravityViewModel : ObservableObject
                 HasData = false;
                 HasError = true;
                 ErrorMessage = ex.Message;
-                Models = System.Array.Empty<AntigravityModelRow>();
+                Models = System.Array.Empty<QuotaGaugeRow>();
             });
             return;
         }
@@ -77,7 +77,7 @@ public partial class AntigravityViewModel : ObservableObject
                 HasData = false;
                 HasError = !snap.IsInformational && !string.IsNullOrEmpty(snap.ErrorMessage);
                 ErrorMessage = HasError ? (snap.ErrorMessage ?? "") : "";
-                Models = System.Array.Empty<AntigravityModelRow>();
+                Models = System.Array.Empty<QuotaGaugeRow>();
                 return;
             }
 
@@ -103,7 +103,7 @@ public partial class AntigravityViewModel : ObservableObject
 
         double worstUsed = 0;
         var now = DateTimeOffset.Now;
-        var rows = new List<AntigravityModelRow>(models.Count);
+        var rows = new List<QuotaGaugeRow>(models.Count);
         foreach (var m in models)
         {
             if (m.ResetTime is null) continue;
@@ -120,9 +120,9 @@ public partial class AntigravityViewModel : ObservableObject
 
             // 아직 쓰지 않은 창도 남겨 둔다. Antigravity 화면과 같은 네 칸(그룹 × 주간·5시간)이
             // 항상 보여야 지금 무엇이 얼마나 남았는지 읽을 수 있다.
-            var row = new AntigravityModelRow
+            var row = new QuotaGaugeRow
             {
-                ModelId = m.ModelId,
+                Key = m.ModelId,
                 DisplayName = ResolveDisplayName(m),
                 UsagePercent = used,
                 Summary = Loc.UsageSummary(used),
@@ -160,8 +160,8 @@ public partial class AntigravityViewModel : ObservableObject
     /// 그룹(Gemini · Claude·GPT)끼리는 서버가 준 순서를 지켜 같은 그룹의 두 창이 붙어 보이게 한다.
     /// 창 길이를 모르는 행(새 창 종류)은 맨 뒤로 — 자리를 지어내지 않는다.
     /// </summary>
-    private static IReadOnlyList<AntigravityModelRow> SortLikeOtherProviders(
-        List<AntigravityModelRow> rows, IReadOnlyList<AntigravityModelQuota> source)
+    private static IReadOnlyList<QuotaGaugeRow> SortLikeOtherProviders(
+        List<QuotaGaugeRow> rows, IReadOnlyList<AntigravityModelQuota> source)
     {
         var groupOrder = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var quota in source)
@@ -172,7 +172,7 @@ public partial class AntigravityViewModel : ObservableObject
         }
 
         return [.. rows
-            .OrderBy(r => groupOrder.TryGetValue(GroupKey(r.ModelId), out var i) ? i : int.MaxValue)
+            .OrderBy(r => groupOrder.TryGetValue(GroupKey(r.Key), out var i) ? i : int.MaxValue)
             .ThenBy(r => r.Window ?? TimeSpan.MaxValue)];
     }
 
@@ -247,50 +247,5 @@ public partial class AntigravityViewModel : ObservableObject
             if (p.Length > 1) sb.Append(p[1..]);
         }
         return sb.ToString();
-    }
-}
-
-/// <summary>
-/// Antigravity 할당량 한 칸(그룹 × 창)의 화면 상태.
-/// 퍼센트·이름은 조회할 때 정해지지만 리셋 카운트다운과 시간선 마커는 매초 움직이므로,
-/// 행을 통째로 다시 만들지 않고 <see cref="UpdateTimeProgress"/> 로 제자리에서 갱신한다.
-/// </summary>
-public sealed partial class AntigravityModelRow : ObservableObject
-{
-    public string ModelId { get; init; } = "";
-    public string DisplayName { get; init; } = "";
-    public double UsagePercent { get; init; }        // 0..1
-    public DateTimeOffset? ResetAt { get; init; }
-
-    /// <summary>게이지 아래 한 줄 요약 ("70% 사용 · 잔량 30%") — Claude·Codex 게이지와 같은 자리.</summary>
-    public string Summary { get; init; } = "";
-
-    /// <summary>창 길이. 모르면 null — 시간선 마커를 그리지 않는다.</summary>
-    public TimeSpan? Window { get; init; }
-
-    [ObservableProperty] private string _resetAtLabel = "";
-
-    /// <summary>게이지 툴팁 — Claude·Codex 게이지 툴팁과 같은 페이스 문구 한 줄.</summary>
-    [ObservableProperty] private string _paceTip = "";
-
-    [ObservableProperty] private bool _hasTimeline = false;
-    [ObservableProperty] private double _timePercent = 0.0;
-
-    /// <summary>
-    /// "초기화 절대 시간 표시" 설정을 Claude·Codex·OpenCode 와 같은 방식으로 라벨에 반영한다.
-    /// 행 이름("그룹 · 창")이 길어 절대 시각과 함께라면 잘릴 수 있지만, 이름 TextBlock 이
-    /// 이미 CharacterEllipsis + 전체 이름 툴팁으로 그 경우를 감당하도록 되어 있다(#139).
-    /// </summary>
-    internal void UpdateTimeProgress(DateTimeOffset now, bool showAbsoluteResetTime)
-    {
-        ResetAtLabel = UsageCalculator.FormatResetLabel(ResetAt, false, showAbsoluteResetTime, now);
-
-        var window = Window ?? TimeSpan.Zero;
-        var progress = UsageCalculator.TimeProgress(ResetAt, window, now);
-        HasTimeline = progress.HasValue;
-        TimePercent = progress ?? 0;
-        // 창 초반에는 페이스 판정을 유보한다 — 하한은 Codex 와 같은 창 길이의 1/60(5시간→5분, 주간→2.8시간).
-        PaceTip = Loc.PaceTip(progress, UsagePercent,
-            UsageCalculator.IsPaceSettled(progress, window, window / 60));
     }
 }

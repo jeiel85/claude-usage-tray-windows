@@ -95,7 +95,7 @@ public sealed class AntigravityApplyQuotaTests
             // 그룹은 서버가 준 순서(gemini → 3p)를 지키고, 그 안에서 5시간 → 주간.
             Assert.Equal(
                 ["gemini-5h", "gemini-weekly", "3p-5h", "3p-weekly"],
-                vm.Models.Select(m => m.ModelId));
+                vm.Models.Select(m => m.Key));
         }
     }
 
@@ -115,7 +115,7 @@ public sealed class AntigravityApplyQuotaTests
 
             Assert.Equal(
                 ["gemini-5h", "gemini-weekly", "gemini-monthly"],
-                vm.Models.Select(m => m.ModelId));
+                vm.Models.Select(m => m.Key));
         }
     }
 
@@ -280,7 +280,7 @@ public sealed class AntigravityApplyQuotaTests
                 Bucket("tab_internal",  0.1),
             ], null, null);
 
-            Assert.Equal(["gemini-weekly"], vm.Models.Select(m => m.ModelId));
+            Assert.Equal(["gemini-weekly"], vm.Models.Select(m => m.Key));
             // 걸러진 행은 트레이 게이지 값에도 반영되지 않는다.
             Assert.Equal(0.5, vm.Percent, 3);
         }
@@ -301,7 +301,7 @@ public sealed class AntigravityApplyQuotaTests
                 Bucket("gemini-5h", 0.03, reset: DateTimeOffset.Now.AddMinutes(-1)),
             ], null, null);
 
-            Assert.Equal(["gemini-weekly"], vm.Models.Select(m => m.ModelId));
+            Assert.Equal(["gemini-weekly"], vm.Models.Select(m => m.Key));
             // 걸러진 행(97% 사용)이 대표값에 반영되면 안 된다.
             Assert.Equal(0.7, vm.Percent, 3);
         }
@@ -347,8 +347,8 @@ public sealed class AntigravityApplyQuotaTests
             vm.UpdateTimeProgress(now);
 
             // 창 길이가 다르므로 같은 "절반 남음"이라도 마커는 각자의 창 기준으로 찍혀야 한다.
-            var weekly = vm.Models.Single(m => m.ModelId == "gemini-weekly");
-            var fiveHour = vm.Models.Single(m => m.ModelId == "3p-5h");
+            var weekly = vm.Models.Single(m => m.Key == "gemini-weekly");
+            var fiveHour = vm.Models.Single(m => m.Key == "3p-5h");
             Assert.True(weekly.HasTimeline);
             Assert.Equal(0.5, weekly.TimePercent, 6);
             Assert.True(fiveHour.HasTimeline);

@@ -320,6 +320,85 @@ public sealed class UsageSyncServiceTests : IDisposable
         Assert.Equal(0.4, newest!.Quota!.ShortUsagePercent, 6);
         Assert.Null(newest.Quota.ShortWindowMinutes);
         Assert.Empty(newest.Quota.Models);
+        Assert.Empty(newest.Quota.AdditionalQuotas);
+    }
+
+    // #182: Codex 추가 한도(이미지 생성 등)도 계정 단위라 다른 PC 로 그대로 건너와야 한다 —
+    // 토큰이 만료돼 로그로만 읽는 PC 는 이 값이 아니면 추가 한도를 알 길이 없다.
+    [Fact]
+    public void QuotaSnapshot_CarriesCodexAdditionalQuotas()
+    {
+        var now = new DateTimeOffset(2026, 7, 9, 9, 0, 0, TimeSpan.Zero);
+        var desktop = CreateService("desktop", now);
+        var syncRoot = Path.Combine(_tempRoot, "sync");
+
+        desktop.WriteSnapshot(syncRoot, desktop.CreateSnapshot(
+            UsageProviderKind.Codex,
+            null,
+            new UsageSyncQuotaSnapshot
+            {
+                HasData = true,
+                ShortUsagePercent = 0.1,
+                ShortResetAt = now.AddHours(2),
+                ShortWindowMinutes = 300,
+                AdditionalQuotas =
+                [
+                    new UsageSyncAdditionalQuota
+                    {
+                        LimitId = "codex_image_gen", LimitName = "image_gen",
+                        UsagePercent = 0.6, ResetAt = now.AddDays(2), WindowMinutes = 10080,
+                        ObservedAt = now.AddMinutes(-3),
+                    },
+                ],
+            },
+            new UsageSyncLocalTotals()));
+
+        var laptop = CreateService("laptop", now.AddMinutes(1));
+        var read = laptop.ReadSnapshots(syncRoot, UsageProviderKind.Codex, null, new DateOnly(2026, 7, 9));
+        var newest = laptop.SelectNewestQuotaSnapshot(read.Snapshots, TimeSpan.FromMinutes(5));
+
+        Assert.NotNull(newest);
+        var window = Assert.Single(newest!.Quota!.AdditionalQuotas);
+        Assert.Equal("codex_image_gen", window.LimitId);
+        Assert.Equal("image_gen", window.LimitName);
+        Assert.Equal(0.6, window.UsagePercent, 6);
+        Assert.Equal(now.AddDays(2), window.ResetAt);
+        Assert.Equal(10080, window.WindowMinutes);
+        Assert.Equal(now.AddMinutes(-3), window.ObservedAt);
+    }
+
+    // 파일에 null 로 적혀 있어도(손으로 고친 파일 등) 받는 쪽이 null 을 만나지 않게 한다 — 목록 전체가 null 이면 빈 목록,
+    // 요소가 null 이면 빼고, 문자열이 null 이면 빈 문자열로. 화면 갱신 중 NRE 가 나면 그 뒤 상태 갱신이 통째로 멈춘다.
+    [Theory]
+    [InlineData("null", 0)]
+    [InlineData("[null,{\"limitId\":null,\"limitName\":null,\"usagePercent\":0.5}]", 1)]
+    public void ReadSnapshots_NullAdditionalQuotas_AreNormalized(string additionalQuotasJson, int expectedCount)
+    {
+        var now = new DateTimeOffset(2026, 7, 9, 9, 0, 0, TimeSpan.Zero);
+        var reader = CreateService("reader", now);
+        var syncRoot = Path.Combine(_tempRoot, "sync");
+        var accountHash = UsageSyncService.BuildAccountHash(UsageProviderKind.Codex, null);
+        var directory = Path.Combine(syncRoot, accountHash, UsageProviderKind.Codex, "2026-07-09");
+        Directory.CreateDirectory(directory);
+
+        WriteAllTextShared(Path.Combine(directory, "otherdevice.json"),
+            """
+            {"schemaVersion":1,"accountHash":"REPLACE","provider":"codex","deviceId":"otherdevice","deviceName":"other",
+             "localDate":"2026-07-09","observedAtUtc":"2026-07-09T08:59:00Z",
+             "quota":{"hasData":true,"observedAtUtc":"2026-07-09T08:59:00Z","shortUsagePercent":0.4,
+                      "shortResetAt":"2026-07-09T12:00:00Z","additionalQuotas":ADDITIONAL},
+             "localTotals":{"inputTokens":5}}
+            """.Replace("REPLACE", accountHash).Replace("ADDITIONAL", additionalQuotasJson));
+
+        var read = reader.ReadSnapshots(syncRoot, UsageProviderKind.Codex, null, new DateOnly(2026, 7, 9));
+
+        var snapshot = Assert.Single(read.Snapshots);
+        Assert.Equal(expectedCount, snapshot.Quota!.AdditionalQuotas.Length);
+        Assert.All(snapshot.Quota.AdditionalQuotas, quota =>
+        {
+            Assert.Equal("", quota.LimitId);
+            Assert.Equal("", quota.LimitName);
+        });
     }
 
     [Fact]

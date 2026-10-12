@@ -3,6 +3,26 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.44.0] - 2026-10-12
+
+<!-- ko -->
+### 추가
+- **Codex 이미지 생성 등 추가 한도도 게이지로 보여줍니다 (#182)** — Codex 는 5시간·주간 한도 말고도 이미지 생성 같은 기능별 한도를 따로 겁니다. Codex 상세에서 기본 게이지 아래에 이런 한도가 창마다 한 줄씩(예: `이미지 생성 · 주간`) 사용률·초기화 시각·시간선과 함께 나옵니다. 이름을 모르는 새 한도는 서버가 준 이름으로 표시합니다.
+- 추가 한도도 다중 PC 동기화에 포함됩니다. 이 PC 에서 Codex 로그인이 만료돼 있어도 다른 PC 가 본 값을 보여줍니다.
+
+### 수정
+- Codex 세션 로그에 추가 한도 기록이 섞여 있으면 그 값이 5시간 게이지를 덮어쓸 수 있던 문제를 고쳤습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Codex extra limits such as image generation now get their own gauges (#182)** — Besides the 5-hour and weekly limits, Codex enforces separate per-feature limits like image generation. They now appear below the main gauges in the Codex details, one row per window (e.g. `Image generation · Weekly`), with usage, reset time and the timeline marker. New limits the app doesn't know yet are shown with the name the server provides.
+- Extra limits are included in multi-PC sync, so a PC whose Codex login has expired still shows what another PC saw.
+
+### Fixed
+- Fixed extra-limit entries in the Codex session logs being able to overwrite the 5-hour gauge.
+<!-- /en -->
+
 ## [1.43.0] - 2026-10-12
 
 <!-- ko -->
