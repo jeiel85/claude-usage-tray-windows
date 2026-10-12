@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.47.0] - 2026-10-12
+
+<!-- ko -->
+### 변경
+- **Antigravity 는 기본으로 Gemini 한도만 보여줍니다 (#194)** — 상세 화면에 Gemini 5시간·주간 두 줄만 나오고, 트레이 숫자와 자동 모드 판정도 Gemini 창 기준입니다. Claude·GPT 한도도 보려면 설정 > 트레이 > 표시 옵션의 `Antigravity 의 Claude·GPT 한도도 표시` 를 켜세요. 꺼 두면 Antigravity 에서 Claude·GPT 를 써서 그 한도가 차도 앱에는 나오지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Changed
+- **Antigravity now shows only the Gemini limits by default (#194)** — The details show just the Gemini 5-hour and weekly rows, and the tray figure and auto mode follow the Gemini windows. To see the Claude and GPT limits too, turn on `Also show Antigravity's Claude and GPT limits` under Settings > Tray > Display options. While it is off, using up those limits through Claude or GPT in Antigravity does not show in the app.
+<!-- /en -->
+
 ## [1.46.0] - 2026-10-12
 
 <!-- ko -->
