@@ -373,10 +373,21 @@ public static class Loc
         _ => "Your Google One AI credit balance. Credits are used when you keep using some models after reaching a limit."
     };
 
-    /// <summary>버킷 식별자 앞부분이 모델 그룹을 가리킨다 (gemini-weekly, 3p-5h).</summary>
+    /// <summary>
+    /// 버킷 식별자는 "그룹-창" 형식이다 (gemini-weekly, 3p-5h). 창을 뗀 그룹 키를 정확히 비교한다 —
+    /// 앞부분만 보면 gemini 로 시작하는 새 그룹(예: 이미지 생성)이 Gemini 모델 칸과 같은 이름으로 불린다.
+    /// </summary>
     private static string? AntigravityGroupName(string bucketId)
     {
-        if (bucketId.StartsWith("gemini", StringComparison.OrdinalIgnoreCase))
+        var dash = bucketId.LastIndexOf('-');
+        var group = dash > 0 ? bucketId[..dash] : bucketId;
+
+        // 이미지 생성 한도는 요약 응답에서 실제로 확인된 적이 없다. 그런 그룹이 오면 Codex 추가 한도(#182)와
+        // 같은 규칙으로 부르고, 이름을 모르는 다른 그룹은 null 을 돌려 서버 문구를 그대로 쓰게 한다.
+        if (group.Contains("image", StringComparison.OrdinalIgnoreCase))
+            return CodexImageGenerationLimit;
+
+        if (group.Equals("gemini", StringComparison.OrdinalIgnoreCase))
         {
             return Lang switch
             {
@@ -388,7 +399,7 @@ public static class Loc
         }
 
         // Google 이 자사 모델과 구분해 부르는 이름(third-party) 이 3p 다.
-        if (bucketId.StartsWith("3p", StringComparison.OrdinalIgnoreCase))
+        if (group.Equals("3p", StringComparison.OrdinalIgnoreCase))
         {
             return Lang switch
             {
@@ -790,6 +801,22 @@ public static class Loc
         "zh" => "示例: \"1h 23m 后重置 (18:30)\"",
         "ja" => "例: \"1h 23m 後にリセット (18:30)\"",
         _ => "e.g. \"resets in 1h 23m (18:30)\""
+    };
+
+    public static string AntigravityShowThirdPartyQuota => Lang switch
+    {
+        "ko" => "Antigravity 의 Claude·GPT 한도도 표시",
+        "zh" => "同时显示 Antigravity 的 Claude 和 GPT 额度",
+        "ja" => "Antigravity の Claude・GPT 上限も表示",
+        _ => "Also show Antigravity's Claude and GPT limits"
+    };
+
+    public static string AntigravityShowThirdPartyQuotaHint => Lang switch
+    {
+        "ko" => "끄면 Gemini 한도만 보여주고, 트레이 숫자에서도 Claude·GPT 창을 뺍니다.",
+        "zh" => "关闭时只显示 Gemini 额度，托盘数值也不计入 Claude 和 GPT 窗口。",
+        "ja" => "オフにすると Gemini の上限だけを表示し、トレイの数値からも Claude・GPT の枠を除きます。",
+        _ => "When off, only Gemini limits are shown and the tray figure leaves out the Claude and GPT windows."
     };
 
     public static string KeepPopupAboveTaskbar => Lang switch

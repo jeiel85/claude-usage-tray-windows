@@ -351,6 +351,7 @@ namespace ClaudeUsageTray.ViewModels;
     [NotifyPropertyChangedFor(nameof(IsAntigravityPlanBadgeVisible))]
     private bool _showPlanBadge = true;
     [ObservableProperty] private bool _showAbsoluteResetTime = false;
+    [ObservableProperty] private bool _showAntigravityThirdPartyQuota = false;
     [ObservableProperty] private bool _keepPopupAboveTaskbar = false;
     [ObservableProperty] private double _usagePanelOpacity = 0.94;
 
@@ -632,6 +633,7 @@ namespace ClaudeUsageTray.ViewModels;
         // v1.27.0 표시 옵션
         ShowPlanBadge         = s.ShowPlanBadge;
         ShowAbsoluteResetTime = s.ShowAbsoluteResetTime;
+        ShowAntigravityThirdPartyQuota = s.ShowAntigravityThirdPartyQuota;
         KeepPopupAboveTaskbar = s.KeepPopupAboveTaskbar;
         UsagePanelOpacity = Math.Clamp(s.UsagePanelOpacity <= 0 ? 0.94 : s.UsagePanelOpacity, 0.5, 1.0);
 
@@ -844,6 +846,7 @@ namespace ClaudeUsageTray.ViewModels;
             FocusedProvider = FocusedProvider,
             ShowPlanBadge = ShowPlanBadge,
             ShowAbsoluteResetTime = ShowAbsoluteResetTime,
+            ShowAntigravityThirdPartyQuota = ShowAntigravityThirdPartyQuota,
             KeepPopupAboveTaskbar = KeepPopupAboveTaskbar,
             UsagePanelOpacity = UsagePanelOpacity,
             // 추적 필드 보존 — settings 저장 시 매번 잃지 않도록
@@ -3010,6 +3013,20 @@ namespace ClaudeUsageTray.ViewModels;
         UpdateCodexAdditionalTimeProgress(DateTimeOffset.Now);
         AntigravityVm.ShowAbsoluteResetTime = value;
         OpenCodeVm.ShowAbsoluteResetTime    = value;
+    }
+
+    /// <summary>
+    /// Claude·GPT 한도 표시 토글 — API 재호출 없이 마지막 값으로 Antigravity 행과 트레이 대표값을 다시 만든다.
+    /// 자동 모드 판정(<see cref="HasRecentAntigravityUsage"/>)도 이 행 목록을 보므로 함께 바뀐다.
+    /// </summary>
+    partial void OnShowAntigravityThirdPartyQuotaChanged(bool value)
+    {
+        AntigravityVm.ShowThirdPartyQuota = value;
+        if (!AntigravityHasData) return;   // 시작 시 설정을 읽는 시점 — 아직 그릴 값이 없다
+
+        AntigravityModels = AntigravityVm.Models;
+        AntigravityPercent = AntigravityVm.Percent;
+        UpdateOverallStatus();
     }
 
     partial void OnWeatherEnabledChanged(bool value) => NotifyWeatherComputed();

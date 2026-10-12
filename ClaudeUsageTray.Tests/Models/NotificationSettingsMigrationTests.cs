@@ -47,6 +47,26 @@ public class NotificationSettingsMigrationTests
             settings.VisibleProviders);
     }
 
+    // Antigravity 의 Claude·GPT 한도 표시는 기본 꺼짐이다. 이 키가 없던 예전 파일도 꺼짐으로 읽혀
+    // 업데이트 직후부터 Gemini 한도만 보인다 — 따로 이관할 것이 없다.
+    [Fact]
+    public void SettingsWithoutThirdPartyKey_HideAntigravityClaudeAndGptLimits()
+    {
+        var settings = LoadLikeSettingsService("""
+            { "VisibleProviders": ["claude", "codex", "opencode", "antigravity"], "ProviderSettingsVersion": 1 }
+            """);
+
+        Assert.False(settings.ShowAntigravityThirdPartyQuota);
+    }
+
+    [Fact]
+    public void ThirdPartyToggle_SurvivesSaveAndLoad()
+    {
+        var json = JsonSerializer.Serialize(new NotificationSettings { ShowAntigravityThirdPartyQuota = true });
+
+        Assert.True(LoadLikeSettingsService(json).ShowAntigravityThirdPartyQuota);
+    }
+
     [Theory]
     [InlineData("auto")]
     [InlineData("codex")]

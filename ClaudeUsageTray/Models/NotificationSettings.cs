@@ -104,6 +104,12 @@ public class NotificationSettings
     // 리셋 라벨에 절대 시각을 병기할지 ("1h 23m 후 리셋 (18:30)")
     public bool ShowAbsoluteResetTime { get; set; } = false;
 
+    /// <summary>
+    /// Antigravity 의 Claude·GPT(3p) 한도 창도 보여줄지. 기본은 꺼짐 — Gemini 한도만 보여준다.
+    /// 이 키가 없던 예전 파일도 꺼짐으로 읽히므로 따로 옮길 것이 없다(<see cref="ProviderSettingsVersion"/> 를 올리지 않는다).
+    /// </summary>
+    public bool ShowAntigravityThirdPartyQuota { get; set; } = false;
+
     public bool KeepPopupAboveTaskbar { get; set; } = false;
     public double UsagePanelOpacity { get; set; } = 0.94;
 
