@@ -6,11 +6,19 @@ namespace ClaudeUsageTray.Services;
 
 public class SettingsService
 {
-    private static readonly string SettingsPath = Path.Combine(
+    private static readonly string DefaultSettingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         ".claude", "claude-usage-tray.json");
 
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
+
+    private readonly string _settingsPath;
+
+    /// <param name="settingsPath">설정 파일 경로. null 이면 ~/.claude/claude-usage-tray.json (테스트용 주입점).</param>
+    public SettingsService(string? settingsPath = null)
+    {
+        _settingsPath = settingsPath ?? DefaultSettingsPath;
+    }
 
     public NotificationSettings Load()
     {
@@ -20,13 +28,13 @@ public class SettingsService
         return settings;
     }
 
-    private static NotificationSettings LoadFromDisk()
+    private NotificationSettings LoadFromDisk()
     {
         try
         {
-            if (File.Exists(SettingsPath))
+            if (File.Exists(_settingsPath))
             {
-                var json = File.ReadAllText(SettingsPath);
+                var json = File.ReadAllText(_settingsPath);
                 return JsonSerializer.Deserialize<NotificationSettings>(json) ?? new();
             }
         }
@@ -44,7 +52,7 @@ public class SettingsService
     {
         try
         {
-            File.WriteAllText(SettingsPath, JsonSerializer.Serialize(settings, JsonOpts));
+            File.WriteAllText(_settingsPath, JsonSerializer.Serialize(settings, JsonOpts));
         }
         catch (Exception ex)
         {

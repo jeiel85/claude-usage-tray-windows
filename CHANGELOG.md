@@ -15,6 +15,18 @@
 - **Antigravity now shows only the Gemini limits by default (#194)** — The details show just the Gemini 5-hour and weekly rows, and the tray figure and auto mode follow the Gemini windows. To see the Claude and GPT limits too, turn on `Also show Antigravity's Claude and GPT limits` under Settings > Tray > Display options. While it is off, using up those limits through Claude or GPT in Antigravity does not show in the app.
 <!-- /en -->
 
+## [1.46.1] - 2026-10-12
+
+<!-- ko -->
+### 수정
+- **개발용 테스트가 이 PC 의 실제 설정·사용 기록을 덮어쓰지 않습니다 (#186)** — 소스에서 테스트를 돌리면 `~/.claude` 의 설정·사용 기록·날씨 알림 기록과 OpenCode 웹 로그인 세션이 바뀌고, Claude 토큰이 만료된 때에는 로그인 파일까지 갱신될 수 있었습니다. 테스트는 이제 임시 폴더만 쓰고, 테스트 중에 트레이 앱이 몰래 실행되지도 않습니다. 앱 자체의 동작은 바뀌지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Developer tests no longer overwrite this PC's real settings and usage history (#186)** — Running the test suite from source used to rewrite the settings, usage history and weather-alert records under `~/.claude` and the OpenCode web sign-in session, and could even refresh the Claude login file when its token had expired. Tests now use temporary folders only, and the tray app no longer starts silently during tests. The app itself behaves exactly as before.
+<!-- /en -->
+
 ## [1.46.0] - 2026-10-12
 
 <!-- ko -->
