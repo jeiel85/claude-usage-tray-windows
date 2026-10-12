@@ -3,6 +3,26 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.46.0] - 2026-10-12
+
+<!-- ko -->
+### 추가
+- **Claude 의 모델별 주간 한도도 게이지로 보여줍니다 (#187)** — Claude 는 5시간·7일 한도 말고도 특정 모델에만 거는 주간 한도(예: `Sonnet`, 프로모션 기간의 `Fable`)를 따로 둡니다. Claude 상세에서 7일 게이지 아래에 이런 한도가 한 줄씩(예: `Fable · 주간`) 사용률·초기화 시각·시간선과 함께 나옵니다. 모델 이름은 서버가 준 이름을 그대로 씁니다.
+- 모델별 한도도 다중 PC 동기화에 포함됩니다. 이 PC 의 Claude 조회가 실패해 다른 PC 의 값을 쓸 때 모델별 한도도 함께 보여줍니다.
+
+### 변경
+- 응답에 있었지만 화면에 쓰이지 않던 Opus/Sonnet 주간 값은 위 목록으로 합쳤습니다. 같은 모델이 두 곳에 다 오면 한 줄만 그립니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Claude's per-model weekly limits now get their own gauges (#187)** — Besides the 5-hour and 7-day limits, Claude enforces weekly limits that apply to a single model (e.g. `Sonnet`, or `Fable` during a promotion). They now appear below the 7-day gauge in the Claude details, one row each (e.g. `Fable · Weekly`), with usage, reset time and the timeline marker. Model names are shown as the server provides them.
+- Per-model limits are included in multi-PC sync, so when this PC's Claude fetch fails and another PC's values are used, the per-model limits come along.
+
+### Changed
+- The Opus/Sonnet weekly values that were already in the response but never shown are merged into the list above. A model reported in both places is drawn once.
+<!-- /en -->
+
 ## [1.45.0] - 2026-10-12
 
 <!-- ko -->
