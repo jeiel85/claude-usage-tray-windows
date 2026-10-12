@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.46.1] - 2026-10-12
+
+<!-- ko -->
+### 수정
+- **개발용 테스트가 이 PC 의 실제 설정·사용 기록을 덮어쓰지 않습니다 (#186)** — 소스에서 테스트를 돌리면 `~/.claude` 의 설정·사용 기록·날씨 알림 기록과 OpenCode 웹 로그인 세션이 바뀌고, Claude 토큰이 만료된 때에는 로그인 파일까지 갱신될 수 있었습니다. 테스트는 이제 임시 폴더만 쓰고, 테스트 중에 트레이 앱이 몰래 실행되지도 않습니다. 앱 자체의 동작은 바뀌지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Developer tests no longer overwrite this PC's real settings and usage history (#186)** — Running the test suite from source used to rewrite the settings, usage history and weather-alert records under `~/.claude` and the OpenCode web sign-in session, and could even refresh the Claude login file when its token had expired. Tests now use temporary folders only, and the tray app no longer starts silently during tests. The app itself behaves exactly as before.
+<!-- /en -->
+
 ## [1.46.0] - 2026-10-12
 
 <!-- ko -->
