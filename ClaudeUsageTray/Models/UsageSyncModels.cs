@@ -65,7 +65,8 @@ public sealed class UsageSyncQuotaSnapshot
     // 인증 쿠키·워크스페이스 URL 같은 로그인 정보는 동기화하지 않는다.
     public UsageSyncOpenCodeQuota? OpenCode { get; set; }
 
-    // Codex 전용 — 기본 창 말고 따로 걸린 한도(이미지 생성 등, #182)의 창 목록. 다른 provider 에서는 비어 있다.
+    // 기본 창 말고 따로 걸린 한도의 창 목록 — Codex: 이미지 생성 등 추가 한도(#182), Claude: 모델 한정 한도(#187).
+    // 다른 provider 에서는 비어 있다.
     public UsageSyncAdditionalQuota[] AdditionalQuotas { get; set; } = [];
 }
 
