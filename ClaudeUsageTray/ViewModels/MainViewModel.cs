@@ -136,6 +136,8 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private string _antigravityErrorMessage = "";
     [ObservableProperty] private string _antigravityTierName = "";       // e.g. "Gemini Code Assist"
     [ObservableProperty] private string _antigravityPaidTierName = "";   // e.g. "Gemini Code Assist in Google One AI Pro"
+    // Google AI 크레딧 잔액 — 비어 있으면(크레딧 대상 아님) 게이지 아래 줄이 접힌다.
+    [ObservableProperty] private string _antigravityAiCreditsText = "";
     [ObservableProperty] private System.Collections.Generic.IReadOnlyList<QuotaGaugeRow> _antigravityModels =
         System.Array.Empty<QuotaGaugeRow>();
     [ObservableProperty] private double _antigravityPercent = 0.0;
@@ -387,6 +389,8 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private bool _isExtraOnlyMode = false; // 기본 사용량 100% 소진 후 추가 사용량만 표시
 
     public string LblExtraUsage => Loc.ExtraUsageTitle;
+    public string LblAntigravityAiCredits => Loc.AntigravityAiCredits;
+    public string LblAntigravityAiCreditsTip => Loc.AntigravityAiCreditsTip;
 
     private string? _lastKnownOrgUuid;
 
@@ -3222,7 +3226,8 @@ namespace ClaudeUsageTray.ViewModels;
                 AntigravityVm.ApplyQuota(
                     ToAntigravityModelQuotas(snapshot.Quota!.Models),
                     snapshot.Quota.TierName,
-                    snapshot.Quota.PaidTierName);
+                    snapshot.Quota.PaidTierName,
+                    snapshot.Quota.AiCredits);
 
                 // 스냅샷에 담긴 모델이 전부 리셋을 지나 ApplyQuota 의 필터에서 다 걸러졌을 수 있다
                 // (Models.Count == 0). ApplyQuota 는 빈 목록에도 HasData 를 무조건 true 로
@@ -3257,6 +3262,7 @@ namespace ClaudeUsageTray.ViewModels;
             AntigravityErrorMessage = AntigravityVm.ErrorMessage;
             AntigravityTierName = AntigravityVm.TierName;
             AntigravityPaidTierName = AntigravityVm.PaidTierName;
+            AntigravityAiCreditsText = AntigravityVm.AiCreditsText;
             AntigravityModels = AntigravityVm.Models;
             AntigravityPercent = AntigravityVm.Percent;
         });
@@ -3323,6 +3329,7 @@ namespace ClaudeUsageTray.ViewModels;
             HasData = true,
             TierName = snapshot.TierName ?? "",
             PaidTierName = snapshot.PaidTierName ?? "",
+            AiCredits = snapshot.AiCredits,
             Models = [.. snapshot.Models.Select(model => new UsageSyncModelQuota
             {
                 ModelId = model.ModelId,

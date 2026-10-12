@@ -3,6 +3,28 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.45.0] - 2026-10-12
+
+<!-- ko -->
+### 추가
+- **Antigravity 상세에 Google AI 크레딧 잔액을 보여줍니다 (#190)** — Google AI Pro·Ultra 는 한도를 다 쓴 뒤 일부 모델을 크레딧으로 이어 쓸 수 있습니다. 게이지 아래에 `Google AI 크레딧 · 1,234` 한 줄로 잔액이 나오고, 크레딧 대상이 아닌 계정에는 나오지 않습니다. 다 쓴 경우는 0 으로 표시합니다.
+- 크레딧 잔액도 다중 PC 동기화에 포함됩니다.
+
+### 수정
+- 그 요금제에서 계량하지 않는 창(`disabled`)이 "0% 사용" 게이지로 그려지던 문제를 고쳤습니다. 주간 한도를 다 써서 막혔는데도 5시간 창이 비어 있는 것처럼 보일 수 있었습니다.
+- 잔여 비율 없이 수량만 오거나 값이 없는 창을 "하나도 안 씀" 으로 그리던 문제를 고쳤습니다. 이제 사용률을 지어내지 않고 그 창을 그리지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Antigravity details now show your Google AI credit balance (#190)** — Google AI Pro and Ultra can keep using some models with credits after reaching a limit. The balance appears below the gauges as `Google AI Credits · 1,234`, and is hidden for accounts that are not eligible for credits. A used-up balance shows as 0.
+- The credit balance is included in multi-PC sync.
+
+### Fixed
+- Fixed windows the plan does not meter (`disabled`) being drawn as "0% used" gauges. The 5-hour window could look empty even while the weekly limit was used up and requests were blocked.
+- Fixed windows that come with a quantity instead of a remaining fraction, or with no value at all, being drawn as unused. The app no longer makes up a usage figure and leaves those windows out.
+<!-- /en -->
+
 ## [1.44.0] - 2026-10-12
 
 <!-- ko -->

@@ -58,6 +58,9 @@ public sealed class UsageSyncQuotaSnapshot
     public string PaidTierName { get; set; } = "";
     public UsageSyncModelQuota[] Models { get; set; } = [];
 
+    /// <summary>Google AI 크레딧 잔액(계정 단위). 크레딧 대상이 아니거나 이 필드가 없던 버전이 올린 스냅샷이면 null.</summary>
+    public long? AiCredits { get; set; }
+
     // OpenCode Go 전용 — 공식 웹 콘솔이 제공한 계정 단위 할당량만 담는다.
     // 인증 쿠키·워크스페이스 URL 같은 로그인 정보는 동기화하지 않는다.
     public UsageSyncOpenCodeQuota? OpenCode { get; set; }
