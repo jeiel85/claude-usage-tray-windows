@@ -1,4 +1,5 @@
 using System.Globalization;
+using ClaudeUsageTray.Models;
 
 namespace ClaudeUsageTray.Services;
 
@@ -1671,6 +1672,124 @@ public static class Loc
         "zh" => "未在 OpenCode 控制台中找到 Go 配额 — 请使用订阅了 Go 的账户登录",
         "ja" => "OpenCode コンソールで Go の割り当てが見つかりませんでした — Go を購読しているアカウントでログインしてください",
         _ => "No OpenCode Go quota found in the console — sign in with the account that subscribes to Go"
+    };
+
+    /// <summary>Go 구독은 있지만 지금 할당량을 못 쓰는 이유(<c>access: null</c>) — 콘솔 Go 카드의 안내와 같은 뜻.</summary>
+    public static string OpenCodeGoInactive(OpenCodeGoSubscriptionStatus reason) => reason switch
+    {
+        OpenCodeGoSubscriptionStatus.ApprovalNeeded => Lang switch
+        {
+            "ko" => "OpenCode Go 결제 승인 대기 — 은행에서 갱신 결제를 승인해야 계속 쓸 수 있습니다",
+            "zh" => "OpenCode Go 正在等待付款批准 — 需在银行批准续订付款后才能继续使用",
+            "ja" => "OpenCode Go は支払いの承認待ちです — 銀行で更新の支払いを承認すると引き続き使えます",
+            _ => "OpenCode Go is waiting for payment approval — approve the renewal payment with your bank to continue"
+        },
+        OpenCodeGoSubscriptionStatus.RenewalProcessing => Lang switch
+        {
+            "ko" => "OpenCode Go 갱신 결제 처리 중 — 결제가 끝나는 대로 다시 쓸 수 있습니다",
+            "zh" => "OpenCode Go 续订付款处理中 — 付款完成后即可恢复使用",
+            "ja" => "OpenCode Go の更新支払いを処理中 — 支払いが完了しだい再開します",
+            _ => "OpenCode Go renewal is processing — Go resumes as soon as the payment completes"
+        },
+        OpenCodeGoSubscriptionStatus.ReauthorizationNeeded => Lang switch
+        {
+            "ko" => "OpenCode Go 재승인 필요 — 결제 승인이 필요해 구독이 만료됐습니다. 콘솔의 Go 에서 다시 활성화하세요",
+            "zh" => "OpenCode Go 需要重新授权 — 因需要付款授权，订阅已过期。请在控制台的 Go 页面重新激活",
+            "ja" => "OpenCode Go の再承認が必要です — 支払いの承認が必要なため購読が期限切れになりました。コンソールの Go から再開してください",
+            _ => "OpenCode Go needs reauthorization — the subscription expired because payment authorization is required. Reactivate it from Go in the console"
+        },
+        OpenCodeGoSubscriptionStatus.Paused => Lang switch
+        {
+            "ko" => "OpenCode Go 일시정지 — 갱신 결제가 성공하면 다시 쓸 수 있습니다",
+            "zh" => "OpenCode Go 已暂停 — 续订付款成功后即可恢复",
+            "ja" => "OpenCode Go は一時停止中です — 更新の支払いが成功すると再開します",
+            _ => "OpenCode Go is paused — it resumes once the renewal payment succeeds"
+        },
+        _ => OpenCodeWebNoGoQuota
+    };
+
+    /// <summary>할당량을 쓸 수 있는 동안의 구독 상태 한 줄. 정상 갱신이면 빈 문자열이라 줄이 숨는다.</summary>
+    public static string OpenCodeGoSubscription(OpenCodeGoSubscriptionStatus status, string date) => status switch
+    {
+        OpenCodeGoSubscriptionStatus.PaymentFailed => Lang switch
+        {
+            "ko" => "Go 갱신 결제 실패 — 결제 수단을 확인하세요",
+            "zh" => "Go 续订付款失败 — 请检查付款方式",
+            "ja" => "Go の更新支払いに失敗しました — 支払い方法を確認してください",
+            _ => "Go renewal payment failed — check your payment method"
+        },
+        OpenCodeGoSubscriptionStatus.ActionNeeded => Lang switch
+        {
+            "ko" => "Go 갱신에 결제 조치 필요 — 그때까지는 계속 쓸 수 있습니다",
+            "zh" => "Go 续订需要处理付款 — 在此之前可继续使用",
+            "ja" => "Go の更新に支払いの対応が必要です — それまでは引き続き使えます",
+            _ => "Go renewal needs payment action — access continues until then"
+        },
+        OpenCodeGoSubscriptionStatus.Ends => Lang switch
+        {
+            "ko" => $"Go 구독 {date} 종료",
+            "zh" => $"Go 订阅将于 {date} 结束",
+            "ja" => $"Go の購読は {date} に終了します",
+            _ => $"Go subscription ends {date}"
+        },
+        OpenCodeGoSubscriptionStatus.SwitchesToGo => Lang switch
+        {
+            "ko" => $"{date} 부터 Go Plus 에서 Go 로 전환",
+            "zh" => $"{date} 起从 Go Plus 切换为 Go",
+            "ja" => $"{date} から Go Plus が Go に切り替わります",
+            _ => $"Switches from Go Plus to Go on {date}"
+        },
+        _ => ""
+    };
+
+    public static string OpenCodeRollingWindow => Lang switch { "ko" => "롤링", "zh" => "滚动", "ja" => "ローリング", _ => "Rolling" };
+    public static string OpenCodeWeeklyWindow => Lang switch { "ko" => "주간", "zh" => "每周", "ja" => "週間", _ => "Weekly" };
+    public static string OpenCodeMonthlyWindow => Lang switch { "ko" => "월간", "zh" => "每月", "ja" => "月間", _ => "Monthly" };
+
+    /// <summary>"주간 한도 도달 · 2d 3h 후 재개" — 콘솔의 한도 도달 배너와 같은 구성.</summary>
+    public static string OpenCodeLimitReached(string window, string detail) => Lang switch
+    {
+        "ko" => $"{window} 한도 도달 · {detail}",
+        "zh" => $"{window}限额已用尽 · {detail}",
+        "ja" => $"{window}の上限に到達 · {detail}",
+        _ => $"{window} limit reached · {detail}"
+    };
+    public static string OpenCodeLimitUsingCredits(string time) => Lang switch
+    {
+        "ko" => $"{time} 동안 크레딧으로 계속 사용",
+        "zh" => $"接下来 {time} 使用额度继续",
+        "ja" => $"今後 {time} はクレジットで継続",
+        _ => $"using credits for the next {time}"
+    };
+    public static string OpenCodeLimitGoEnds(string time) => Lang switch
+    {
+        "ko" => $"{time} 후 Go 종료",
+        "zh" => $"{time} 后 Go 结束",
+        "ja" => $"{time} 後に Go 終了",
+        _ => $"Go ends in {time}"
+    };
+    public static string OpenCodeLimitResumes(string time) => Lang switch
+    {
+        "ko" => $"{time} 후 재개",
+        "zh" => $"{time} 后恢复",
+        "ja" => $"{time} 後に再開",
+        _ => $"Go resumes in {time}"
+    };
+
+    /// <summary>추가 사용 켜짐 — 한도를 넘기면 작업공간 크레딧으로 이어 쓴다.</summary>
+    public static string OpenCodeExtraUsageOn => Lang switch
+    {
+        "ko" => "추가 사용 켜짐",
+        "zh" => "额外用量已开启",
+        "ja" => "追加利用オン",
+        _ => "Extra usage on"
+    };
+    public static string OpenCodeCredits(string amount) => Lang switch
+    {
+        "ko" => $"크레딧 {amount}",
+        "zh" => $"额度 {amount}",
+        "ja" => $"クレジット {amount}",
+        _ => $"Credits {amount}"
     };
     public static string OpenCodeResetAt(string value) => Lang switch
     {

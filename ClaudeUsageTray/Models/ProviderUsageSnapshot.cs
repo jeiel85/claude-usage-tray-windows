@@ -71,12 +71,60 @@ public class OpenCodeUsageDetails
     public OpenCodeWebUsage? WebUsage { get; set; }
 }
 
-public sealed class OpenCodeWebUsage
+/// <summary>
+/// 콘솔 <c>go/status</c> 한 번의 관측. 할당량 창 말고도 같은 응답에 든 요금제·구독 상태와,
+/// 관리자일 때 따로 읽는 추가 사용·크레딧을 함께 싣는다(값을 보태려고 <c>with</c> 로 복사하므로 record).
+/// </summary>
+public sealed record OpenCodeWebUsage
 {
     public DateTimeOffset? ObservedAtUtc { get; init; }
     public OpenCodeQuotaWindow Rolling { get; init; } = new();
     public OpenCodeQuotaWindow Weekly { get; init; } = new();
     public OpenCodeQuotaWindow Monthly { get; init; } = new();
+
+    /// <summary>요금제 — 콘솔 응답의 <c>product</c>("go"·"go-plus") 그대로. 모르면 null.</summary>
+    public string? Product { get; init; }
+
+    /// <summary>
+    /// 추가 사용 — 한도를 넘기면 작업공간 크레딧으로 이어 쓰는가. 콘솔이 "Extra usage" 를 켜짐으로
+    /// 보여주는 조건과 같다: 설정이 켜져 있고, 관리자라면 쓸 크레딧이 남아 있을 때.
+    /// </summary>
+    public bool ExtraUsageEnabled { get; init; }
+
+    /// <summary>작업공간의 사용 가능 크레딧(USD). 콘솔이 관리자에게만 보여주는 값이라 그 밖엔 null.</summary>
+    public decimal? CreditsUsd { get; init; }
+
+    /// <summary>구독 상태 — 정상 갱신이면 <see cref="OpenCodeGoSubscriptionStatus.Renews"/>.</summary>
+    public OpenCodeGoSubscriptionStatus Subscription { get; init; }
+
+    /// <summary>현재 구독 기간 끝(<c>access.endsAt</c>). 해지·Go 전환 예정 문구에 쓴다.</summary>
+    public DateTimeOffset? PeriodEndsAt { get; init; }
+}
+
+/// <summary>
+/// 콘솔 Go 카드의 상태 표시와 같은 구분. 앞의 다섯은 할당량을 쓸 수 있는 상태(<c>access</c> 있음),
+/// 뒤의 넷은 구독은 있지만 지금은 못 쓰는 상태(<c>access: null</c>) 다.
+/// </summary>
+public enum OpenCodeGoSubscriptionStatus
+{
+    /// <summary>정상 — 기간 끝에 갱신된다.</summary>
+    Renews,
+    /// <summary>갱신 결제가 실패해 재시도를 기다린다(<c>renewalRetryAt</c>).</summary>
+    PaymentFailed,
+    /// <summary>다음 갱신에 결제 수단 조치가 필요하다(<c>renewalAuthorizationRequired</c>).</summary>
+    ActionNeeded,
+    /// <summary>해지 예약 — 기간 끝에 끝난다(<c>cancelAtPeriodEnd</c>).</summary>
+    Ends,
+    /// <summary>Go Plus 에서 기간 끝에 Go 로 내려간다.</summary>
+    SwitchesToGo,
+    /// <summary>은행의 갱신 결제 승인을 기다린다(<c>renewalPaymentAttemptID</c>).</summary>
+    ApprovalNeeded,
+    /// <summary>갱신 결제가 처리 중이다(<c>renewalPending</c>).</summary>
+    RenewalProcessing,
+    /// <summary>결제 승인이 필요해 구독이 만료됐다 — 다시 활성화해야 한다.</summary>
+    ReauthorizationNeeded,
+    /// <summary>갱신 결제가 성공할 때까지 멈췄다.</summary>
+    Paused,
 }
 
 public sealed class OpenCodeQuotaWindow
@@ -107,12 +155,19 @@ public enum OpenCodeWebSessionState
     NoQuota,
 }
 
-public readonly record struct OpenCodeWebReadResult(OpenCodeWebUsage? Usage, OpenCodeWebSessionState State)
+/// <param name="Inactive">
+/// <see cref="OpenCodeWebSessionState.NoQuota"/> 일 때, 구독은 있지만 지금 못 쓰는 이유(일시정지 등).
+/// 구독 자체가 없으면 null.
+/// </param>
+public readonly record struct OpenCodeWebReadResult(
+    OpenCodeWebUsage? Usage, OpenCodeWebSessionState State, OpenCodeGoSubscriptionStatus? Inactive = null)
 {
     public static OpenCodeWebReadResult NotAttempted => new(null, OpenCodeWebSessionState.Unknown);
     public static OpenCodeWebReadResult SignedOut => new(null, OpenCodeWebSessionState.SignedOut);
     public static OpenCodeWebReadResult Unavailable => new(null, OpenCodeWebSessionState.Unavailable);
     public static OpenCodeWebReadResult NoQuota => new(null, OpenCodeWebSessionState.NoQuota);
+    public static OpenCodeWebReadResult NoQuotaBecause(OpenCodeGoSubscriptionStatus? inactive) =>
+        new(null, OpenCodeWebSessionState.NoQuota, inactive);
     public static OpenCodeWebReadResult Success(OpenCodeWebUsage usage) =>
         new(usage, OpenCodeWebSessionState.Authenticated);
 }

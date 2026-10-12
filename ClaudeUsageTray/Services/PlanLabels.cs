@@ -56,6 +56,17 @@ public static class PlanLabels
         return suffix.Length == 0 ? "OpenCode" : $"OpenCode {suffix}";
     }
 
+    /// <summary>
+    /// OpenCode 콘솔이 알려준 요금제(<c>go/status</c> 의 <c>product</c>: "go"·"go-plus") 배지.
+    /// auth.json 항목 키는 Go 와 Go Plus 를 구분하지 못하므로, 콘솔 값을 읽었으면 이쪽이 우선이다.
+    /// 값이 없으면 빈 문자열이라 호출부가 auth.json 기준 배지로 물러난다.
+    /// </summary>
+    public static string OpenCodeProduct(string? product)
+    {
+        var plan = Humanize(product);
+        return plan.Length == 0 ? "" : $"OpenCode {plan}";
+    }
+
     /// <summary>"default_claude_max_5x" → "5x". 배수 표기가 없으면 빈 문자열.</summary>
     private static string ExtractMultiplier(string? rateLimitTier)
     {

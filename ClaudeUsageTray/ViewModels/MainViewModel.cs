@@ -1799,6 +1799,11 @@ namespace ClaudeUsageTray.ViewModels;
                     Rolling = CreateOpenCodeQuotaWindow(usage.Rolling),
                     Weekly = CreateOpenCodeQuotaWindow(usage.Weekly),
                     Monthly = CreateOpenCodeQuotaWindow(usage.Monthly),
+                    Product = usage.Product,
+                    ExtraUsageEnabled = usage.ExtraUsageEnabled,
+                    CreditsUsd = usage.CreditsUsd,
+                    Subscription = usage.Subscription.ToString(),
+                    PeriodEndsAt = usage.PeriodEndsAt,
                 },
             };
         }
@@ -1910,6 +1915,15 @@ namespace ClaudeUsageTray.ViewModels;
             Rolling = CreateOpenCodeQuotaWindow(usage.Rolling),
             Weekly = CreateOpenCodeQuotaWindow(usage.Weekly),
             Monthly = CreateOpenCodeQuotaWindow(usage.Monthly),
+            Product = usage.Product,
+            ExtraUsageEnabled = usage.ExtraUsageEnabled,
+            CreditsUsd = usage.CreditsUsd,
+            // 모르는 이름(이후 버전이 늘린 상태)은 정상 갱신으로 보고 상태 줄을 감춘다. 숫자 문자열은 받지 않는다.
+            Subscription = Enum.TryParse<OpenCodeGoSubscriptionStatus>(usage.Subscription, out var subscription)
+                && Enum.IsDefined(subscription) && !int.TryParse(usage.Subscription, out _)
+                    ? subscription
+                    : OpenCodeGoSubscriptionStatus.Renews,
+            PeriodEndsAt = usage.PeriodEndsAt,
         };
     }
 

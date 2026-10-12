@@ -38,4 +38,13 @@ public sealed class PlanLabelsTests
     [InlineData(null, "")]
     public void OpenCode_FormatsOwnAuthEntryOnly(string? providerId, string expected)
         => Assert.Equal(expected, PlanLabels.OpenCode(providerId));
+
+    // 콘솔 go/status 의 product — auth.json 키로는 구분 못 하던 Go Plus 를 그대로 보여준다.
+    [Theory]
+    [InlineData("go", "OpenCode Go")]
+    [InlineData("go-plus", "OpenCode Go Plus")]
+    [InlineData(null, "")]
+    [InlineData(" ", "")]
+    public void OpenCodeProduct_FormatsTheConsolePlan(string? product, string expected)
+        => Assert.Equal(expected, PlanLabels.OpenCodeProduct(product));
 }

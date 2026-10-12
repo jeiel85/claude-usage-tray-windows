@@ -3,6 +3,30 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.48.0] - 2026-10-12
+
+<!-- ko -->
+### 추가
+- **OpenCode 상세에 요금제·한도 도달·추가 사용·크레딧·구독 상태를 보여줍니다 (#196)** — OpenCode 콘솔이 이미 알려 주던 값을 콘솔 화면과 같은 규칙으로 옮겼습니다.
+  - 배지가 `OpenCode Go Plus` 를 구분합니다(Go Plus 는 한도가 4배).
+  - 창을 다 쓰면 게이지 아래에 `주간 한도 도달 · 3d 4h 후 재개` 처럼 다시 쓸 수 있는 때를 알려 줍니다. 추가 사용이 켜져 있으면 `… 동안 크레딧으로 계속 사용` 으로 나옵니다.
+  - `추가 사용 켜짐 · 크레딧 $12.34` — 크레딧은 콘솔처럼 작업공간 관리자에게만 보입니다.
+  - 갱신 결제 실패·결제 조치 필요(빨간색), 해지 예정(`Go 구독 10/19 종료`), Go Plus → Go 전환 예정을 한 줄로 알려 줍니다.
+  - 구독이 일시정지·결제 승인 대기·갱신 처리 중·재승인 필요 상태면 "Go 할당량을 찾지 못했습니다" 대신 그 이유를 보여 줍니다.
+- 위 값도 다중 PC 동기화에 포함됩니다. 다른 PC 의 관측으로 게이지를 그릴 때 같은 줄이 함께 나옵니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **OpenCode details now show the plan, limit-reached state, extra usage, credits and subscription status (#196)** — Values the OpenCode console already reports are shown with the console's own rules.
+  - The badge tells `OpenCode Go Plus` apart (Go Plus has 4× the limits).
+  - When a window is used up, a line below the gauges says when you can use Go again, e.g. `Weekly limit reached · Go resumes in 3d 4h`, or `… using credits for the next …` when extra usage is on.
+  - `Extra usage on · Credits $12.34` — like the console, credits are shown to workspace admins only.
+  - Renewal payment failures and required payment actions (in red), a scheduled cancellation (`Go subscription ends 10/19`) and a Go Plus → Go switch are shown on one line.
+  - When the subscription is paused, awaiting payment approval, processing renewal or needs reauthorization, the popup shows that reason instead of "No OpenCode Go quota found".
+- These values are included in multi-PC sync, so the same lines appear when the gauges come from another PC's observation.
+<!-- /en -->
+
 ## [1.47.0] - 2026-10-12
 
 <!-- ko -->

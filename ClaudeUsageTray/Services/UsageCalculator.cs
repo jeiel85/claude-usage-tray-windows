@@ -62,19 +62,27 @@ public static class UsageCalculator
         if (resetAt is null) return "";
         var diff = resetAt.Value - now;
         if (diff.TotalSeconds <= 0) return "";
-        string time;
-        if (diff.TotalMinutes < 10) time = $"{(int)diff.TotalMinutes}m {diff.Seconds:D2}s";
-        else if (diff.TotalHours < 1) time = $"{(int)diff.TotalMinutes}m";
-        else if (diff.TotalDays < 1) time = $"{(int)diff.TotalHours}h {diff.Minutes}m";
-        else time = $"{(int)diff.TotalDays}d {diff.Hours}h";
+        var time = FormatRemaining(diff);
         var rel = isEstimated ? Loc.ResetsInEstimated(time) : Loc.ResetsIn(time);
-        if (!showAbsolute) return rel;
+        return showAbsolute ? $"{rel} ({FormatClockStamp(resetAt.Value, now)})" : rel;
+    }
 
-        var local = resetAt.Value.ToLocalTime();
-        var stamp = local.Date == now.LocalDateTime.Date
+    /// <summary>남은 시간 "9m 05s"·"42m"·"3h 12m"·"2d 4h" — 초기화 라벨과 같은 표기.</summary>
+    public static string FormatRemaining(TimeSpan diff)
+    {
+        if (diff.TotalMinutes < 10) return $"{(int)diff.TotalMinutes}m {diff.Seconds:D2}s";
+        if (diff.TotalHours < 1) return $"{(int)diff.TotalMinutes}m";
+        if (diff.TotalDays < 1) return $"{(int)diff.TotalHours}h {diff.Minutes}m";
+        return $"{(int)diff.TotalDays}d {diff.Hours}h";
+    }
+
+    /// <summary>절대 시각 표기 — 오늘이면 "HH:mm", 아니면 "MM/dd HH:mm".</summary>
+    public static string FormatClockStamp(DateTimeOffset at, DateTimeOffset now)
+    {
+        var local = at.ToLocalTime();
+        return local.Date == now.LocalDateTime.Date
             ? local.ToString("HH:mm")
             : local.ToString("MM/dd HH:mm");
-        return $"{rel} ({stamp})";
     }
 
     /// <summary>

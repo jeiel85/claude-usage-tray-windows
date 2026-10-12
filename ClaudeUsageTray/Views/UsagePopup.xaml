@@ -1259,6 +1259,34 @@
                             </StackPanel>
                         </StackPanel>
 
+                        <!-- 같은 콘솔 응답의 부가 정보 — 비어 있는 줄은 자리도 차지하지 않는다 -->
+                        <StackPanel x:Name="OpenCodeQuotaExtras"
+                                    Visibility="{Binding OpenCodeVm.HasWebQuota, Converter={StaticResource BoolToVisibility}}">
+                            <!-- 한도 도달 — 콘솔 배너와 같이 가장 늦게 풀리는 창 기준 -->
+                            <TextBlock x:Name="OpenCodeLimitReachedNotice" Text="{Binding OpenCodeVm.LimitReachedLabel}"
+                                       Foreground="#FBBF24" FontSize="10" TextWrapping="Wrap" Margin="0,0,0,8"
+                                       Visibility="{Binding OpenCodeVm.LimitReachedLabel, Converter={StaticResource StringToVisibility}}"/>
+                            <!-- 구독 상태 — 결제 실패·조치 필요는 경고색, 해지·전환 예정은 안내색 -->
+                            <TextBlock x:Name="OpenCodeSubscriptionStatus" Text="{Binding OpenCodeVm.SubscriptionStatusLabel}"
+                                       FontSize="10" TextWrapping="Wrap" Margin="0,0,0,8"
+                                       Visibility="{Binding OpenCodeVm.SubscriptionStatusLabel, Converter={StaticResource StringToVisibility}}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#8B92B3"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding OpenCodeVm.IsSubscriptionStatusUrgent}" Value="True">
+                                                <Setter Property="Foreground" Value="#F87171"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <!-- 추가 사용·크레딧 — 한도를 넘기면 작업공간 크레딧으로 이어 쓰는지, 남은 크레딧 -->
+                            <TextBlock x:Name="OpenCodeBillingLine" Text="{Binding OpenCodeVm.BillingLabel}"
+                                       Foreground="#8B92B3" FontSize="10" TextWrapping="Wrap" Margin="0,0,0,8"
+                                       Visibility="{Binding OpenCodeVm.BillingLabel, Converter={StaticResource StringToVisibility}}"/>
+                        </StackPanel>
+
                         <StackPanel Margin="0,0,0,10" Visibility="{Binding OpenCodeVm.ShowWebLoginButton, Converter={StaticResource BoolToVisibility}}">
                             <Button Click="OpenCodeWebLogin_Click" HorizontalAlignment="Left" Padding="10,5"
                                     Background="#9A3412" Foreground="#FFEDD5" BorderBrush="#C2410C" BorderThickness="1"
