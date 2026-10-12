@@ -426,6 +426,19 @@ public class UsageSyncQuotaPolicyTests
             MainViewModel.ShouldClearAntigravityFallbackData(usedFallbackModels, hadGenuineLocalError));
     }
 
+    // Antigravity 섹션을 그릴지 — Claude·GPT 창을 숨긴 설정에서 응답에 그 창만 남으면 행이 없는데,
+    // 그대로 켜 두면 빈 섹션과 트레이 "Antigravity 0%" 가 남는다(#194 리뷰). 오류가 있으면 오류를 보여야 하므로 켠다.
+    [Theory]
+    [InlineData(true, 2, false, true)]    // 보이는 행이 있음
+    [InlineData(true, 0, false, false)]   // 값은 받았지만 보이는 행이 없음 → 숨김("—")
+    [InlineData(true, 0, true, true)]     // 행은 없지만 살려 둔 오류가 있음 → 오류를 보여준다
+    [InlineData(false, 0, true, false)]   // 값 자체가 없음
+    public void AntigravitySection_IsShownOnlyWithRowsOrAnError(
+        bool hasData, int visibleRows, bool hasError, bool expected)
+    {
+        Assert.Equal(expected, MainViewModel.HasVisibleAntigravityQuota(hasData, visibleRows, hasError));
+    }
+
     // 이 PC 에 로컬 사용량이 없고 다른 PC 에만 있는 경우(예: OpenCode 를 다른 PC 에서만 씀),
     // MergeLocalTotals 는 "사용량이 있는 기기" 만 세므로 DeviceCount 가 1 이 된다.
     // 예전처럼 DeviceCount > 1 을 요구하면 그 값이 통째로 버려져

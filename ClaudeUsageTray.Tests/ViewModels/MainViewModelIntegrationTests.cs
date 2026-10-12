@@ -630,6 +630,39 @@ public class MainViewModelIntegrationTests : IDisposable
         });
     }
 
+    // #194 리뷰: 응답에 Claude·GPT 창만 남고 숨김 설정이면 보이는 행이 없다 — 빈 섹션·"0%" 대신 섹션을 접고,
+    // 설정을 켜면 다시 조회하지 않아도 바로 나타나야 한다.
+    [Fact]
+    public async Task AntigravityThirdPartyToggle_HidesTheSectionWhenNoRowIsLeft()
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            try
+            {
+                vm.ShowAntigravityThirdPartyQuota = true;
+                vm.AntigravityVm.ApplyQuota(
+                [
+                    new AntigravityModelQuota { ModelId = "3p-5h", TokenType = "5h", RemainingFraction = 0.4, ResetTime = DateTimeOffset.Now.AddHours(3) },
+                ], null, null);
+                vm.AntigravityHasData = true;
+
+                vm.ShowAntigravityThirdPartyQuota = false;
+                Assert.False(vm.AntigravityHasData);
+                Assert.Empty(vm.AntigravityModels);
+
+                vm.ShowAntigravityThirdPartyQuota = true;
+                Assert.True(vm.AntigravityHasData);
+                Assert.Equal(["3p-5h"], vm.AntigravityModels.Select(m => m.Key));
+                Assert.Equal(0.6, vm.AntigravityPercent, 3);
+            }
+            finally
+            {
+                vm.Dispose();
+            }
+        });
+    }
+
     [Fact]
     public async Task SaveSettings_DoesNotThrow()
     {

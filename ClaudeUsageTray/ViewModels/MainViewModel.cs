@@ -3051,12 +3051,23 @@ namespace ClaudeUsageTray.ViewModels;
     partial void OnShowAntigravityThirdPartyQuotaChanged(bool value)
     {
         AntigravityVm.ShowThirdPartyQuota = value;
-        if (!AntigravityHasData) return;   // 시작 시 설정을 읽는 시점 — 아직 그릴 값이 없다
+        // 화면 쪽 AntigravityHasData 는 보이는 행이 없으면 꺼져 있을 수 있다 — 켜면 다시 보여야 하므로 원본 상태를 본다.
+        if (!AntigravityVm.HasData) return;   // 시작 시 설정을 읽는 시점 등 — 아직 그릴 값이 없다
 
+        AntigravityHasData = HasVisibleAntigravityQuota(AntigravityVm.HasData, AntigravityVm.Models.Count, AntigravityVm.HasError);
         AntigravityModels = AntigravityVm.Models;
         AntigravityPercent = AntigravityVm.Percent;
         UpdateOverallStatus();
     }
+
+    /// <summary>
+    /// 화면에 Antigravity 섹션을 그릴지 — 받은 값이 있고, 보여줄 행이나 보여줄 오류가 있을 때만.
+    /// Claude·GPT 창을 숨긴 설정에서 응답에 그 창만 남으면(예: Gemini 창이 모두 disabled) 행이 하나도 없는데,
+    /// 그대로 켜 두면 빈 섹션과 함께 트레이가 모르는 값을 "Antigravity 0%" 로 적는다.
+    /// 오류가 있으면 켜 둔다 — 오류 문구도 이 섹션 안에 있다(<see cref="ShouldClearAntigravityFallbackData"/> 와 같은 이유).
+    /// </summary>
+    internal static bool HasVisibleAntigravityQuota(bool hasData, int visibleRows, bool hasError) =>
+        hasData && (visibleRows > 0 || hasError);
 
     partial void OnWeatherEnabledChanged(bool value) => NotifyWeatherComputed();
     partial void OnWeatherLatitudeChanged(double? value) => NotifyWeatherComputed();
@@ -3311,7 +3322,7 @@ namespace ClaudeUsageTray.ViewModels;
             }
             RefreshAntigravityDataSourceLabel();
 
-            AntigravityHasData = AntigravityVm.HasData;
+            AntigravityHasData = HasVisibleAntigravityQuota(AntigravityVm.HasData, AntigravityVm.Models.Count, AntigravityVm.HasError);
             AntigravityHasError = AntigravityVm.HasError;
             AntigravityErrorMessage = AntigravityVm.ErrorMessage;
             AntigravityTierName = AntigravityVm.TierName;
