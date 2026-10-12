@@ -38,6 +38,11 @@ public sealed class OpenCodeWebUsageService : IDisposable
     internal static readonly Uri ConsoleOrgsUri = new("https://opencode.ai/console/api/orgs");
     internal const string OrgsPath = "/orgs";
     internal const string GoStatusPath = "/go/status";
+    /// <summary>작업공간 안에서 내 역할(member·admin·owner). 콘솔은 크레딧을 관리자에게만 보여준다.</summary>
+    internal const string CurrentOrgPath = "/orgs/current";
+    internal const string BillingStatusPath = "/billing/status";
+    /// <summary>1 USD = 100 센트 = 100,000,000 마이크로센트.</summary>
+    private const decimal MicroCentsPerDollar = 100_000_000m;
     private const string ConsoleApiBase = "https://opencode.ai/console/api";
     /// <summary>콘솔이 작업공간을 고르는 헤더. 없으면 go/status 가 400 으로 답한다.</summary>
     private const string OrgHeader = "x-org-id";
@@ -62,6 +67,8 @@ public sealed class OpenCodeWebUsageService : IDisposable
     private DateTimeOffset _cacheExpiresAt;
     private DateTimeOffset _retryAfter;
     private OpenCodeWebSessionState _lastFailureState = OpenCodeWebSessionState.Unknown;
+    /// <summary>마지막 판정이 NoQuota 였을 때 그 이유(일시정지 등). 재시도를 기다리는 동안에도 같은 안내를 유지한다.</summary>
+    private OpenCodeGoSubscriptionStatus? _lastInactive;
     private int _consecutiveUnavailable;
     private string? _orgId;
 
@@ -117,10 +124,11 @@ public sealed class OpenCodeWebUsageService : IDisposable
                 _cacheExpiresAt = DateTimeOffset.Now.AddMinutes(5);
                 _retryAfter = default;
                 _lastFailureState = OpenCodeWebSessionState.Unknown;
+                _lastInactive = null;
                 _consecutiveUnavailable = 0;
                 return result;
             }
-            return interactive ? result : RegisterFailure(result.State, DateTimeOffset.Now);
+            return interactive ? result : RegisterFailure(result.State, DateTimeOffset.Now, result.Inactive);
         }
         catch (Exception ex)
         {
@@ -141,12 +149,14 @@ public sealed class OpenCodeWebUsageService : IDisposable
     /// 로그인·구독하기 전까지 결과가 달라지지 않으므로 길게 쉬고, 확인 자체를 못 한 경우엔 짧게 쉬었다가 다시 본다 —
     /// 부팅 직후 네트워크가 늦게 올라온 것뿐인데 30분 동안 로그인 버튼을 띄우고 있지 않도록.
     /// </summary>
-    private OpenCodeWebReadResult RegisterFailure(OpenCodeWebSessionState state, DateTimeOffset now)
+    private OpenCodeWebReadResult RegisterFailure(
+        OpenCodeWebSessionState state, DateTimeOffset now, OpenCodeGoSubscriptionStatus? inactive = null)
     {
         if (state is OpenCodeWebSessionState.Unknown or OpenCodeWebSessionState.Authenticated)
             state = OpenCodeWebSessionState.Unavailable;
 
         _lastFailureState = state;
+        _lastInactive = state == OpenCodeWebSessionState.NoQuota ? inactive : null;
         _consecutiveUnavailable = state == OpenCodeWebSessionState.Unavailable
             ? Math.Min(_consecutiveUnavailable + 1, MaxUnavailableBackoffSteps)
             : 0;
@@ -158,7 +168,7 @@ public sealed class OpenCodeWebUsageService : IDisposable
     private OpenCodeWebReadResult WaitingForRetry(DateTimeOffset now) =>
         GetCachedFallback(now) is { } usage
             ? OpenCodeWebReadResult.Success(usage)
-            : new OpenCodeWebReadResult(null, _lastFailureState);
+            : new OpenCodeWebReadResult(null, _lastFailureState, _lastInactive);
 
     internal static TimeSpan RetryDelayFor(OpenCodeWebSessionState state, int consecutiveUnavailable) =>
         state == OpenCodeWebSessionState.Unavailable
@@ -249,7 +259,7 @@ public sealed class OpenCodeWebUsageService : IDisposable
             case ConsoleReadKind.NoQuota:
                 // 로그인은 됐지만 Go 할당량이 없다. 확인 실패로 뭉개면 "곧 다시 시도" 안내 뒤로 이유가 숨는다.
                 LastError = outcome.Error;
-                return OpenCodeWebReadResult.NoQuota;
+                return OpenCodeWebReadResult.NoQuotaBecause(outcome.Inactive);
             default:
                 // 응답을 받지 못했거나 예상 밖의 응답이었다. 로그인 여부를 단정할 수 없으므로
                 // 로그인 버튼을 띄우지 않고 확인 실패로만 남긴다.
@@ -460,13 +470,16 @@ public sealed class OpenCodeWebUsageService : IDisposable
         var checkedOrgs = new HashSet<string>(StringComparer.Ordinal);
         string? failure = null;
         var sawUnreadableQuota = false;
+        OpenCodeGoSubscriptionStatus? inactive = null;
         if (savedOrgId != null)
         {
             var saved = await fetch(GoStatusPath, savedOrgId);
             if (saved.Status == 200)
             {
-                if (ParseGoStatus(saved.Body, now) is { } usage) return ConsoleReadOutcome.Success(usage, savedOrgId);
+                if (ParseGoStatus(saved.Body, now) is { } usage)
+                    return ConsoleReadOutcome.Success(await ApplyBillingAsync(fetch, savedOrgId, usage), savedOrgId);
                 sawUnreadableQuota |= HasGoAccess(saved.Body);
+                inactive ??= ParseInactiveStatus(saved.Body);
             }
             // 일시 오류(응답 없음·5xx)였다면 목록을 받은 뒤 한 번 더 묻는다.
             if (saved.Status is 200 or 401 or 403 or 404) checkedOrgs.Add(savedOrgId);
@@ -487,15 +500,104 @@ public sealed class OpenCodeWebUsageService : IDisposable
                 failure ??= DescribeFailure(status.Status);
                 continue;
             }
-            if (ParseGoStatus(status.Body, now) is { } usage) return ConsoleReadOutcome.Success(usage, orgId);
+            if (ParseGoStatus(status.Body, now) is { } usage)
+                return ConsoleReadOutcome.Success(await ApplyBillingAsync(fetch, orgId, usage), orgId);
             sawUnreadableQuota |= HasGoAccess(status.Body);
+            inactive ??= ParseInactiveStatus(status.Body);
         }
 
         // 접근 정보는 있는데 못 읽었으면 콘솔 응답 형식이 바뀐 것이다 — 미구독 문구로 덮지 않는다.
         if (sawUnreadableQuota) return ConsoleReadOutcome.Failed(Loc.OpenCodeWebQuotaNotFound(GoStatusPath));
-        return failure != null
-            ? ConsoleReadOutcome.Failed(failure)
+        if (failure != null) return ConsoleReadOutcome.Failed(failure);
+        // 구독은 있는데 지금 못 쓰는 상태(일시정지 등)면 "미구독" 대신 그 이유를 알린다.
+        return inactive is { } reason
+            ? ConsoleReadOutcome.NoQuota(Loc.OpenCodeGoInactive(reason), reason)
             : ConsoleReadOutcome.NoQuota(Loc.OpenCodeWebNoGoQuota);
+    }
+
+    /// <summary>
+    /// 추가 사용·크레딧을 콘솔과 같은 규칙으로 채운다. 크레딧은 관리자만 볼 수 있어 역할을 먼저 묻고,
+    /// 관리자에게는 쓸 크레딧이 남아 있을 때만 추가 사용을 켜짐으로 본다(역할을 모르면 콘솔처럼 멤버로 본다).
+    /// 둘 다 덧붙이는 정보라 실패해도 할당량은 그대로 쓰고, 401 이어도 로그아웃으로 보지 않는다.
+    /// 자동 조회 전체의 제한 시간이 이 단계에서 끝나도 이미 읽은 할당량은 버리지 않는다.
+    /// </summary>
+    internal static async Task<OpenCodeWebUsage> ApplyBillingAsync(
+        Func<string, string?, Task<ConsoleResponse>> fetch, string orgId, OpenCodeWebUsage usage)
+    {
+        try
+        {
+            var current = await fetch(CurrentOrgPath, orgId);
+            if (current.Status != 200 || !IsAdminRole(ParseOrgRole(current.Body))) return usage;
+
+            var billing = await fetch(BillingStatusPath, orgId);
+            var available = billing.Status == 200 ? ParseAvailableMicroCents(billing.Body) : null;
+            return usage with
+            {
+                ExtraUsageEnabled = usage.ExtraUsageEnabled && available > 0,
+                CreditsUsd = available / MicroCentsPerDollar,
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            return usage;
+        }
+    }
+
+    private static bool IsAdminRole(string? role) =>
+        role is not null
+        && (role.Equals("admin", StringComparison.OrdinalIgnoreCase)
+            || role.Equals("owner", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary><c>GET /console/api/orgs/current</c> 의 <c>role</c>. 못 읽으면 null.</summary>
+    internal static string? ParseOrgRole(string? json) =>
+        ParseRootObject(json, root => ReadString(root, "role"));
+
+    /// <summary><c>GET /console/api/billing/status</c> 의 <c>availableMicroCents</c> — 콘솔 결제 화면의 "Available credits".</summary>
+    internal static decimal? ParseAvailableMicroCents(string? json) =>
+        ParseRootObject(json, root => ReadMicroCents(root, "availableMicroCents"));
+
+    /// <summary>
+    /// 구독은 있지만 지금 할당량을 못 쓰는 상태(<c>access: null</c>)의 이유. 구독이 없거나(<c>null</c>),
+    /// 해지된 채 기간이 끝났거나(콘솔도 이때는 Go 카드를 감춘다), 할당량을 쓸 수 있으면 null.
+    /// </summary>
+    internal static OpenCodeGoSubscriptionStatus? ParseInactiveStatus(string? json) =>
+        ParseRootObject(json, root =>
+            root.TryGetProperty("access", out var access) && access.ValueKind == JsonValueKind.Null
+            && !IsTrue(root, "cancelAtPeriodEnd")
+                ? ReadSubscriptionStatus(root, hasAccess: false)
+                : (OpenCodeGoSubscriptionStatus?)null);
+
+    /// <summary>콘솔 Go 카드의 상태 표시와 같은 순서로 판정한다(앞의 조건이 우선).</summary>
+    private static OpenCodeGoSubscriptionStatus ReadSubscriptionStatus(JsonElement root, bool hasAccess)
+    {
+        if (!hasAccess)
+        {
+            if (HasValue(root, "renewalPaymentAttemptID")) return OpenCodeGoSubscriptionStatus.ApprovalNeeded;
+            if (IsTrue(root, "renewalPending")) return OpenCodeGoSubscriptionStatus.RenewalProcessing;
+            if (IsTrue(root, "renewalAuthorizationRequired")) return OpenCodeGoSubscriptionStatus.ReauthorizationNeeded;
+            return OpenCodeGoSubscriptionStatus.Paused;
+        }
+
+        if (HasValue(root, "renewalRetryAt")) return OpenCodeGoSubscriptionStatus.PaymentFailed;
+        if (IsTrue(root, "renewalAuthorizationRequired")) return OpenCodeGoSubscriptionStatus.ActionNeeded;
+        if (IsTrue(root, "cancelAtPeriodEnd")) return OpenCodeGoSubscriptionStatus.Ends;
+        if (ReadString(root, "product") == "go-plus" && ReadString(root, "renewalProduct") == "go")
+            return OpenCodeGoSubscriptionStatus.SwitchesToGo;
+        return OpenCodeGoSubscriptionStatus.Renews;
+    }
+
+    private static T? ParseRootObject<T>(string? json, Func<JsonElement, T?> read)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return default;
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            return document.RootElement.ValueKind == JsonValueKind.Object ? read(document.RootElement) : default;
+        }
+        catch (JsonException)
+        {
+            return default;
+        }
     }
 
     private static string DescribeFailure(int status) =>
@@ -524,12 +626,18 @@ public sealed class OpenCodeWebUsageService : IDisposable
             var monthly = ParseMeter(meters, "month", ReadDate(access, "endsAt"));
             if (rolling == null || weekly == null || monthly == null) return null;
 
+            var root = document.RootElement;
             return new OpenCodeWebUsage
             {
                 ObservedAtUtc = observedAt.ToUniversalTime(),
                 Rolling = rolling,
                 Weekly = weekly,
                 Monthly = monthly,
+                Product = ReadString(root, "product"),
+                // 멤버 기준 값이다. 관리자면 ApplyBillingAsync 가 남은 크레딧까지 보고 다시 정한다.
+                ExtraUsageEnabled = IsTrue(root, "useBalance"),
+                Subscription = ReadSubscriptionStatus(root, hasAccess: true),
+                PeriodEndsAt = ReadDate(access, "endsAt"),
             };
         }
         catch (JsonException)
@@ -620,6 +728,20 @@ public sealed class OpenCodeWebUsageService : IDisposable
             DateTimeStyles.AssumeUniversal, out var parsed)
             ? parsed.ToLocalTime()
             : null;
+
+    private static string? ReadString(JsonElement parent, string name) =>
+        parent.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+
+    private static bool IsTrue(JsonElement parent, string name) =>
+        parent.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.True;
+
+    /// <summary>콘솔이 참/거짓으로만 보는 선택 필드(재시도 시각·결제 시도 ID) — 비어 있지 않은 값이 있는가.</summary>
+    private static bool HasValue(JsonElement parent, string name) =>
+        parent.TryGetProperty(name, out var value)
+        && value.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined or JsonValueKind.False)
+        && !(value.ValueKind == JsonValueKind.String && value.GetString() is "");
 
     private async Task EnsureWebViewAsync(bool interactive)
     {
@@ -772,11 +894,13 @@ internal enum ConsoleReadKind
 }
 
 internal readonly record struct ConsoleReadOutcome(
-    ConsoleReadKind Kind, OpenCodeWebUsage? Usage, string? OrgId, string? Error)
+    ConsoleReadKind Kind, OpenCodeWebUsage? Usage, string? OrgId, string? Error,
+    OpenCodeGoSubscriptionStatus? Inactive = null)
 {
     public static ConsoleReadOutcome SignedOut => new(ConsoleReadKind.SignedOut, null, null, null);
     public static ConsoleReadOutcome Success(OpenCodeWebUsage usage, string orgId) =>
         new(ConsoleReadKind.Success, usage, orgId, null);
-    public static ConsoleReadOutcome NoQuota(string error) => new(ConsoleReadKind.NoQuota, null, null, error);
+    public static ConsoleReadOutcome NoQuota(string error, OpenCodeGoSubscriptionStatus? inactive = null) =>
+        new(ConsoleReadKind.NoQuota, null, null, error, inactive);
     public static ConsoleReadOutcome Failed(string error) => new(ConsoleReadKind.Failed, null, null, error);
 }

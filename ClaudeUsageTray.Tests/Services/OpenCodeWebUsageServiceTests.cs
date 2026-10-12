@@ -1,3 +1,4 @@
+using ClaudeUsageTray.Models;
 using ClaudeUsageTray.Services;
 using System.IO;
 using System.Text.Json;
@@ -111,8 +112,10 @@ public sealed class OpenCodeWebUsageServiceTests
         Assert.Empty(OpenCodeWebUsageService.ParseOrgIds("not json"));
     }
 
+    // 할당량은 저장된 작업공간의 go/status 한 번으로 읽고, 작업공간 목록은 다시 받지 않는다.
+    // 뒤따르는 건 크레딧을 볼 수 있는지 확인하는 역할 조회뿐이다(멤버면 결제 정보는 묻지 않는다).
     [Fact]
-    public async Task ReadQuota_UsesSavedWorkspaceWithASingleRequest()
+    public async Task ReadQuota_UsesSavedWorkspaceWithoutListingWorkspaces()
     {
         var fetch = new FakeConsole { [("/go/status", "org_PERSONAL")] = Ok(GoStatusJson()) };
 
@@ -121,7 +124,9 @@ public sealed class OpenCodeWebUsageServiceTests
         Assert.Equal(ConsoleReadKind.Success, outcome.Kind);
         Assert.Equal("org_PERSONAL", outcome.OrgId);
         Assert.Equal(0.25, outcome.Usage!.Rolling.UsagePercent, 6);
-        Assert.Equal(new (string, string?)[] { ("/go/status", "org_PERSONAL") }, fetch.Requests);
+        Assert.Equal(
+            new (string, string?)[] { ("/go/status", "org_PERSONAL"), ("/orgs/current", "org_PERSONAL") },
+            fetch.Requests);
     }
 
     [Fact]
@@ -245,13 +250,191 @@ public sealed class OpenCodeWebUsageServiceTests
         {
             [("/orgs", null)] = Ok(OrgsJson),
             [("/go/status", "org_PERSONAL")] = Ok("null"),
-            [("/go/status", "wrk_TEAM123")] = Ok("{\"access\":null}"),
+            // 해지된 채 기간이 끝난 구독 — 콘솔도 Go 카드를 감추므로 미구독과 같이 본다.
+            [("/go/status", "wrk_TEAM123")] = Ok("{\"product\":\"go\",\"cancelAtPeriodEnd\":true,\"access\":null}"),
         };
 
         var outcome = await OpenCodeWebUsageService.ReadQuotaAsync(fetch.FetchAsync, null, Now);
 
         Assert.Equal(ConsoleReadKind.NoQuota, outcome.Kind);
         Assert.Equal(Loc.OpenCodeWebNoGoQuota, outcome.Error);
+        Assert.Null(outcome.Inactive);
+    }
+
+    // 구독은 있는데 지금 못 쓰는 상태면 "Go 를 구독한 계정으로 로그인" 대신 그 이유를 알린다.
+    [Fact]
+    public async Task ReadQuota_ReportsWhyAnInactiveSubscriptionHasNoQuota()
+    {
+        var fetch = new FakeConsole
+        {
+            [("/go/status", "org_PERSONAL")] = Ok(
+                "{\"product\":\"go\",\"renewalProduct\":\"go\",\"useBalance\":false,\"cancelAtPeriodEnd\":false," +
+                "\"renewalPending\":true,\"access\":null}"),
+            [("/orgs", null)] = Ok("[{\"id\":\"org_PERSONAL\"}]"),
+        };
+
+        var outcome = await OpenCodeWebUsageService.ReadQuotaAsync(fetch.FetchAsync, "org_PERSONAL", Now);
+
+        Assert.Equal(ConsoleReadKind.NoQuota, outcome.Kind);
+        Assert.Equal(OpenCodeGoSubscriptionStatus.RenewalProcessing, outcome.Inactive);
+        Assert.Equal(Loc.OpenCodeGoInactive(OpenCodeGoSubscriptionStatus.RenewalProcessing), outcome.Error);
+    }
+
+    // 콘솔 Go 카드의 상태 칩과 같은 순서로 판정한다(필드명은 콘솔 번들 그대로, renewalPaymentAttemptID 의 대문자 ID 포함).
+    [Theory]
+    [InlineData("\"renewalPaymentAttemptID\":\"pay_1\",\"renewalPending\":true", OpenCodeGoSubscriptionStatus.ApprovalNeeded)]
+    [InlineData("\"renewalPending\":true,\"renewalAuthorizationRequired\":true", OpenCodeGoSubscriptionStatus.RenewalProcessing)]
+    [InlineData("\"renewalAuthorizationRequired\":true", OpenCodeGoSubscriptionStatus.ReauthorizationNeeded)]
+    [InlineData("\"renewalRetryAt\":\"2026-09-21T00:00:00.000Z\"", OpenCodeGoSubscriptionStatus.Paused)]
+    [InlineData("\"renewalPaymentAttemptID\":null,\"renewalPending\":false", OpenCodeGoSubscriptionStatus.Paused)]
+    public void ParseInactiveStatus_FollowsTheConsoleOrder(string fields, OpenCodeGoSubscriptionStatus expected)
+    {
+        var json = $"{{\"product\":\"go\",\"cancelAtPeriodEnd\":false,{fields},\"access\":null}}";
+
+        Assert.Equal(expected, OpenCodeWebUsageService.ParseInactiveStatus(json));
+    }
+
+    [Theory]
+    [InlineData("null")]                                                // 구독 없음
+    [InlineData("{\"cancelAtPeriodEnd\":true,\"access\":null}")]        // 해지된 채 기간 종료
+    [InlineData("{\"access\":{\"meters\":{}}}")]                        // 쓸 수 있는 상태
+    [InlineData("{\"product\":\"go\"}")]                                // access 자체가 없음 — 단정하지 않는다
+    [InlineData("not json")]
+    public void ParseInactiveStatus_IsNullUnlessASubscriptionIsHeldWithoutAccess(string json)
+    {
+        Assert.Null(OpenCodeWebUsageService.ParseInactiveStatus(json));
+    }
+
+    [Fact]
+    public void ParseGoStatus_ReadsPlanExtraUsageAndPeriodEnd()
+    {
+        var json = GoStatusJson()
+            .Replace("\"product\":\"go\"", "\"product\":\"go-plus\"")
+            .Replace("\"renewalProduct\":\"go\"", "\"renewalProduct\":\"go-plus\"")
+            .Replace("\"useBalance\":false", "\"useBalance\":true");
+
+        var usage = OpenCodeWebUsageService.ParseGoStatus(json, Now);
+
+        Assert.NotNull(usage);
+        Assert.Equal("go-plus", usage.Product);
+        Assert.True(usage.ExtraUsageEnabled);
+        Assert.Null(usage.CreditsUsd);
+        Assert.Equal(new DateTimeOffset(2026, 10, 19, 0, 0, 0, TimeSpan.Zero), usage.PeriodEndsAt);
+        Assert.Equal(OpenCodeGoSubscriptionStatus.Renews, usage.Subscription);
+    }
+
+    [Theory]
+    [InlineData("\"renewalRetryAt\":\"2026-09-21T00:00:00.000Z\",\"cancelAtPeriodEnd\":true", "go", OpenCodeGoSubscriptionStatus.PaymentFailed)]
+    [InlineData("\"renewalAuthorizationRequired\":true,\"cancelAtPeriodEnd\":true", "go", OpenCodeGoSubscriptionStatus.ActionNeeded)]
+    [InlineData("\"cancelAtPeriodEnd\":true", "go-plus", OpenCodeGoSubscriptionStatus.Ends)]
+    [InlineData("\"renewalRetryAt\":null", "go-plus", OpenCodeGoSubscriptionStatus.SwitchesToGo)]
+    [InlineData("\"renewalRetryAt\":null", "go", OpenCodeGoSubscriptionStatus.Renews)]
+    public void ParseGoStatus_ReadsTheSubscriptionStatusInConsoleOrder(
+        string fields, string product, OpenCodeGoSubscriptionStatus expected)
+    {
+        // renewalProduct 는 항상 "go" — Go Plus 이면서 갱신 상품이 Go 면 기간 끝에 Go 로 내려간다.
+        var json = GoStatusJson()
+            .Replace("\"product\":\"go\"", $"\"product\":\"{product}\"")
+            .Replace("\"cancelAtPeriodEnd\":false,\"renewalPending\"", $"{fields},\"renewalPending\"");
+
+        Assert.Equal(expected, OpenCodeWebUsageService.ParseGoStatus(json, Now)?.Subscription);
+    }
+
+    private static OpenCodeWebUsage ExtraUsageQuota(bool useBalance) => new()
+    {
+        ObservedAtUtc = Now,
+        Product = "go",
+        ExtraUsageEnabled = useBalance,
+    };
+
+    // 멤버는 콘솔처럼 설정만 보고 추가 사용을 판정하고, 결제 정보는 묻지 않는다(콘솔도 관리자에게만 보여준다).
+    [Theory]
+    [InlineData("{\"role\":\"member\"}", 200)]
+    [InlineData("", 500)]   // 역할을 모르면 콘솔처럼 멤버로 본다
+    public async Task ApplyBilling_ForMembers_KeepsTheSettingAndSkipsCredits(string body, int status)
+    {
+        var fetch = new FakeConsole { [("/orgs/current", "org_PERSONAL")] = new ConsoleResponse(status, body) };
+
+        var usage = await OpenCodeWebUsageService.ApplyBillingAsync(fetch.FetchAsync, "org_PERSONAL", ExtraUsageQuota(true));
+
+        Assert.True(usage.ExtraUsageEnabled);
+        Assert.Null(usage.CreditsUsd);
+        Assert.DoesNotContain(fetch.Requests, request => request.Path == "/billing/status");
+    }
+
+    // 관리자에게는 크레딧이 남아 있을 때만 추가 사용을 켜짐으로 본다. 크레딧은 결제 화면의 Available credits 값.
+    [Theory]
+    [InlineData("owner", true, "\"1234000000\"", true, 12.34)]
+    [InlineData("admin", true, "\"0\"", false, 0)]
+    [InlineData("admin", false, "\"500000000\"", false, 5)]
+    public async Task ApplyBilling_ForAdmins_ReadsAvailableCredits(
+        string role, bool useBalance, string available, bool expectedExtra, double expectedUsd)
+    {
+        var fetch = new FakeConsole
+        {
+            [("/orgs/current", "org_PERSONAL")] = Ok($"{{\"userId\":\"user_TEST\",\"role\":\"{role}\"}}"),
+            [("/billing/status", "org_PERSONAL")] = Ok(
+                $"{{\"billingMode\":\"prepaid\",\"mode\":\"pay-as-you-go\",\"balanceMicroCents\":\"999\",\"availableMicroCents\":{available}}}"),
+        };
+
+        var usage = await OpenCodeWebUsageService.ApplyBillingAsync(fetch.FetchAsync, "org_PERSONAL", ExtraUsageQuota(useBalance));
+
+        Assert.Equal(expectedExtra, usage.ExtraUsageEnabled);
+        Assert.Equal((decimal)expectedUsd, usage.CreditsUsd);
+    }
+
+    // 관리자인데 결제 정보를 못 읽으면 콘솔처럼 크레딧 0 으로 보고 추가 사용도 끈다. 401 이어도 로그아웃이 아니다.
+    [Theory]
+    [InlineData(403)]
+    [InlineData(401)]
+    [InlineData(0)]
+    public async Task ApplyBilling_WhenCreditsCannotBeRead_TurnsExtraUsageOffWithoutCredits(int status)
+    {
+        var fetch = new FakeConsole
+        {
+            [("/orgs/current", "org_PERSONAL")] = Ok("{\"role\":\"admin\"}"),
+            [("/billing/status", "org_PERSONAL")] = new ConsoleResponse(status, ""),
+        };
+
+        var usage = await OpenCodeWebUsageService.ApplyBillingAsync(fetch.FetchAsync, "org_PERSONAL", ExtraUsageQuota(true));
+
+        Assert.False(usage.ExtraUsageEnabled);
+        Assert.Null(usage.CreditsUsd);
+    }
+
+    // 자동 조회의 제한 시간이 역할·크레딧 조회 중에 끝나도 이미 읽은 할당량은 그대로 돌려준다.
+    [Fact]
+    public async Task ReadQuota_KeepsTheQuotaWhenTheTimeLimitEndsDuringTheCreditLookup()
+    {
+        var fetch = new FakeConsole { [("/go/status", "org_PERSONAL")] = Ok(GoStatusJson()) };
+        Task<ConsoleResponse> FetchAsync(string path, string? orgId) =>
+            path == "/go/status"
+                ? fetch.FetchAsync(path, orgId)
+                : Task.FromCanceled<ConsoleResponse>(new CancellationToken(canceled: true));
+
+        var outcome = await OpenCodeWebUsageService.ReadQuotaAsync(FetchAsync, "org_PERSONAL", Now);
+
+        Assert.Equal(ConsoleReadKind.Success, outcome.Kind);
+        Assert.Equal(0.25, outcome.Usage!.Rolling.UsagePercent, 6);
+        Assert.Null(outcome.Usage.CreditsUsd);
+    }
+
+    // 성공한 조회에는 관리자의 크레딧과 그에 따른 추가 사용 판정이 붙어 나온다.
+    [Fact]
+    public async Task ReadQuota_AttachesCreditsToASuccessfulRead()
+    {
+        var fetch = new FakeConsole
+        {
+            [("/go/status", "org_PERSONAL")] = Ok(GoStatusJson().Replace("\"useBalance\":false", "\"useBalance\":true")),
+            [("/orgs/current", "org_PERSONAL")] = Ok("{\"role\":\"owner\"}"),
+            [("/billing/status", "org_PERSONAL")] = Ok("{\"availableMicroCents\":\"250000000\"}"),
+        };
+
+        var outcome = await OpenCodeWebUsageService.ReadQuotaAsync(fetch.FetchAsync, "org_PERSONAL", Now);
+
+        Assert.Equal(ConsoleReadKind.Success, outcome.Kind);
+        Assert.True(outcome.Usage!.ExtraUsageEnabled);
+        Assert.Equal(2.5m, outcome.Usage.CreditsUsd);
     }
 
     // 접근 정보는 있는데 창을 못 읽었으면 콘솔 응답 형식이 바뀐 것이다 — "미구독" 으로 덮지 않는다.

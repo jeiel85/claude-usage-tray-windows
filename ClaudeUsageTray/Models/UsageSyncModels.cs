@@ -100,6 +100,20 @@ public sealed class UsageSyncOpenCodeQuota
     public UsageSyncOpenCodeQuotaWindow Rolling { get; set; } = new();
     public UsageSyncOpenCodeQuotaWindow Weekly { get; set; } = new();
     public UsageSyncOpenCodeQuotaWindow Monthly { get; set; } = new();
+
+    // 아래는 같은 콘솔 관측에 든 요금제·구독·크레딧 정보다. 이 필드들이 없던 버전이 올린 스냅샷에서는
+    // 비어 있고, 그 버전은 모르는 필드를 무시하므로 스키마 버전은 그대로 둔다.
+
+    /// <summary>요금제("go"·"go-plus").</summary>
+    public string? Product { get; set; }
+    public bool ExtraUsageEnabled { get; set; }
+    public decimal? CreditsUsd { get; set; }
+    /// <summary>
+    /// 구독 상태 이름(<see cref="OpenCodeGoSubscriptionStatus"/>). 숫자로 두면 나중에 값이 늘었을 때
+    /// 이전 버전이 엉뚱한 상태로 읽으므로 이름으로 싣고, 모르는 이름은 받는 쪽에서 정상 갱신으로 본다.
+    /// </summary>
+    public string? Subscription { get; set; }
+    public DateTimeOffset? PeriodEndsAt { get; set; }
 }
 
 public sealed class UsageSyncOpenCodeQuotaWindow

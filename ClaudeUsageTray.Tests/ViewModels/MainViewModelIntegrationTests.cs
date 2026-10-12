@@ -188,6 +188,52 @@ public class MainViewModelIntegrationTests : IDisposable
                 Assert.NotNull(popup.FindName("OpenCodeMonthlyTimelineMarker"));
                 Assert.NotNull(popup.FindName("OpenCodeStatsSeparator"));
                 Assert.NotNull(popup.FindName("OpenCodeTokenTiles"));
+                Assert.NotNull(popup.FindName("OpenCodeLimitReachedNotice"));
+                Assert.NotNull(popup.FindName("OpenCodeSubscriptionStatus"));
+                Assert.NotNull(popup.FindName("OpenCodeBillingLine"));
+            }
+            finally
+            {
+                vm.Dispose();
+            }
+        });
+    }
+
+    // 콘솔 응답의 부가 정보(한도 도달·구독 상태·추가 사용/크레딧)가 팝업 줄에 실제로 바인딩되고,
+    // 값이 없는 줄은 접힌다.
+    [Fact]
+    public async Task UsagePopup_ShowsOpenCodeConsoleExtrasOnlyWhenPresent()
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            try
+            {
+                var now = DateTimeOffset.Now;
+                vm.OpenCodeVm.ApplySyncedWebUsage(new OpenCodeWebUsage
+                {
+                    ObservedAtUtc = now.ToUniversalTime(),
+                    Rolling = new OpenCodeQuotaWindow { UsagePercent = 1, ResetAt = now.AddHours(2) },
+                    Weekly = new OpenCodeQuotaWindow { UsagePercent = 0.4, ResetAt = now.AddDays(3) },
+                    Monthly = new OpenCodeQuotaWindow { UsagePercent = 0.2, ResetAt = now.AddDays(20) },
+                    CreditsUsd = 4.5m,
+                });
+
+                using var popup = new UsagePopup(vm);
+                popup.Left = -10000;
+                popup.Show();
+                popup.UpdateLayout();
+
+                var limit = Assert.IsType<System.Windows.Controls.TextBlock>(popup.FindName("OpenCodeLimitReachedNotice"));
+                var status = Assert.IsType<System.Windows.Controls.TextBlock>(popup.FindName("OpenCodeSubscriptionStatus"));
+                var billing = Assert.IsType<System.Windows.Controls.TextBlock>(popup.FindName("OpenCodeBillingLine"));
+
+                Assert.Equal(vm.OpenCodeVm.LimitReachedLabel, limit.Text);
+                Assert.Equal(System.Windows.Visibility.Visible, limit.Visibility);
+                Assert.Equal(System.Windows.Visibility.Collapsed, status.Visibility);
+                Assert.Equal(vm.OpenCodeVm.BillingLabel, billing.Text);
+                Assert.Contains("$4.50", billing.Text);
+                Assert.Equal(System.Windows.Visibility.Visible, billing.Visibility);
             }
             finally
             {
