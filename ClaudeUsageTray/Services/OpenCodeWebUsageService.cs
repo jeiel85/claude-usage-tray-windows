@@ -519,28 +519,35 @@ public sealed class OpenCodeWebUsageService : IDisposable
     /// 추가 사용·크레딧을 콘솔과 같은 규칙으로 채운다. 크레딧은 관리자만 볼 수 있어 역할을 먼저 묻고,
     /// 관리자에게는 쓸 크레딧이 남아 있을 때만 추가 사용을 켜짐으로 본다(역할을 모르면 콘솔처럼 멤버로 본다).
     /// 둘 다 덧붙이는 정보라 실패해도 할당량은 그대로 쓰고, 401 이어도 로그아웃으로 보지 않는다.
-    /// 자동 조회 전체의 제한 시간이 이 단계에서 끝나도 이미 읽은 할당량은 버리지 않는다.
+    /// 자동 조회 전체의 제한 시간이 이 단계에서 끝나거나 조회가 예외로 끝나도 이미 읽은 할당량은 버리지 않고,
+    /// 결제 정보를 못 읽은 경우와 같게 다룬다.
     /// </summary>
     internal static async Task<OpenCodeWebUsage> ApplyBillingAsync(
         Func<string, string?, Task<ConsoleResponse>> fetch, string orgId, OpenCodeWebUsage usage)
     {
+        var isAdmin = false;
+        decimal? available = null;
         try
         {
             var current = await fetch(CurrentOrgPath, orgId);
-            if (current.Status != 200 || !IsAdminRole(ParseOrgRole(current.Body))) return usage;
+            isAdmin = current.Status == 200 && IsAdminRole(ParseOrgRole(current.Body));
+            if (!isAdmin) return usage;
 
             var billing = await fetch(BillingStatusPath, orgId);
-            var available = billing.Status == 200 ? ParseAvailableMicroCents(billing.Body) : null;
-            return usage with
-            {
-                ExtraUsageEnabled = usage.ExtraUsageEnabled && available > 0,
-                CreditsUsd = available / MicroCentsPerDollar,
-            };
+            if (billing.Status == 200) available = ParseAvailableMicroCents(billing.Body);
         }
-        catch (OperationCanceledException)
+        catch (Exception ex)
         {
-            return usage;
+            if (ex is not OperationCanceledException)
+                Trace.TraceWarning($"OpenCode billing lookup failed: {ex.Message}");
+            if (!isAdmin) return usage;
         }
+
+        return usage with
+        {
+            ExtraUsageEnabled = usage.ExtraUsageEnabled && available > 0,
+            CreditsUsd = available / MicroCentsPerDollar,
+        };
     }
 
     private static bool IsAdminRole(string? role) =>
@@ -559,10 +566,13 @@ public sealed class OpenCodeWebUsageService : IDisposable
     /// <summary>
     /// 구독은 있지만 지금 할당량을 못 쓰는 상태(<c>access: null</c>)의 이유. 구독이 없거나(<c>null</c>),
     /// 해지된 채 기간이 끝났거나(콘솔도 이때는 Go 카드를 감춘다), 할당량을 쓸 수 있으면 null.
+    /// 구독 객체에는 요금제(<c>product</c>)가 늘 있으므로, 그것이 없으면 구독이 있다고 단정하지 않는다 —
+    /// 근거 없이 "일시정지" 를 띄우면 미구독 계정에 "Go 를 구독한 계정으로 로그인" 안내가 가려진다.
     /// </summary>
     internal static OpenCodeGoSubscriptionStatus? ParseInactiveStatus(string? json) =>
         ParseRootObject(json, root =>
             root.TryGetProperty("access", out var access) && access.ValueKind == JsonValueKind.Null
+            && !string.IsNullOrWhiteSpace(ReadString(root, "product"))
             && !IsTrue(root, "cancelAtPeriodEnd")
                 ? ReadSubscriptionStatus(root, hasAccess: false)
                 : (OpenCodeGoSubscriptionStatus?)null);

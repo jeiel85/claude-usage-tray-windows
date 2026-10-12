@@ -299,6 +299,7 @@ public sealed class OpenCodeWebUsageServiceTests
     [InlineData("{\"cancelAtPeriodEnd\":true,\"access\":null}")]        // 해지된 채 기간 종료
     [InlineData("{\"access\":{\"meters\":{}}}")]                        // 쓸 수 있는 상태
     [InlineData("{\"product\":\"go\"}")]                                // access 자체가 없음 — 단정하지 않는다
+    [InlineData("{\"access\":null}")]                                   // 요금제 없는 객체 — 구독이 있다는 근거가 없다
     [InlineData("not json")]
     public void ParseInactiveStatus_IsNullUnlessASubscriptionIsHeldWithoutAccess(string json)
     {
@@ -399,6 +400,29 @@ public sealed class OpenCodeWebUsageServiceTests
         var usage = await OpenCodeWebUsageService.ApplyBillingAsync(fetch.FetchAsync, "org_PERSONAL", ExtraUsageQuota(true));
 
         Assert.False(usage.ExtraUsageEnabled);
+        Assert.Null(usage.CreditsUsd);
+    }
+
+    // 관리자로 확인된 뒤 결제 조회가 제한 시간·예외로 끝나면 HTTP 실패와 같게(콘솔: 크레딧 0) 추가 사용을 끈다.
+    // 역할 확인 전에 끝나면 콘솔처럼 멤버로 본다 — 어느 쪽이든 할당량은 그대로다.
+    [Theory]
+    [InlineData(true, false, false)]   // 관리자 확인 뒤 취소
+    [InlineData(true, true, false)]    // 관리자 확인 뒤 예외
+    [InlineData(false, true, true)]    // 역할 확인 중 예외 → 멤버 규칙
+    public async Task ApplyBilling_WhenALookupThrows_FollowsTheSameRulesAsAFailedResponse(
+        bool roleResolved, bool throwsError, bool expectedExtra)
+    {
+        Task<ConsoleResponse> FetchAsync(string path, string? orgId)
+        {
+            if (path == "/orgs/current" && roleResolved) return Task.FromResult(Ok("{\"role\":\"admin\"}"));
+            return throwsError
+                ? Task.FromException<ConsoleResponse>(new InvalidOperationException("webview disposed"))
+                : Task.FromCanceled<ConsoleResponse>(new CancellationToken(canceled: true));
+        }
+
+        var usage = await OpenCodeWebUsageService.ApplyBillingAsync(FetchAsync, "org_PERSONAL", ExtraUsageQuota(true));
+
+        Assert.Equal(expectedExtra, usage.ExtraUsageEnabled);
         Assert.Null(usage.CreditsUsd);
     }
 
