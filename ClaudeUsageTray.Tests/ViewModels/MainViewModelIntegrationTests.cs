@@ -1,3 +1,4 @@
+using System.IO;
 using ClaudeUsageTray.Models;
 using ClaudeUsageTray.Services;
 using ClaudeUsageTray.Services.WeatherWarnings;
@@ -9,15 +10,33 @@ namespace ClaudeUsageTray.Tests.ViewModels;
 
 [Collection("WpfTests")]
 [Trait("Category", "Integration")]
-public class MainViewModelIntegrationTests
+public class MainViewModelIntegrationTests : IDisposable
 {
-    private static MainViewModel CreateViewModel()
+    // ~/.claude 대신 쓰는 테스트별 폴더(#186). 실제 서비스를 그대로 쓰면 설정 저장·RefreshAsync 가
+    // 개발자 PC 의 설정·히스토리를 다시 쓰고, 만료된 Claude 토큰을 갱신해 자격 파일까지 덮어쓴다.
+    // 실제 설정에 다중 PC 동기화가 켜져 있으면 공유 폴더에 이 PC 의 스냅샷도 남긴다.
+    private readonly string _dir;
+
+    public MainViewModelIntegrationTests()
+    {
+        _dir = Path.Combine(Path.GetTempPath(), "cut-mainvm-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_dir);
+    }
+
+    public void Dispose()
+    {
+        try { Directory.Delete(_dir, recursive: true); } catch { }
+        GC.SuppressFinalize(this);
+    }
+
+    private MainViewModel CreateViewModel()
     {
         if (System.Windows.Application.Current == null)
             new System.Windows.Application { ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown };
 
-        var settingsService = new SettingsService();
-        var credService = new CredentialService();
+        var settingsService = new SettingsService(Path.Combine(_dir, "claude-usage-tray.json"));
+        // 없는 자격 파일 — 로그인 전 PC 와 같은 상태(CI 와 같다)로 돌고, 토큰 갱신·저장이 일어나지 않는다.
+        var credService = new CredentialService(Path.Combine(_dir, ".credentials.json"));
         var apiService = new UsageApiService(credService);
         var sessionMonitor = new SessionMonitor();
         var codexMonitor = new CodexUsageMonitor();
@@ -25,8 +44,8 @@ public class MainViewModelIntegrationTests
         var antigravityMonitor = new AntigravityUsageMonitor();
         var notifier = new NotificationService(() => null);
         var updater = new UpdateService();
-        var history = new HistoryService();
-        var usageSync = new UsageSyncService();
+        var history = new HistoryService(_dir);
+        var usageSync = new UsageSyncService(Path.Combine(_dir, "appdata"));
         var weather = new WeatherService();
         var weatherAlert = new WeatherAlertService(
             weather, notifier, () => new NotificationSettings(), Array.Empty<IWeatherWarningProvider>());
@@ -410,6 +429,110 @@ public class MainViewModelIntegrationTests
         });
     }
 
+    /// <summary>
+    /// Claude 모델 한정 한도(#187)가 7일 게이지 아래에 Claude 색 게이지 · 시간선 · 요약 한 줄로 그려지는지 — 실제 화면 트리로 확인한다.
+    /// 리셋 창이 없는(아직 쓰지 않은) 한도는 마커를 숨긴다.
+    /// </summary>
+    [Fact]
+    public async Task UsagePopup_ClaudeModelLimitsUseTheClaudeGaugeStructure()
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            UsagePopup? popup = null;
+            try
+            {
+                var now = DateTimeOffset.Now;
+                vm.ClaudeVm.SetModelLimits(
+                [
+                    new AdditionalQuotaWindow { LimitId = "weekly:fable", LimitName = "Fable", UsagePercent = 0.05, ResetAt = now.AddDays(3), WindowMinutes = 10080 },
+                    new AdditionalQuotaWindow { LimitId = "seven_day_sonnet", LimitName = "Sonnet", UsagePercent = 0, ResetAt = null, WindowMinutes = 10080 },
+                ], now, showAbsoluteResetTime: false);
+                vm.ClaudeVm.IsActive = true;
+                vm.FocusedProvider = UsageProviderKind.Claude;
+
+                popup = new UsagePopup(vm) { Left = -10000 };
+                popup.Show();
+                popup.UpdateLayout();
+
+                var list = Assert.IsType<System.Windows.Controls.ItemsControl>(popup.FindName("ClaudeModelLimitList"));
+                list.UpdateLayout();
+                Assert.Equal(2, list.Items.Count);
+
+                var bars = FindChildren<System.Windows.Controls.ProgressBar>(list).ToList();
+                Assert.Equal(2, bars.Count);
+                Assert.All(bars, bar => Assert.Same(popup.FindResource("UsageBarStyle"), bar.Style));
+
+                var markers = FindChildren<System.Windows.Controls.Border>(list)
+                    .Where(border => Math.Abs(border.Width - 1.5) < 0.01)
+                    .ToList();
+                Assert.Equal(2, markers.Count);
+                Assert.Equal(System.Windows.Visibility.Visible, markers[0].Visibility);
+                Assert.Equal(System.Windows.Visibility.Collapsed, markers[1].Visibility);
+
+                var texts = FindChildren<System.Windows.Controls.TextBlock>(list).Select(t => t.Text).ToList();
+                Assert.Contains(Loc.AdditionalQuotaLabel("Fable", 10080), texts);
+                Assert.Contains(Loc.AdditionalQuotaLabel("Sonnet", 10080), texts);
+                Assert.Contains(Loc.UsageSummary(0.05), texts);
+            }
+            finally
+            {
+                popup?.Close();
+                vm.Dispose();
+            }
+        });
+    }
+
+    /// <summary>
+    /// 다른 PC 가 본 Claude 할당량을 쓸 때 모델 한정 한도(#187)도 같은 스냅샷에서 함께 옮긴다.
+    /// 이 필드가 없던 구버전이 쓴 스냅샷이면 비운다 — 남은 행이 다른 시점의 값이 되지 않게.
+    /// </summary>
+    [Fact]
+    public async Task ApplySyncedClaudeQuota_ShowsTheModelLimitsFromThatSnapshot()
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            try
+            {
+                vm.ApplySyncedClaudeQuota(SyncedClaude("laptop", new UsageSyncAdditionalQuota
+                {
+                    LimitId = "weekly:fable", LimitName = "Fable", UsagePercent = 0.4,
+                    ResetAt = DateTimeOffset.Now.AddDays(2), WindowMinutes = 10080,
+                }));
+
+                var row = Assert.Single(vm.ClaudeVm.ModelLimits);
+                Assert.Equal(Loc.AdditionalQuotaLabel("Fable", 10080), row.DisplayName);
+                Assert.Equal(0.4, row.UsagePercent, 6);
+
+                vm.ApplySyncedClaudeQuota(SyncedClaude("old-pc"));
+
+                Assert.Empty(vm.ClaudeVm.ModelLimits);
+            }
+            finally
+            {
+                vm.Dispose();
+            }
+        });
+    }
+
+    private static UsageSyncSnapshot SyncedClaude(string deviceName, params UsageSyncAdditionalQuota[] modelLimits) => new()
+    {
+        Provider = UsageProviderKind.Claude,
+        DeviceId = deviceName,
+        DeviceName = deviceName,
+        ObservedAtUtc = DateTimeOffset.UtcNow,
+        Quota = new UsageSyncQuotaSnapshot
+        {
+            HasData = true,
+            ShortUsagePercent = 0.2,
+            ShortResetAt = DateTimeOffset.Now.AddHours(2),
+            LongUsagePercent = 0.3,
+            LongResetAt = DateTimeOffset.Now.AddDays(2),
+            AdditionalQuotas = modelLimits,
+        },
+    };
+
     [Fact]
     public async Task SettingsWindow_ConstructsWithoutOpacitySliderException()
     {
@@ -477,6 +600,8 @@ public class MainViewModelIntegrationTests
             {
                 var exception = Record.Exception(() => vm.SaveSettingsCommand.Execute(null));
                 Assert.Null(exception);
+                // 저장이 실제 사용자 설정이 아니라 테스트 폴더로 갔는지(#186).
+                Assert.True(File.Exists(Path.Combine(_dir, "claude-usage-tray.json")));
             }
             finally
             {

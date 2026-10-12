@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace ClaudeUsageTray.Models;
@@ -10,6 +11,7 @@ public class UsageResponse
     [JsonPropertyName("seven_day")]
     public UsageWindow? SevenDay { get; set; }
 
+    // 모델 한정 주간 한도의 옛 자리 — 지금도 Sonnet 한도는 여기로만 오는 계정이 있다(#187, ClaudeModelLimits 참고).
     [JsonPropertyName("seven_day_opus")]
     public UsageWindow? SevenDayOpus { get; set; }
 
@@ -18,6 +20,13 @@ public class UsageResponse
 
     [JsonPropertyName("extra_usage")]
     public ExtraUsage? ExtraUsage { get; set; }
+
+    /// <summary>
+    /// 한도 목록 원문(<c>limits[]</c>, #187). 문서화되지 않은 필드라 형식이 바뀌어도 기본 5시간·7일 조회까지
+    /// 함께 실패하지 않도록 타입으로 묶지 않고 받아 두고, <c>ClaudeModelLimits</c> 가 관대하게 읽는다.
+    /// </summary>
+    [JsonPropertyName("limits")]
+    public JsonElement Limits { get; set; }
 }
 
 public class UsageWindow

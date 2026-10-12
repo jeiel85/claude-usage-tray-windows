@@ -3,20 +3,52 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
-## [1.45.1] - 2026-10-12
+## [1.46.2] - 2026-10-12
 
 <!-- ko -->
 ### 수정
 - **OpenCode Go 사용량 게이지가 다시 나옵니다 (#188)** — OpenCode 가 9월 22일 Go 사용량 화면을 새 콘솔(`opencode.ai/console`)로 옮기면서, 앱이 읽던 예전 페이지가 새 콘솔로 넘어가 게이지를 읽지 못하고 로그인해도 연결되지 않았습니다. 이제 새 콘솔에서 롤링·주간·월간 사용률과 초기화 시각을 읽습니다.
 - 새 콘솔 로그인이 필요하면 `OpenCode 로그인` 버튼이 나타납니다. 예전 페이지로 로그인해 두었어도 한 번 더 로그인해야 할 수 있습니다.
-- 로그인은 됐지만 Go 구독이 없는(또는 일시정지된) 계정이면 그 이유를 알려 줍니다.
+- 로그인은 됐지만 Go 구독이 없는(또는 해지·일시정지된) 계정이면 로그인 버튼 아래에 그 이유를 알려 줍니다.
 <!-- /ko -->
 
 <!-- en -->
 ### Fixed
 - **OpenCode Go usage gauges are back (#188)** — On September 22 OpenCode moved Go usage to the new console (`opencode.ai/console`). The old page the app read now forwards to the new console, so the gauges could not be read and signing in never connected. The app now reads the rolling, weekly and monthly usage and reset times from the new console.
 - If the new console needs you to sign in, the `Sign in to OpenCode` button appears. Even if you signed in through the old page, you may need to sign in once more.
-- If you are signed in but the account has no Go subscription (or it is paused), the app now says so.
+- If you are signed in but the account has no Go subscription (or it was cancelled or paused), the reason now appears below the sign-in button.
+<!-- /en -->
+
+## [1.46.1] - 2026-10-12
+
+<!-- ko -->
+### 수정
+- **개발용 테스트가 이 PC 의 실제 설정·사용 기록을 덮어쓰지 않습니다 (#186)** — 소스에서 테스트를 돌리면 `~/.claude` 의 설정·사용 기록·날씨 알림 기록과 OpenCode 웹 로그인 세션이 바뀌고, Claude 토큰이 만료된 때에는 로그인 파일까지 갱신될 수 있었습니다. 테스트는 이제 임시 폴더만 쓰고, 테스트 중에 트레이 앱이 몰래 실행되지도 않습니다. 앱 자체의 동작은 바뀌지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Developer tests no longer overwrite this PC's real settings and usage history (#186)** — Running the test suite from source used to rewrite the settings, usage history and weather-alert records under `~/.claude` and the OpenCode web sign-in session, and could even refresh the Claude login file when its token had expired. Tests now use temporary folders only, and the tray app no longer starts silently during tests. The app itself behaves exactly as before.
+<!-- /en -->
+
+## [1.46.0] - 2026-10-12
+
+<!-- ko -->
+### 추가
+- **Claude 의 모델별 주간 한도도 게이지로 보여줍니다 (#187)** — Claude 는 5시간·7일 한도 말고도 특정 모델에만 거는 주간 한도(예: `Sonnet`, 프로모션 기간의 `Fable`)를 따로 둡니다. Claude 상세에서 7일 게이지 아래에 이런 한도가 한 줄씩(예: `Fable · 주간`) 사용률·초기화 시각·시간선과 함께 나옵니다. 모델 이름은 서버가 준 이름을 그대로 씁니다.
+- 모델별 한도도 다중 PC 동기화에 포함됩니다. 이 PC 의 Claude 조회가 실패해 다른 PC 의 값을 쓸 때 모델별 한도도 함께 보여줍니다.
+
+### 변경
+- 응답에 있었지만 화면에 쓰이지 않던 Opus/Sonnet 주간 값은 위 목록으로 합쳤습니다. 같은 모델이 두 곳에 다 오면 한 줄만 그립니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Claude's per-model weekly limits now get their own gauges (#187)** — Besides the 5-hour and 7-day limits, Claude enforces weekly limits that apply to a single model (e.g. `Sonnet`, or `Fable` during a promotion). They now appear below the 7-day gauge in the Claude details, one row each (e.g. `Fable · Weekly`), with usage, reset time and the timeline marker. Model names are shown as the server provides them.
+- Per-model limits are included in multi-PC sync, so when this PC's Claude fetch fails and another PC's values are used, the per-model limits come along.
+
+### Changed
+- The Opus/Sonnet weekly values that were already in the response but never shown are merged into the list above. A model reported in both places is drawn once.
 <!-- /en -->
 
 ## [1.45.0] - 2026-10-12
