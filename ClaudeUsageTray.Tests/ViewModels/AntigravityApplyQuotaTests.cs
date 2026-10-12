@@ -44,6 +44,8 @@ public sealed class AntigravityApplyQuotaTests
         using (monitor)
         {
             // 아직 아무것도 쓰지 않은 주 — Antigravity 화면은 이때도 100% 게이지 네 칸을 보여준다.
+            // (Claude·GPT 칸까지 보이도록 설정을 켠 경우)
+            vm.ShowThirdPartyQuota = true;
             vm.ApplyQuota(
             [
                 Bucket("gemini-weekly", 1.0, "Gemini Models · Weekly Limit"),
@@ -84,6 +86,7 @@ public sealed class AntigravityApplyQuotaTests
         using (monitor)
         {
             // 사용량 순으로 세우면 새로고침마다 자리가 바뀐다. 다른 provider 처럼 창 길이 순으로 고정한다.
+            vm.ShowThirdPartyQuota = true;
             vm.ApplyQuota(
             [
                 Bucket("gemini-weekly", 0.80, window: "weekly"),   // 20% 사용
@@ -260,9 +263,9 @@ public sealed class AntigravityApplyQuotaTests
         var vm = CreateVm(out var monitor);
         using (monitor)
         {
-            vm.ApplyQuota([Bucket("3p-weekly", 0.5, "Claude and GPT models · Weekly Limit")], null, null);
+            vm.ApplyQuota([Bucket("gemini-weekly", 0.5, "Gemini Models · Weekly Limit")], null, null);
 
-            Assert.Equal("Claude and GPT models · Weekly Limit", vm.Models[0].DisplayName);
+            Assert.Equal("Gemini Models · Weekly Limit", vm.Models[0].DisplayName);
         }
     }
 
@@ -330,6 +333,7 @@ public sealed class AntigravityApplyQuotaTests
         using (monitor)
         {
             var now = DateTimeOffset.Now;
+            vm.ShowThirdPartyQuota = true;
             vm.ApplyQuota(
             [
                 new AntigravityModelQuota
@@ -390,7 +394,7 @@ public sealed class AntigravityApplyQuotaTests
             [
                 new AntigravityModelQuota
                 {
-                    ModelId = "3p-5h", TokenType = "5h",
+                    ModelId = "gemini-5h", TokenType = "5h",
                     RemainingFraction = 0.5, ResetTime = now.AddHours(5),
                 },
             ], null, null);
@@ -411,7 +415,7 @@ public sealed class AntigravityApplyQuotaTests
         using (monitor)
         {
             vm.ShowAbsoluteResetTime = true;
-            vm.ApplyQuota([Bucket("3p-5h", 0.5, window: "5h")], null, null);
+            vm.ApplyQuota([Bucket("gemini-5h", 0.5, window: "5h")], null, null);
 
             // Claude·Codex·OpenCode 와 같은 방식 — 설정이 켜지면 라벨에 괄호로 절대 시각이 붙는다.
             // 이름이 길어 잘리는 경우는 이름 TextBlock 의 CharacterEllipsis + 툴팁이 감당한다(#139).
@@ -427,7 +431,7 @@ public sealed class AntigravityApplyQuotaTests
         using (monitor)
         {
             // 기본값(false) — Claude·Codex 와 마찬가지로 설정이 꺼져 있으면 어디에도 절대 시각을 붙이지 않는다.
-            vm.ApplyQuota([Bucket("3p-5h", 0.5, window: "5h")], null, null);
+            vm.ApplyQuota([Bucket("gemini-5h", 0.5, window: "5h")], null, null);
 
             Assert.DoesNotContain("(", vm.Models[0].ResetAtLabel);
             Assert.DoesNotContain("(", vm.Models[0].PaceTip);
@@ -445,7 +449,7 @@ public sealed class AntigravityApplyQuotaTests
             [
                 new AntigravityModelQuota
                 {
-                    ModelId = "3p-5h", TokenType = "5h",
+                    ModelId = "gemini-5h", TokenType = "5h",
                     RemainingFraction = 0.4, ResetTime = now.AddHours(2.5),
                 },
             ], null, null);
@@ -455,6 +459,138 @@ public sealed class AntigravityApplyQuotaTests
             // Claude·Codex 게이지 툴팁과 같은 페이스 문구 (시간 50% 경과 · 사용 60%).
             Assert.Equal(Loc.PaceTip(0.5, 0.6, settled: true), vm.Models[0].PaceTip);
         }
+    }
+
+    private static IReadOnlyList<AntigravityModelQuota> FourWindows() =>
+    [
+        Bucket("gemini-5h",     0.90, window: "5h"),       // 10% 사용
+        Bucket("gemini-weekly", 0.80, window: "weekly"),   // 20% 사용
+        Bucket("3p-5h",         0.10, window: "5h"),       // 90% 사용
+        Bucket("3p-weekly",     0.50, window: "weekly"),   // 50% 사용
+    ];
+
+    [Fact]
+    public void ApplyQuota_ShowsOnlyGeminiWindows_ByDefault()
+    {
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            vm.ApplyQuota(FourWindows(), null, null);
+
+            Assert.Equal(["gemini-5h", "gemini-weekly"], vm.Models.Select(m => m.Key));
+            // 트레이 대표값도 보이는 창 기준이다 — Claude·GPT 5시간 창의 90% 가 끼면 팝업과 숫자가 어긋난다.
+            Assert.Equal(0.20, vm.Percent, 3);
+            // 자동 트레이 모드의 "지금 쓰는 중" 판정도 같은 행을 본다.
+            Assert.True(MainViewModel.HasRecentAntigravityUsage(vm.Models));
+        }
+    }
+
+    [Fact]
+    public void ApplyQuota_DoesNotTreatClaudeUsageAsRecentAntigravityUse_WhenHidden()
+    {
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            // Claude·GPT 5시간 창만 썼다 — 숨긴 창으로 트레이를 Antigravity 로 넘기면 안 된다.
+            vm.ApplyQuota(
+            [
+                Bucket("gemini-5h",     1.0, window: "5h"),
+                Bucket("gemini-weekly", 1.0, window: "weekly"),
+                Bucket("3p-5h",         0.4, window: "5h"),
+            ], null, null);
+
+            Assert.False(MainViewModel.HasRecentAntigravityUsage(vm.Models));
+            Assert.Equal(0, vm.Percent);
+        }
+    }
+
+    [Fact]
+    public void ShowThirdPartyQuota_RebuildsRowsAndPercent_WithoutANewLookup()
+    {
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            vm.ApplyQuota(FourWindows(), null, null);
+
+            vm.ShowThirdPartyQuota = true;
+            Assert.Equal(["gemini-5h", "gemini-weekly", "3p-5h", "3p-weekly"], vm.Models.Select(m => m.Key));
+            Assert.Equal(0.90, vm.Percent, 3);
+
+            vm.ShowThirdPartyQuota = false;
+            Assert.Equal(["gemini-5h", "gemini-weekly"], vm.Models.Select(m => m.Key));
+            Assert.Equal(0.20, vm.Percent, 3);
+        }
+    }
+
+    [Fact]
+    public void RebuildingRows_KeepsTheLocalErrorShownOverSyncedValues()
+    {
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            // 다른 PC 값 위에 이 PC 의 진짜 오류를 살려 둔 상태(MainViewModel 의 최후 폴백 경로).
+            vm.ApplyQuota(FourWindows(), null, null, 300);
+            vm.HasError = true;
+            vm.ErrorMessage = "login required";
+
+            // 표시 설정·언어만 바뀌었을 뿐이므로 오류와 크레딧은 그대로 남아야 한다.
+            vm.ShowThirdPartyQuota = true;
+            vm.RefreshLocalizedLabels();
+
+            Assert.True(vm.HasError);
+            Assert.Equal("login required", vm.ErrorMessage);
+            Assert.Equal(300L.ToString("N0", System.Globalization.CultureInfo.CurrentCulture), vm.AiCreditsText);
+        }
+    }
+
+    [Theory]
+    [InlineData("3p-5h", true)]
+    [InlineData("3p-weekly", true)]
+    [InlineData("gemini-5h", false)]
+    [InlineData("gemini-image-5h", false)]
+    [InlineData("3p-image-5h", false)]     // 그룹 키가 정확히 3p 인 것만 Claude·GPT 창이다
+    public void IsThirdPartyBucket_MatchesTheClaudeAndGptGroupOnly(string bucketId, bool expected)
+    {
+        Assert.Equal(expected, AntigravityViewModel.IsThirdPartyBucket(bucketId));
+    }
+
+    [Theory]
+    [InlineData("ko")]
+    [InlineData("en")]
+    public void ResolveDisplayName_CallsAnImageGroupImageGeneration_NotGeminiModels(string lang)
+    {
+        var previous = Loc.CurrentLang;
+        try
+        {
+            Loc.SetLanguage(lang);
+
+            // 요약 응답에서 아직 본 적은 없지만, gemini 로 시작하는 새 그룹이 오면 Gemini 모델 칸과 같은 이름이 되면 안 된다.
+            var label = AntigravityViewModel.ResolveDisplayName(new AntigravityModelQuota
+            {
+                ModelId = "gemini-image-5h",
+                TokenType = "5h",
+                DisplayName = "Gemini Models · Images",
+            });
+
+            Assert.Equal($"{Loc.CodexImageGenerationLimit} · {Loc.QuotaWindowShortName(300)}", label);
+        }
+        finally
+        {
+            Loc.SetLanguage(previous);
+        }
+    }
+
+    [Fact]
+    public void ResolveDisplayName_KeepsServerText_ForUnknownGroupStartingWithGemini()
+    {
+        var label = AntigravityViewModel.ResolveDisplayName(new AntigravityModelQuota
+        {
+            ModelId = "gemini-agent-5h",
+            TokenType = "5h",
+            DisplayName = "Gemini Agent Models · Five Hour Limit",
+        });
+
+        Assert.Equal("Gemini Agent Models · Five Hour Limit", label);
     }
 
     [Theory]

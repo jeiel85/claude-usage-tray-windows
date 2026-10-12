@@ -590,6 +590,79 @@ public class MainViewModelIntegrationTests : IDisposable
         });
     }
 
+    // Antigravity 의 Claude·GPT 한도 표시 토글 — 설정창 체크박스가 현재 값을 보여주고,
+    // 값을 바꾸면 다시 조회하지 않아도 팝업 행과 트레이 대표값이 함께 바뀐다.
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task AntigravityThirdPartyToggle_DrivesSettingsCheckboxAndPopupRows(bool show)
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            SettingsWindow? window = null;
+            try
+            {
+                vm.ShowAntigravityThirdPartyQuota = !show;
+                var reset = DateTimeOffset.Now.AddHours(3);
+                vm.AntigravityVm.ApplyQuota(
+                [
+                    new AntigravityModelQuota { ModelId = "gemini-5h", TokenType = "5h", RemainingFraction = 0.9, ResetTime = reset },
+                    new AntigravityModelQuota { ModelId = "3p-5h",     TokenType = "5h", RemainingFraction = 0.2, ResetTime = reset },
+                ], null, null);
+                vm.AntigravityHasData = true;
+
+                vm.ShowAntigravityThirdPartyQuota = show;
+
+                Assert.Equal(show ? new[] { "gemini-5h", "3p-5h" } : new[] { "gemini-5h" }, vm.AntigravityModels.Select(m => m.Key));
+                Assert.Equal(show ? 0.8 : 0.1, vm.AntigravityPercent, 3);
+
+                window = new SettingsWindow(vm);
+                var check = Assert.IsType<System.Windows.Controls.CheckBox>(window.FindName("ChkShowAntigravityThirdPartyQuota"));
+                Assert.Equal(show, check.IsChecked);
+                Assert.Equal(Loc.AntigravityShowThirdPartyQuota, check.Content);
+            }
+            finally
+            {
+                window?.Close();
+                vm.Dispose();
+            }
+        });
+    }
+
+    // #194 리뷰: 응답에 Claude·GPT 창만 남고 숨김 설정이면 보이는 행이 없다 — 빈 섹션·"0%" 대신 섹션을 접고,
+    // 설정을 켜면 다시 조회하지 않아도 바로 나타나야 한다.
+    [Fact]
+    public async Task AntigravityThirdPartyToggle_HidesTheSectionWhenNoRowIsLeft()
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            try
+            {
+                vm.ShowAntigravityThirdPartyQuota = true;
+                vm.AntigravityVm.ApplyQuota(
+                [
+                    new AntigravityModelQuota { ModelId = "3p-5h", TokenType = "5h", RemainingFraction = 0.4, ResetTime = DateTimeOffset.Now.AddHours(3) },
+                ], null, null);
+                vm.AntigravityHasData = true;
+
+                vm.ShowAntigravityThirdPartyQuota = false;
+                Assert.False(vm.AntigravityHasData);
+                Assert.Empty(vm.AntigravityModels);
+
+                vm.ShowAntigravityThirdPartyQuota = true;
+                Assert.True(vm.AntigravityHasData);
+                Assert.Equal(["3p-5h"], vm.AntigravityModels.Select(m => m.Key));
+                Assert.Equal(0.6, vm.AntigravityPercent, 3);
+            }
+            finally
+            {
+                vm.Dispose();
+            }
+        });
+    }
+
     [Fact]
     public async Task SaveSettings_DoesNotThrow()
     {
