@@ -3239,6 +3239,13 @@ namespace ClaudeUsageTray.ViewModels;
                     AntigravityVm.HasData = false;
                 }
 
+                // 모델을 하나도 못 쓴 폴백이면 아래에서 출처도 밝히지 않는다. 그 스냅샷의 크레딧만 남기면
+                // 최대 24시간 전 잔액이 지금 값처럼 보이므로(로컬 에러 때문에 섹션이 켜진 경우) 함께 버린다.
+                if (!usedFallbackModels)
+                {
+                    AntigravityVm.AiCreditsText = "";
+                }
+
                 if (hadGenuineLocalError)
                 {
                     AntigravityVm.HasError = true;
