@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.45.1] - 2026-10-12
+
+<!-- ko -->
+### 수정
+- **OpenCode Go 사용량 게이지가 다시 나옵니다 (#188)** — OpenCode 가 9월 22일 Go 사용량 화면을 새 콘솔(`opencode.ai/console`)로 옮기면서, 앱이 읽던 예전 페이지가 새 콘솔로 넘어가 게이지를 읽지 못하고 로그인해도 연결되지 않았습니다. 이제 새 콘솔에서 롤링·주간·월간 사용률과 초기화 시각을 읽습니다.
+- 새 콘솔 로그인이 필요하면 `OpenCode 로그인` 버튼이 나타납니다. 예전 페이지로 로그인해 두었어도 한 번 더 로그인해야 할 수 있습니다.
+- 로그인은 됐지만 Go 구독이 없는(또는 일시정지된) 계정이면 그 이유를 알려 줍니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **OpenCode Go usage gauges are back (#188)** — On September 22 OpenCode moved Go usage to the new console (`opencode.ai/console`). The old page the app read now forwards to the new console, so the gauges could not be read and signing in never connected. The app now reads the rolling, weekly and monthly usage and reset times from the new console.
+- If the new console needs you to sign in, the `Sign in to OpenCode` button appears. Even if you signed in through the old page, you may need to sign in once more.
+- If you are signed in but the account has no Go subscription (or it is paused), the app now says so.
+<!-- /en -->
+
 ## [1.45.0] - 2026-10-12
 
 <!-- ko -->
