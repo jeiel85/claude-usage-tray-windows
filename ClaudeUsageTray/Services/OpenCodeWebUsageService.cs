@@ -137,8 +137,8 @@ public sealed class OpenCodeWebUsageService : IDisposable
     }
 
     /// <summary>
-    /// 실패를 기록하고 다음 확인 시각을 잡는다. 로그인이 풀린 경우엔 사용자가 로그인하기 전까지
-    /// 결과가 달라지지 않으므로 길게 쉬고, 확인 자체를 못 한 경우엔 짧게 쉬었다가 다시 본다 —
+    /// 실패를 기록하고 다음 확인 시각을 잡는다. 로그인이 풀렸거나 Go 할당량이 없는 경우엔 사용자가
+    /// 로그인·구독하기 전까지 결과가 달라지지 않으므로 길게 쉬고, 확인 자체를 못 한 경우엔 짧게 쉬었다가 다시 본다 —
     /// 부팅 직후 네트워크가 늦게 올라온 것뿐인데 30분 동안 로그인 버튼을 띄우고 있지 않도록.
     /// </summary>
     private OpenCodeWebReadResult RegisterFailure(OpenCodeWebSessionState state, DateTimeOffset now)
@@ -244,10 +244,14 @@ public sealed class OpenCodeWebUsageService : IDisposable
             case ConsoleReadKind.Success:
                 return Succeed(outcome);
             case ConsoleReadKind.SignedOut:
-                // 콘솔 API 가 401 로 답했다 — 세션이 실제로 만료된 유일한 신호다.
+                // 작업공간 목록이 401 로 답했다 — 세션이 실제로 만료된 유일한 신호다.
                 return OpenCodeWebReadResult.SignedOut;
+            case ConsoleReadKind.NoQuota:
+                // 로그인은 됐지만 Go 할당량이 없다. 확인 실패로 뭉개면 "곧 다시 시도" 안내 뒤로 이유가 숨는다.
+                LastError = outcome.Error;
+                return OpenCodeWebReadResult.NoQuota;
             default:
-                // 로그인은 돼 있지만 Go 할당량이 없거나, 응답을 받지 못했다. 로그인 여부를 단정할 수 없으므로
+                // 응답을 받지 못했거나 예상 밖의 응답이었다. 로그인 여부를 단정할 수 없으므로
                 // 로그인 버튼을 띄우지 않고 확인 실패로만 남긴다.
                 LastError = outcome.Error;
                 return OpenCodeWebReadResult.Unavailable;

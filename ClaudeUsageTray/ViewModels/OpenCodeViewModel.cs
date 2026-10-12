@@ -51,6 +51,8 @@ public partial class OpenCodeViewModel : ObservableObject
     /// <summary>설정 화면의 "초기화 절대 시간 표시" 토글 — Claude·Codex 와 같은 값을 MainViewModel 이 그대로 밀어 넣는다.</summary>
     [ObservableProperty] private bool _showAbsoluteResetTime = false;
     private OpenCodeWebUsage? _currentWebUsage;
+    /// <summary>WebLoginError 가 지금 "Go 할당량 없음" 안내를 담고 있는가 — 상태가 바뀌면 이 안내만 거둔다.</summary>
+    private bool _showsNoGoQuotaNotice;
     private string? _staleQuotaDevice;
     private DateTimeOffset? _staleQuotaObservedAt;
 
@@ -149,6 +151,7 @@ public partial class OpenCodeViewModel : ObservableObject
         if (_webUsage == null) return false;
         IsWebLoginRunning = true;
         WebLoginError = "";
+        _showsNoGoQuotaNotice = false;
         try
         {
             var read = await _webUsage.TryGetUsageAsync(interactive: true);
@@ -222,10 +225,25 @@ public partial class OpenCodeViewModel : ObservableObject
     /// 이 PC 에 이미 성공한 세션이 남아 있는데 확인만 실패했다면 로그인할 이유가 없으므로,
     /// 버튼 대신 재시도 안내를 보여준다. 서버가 로그인 페이지로 되돌렸을 때만 버튼을 남긴다.
     /// </summary>
-    internal void ApplyWebSessionState(OpenCodeWebSessionState state, bool hasSavedSession) =>
+    internal void ApplyWebSessionState(OpenCodeWebSessionState state, bool hasSavedSession)
+    {
         IsWebQuotaUnavailable = !HasWebQuota
             && hasSavedSession
             && state == OpenCodeWebSessionState.Unavailable;
+
+        // 로그인은 됐지만 Go 할당량이 없는 계정(미구독·해지·일시정지)은 재시도 안내로 덮지 않고, 로그인 버튼
+        // (다른 계정으로 바꿀 길) 아래에 이유를 남긴다. 이 안내가 아닌 로그인 창의 오류 문구는 건드리지 않는다.
+        if (!HasWebQuota && state == OpenCodeWebSessionState.NoQuota)
+        {
+            WebLoginError = Loc.OpenCodeWebNoGoQuota;
+            _showsNoGoQuotaNotice = true;
+        }
+        else if (_showsNoGoQuotaNotice)
+        {
+            WebLoginError = "";
+            _showsNoGoQuotaNotice = false;
+        }
+    }
 
     private void ApplyWebUsage(OpenCodeWebUsage? usage)
     {
@@ -312,6 +330,7 @@ public partial class OpenCodeViewModel : ObservableObject
         OnPropertyChanged(nameof(MonthlyTitle));
         OnPropertyChanged(nameof(WebLoginLabel));
         OnPropertyChanged(nameof(WebQuotaUnavailableLabel));
+        if (_showsNoGoQuotaNotice) WebLoginError = Loc.OpenCodeWebNoGoQuota;
         var usage = LastSnapshot.OpenCodeDetails?.WebUsage;
         ApplyWebUsage(usage);
         QuotaStatusLabel = usage != null ? Loc.OpenCodeOfficialQuota : FormatQuotaStatus(LastSnapshot.OpenCodeDetails);

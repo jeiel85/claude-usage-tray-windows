@@ -100,6 +100,11 @@ public enum OpenCodeWebSessionState
     SignedOut,
     /// <summary>탐색 실패·타임아웃 등으로 로그인 여부조차 확인하지 못했다.</summary>
     Unavailable,
+    /// <summary>
+    /// 로그인은 돼 있지만 Go 할당량이 있는 작업공간이 없다(미구독·해지·일시정지·결제 대기).
+    /// 확인 실패와 섞으면 "곧 다시 시도" 안내 뒤로 진짜 이유가 숨는다.
+    /// </summary>
+    NoQuota,
 }
 
 public readonly record struct OpenCodeWebReadResult(OpenCodeWebUsage? Usage, OpenCodeWebSessionState State)
@@ -107,6 +112,7 @@ public readonly record struct OpenCodeWebReadResult(OpenCodeWebUsage? Usage, Ope
     public static OpenCodeWebReadResult NotAttempted => new(null, OpenCodeWebSessionState.Unknown);
     public static OpenCodeWebReadResult SignedOut => new(null, OpenCodeWebSessionState.SignedOut);
     public static OpenCodeWebReadResult Unavailable => new(null, OpenCodeWebSessionState.Unavailable);
+    public static OpenCodeWebReadResult NoQuota => new(null, OpenCodeWebSessionState.NoQuota);
     public static OpenCodeWebReadResult Success(OpenCodeWebUsage usage) =>
         new(usage, OpenCodeWebSessionState.Authenticated);
 }

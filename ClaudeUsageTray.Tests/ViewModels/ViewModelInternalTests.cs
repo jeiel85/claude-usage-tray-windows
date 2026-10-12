@@ -315,6 +315,33 @@ public class OpenCodeWebLoginPromptTests
         Assert.False(vm.ShowWebQuotaUnavailableNotice);
     }
 
+    // 예전에 연결했던 PC 라도 구독이 해지·일시정지돼 Go 할당량이 없으면, "곧 다시 시도" 안내로 덮지 않고
+    // 로그인 버튼(다른 계정으로 바꿀 길)과 함께 이유를 보여준다.
+    [Fact]
+    public void NoQuotaRead_WithSavedSession_ShowsReasonUnderLoginButton()
+    {
+        var vm = CreateViewModel();
+
+        vm.ApplyWebSessionState(OpenCodeWebSessionState.NoQuota, hasSavedSession: true);
+
+        Assert.False(vm.IsWebQuotaUnavailable);
+        Assert.False(vm.ShowWebQuotaUnavailableNotice);
+        Assert.True(vm.ShowWebLoginButton);
+        Assert.Equal(Loc.OpenCodeWebNoGoQuota, vm.WebLoginError);
+    }
+
+    // 상태가 바뀌면 그 안내만 거둔다.
+    [Fact]
+    public void NoQuotaNotice_IsClearedWhenTheStateChanges()
+    {
+        var vm = CreateViewModel();
+        vm.ApplyWebSessionState(OpenCodeWebSessionState.NoQuota, hasSavedSession: true);
+
+        vm.ApplyWebSessionState(OpenCodeWebSessionState.SignedOut, hasSavedSession: true);
+
+        Assert.Equal("", vm.WebLoginError);
+    }
+
     // 이 PC 에서 한 번도 로그인한 적이 없으면 확인 실패여도 로그인 경로를 감추면 안 된다.
     [Fact]
     public void UnavailableRead_WithoutSavedSession_KeepsLoginButton()

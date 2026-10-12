@@ -432,6 +432,14 @@ public sealed class OpenCodeWebUsageServiceTests
             OpenCodeWebUsageService.RetryDelayFor(ClaudeUsageTray.Models.OpenCodeWebSessionState.SignedOut, 9));
     }
 
+    // Go 할당량이 없는 계정도 사용자가 구독하거나 계정을 바꾸기 전엔 결과가 같으므로 길게 쉰다.
+    [Fact]
+    public void RetryDelay_ForNoQuota_StaysLong()
+    {
+        Assert.Equal(TimeSpan.FromMinutes(30),
+            OpenCodeWebUsageService.RetryDelayFor(ClaudeUsageTray.Models.OpenCodeWebSessionState.NoQuota, 1));
+    }
+
     private static ConsoleResponse Ok(string body) => new(200, body);
 
     /// <summary>경로·작업공간별로 정해 둔 응답을 돌려주고, 받은 요청을 순서대로 기록한다.</summary>
