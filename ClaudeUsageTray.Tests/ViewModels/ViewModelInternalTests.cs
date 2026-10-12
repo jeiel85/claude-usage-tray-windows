@@ -375,14 +375,40 @@ public class UsageSyncQuotaPolicyTests
 
     // 서버가 계정별로 내려주는 할당량만 공유한다. OpenCode 는 로컬 계산 percent 가 아니라
     // 공식 웹 콘솔의 계정 단위 롤링·주간·월간 값만 공유한다.
+    // 없어진 Gemini CLI 키처럼 모르는 공급자는 공유하지 않는다 — 예전 버전 PC 가 같은 폴더에 계속 올릴 수 있다.
     [Theory]
     [InlineData(UsageProviderKind.Codex, true)]
     [InlineData(UsageProviderKind.Antigravity, true)]
-    [InlineData(UsageProviderKind.GeminiCli, false)]
+    [InlineData(UsageProviderKind.LegacyGeminiCli, false)]
     [InlineData(UsageProviderKind.OpenCode, true)]
     public void OnlyAccountLevelQuotaIsShared(string provider, bool shared)
     {
         Assert.Equal(shared, MainViewModel.UsageSyncSharesAccountQuota(provider));
+    }
+
+    // 자동 트레이 모드의 Antigravity 선택 근거(#183) — 5시간 창을 썼을 때만 "지금 쓰는 중" 으로 본다.
+    // 주간 창만 남은 사용분은 일주일 내내 0 보다 커서, 근거로 삼으면 Claude 를 쓰기 전 아침마다 트레이를 빼앗는다.
+    [Theory]
+    [InlineData(0.0, 0.6, false)]   // 며칠 전에 쓴 주간 몫만 남음
+    [InlineData(0.2, 0.6, true)]    // 최근 5시간 안에 씀
+    [InlineData(0.0, 0.0, false)]   // 쓰지 않음
+    public void RecentAntigravityUsage_FollowsTheFiveHourWindow(double fiveHourUsed, double weeklyUsed, bool expected)
+    {
+        QuotaGaugeRow[] rows =
+        [
+            new() { Key = "gemini-5h", UsagePercent = fiveHourUsed, Window = TimeSpan.FromHours(5) },
+            new() { Key = "gemini-weekly", UsagePercent = weeklyUsed, Window = TimeSpan.FromDays(7) },
+        ];
+
+        Assert.Equal(expected, MainViewModel.HasRecentAntigravityUsage(rows));
+    }
+
+    [Fact]
+    public void RecentAntigravityUsage_IgnoresWindowsOfUnknownLength()
+    {
+        QuotaGaugeRow[] rows = [new() { Key = "future-monthly", UsagePercent = 0.9, Window = null }];
+
+        Assert.False(MainViewModel.HasRecentAntigravityUsage(rows));
     }
 
     // Antigravity 최후 폴백 적용 후 HasData 를 되돌릴지 판정 — 보여줄 모델도 없고 로컬 에러도
@@ -463,24 +489,6 @@ public class UsageSyncQuotaPolicyTests
         Assert.Equal(expected, MainViewModel.IsOpenCodeSectionActive(
             isEnabled, hideInactive, requestCount, hasPeriodUsage,
             hasWebQuota, hasStaleSyncedQuota, hasError));
-    }
-
-    [Theory]
-    // 보여 줄 것이 없으면 숨긴다.
-    [InlineData(true, true, 0, false, false)]
-    // 공급자 표시를 꺼 두었으면 요청·오류가 있어도 숨긴다.
-    [InlineData(false, true, 12, true, false)]
-    [InlineData(false, false, 0, false, false)]
-    // 자동 숨김이 꺼져 있으면 아무 근거가 없어도 남긴다.
-    [InlineData(true, false, 0, false, true)]
-    // 오늘 요청(다중 PC 합산 포함)·오류가 표시 근거다.
-    [InlineData(true, true, 12, false, true)]
-    [InlineData(true, true, 0, true, true)]
-    public void GeminiSectionVisibility_FollowsTheDisplayRule(
-        bool isEnabled, bool hideInactive, int requestCount, bool hasError, bool expected)
-    {
-        Assert.Equal(expected, MainViewModel.IsGeminiSectionActive(
-            isEnabled, hideInactive, requestCount, hasError));
     }
 
     // 구독 중인 사용자가 오늘 아직 Claude 를 쓰지 않은 아침. 5시간 창은 정상 조회되어 0% 이고
@@ -739,7 +747,7 @@ public class UsageSyncQuotaPolicyTests
             ShortResetAt = DateTimeOffset.Now.AddHours(2),
         };
 
-        Assert.Null(MainViewModel.CreateProviderQuotaSnapshot(UsageProviderKind.GeminiCli, snapshot));
+        Assert.Null(MainViewModel.CreateProviderQuotaSnapshot(UsageProviderKind.LegacyGeminiCli, snapshot));
         Assert.Null(MainViewModel.CreateProviderQuotaSnapshot(UsageProviderKind.OpenCode, snapshot));
         Assert.NotNull(MainViewModel.CreateProviderQuotaSnapshot(UsageProviderKind.Codex, snapshot));
     }

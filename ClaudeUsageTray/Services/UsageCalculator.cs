@@ -147,8 +147,6 @@ public static class UsageCalculator
         return providerKey switch
         {
             UsageProviderKind.Codex     => message == Loc.CodexNoUsageToday,
-            UsageProviderKind.GeminiCli => message == Loc.GeminiCliNoUsageToday
-                                       || message == Loc.GeminiCliEstimateOnly,
             UsageProviderKind.OpenCode  => message == Loc.OpenCodeNoUsageToday,
             _ => false,
         };

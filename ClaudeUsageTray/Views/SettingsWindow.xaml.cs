@@ -154,8 +154,8 @@ public partial class SettingsWindow : Window, IDisposable
         LblVisibleProviders.Text            = Loc.VisibleProviders;
         ChkVisibleClaude.Content            = "Claude";
         ChkVisibleCodex.Content             = "Codex";
-        ChkVisibleGemini.Content            = "Gemini CLI";
         ChkVisibleOpenCode.Content          = "OpenCode";
+        ChkVisibleAntigravity.Content       = "Antigravity";
 
         // v1.27.0 표시 옵션 토글
         LblDisplayOptions.Text              = Loc.DisplayOptionsSection;
@@ -310,8 +310,8 @@ public partial class SettingsWindow : Window, IDisposable
 
         ChkVisibleClaude.IsChecked   = _vm.IsClaudeEnabled;
         ChkVisibleCodex.IsChecked    = _vm.IsCodexEnabled;
-        ChkVisibleGemini.IsChecked   = _vm.IsGeminiEnabled;
         ChkVisibleOpenCode.IsChecked = _vm.IsOpenCodeEnabled;
+        ChkVisibleAntigravity.IsChecked = _vm.IsAntigravityEnabled;
 
         ChkShowPlanBadge.IsChecked         = _vm.ShowPlanBadge;
         ChkShowAbsoluteResetTime.IsChecked = _vm.ShowAbsoluteResetTime;
@@ -375,8 +375,8 @@ public partial class SettingsWindow : Window, IDisposable
 
         _vm.IsClaudeEnabled   = ChkVisibleClaude.IsChecked == true;
         _vm.IsCodexEnabled    = ChkVisibleCodex.IsChecked == true;
-        _vm.IsGeminiEnabled   = ChkVisibleGemini.IsChecked == true;
         _vm.IsOpenCodeEnabled = ChkVisibleOpenCode.IsChecked == true;
+        _vm.IsAntigravityEnabled = ChkVisibleAntigravity.IsChecked == true;
 
         _vm.ShowPlanBadge         = ChkShowPlanBadge.IsChecked == true;
         _vm.ShowAbsoluteResetTime = ChkShowAbsoluteResetTime.IsChecked == true;
@@ -609,8 +609,8 @@ public partial class SettingsWindow : Window, IDisposable
         {
             UsageProviderKind.Claude => "Claude",
             UsageProviderKind.Codex => "Codex",
-            UsageProviderKind.GeminiCli => "Gemini CLI",
             UsageProviderKind.OpenCode => "OpenCode",
+            UsageProviderKind.Antigravity => "Antigravity",
             _ => "Claude"
         };
 
@@ -676,12 +676,12 @@ public partial class SettingsWindow : Window, IDisposable
     private void UpdateTrayModeAvailability()
     {
         if (TrayItemClaude   == null || TrayItemCodex     == null
-         || TrayItemGemini   == null || TrayItemOpenCode  == null) return;
+         || TrayItemOpenCode == null || TrayItemAntigravity == null) return;
 
         TrayItemClaude.IsEnabled   = ChkVisibleClaude.IsChecked   == true;
         TrayItemCodex.IsEnabled    = ChkVisibleCodex.IsChecked    == true;
-        TrayItemGemini.IsEnabled   = ChkVisibleGemini.IsChecked   == true;
         TrayItemOpenCode.IsEnabled = ChkVisibleOpenCode.IsChecked == true;
+        TrayItemAntigravity.IsEnabled = ChkVisibleAntigravity.IsChecked == true;
 
         // 현재 선택된 모드가 disable 상태가 되면 자동(Auto) 으로 폴백
         if (CmbTrayDisplayMode.SelectedItem is ComboBoxItem item &&
@@ -718,8 +718,8 @@ public partial class SettingsWindow : Window, IDisposable
             _vm.HideInactiveProviders = true;
             _vm.IsClaudeEnabled       = true;
             _vm.IsCodexEnabled        = true;
-            _vm.IsGeminiEnabled       = true;
             _vm.IsOpenCodeEnabled     = true;
+            _vm.IsAntigravityEnabled  = true;
             _vm.KeepPopupAboveTaskbar = false;
             _vm.UsagePanelOpacity     = 0.94;
             _vm.NtfySendFromThisPc    = true;
@@ -742,8 +742,8 @@ public partial class SettingsWindow : Window, IDisposable
             ChkHideInactive.IsChecked   = _vm.HideInactiveProviders;
             ChkVisibleClaude.IsChecked  = _vm.IsClaudeEnabled;
             ChkVisibleCodex.IsChecked   = _vm.IsCodexEnabled;
-            ChkVisibleGemini.IsChecked  = _vm.IsGeminiEnabled;
             ChkVisibleOpenCode.IsChecked= _vm.IsOpenCodeEnabled;
+            ChkVisibleAntigravity.IsChecked = _vm.IsAntigravityEnabled;
             ChkKeepPopupAboveTaskbar.IsChecked = _vm.KeepPopupAboveTaskbar;
             SliderUsagePanelOpacity.Value = _vm.UsagePanelOpacity;
             ChkNtfySendFromThisPc.IsChecked = _vm.NtfySendFromThisPc;

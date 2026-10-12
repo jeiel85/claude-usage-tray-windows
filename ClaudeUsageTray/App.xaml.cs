@@ -23,8 +23,8 @@ public partial class App : Application
     // Menu item references for status updates
     private ToolStripMenuItem? _claudeStatusItem;
     private ToolStripMenuItem? _codexStatusItem;
-    private ToolStripMenuItem? _geminiStatusItem;
     private ToolStripMenuItem? _openCodeStatusItem;
+    private ToolStripMenuItem? _antigravityStatusItem;
     private ToolStripMenuItem? _nextRefreshItem;
 
     [DllImport("user32.dll", SetLastError = true)]
@@ -70,7 +70,6 @@ public partial class App : Application
         var apiService = new UsageApiService(credService);
         var sessionMonitor = new SessionMonitor();
         var codexMonitor = new CodexUsageMonitor();
-        var geminiCliMonitor = new GeminiCliUsageMonitor();
         var openCodeMonitor = new OpenCodeUsageMonitor();
         _openCodeWebUsage = new OpenCodeWebUsageService();
         var antigravityMonitor = new AntigravityUsageMonitor();
@@ -86,7 +85,7 @@ public partial class App : Application
             weather, notifier, () => _vm?.GetCurrentSettings() ?? new NotificationSettings(),
             [nwsProvider, jmaProvider]);
 
-        _vm = new MainViewModel(apiService, credService, sessionMonitor, codexMonitor, geminiCliMonitor,
+        _vm = new MainViewModel(apiService, credService, sessionMonitor, codexMonitor,
             openCodeMonitor, antigravityMonitor, notifier, settingsService, updater, history, usageSync, weather, weatherAlert,
             _openCodeWebUsage);
         _popup = new UsagePopup(_vm);
@@ -105,14 +104,14 @@ public partial class App : Application
         // Provider status items (read-only)
         _claudeStatusItem    = new ToolStripMenuItem("Claude: ---")   { Enabled = false };
         _codexStatusItem     = new ToolStripMenuItem("Codex: ---")    { Enabled = false };
-        _geminiStatusItem    = new ToolStripMenuItem("Gemini: ---")   { Enabled = false };
         _openCodeStatusItem  = new ToolStripMenuItem("OpenCode: ---") { Enabled = false };
+        _antigravityStatusItem = new ToolStripMenuItem("Antigravity: ---") { Enabled = false };
         _nextRefreshItem     = new ToolStripMenuItem("Next refresh: --") { Enabled = false };
 
         contextMenu.Items.Add(_claudeStatusItem);
         contextMenu.Items.Add(_codexStatusItem);
-        contextMenu.Items.Add(_geminiStatusItem);
         contextMenu.Items.Add(_openCodeStatusItem);
+        contextMenu.Items.Add(_antigravityStatusItem);
         contextMenu.Items.Add(new ToolStripSeparator());
         contextMenu.Items.Add(_nextRefreshItem);
         contextMenu.Items.Add(new ToolStripSeparator());
@@ -156,8 +155,8 @@ public partial class App : Application
             {
                 _claudeStatusItem.Text   = "Claude: Loading...";
                 _codexStatusItem!.Text   = "Codex: Loading...";
-                _geminiStatusItem!.Text  = "Gemini: Loading...";
                 _openCodeStatusItem!.Text = "OpenCode: Loading...";
+                _antigravityStatusItem!.Text = "Antigravity: Loading...";
             }
             else
             {
@@ -169,17 +168,16 @@ public partial class App : Application
                 if (_vm.CodexHasError) _codexStatusItem!.Text = $"Codex: {Loc.Unavailable}";
                 else _codexStatusItem!.Text = $"Codex: {_vm.CodexPercent:P0}";
 
-                // Gemini Status (token-based, no %)
-                if (_vm.GeminiHasError) _geminiStatusItem!.Text = $"Gemini: {Loc.Unavailable}";
-                else if (_vm.GeminiRequestsLabel == "—" || string.IsNullOrEmpty(_vm.GeminiRequestsLabel))
-                    _geminiStatusItem!.Text = "Gemini: —";
-                else _geminiStatusItem!.Text = $"Gemini: {_vm.GeminiRequestsLabel} · {_vm.GeminiOutputTokensLabel}";
-
                 // OpenCode Status (token-based)
                 if (_vm.OpenCodeHasError) _openCodeStatusItem!.Text = $"OpenCode: {Loc.Unavailable}";
                 else if (_vm.OpenCodeRequestCountLabel == "—" || string.IsNullOrEmpty(_vm.OpenCodeRequestCountLabel))
                     _openCodeStatusItem!.Text = "OpenCode: —";
                 else _openCodeStatusItem!.Text = $"OpenCode: {_vm.OpenCodeRequestCountLabel} · in {_vm.OpenCodeInputLabel} · out {_vm.OpenCodeOutputLabel}";
+
+                // Antigravity Status (가장 많이 소진된 창 기준) — 할당량을 못 받았으면 0% 대신 "—"
+                if (_vm.AntigravityHasData) _antigravityStatusItem!.Text = $"Antigravity: {_vm.AntigravityPercent:P0}";
+                else if (_vm.AntigravityHasError) _antigravityStatusItem!.Text = $"Antigravity: {Loc.Unavailable}";
+                else _antigravityStatusItem!.Text = "Antigravity: —";
             }
 
             _nextRefreshItem!.Text = $"Next: {_vm.NextRefreshLabel}";
@@ -203,8 +201,9 @@ public partial class App : Application
             {
                 UsageProviderKind.Claude => _vm.ClaudeVm.HasError,
                 UsageProviderKind.Codex => _vm.CodexHasError,
-                UsageProviderKind.GeminiCli => _vm.GeminiHasError,
                 UsageProviderKind.OpenCode => _vm.OpenCodeHasError,
+                // 할당량을 못 받은 상태(미로그인 포함)에서 0% 게이지를 그리면 여유가 100% 라는 뜻으로 읽힌다
+                UsageProviderKind.Antigravity => !_vm.AntigravityHasData,
                 _ => false
             };
 
@@ -224,7 +223,6 @@ public partial class App : Application
 
             // Multi-provider summary in tooltip — respects HideInactiveProviders
             bool hide = _vm.HideInactiveProviders;
-            bool geminiEmpty   = _vm.GeminiOutputTokensLabel is "—" or "" or null;
             bool openCodeEmpty = _vm.OpenCodeOutputLabel    is "—" or "" or null;
 
             var parts = new System.Collections.Generic.List<string>();
@@ -240,15 +238,16 @@ public partial class App : Application
                 string mark = currentKind == UsageProviderKind.Codex ? "*" : "";
                 parts.Add($"{mark}Codex {(_vm.CodexHasError ? "—" : $"{_vm.CodexPercent:P0}")}");
             }
-            if (!(hide && (_vm.GeminiHasError || geminiEmpty)))
-            {
-                string mark = currentKind == UsageProviderKind.GeminiCli ? "*" : "";
-                parts.Add($"{mark}Gemini {(_vm.GeminiHasError ? "—" : (geminiEmpty ? "-" : _vm.GeminiOutputTokensLabel))}");
-            }
             if (!(hide && (_vm.OpenCodeHasError || openCodeEmpty)))
             {
                 string mark = currentKind == UsageProviderKind.OpenCode ? "*" : "";
                 parts.Add($"{mark}OC {(_vm.OpenCodeHasError ? "—" : (openCodeEmpty ? "-" : _vm.OpenCodeOutputLabel))}");
+            }
+            // 툴팁은 127자 제한이라 OpenCode(OC)처럼 줄여 쓴다. 표시를 끄면 HasData 도 거짓이 된다.
+            if (_vm.AntigravityHasData || (!hide && _vm.IsAntigravityEnabled))
+            {
+                string mark = currentKind == UsageProviderKind.Antigravity ? "*" : "";
+                parts.Add($"{mark}AG {(_vm.AntigravityHasData ? $"{_vm.AntigravityPercent:P0}" : "—")}");
             }
 
             string body = parts.Count == 0 ? "—" : string.Join(" · ", parts);
@@ -270,13 +269,13 @@ public partial class App : Application
         {
             MainViewModel => string.IsNullOrEmpty(propertyName) || propertyName is
                 nameof(MainViewModel.CodexPercent) or
-                nameof(MainViewModel.GeminiRequestsLabel) or
-                nameof(MainViewModel.GeminiOutputTokensLabel) or
                 nameof(MainViewModel.OpenCodeRequestCountLabel) or
                 nameof(MainViewModel.OpenCodeInputLabel) or
                 nameof(MainViewModel.OpenCodeOutputLabel) or
+                nameof(MainViewModel.AntigravityPercent) or
+                nameof(MainViewModel.AntigravityHasData) or
+                nameof(MainViewModel.AntigravityHasError) or
                 nameof(MainViewModel.CodexHasError) or
-                nameof(MainViewModel.GeminiHasError) or
                 nameof(MainViewModel.OpenCodeHasError) or
                 nameof(MainViewModel.IsLoading) or
                 nameof(MainViewModel.NextRefreshLabel),
@@ -295,11 +294,12 @@ public partial class App : Application
                 nameof(MainViewModel.TrayDisplayMode) or
                 nameof(MainViewModel.EffectiveTrayProvider) or
                 nameof(MainViewModel.CodexHasError) or
-                nameof(MainViewModel.GeminiHasError) or
                 nameof(MainViewModel.OpenCodeHasError) or
                 nameof(MainViewModel.HasError) or
                 nameof(MainViewModel.HideInactiveProviders) or
-                nameof(MainViewModel.GeminiOutputTokensLabel) or
+                nameof(MainViewModel.IsAntigravityEnabled) or
+                nameof(MainViewModel.AntigravityHasData) or
+                nameof(MainViewModel.AntigravityPercent) or
                 nameof(MainViewModel.OpenCodeOutputLabel) or
                 nameof(MainViewModel.LblAppTitle) or
                 nameof(MainViewModel.WeatherTooltipLabel) or

@@ -14,6 +14,14 @@ public class SettingsService
 
     public NotificationSettings Load()
     {
+        var settings = LoadFromDisk();
+        // 예전 파일은 다음 저장 때 새 형식으로 기록된다. 그 전까지는 읽을 때마다 같은 결과로 옮긴다.
+        settings.MigrateLegacyProviders();
+        return settings;
+    }
+
+    private static NotificationSettings LoadFromDisk()
+    {
         try
         {
             if (File.Exists(SettingsPath))

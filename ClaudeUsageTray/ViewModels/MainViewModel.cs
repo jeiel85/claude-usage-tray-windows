@@ -17,7 +17,6 @@ namespace ClaudeUsageTray.ViewModels;
     private readonly CredentialService _credentials;
     private readonly SessionMonitor _session;
     private readonly CodexUsageMonitor _codex;
-    private readonly GeminiCliUsageMonitor _geminiCli;
     private readonly OpenCodeUsageMonitor _openCode;
     private readonly AntigravityUsageMonitor _antigravity;
     private readonly NotificationService _notifier;
@@ -35,14 +34,12 @@ namespace ClaudeUsageTray.ViewModels;
     public AntigravityViewModel AntigravityVm { get; }
     public WeatherViewModel WeatherVm { get; }
     public OpenCodeViewModel OpenCodeVm { get; }
-    public GeminiViewModel GeminiVm { get; }
     public CodexViewModel CodexVm { get; }
     public ClaudeViewModel ClaudeVm { get; }
 
     // Tracks previous 5h usage to detect threshold crossings
     private double _prevShortPercent = -1;
     private double _prevCodexPercent = -1;
-    private double _prevGeminiPercent = -1;
     private double _prevExtraPercent = -1;
     private bool _prevHadRateLimit = false;
 
@@ -121,19 +118,6 @@ namespace ClaudeUsageTray.ViewModels;
     private System.Collections.Generic.IReadOnlyList<AdditionalQuotaWindow> _codexAdditionalSource =
         System.Array.Empty<AdditionalQuotaWindow>();
 
-    // Gemini Usage
-    [ObservableProperty] private double _geminiPercent = 0;
-    [ObservableProperty] private string _geminiReset = "";
-    [ObservableProperty] private bool _geminiHasError = false;
-    [ObservableProperty] private string _geminiErrorMessage = "";
-    [ObservableProperty] private string _geminiNote = Loc.ProviderGeminiCliNote;
-    [ObservableProperty] private string _geminiSummary = "";
-    [ObservableProperty] private string _geminiRequestsLabel = "";
-    [ObservableProperty] private string _geminiOutputTokensLabel = "";
-    // 오늘의 토큰 3타일 (Input / Output / CacheRead — Gemini는 cache write 없어 타일 자체를 두지 않음)
-    [ObservableProperty] private string _geminiInputLabel = "—";
-    [ObservableProperty] private string _geminiCacheReadLabel = "—";
-
     // OpenCode Usage
     [ObservableProperty] private bool _openCodeHasError = false;
     [ObservableProperty] private string _openCodeErrorMessage = "";
@@ -154,7 +138,6 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private string _antigravityPaidTierName = "";   // e.g. "Gemini Code Assist in Google One AI Pro"
     [ObservableProperty] private System.Collections.Generic.IReadOnlyList<QuotaGaugeRow> _antigravityModels =
         System.Array.Empty<QuotaGaugeRow>();
-    [ObservableProperty] private bool _isAntigravityEnabled = true;
     [ObservableProperty] private double _antigravityPercent = 0.0;
     // 상세 하단 안내 + 출처 — Codex 상세의 같은 자리(왼쪽 안내 / 오른쪽 출처)와 같은 구성.
     [ObservableProperty] private string _antigravityNote = Loc.ProviderAntigravityNote;
@@ -184,7 +167,6 @@ namespace ClaudeUsageTray.ViewModels;
     //   Codex        세션 로그·API 의 rate_limits.plan_type, 없으면 ~/.codex/auth.json 의 id_token
     //   OpenCode     ~/.local/share/opencode/auth.json 에 저장된 OpenCode 로그인 항목
     //   Antigravity  loadCodeAssist 응답의 tier 이름
-    //   Gemini CLI   등급을 알 수 있는 로컬 자료가 없어 배지 없음
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsClaudePlanBadgeVisible))]
     private string _claudePlanLabel = "";
@@ -424,15 +406,14 @@ namespace ClaudeUsageTray.ViewModels;
     // Manual provider visibility toggles
     [ObservableProperty] private bool _isClaudeEnabled = true;
     [ObservableProperty] private bool _isCodexEnabled = true;
-    [ObservableProperty] private bool _isGeminiEnabled = true;
     [ObservableProperty] private bool _isOpenCodeEnabled = true;
+    [ObservableProperty] private bool _isAntigravityEnabled = true;
 
     // Popup에서 한 번에 한 공급자만 상세 펼침 — 나머지는 컴팩트 행 (v1.25.0 신규)
     // 빈 문자열은 "자동 결정" 의미 — LoadSettings/EnsureValidFocusedProvider 가 즉시 채움
     [ObservableProperty] private string _focusedProvider = UsageProviderKind.Claude;
     [ObservableProperty] private bool _isClaudeFocused = true;
     [ObservableProperty] private bool _isCodexFocused = false;
-    [ObservableProperty] private bool _isGeminiFocused = false;
     [ObservableProperty] private bool _isOpenCodeFocused = false;
     [ObservableProperty] private bool _isAntigravityFocused = false;
 
@@ -441,7 +422,6 @@ namespace ClaudeUsageTray.ViewModels;
 
     // Visibility control (IsClaudeActive → ClaudeVm.IsActive)
     [ObservableProperty] private bool _isCodexActive = false;
-    [ObservableProperty] private bool _isGeminiActive = false;
     [ObservableProperty] private bool _isOpenCodeActive = false;
     // IsClaudeUsageEmpty → ClaudeVm.IsUsageEmpty
     [ObservableProperty]
@@ -452,7 +432,6 @@ namespace ClaudeUsageTray.ViewModels;
     // Codex 토큰 4타일을 표시할지 판단하는 실제 기준(로컬 또는 동기화된 다른 기기 토큰 유무).
     // UpdateOverallStatus 가 IsCodexUsageEmpty 를 재계산할 때 이 값을 참조한다.
     private bool _codexHasTokenData;
-    [ObservableProperty] private bool _isGeminiUsageEmpty = true;
     [ObservableProperty] private bool _isOpenCodeUsageEmpty = true;
 
     // IsClaudeSubscribed → ClaudeVm.IsSubscribed
@@ -512,12 +491,10 @@ namespace ClaudeUsageTray.ViewModels;
 
     // ntfy 발송 대상 토픽: 이 PC에서 발송 비활성화 시 빈 문자열 반환
     private string NtfyTopicEffective => NtfySendFromThisPc ? NtfyTopic : "";
-    public string LblGeminiRequests   => Loc.GeminiRequests;
     public string LblExtraCredits    => Loc.ExtraCreditsLabel;
     public string LblCheckUpdate     => Loc.CheckUpdate;
     public string LblClaudeNoUsage   => Loc.ClaudeNoUsageToday;
     public string LblCodexNoUsage    => IsCodexLoading ? Loc.CodexLoading : Loc.CodexNoUsageToday;
-    public string LblGeminiNoUsage   => Loc.GeminiCliNoUsageToday;
     public string LblOpenCodeNoUsage => Loc.OpenCodeNoUsageToday;
     public string LblVisibleProviders => Loc.VisibleProviders;
     public string DisclaimerText     => SelectedProvider == UsageProviderKind.Claude ? Loc.Disclaimer : Loc.GenericDisclaimer;
@@ -529,7 +506,7 @@ namespace ClaudeUsageTray.ViewModels;
     public string TipCacheWrite => Loc.CacheWriteTooltip;
 
     public MainViewModel(UsageApiService api, CredentialService credentials,
-                         SessionMonitor session, CodexUsageMonitor codex, GeminiCliUsageMonitor geminiCli,
+                         SessionMonitor session, CodexUsageMonitor codex,
                          OpenCodeUsageMonitor openCode, AntigravityUsageMonitor antigravity,
                          NotificationService notifier, SettingsService settingsService,
                          UpdateService updater, HistoryService history,
@@ -541,7 +518,6 @@ namespace ClaudeUsageTray.ViewModels;
         _credentials = credentials;
         _session = session;
         _codex = codex;
-        _geminiCli = geminiCli;
         _openCode = openCode;
         _antigravity = antigravity;
         _notifier = notifier;
@@ -555,7 +531,6 @@ namespace ClaudeUsageTray.ViewModels;
         AntigravityVm = new AntigravityViewModel(antigravity);
         WeatherVm = new WeatherViewModel(weather, weatherAlert);
         OpenCodeVm = new OpenCodeViewModel(openCode, history, openCodeWebUsage);
-        GeminiVm = new GeminiViewModel(geminiCli, history);
         CodexVm = new CodexViewModel(codex, history);
         ClaudeVm = new ClaudeViewModel();
 
@@ -643,8 +618,8 @@ namespace ClaudeUsageTray.ViewModels;
         // Manual provider visibility
         IsClaudeEnabled   = s.VisibleProviders.Contains(UsageProviderKind.Claude);
         IsCodexEnabled    = s.VisibleProviders.Contains(UsageProviderKind.Codex);
-        IsGeminiEnabled   = s.VisibleProviders.Contains(UsageProviderKind.GeminiCli);
         IsOpenCodeEnabled = s.VisibleProviders.Contains(UsageProviderKind.OpenCode);
+        IsAntigravityEnabled = s.VisibleProviders.Contains(UsageProviderKind.Antigravity);
 
         // Popup focused provider — 빈 값/유효하지 않으면 자동 결정
         FocusedProvider = string.IsNullOrEmpty(s.FocusedProvider) ? UsageProviderKind.Claude : s.FocusedProvider;
@@ -694,28 +669,26 @@ namespace ClaudeUsageTray.ViewModels;
         ProviderNote = value switch
         {
             UsageProviderKind.Codex     => Loc.ProviderCodexNote,
-            UsageProviderKind.GeminiCli => Loc.ProviderGeminiCliNote,
             UsageProviderKind.OpenCode  => Loc.ProviderOpenCodeNote,
             _ => ""
         };
     }
 
     /// <summary>
-    /// FocusedProvider 변경 시 IsXxxFocused 부울 4개를 동기화.
+    /// FocusedProvider 변경 시 IsXxxFocused 부울들을 동기화.
     /// (UsagePopup.xaml 의 Visibility 바인딩이 이 부울들을 본다)
     /// </summary>
     partial void OnFocusedProviderChanged(string value)
     {
         IsClaudeFocused   = value == UsageProviderKind.Claude;
         IsCodexFocused    = value == UsageProviderKind.Codex;
-        IsGeminiFocused   = value == UsageProviderKind.GeminiCli;
         IsOpenCodeFocused = value == UsageProviderKind.OpenCode;
         IsAntigravityFocused = value == UsageProviderKind.Antigravity;
     }
 
     /// <summary>
     /// FocusedProvider 가 비어있거나 비활성화/숨김 공급자를 가리키면 안전한 값으로 폴백.
-    /// 우선순위: Claude → Codex → Gemini → OpenCode (활성된 것 중 첫 번째).
+    /// 우선순위: Claude → Codex → OpenCode → Antigravity (활성된 것 중 첫 번째).
     /// </summary>
     private void EnsureValidFocusedProvider()
     {
@@ -723,7 +696,6 @@ namespace ClaudeUsageTray.ViewModels;
         {
             UsageProviderKind.Claude    => IsClaudeEnabled,
             UsageProviderKind.Codex     => IsCodexEnabled,
-            UsageProviderKind.GeminiCli => IsGeminiEnabled,
             UsageProviderKind.OpenCode  => IsOpenCodeEnabled,
             UsageProviderKind.Antigravity => IsAntigravityEnabled,
             _ => false
@@ -742,7 +714,6 @@ namespace ClaudeUsageTray.ViewModels;
         // 폴백 — 유효하지 않은 공급자거나 비활성된 공급자를 가리킬 때만
         if (IsClaudeEnabled)        FocusedProvider = UsageProviderKind.Claude;
         else if (IsCodexEnabled)    FocusedProvider = UsageProviderKind.Codex;
-        else if (IsGeminiEnabled)   FocusedProvider = UsageProviderKind.GeminiCli;
         else if (IsOpenCodeEnabled) FocusedProvider = UsageProviderKind.OpenCode;
         else if (IsAntigravityEnabled) FocusedProvider = UsageProviderKind.Antigravity;
         else                        FocusedProvider = UsageProviderKind.Claude; // 모두 비활성 시 최후 폴백
@@ -754,9 +725,6 @@ namespace ClaudeUsageTray.ViewModels;
         {
             case UsageProviderKind.Codex:
                 _history.SetScope(UsageProviderKind.Codex, null);
-                break;
-            case UsageProviderKind.GeminiCli:
-                _history.SetScope(UsageProviderKind.GeminiCli, null);
                 break;
             case UsageProviderKind.OpenCode:
                 _history.SetScope(UsageProviderKind.OpenCode, null);
@@ -839,8 +807,8 @@ namespace ClaudeUsageTray.ViewModels;
         var visibleProviders = new List<string>();
         if (IsClaudeEnabled)   visibleProviders.Add(UsageProviderKind.Claude);
         if (IsCodexEnabled)    visibleProviders.Add(UsageProviderKind.Codex);
-        if (IsGeminiEnabled)   visibleProviders.Add(UsageProviderKind.GeminiCli);
         if (IsOpenCodeEnabled) visibleProviders.Add(UsageProviderKind.OpenCode);
+        if (IsAntigravityEnabled) visibleProviders.Add(UsageProviderKind.Antigravity);
 
         // Preserve SkippedVersion / AutoUpdateAttemptedVersion from disk
         var existing = _settingsService.Load();
@@ -868,6 +836,7 @@ namespace ClaudeUsageTray.ViewModels;
             TrayDisplayMode = TrayDisplayMode,
             HideInactiveProviders = HideInactiveProviders,
             VisibleProviders = visibleProviders,
+            ProviderSettingsVersion = NotificationSettings.CurrentProviderSettingsVersion,
             FocusedProvider = FocusedProvider,
             ShowPlanBadge = ShowPlanBadge,
             ShowAbsoluteResetTime = ShowAbsoluteResetTime,
@@ -1495,7 +1464,6 @@ namespace ClaudeUsageTray.ViewModels;
             {
                 RefreshClaudeAsync(),
                 RefreshCodexInternalAsync(),
-                RefreshGeminiCliInternalAsync(),
                 RefreshOpenCodeInternalAsync(),
                 RefreshAntigravityInternalAsync()
             };
@@ -1510,7 +1478,7 @@ namespace ClaudeUsageTray.ViewModels;
                 // 공통 정보 업데이트
                 UpdateOverallStatus();
                 
-                LastUpdatedLabel = (ClaudeVm.HasError || CodexHasError || GeminiHasError || OpenCodeHasError)
+                LastUpdatedLabel = (ClaudeVm.HasError || CodexHasError || OpenCodeHasError)
                     ? $"⚠ {DateTime.Now:HH:mm:ss}"
                     : Loc.UpdatedAt(DateTime.Now.ToString("HH:mm:ss"));
                 IsLoading = false;
@@ -1527,9 +1495,6 @@ namespace ClaudeUsageTray.ViewModels;
             });
         }
     }
-
-    private int _lastGeminiRequestCount = 0;
-    private long _lastGeminiOutputTokens = 0;
 
     private int _lastOpenCodeRequestCount = 0;
     private long _lastOpenCodeInputTokens = 0;
@@ -1551,28 +1516,25 @@ namespace ClaudeUsageTray.ViewModels;
         IsCodexActive = IsCodexSectionActive(
             IsCodexEnabled, hideInactive, _codexHasTokenData, CodexPercent, CodexLongPercent,
             HasLiveCodexQuota(), _isCodexSubscribed, CodexHasError);
-        IsGeminiActive = IsGeminiSectionActive(
-            IsGeminiEnabled, hideInactive, _lastGeminiRequestCount, GeminiHasError);
         IsOpenCodeActive = IsOpenCodeSectionActive(
             IsOpenCodeEnabled, hideInactive, _lastOpenCodeRequestCount, _openCodeHasPeriodUsage,
             OpenCodeVm.HasWebQuota, OpenCodeVm.HasStaleSyncedQuota, OpenCodeHasError);
 
         ClaudeVm.IsUsageEmpty = TodayInputTokens + TodayOutputTokens == 0;
         IsCodexUsageEmpty = !_codexHasTokenData;
-        IsGeminiUsageEmpty = _lastGeminiRequestCount == 0;
         IsOpenCodeUsageEmpty = _lastOpenCodeRequestCount == 0;
 
         // 2. 트레이 표시 기준 결정 (자동 모드 로직 개선)
         if (TrayDisplayMode == UsageProviderKind.Auto)
         {
-            // 오늘 사용량이 있는 공급자를 우선순위에 따라 선택 (OpenCode -> Gemini -> Codex -> Claude)
+            // 최근 사용량이 있는 공급자를 우선순위에 따라 선택 (OpenCode -> Codex -> Antigravity -> Claude)
             // 단, 사용자가 활성화(Enabled)한 공급자만 선택 대상
             if (IsOpenCodeEnabled && _lastOpenCodeRequestCount > 0)
                 EffectiveTrayProvider = UsageProviderKind.OpenCode;
-            else if (IsGeminiEnabled && _lastGeminiRequestCount > 0)
-                EffectiveTrayProvider = UsageProviderKind.GeminiCli;
             else if (IsCodexEnabled && CodexPercent > 0 && !CodexHasError)
                 EffectiveTrayProvider = UsageProviderKind.Codex;
+            else if (IsAntigravityEnabled && AntigravityHasData && HasRecentAntigravityUsage(AntigravityModels))
+                EffectiveTrayProvider = UsageProviderKind.Antigravity;
             else if (IsClaudeEnabled && TodayInputTokens + TodayOutputTokens > 0)
                 EffectiveTrayProvider = UsageProviderKind.Claude;
             else
@@ -1581,12 +1543,11 @@ namespace ClaudeUsageTray.ViewModels;
                 // 현재 수동 선택된 공급자가 활성 상태면 그것을, 아니면 활성된 것 중 첫 번째(우선순위 역순)
                 if (SelectedProvider == UsageProviderKind.Claude && IsClaudeEnabled) EffectiveTrayProvider = UsageProviderKind.Claude;
                 else if (SelectedProvider == UsageProviderKind.Codex && IsCodexEnabled) EffectiveTrayProvider = UsageProviderKind.Codex;
-                else if (SelectedProvider == UsageProviderKind.GeminiCli && IsGeminiEnabled) EffectiveTrayProvider = UsageProviderKind.GeminiCli;
                 else if (SelectedProvider == UsageProviderKind.OpenCode && IsOpenCodeEnabled) EffectiveTrayProvider = UsageProviderKind.OpenCode;
                 else if (IsClaudeEnabled)   EffectiveTrayProvider = UsageProviderKind.Claude;
                 else if (IsCodexEnabled)    EffectiveTrayProvider = UsageProviderKind.Codex;
-                else if (IsGeminiEnabled)   EffectiveTrayProvider = UsageProviderKind.GeminiCli;
                 else if (IsOpenCodeEnabled) EffectiveTrayProvider = UsageProviderKind.OpenCode;
+                else if (IsAntigravityEnabled) EffectiveTrayProvider = UsageProviderKind.Antigravity;
                 else EffectiveTrayProvider = UsageProviderKind.Claude; // All disabled fallback
             }
         }
@@ -1600,32 +1561,18 @@ namespace ClaudeUsageTray.ViewModels;
         {
             UsageProviderKind.Claude => ClaudeVm.ShortPercent,
             UsageProviderKind.Codex => CodexPercent,
-            UsageProviderKind.GeminiCli => GeminiPercent,
             UsageProviderKind.OpenCode => OpenCodePercent,
+            // 가장 많이 소진된 창 — 창마다 한도가 따로 걸리므로 평균을 쓰면 급한 제약이 가려진다.
+            UsageProviderKind.Antigravity => AntigravityHasData ? AntigravityPercent : 0,
             _ => ClaudeVm.ShortPercent
         };
 
-        // Gemini CLI는 공급자 할당량이 없어 최근 7일 최대치 대비 비율을 트레이 참고값으로 쓴다.
-        // OpenCode는 같은 상대값이 실제 할당량처럼 오해되므로 만들지 않는다.
-        if (TrayDisplayMode == UsageProviderKind.Auto || TrayDisplayMode == EffectiveTrayProvider)
-        {
-            // 초기에 데이터가 없을 때를 대비해 최소 10,000 토큰을 기준으로 잡음
-            const long defaultMinGoal = 10000;
-
-            if (EffectiveTrayProvider == UsageProviderKind.GeminiCli)
-            {
-                var max = _history.GetRecentMaxTotalTokens(UsageProviderKind.GeminiCli, null, 7);
-                var goal = Math.Max(defaultMinGoal, max);
-                if (goal > 0) TrayUsagePercent = Math.Clamp(_lastGeminiOutputTokens / (double)goal, 0, 1);
-            }
-        }
-
-        if (ClaudeVm.HasError && CodexHasError && GeminiHasError && OpenCodeHasError)
+        if (ClaudeVm.HasError && CodexHasError && OpenCodeHasError)
         {
             StatusText = "All Providers Error";
             HasError = true;
         }
-        else if (ClaudeVm.HasError || CodexHasError || GeminiHasError || OpenCodeHasError)
+        else if (ClaudeVm.HasError || CodexHasError || OpenCodeHasError)
         {
             StatusText = "Partial Error";
             HasError = false;
@@ -1640,8 +1587,8 @@ namespace ClaudeUsageTray.ViewModels;
             StatusText = EffectiveTrayProvider switch
             {
                 UsageProviderKind.Codex     => Loc.TrayStatusCodex(CodexPercent, CodexDataSource),
-                UsageProviderKind.GeminiCli => Loc.TrayStatusGemini(_lastGeminiRequestCount, _lastGeminiOutputTokens),
                 UsageProviderKind.OpenCode  => Loc.TrayStatusOpenCode(_lastOpenCodeRequestCount, _lastOpenCodeInputTokens, _lastOpenCodeOutputTokens),
+                UsageProviderKind.Antigravity => Loc.TrayStatusAntigravity(AntigravityPercent, AntigravityHasData),
                 // 미조회 상태에서 "Claude 0%" 라고 쓰면 여유가 100% 라는 뜻으로 읽힌다
                 _ => ClaudeVm.HasQuotaData
                         ? Loc.TrayStatusClaude(ClaudeVm.ShortPercent)
@@ -1649,6 +1596,16 @@ namespace ClaudeUsageTray.ViewModels;
             };
         }
     }
+
+    /// <summary>
+    /// 자동 트레이 모드에서 Antigravity 를 "지금 쓰는 중" 으로 볼 근거 — 5시간 창 사용률이 0 보다 큰가.
+    /// 트레이 게이지 값(<see cref="AntigravityPercent"/>)은 주간 창까지 포함한 최대 소진율이라 한 번 쓰면 일주일 내내
+    /// 0 보다 크다. 그걸 근거로 삼으면 오늘 아직 Claude 를 쓰지 않은 아침마다 트레이가 Antigravity 로 넘어간다.
+    /// Codex 가 5시간 창 사용률(<see cref="CodexPercent"/>)을 보는 것과 같은 기준이다.
+    /// 리셋이 지난 창은 <see cref="AntigravityViewModel.ApplyQuota"/> 가 이미 걸러 낸다.
+    /// </summary>
+    internal static bool HasRecentAntigravityUsage(IReadOnlyList<QuotaGaugeRow> models) =>
+        models.Any(m => m.Window is { } window && window <= TimeSpan.FromHours(5) && m.UsagePercent > 0);
 
     private bool IsUsageSyncReady =>
         UsageSyncEnabled && !string.IsNullOrWhiteSpace(UsageSyncFolderPath);
@@ -1736,7 +1693,7 @@ namespace ClaudeUsageTray.ViewModels;
             return new UsageSyncProviderResult(
                 _usageSync.MergeLocalTotals(read.Snapshots, UsageSyncLocalTtl),
                 // 할당량은 합산하지 않는다 — 계정 단위 값이라 가장 최근에 관측한 PC 것을 쓴다.
-                // 기기별로 계산되는 Gemini percent 는 쓰지 않는다. OpenCode 는 공식 웹 할당량만 공유한다.
+                // OpenCode 는 공식 웹 할당량만 공유한다.
                 UsageSyncSharesAccountQuota(provider)
                     ? _usageSync.SelectQuotaCandidates(
                         UsageSyncFolderPath, provider, null, today, read.Snapshots, UsageSyncQuotaTtl(provider))
@@ -1756,8 +1713,8 @@ namespace ClaudeUsageTray.ViewModels;
     /// <summary>
     /// 이 provider 의 할당량이 "계정 단위"라서 기기 간에 공유해도 되는가.
     /// Codex·Antigravity·OpenCode 공식 웹 할당량은 서버가 계정별로 내려주므로 어느 PC 에서 봐도 같은 값이다.
-    /// Gemini CLI 의 percent 는 그 PC 의 로컬 토큰 합계를 그 PC 의 최근 최대치로 나눈 값이라
-    /// 다른 PC 의 값을 가져다 쓰면 남의 기기 기준을 내 화면에 표시하는 셈이 된다 — 대신 합산 토큰으로 다시 계산한다.
+    /// 기기마다 따로 계산하는 값(로컬 토큰을 그 PC 의 최근 최대치로 나눈 비율 등)은 다른 PC 것을 가져다 쓰면
+    /// 남의 기기 기준을 내 화면에 표시하는 셈이 되므로 여기에 넣지 않는다.
     /// </summary>
     internal static bool UsageSyncSharesAccountQuota(string provider) =>
         provider is UsageProviderKind.Codex or UsageProviderKind.Antigravity or UsageProviderKind.OpenCode;
@@ -2084,7 +2041,6 @@ namespace ClaudeUsageTray.ViewModels;
         if (string.IsNullOrWhiteSpace(error))
             return "";
         if (UsageCalculator.IsNoUsageInformational(error, UsageProviderKind.Codex) ||
-            UsageCalculator.IsNoUsageInformational(error, UsageProviderKind.GeminiCli) ||
             UsageCalculator.IsNoUsageInformational(error, UsageProviderKind.OpenCode))
             return "no_usage";
         return "source_error";
@@ -2178,22 +2134,6 @@ namespace ClaudeUsageTray.ViewModels;
         && !string.Equals(planType, "guest", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Gemini CLI 섹션을 화면에 남길지 여부.
-    /// 다른 공급자와 달리 서버 할당량도 구독 등급 자료도 없어, 오늘 요청 수(다중 PC 합산 포함)와 오류만이
-    /// 표시 근거다 — 할당량·구독을 근거로 추가한 Claude(#152)·Codex(#155)·OpenCode(#150) 와 같은 결함은
-    /// 이 공급자에는 생길 수 없다. 표시 규칙을 "켜져 있고, 자동 숨김이 꺼져 있거나 근거가 하나라도 있으면"
-    /// 이라는 한 모양으로 모아 두려고 따로 뽑았다(#154).
-    /// </summary>
-    internal static bool IsGeminiSectionActive(
-        bool isEnabled,
-        bool hideInactive,
-        int requestCount,
-        bool hasError) =>
-        isEnabled && (!hideInactive
-            || requestCount > 0
-            || hasError);
-
-    /// <summary>
     /// OpenCode 섹션을 화면에 남길지 여부.
     /// 동기화로 받아 온 공식 할당량(<paramref name="hasWebQuota"/>)과, 그 값이 시효를 넘겨 갱신을 기다리는
     /// 중이라는 안내(<paramref name="hasStaleSyncedQuota"/>)도 "보여 줄 것이 있다" 로 친다.
@@ -2214,16 +2154,6 @@ namespace ClaudeUsageTray.ViewModels;
             || hasWebQuota
             || hasStaleSyncedQuota
             || hasError);
-
-    /// <summary>
-    /// Gemini CLI 처럼 서버 할당량이 없어 "최근 최대 사용일" 대비로 막대를 그리는 provider 의
-    /// 진행률을, 기기 합산 토큰 기준으로 다시 계산한다. 각 모니터의 계산식(출력 토큰 / 목표치)과 같아야 한다.
-    /// </summary>
-    private double MergedGoalPercent(string provider, long outputTokens)
-    {
-        var goal = Math.Max(10000, _history.GetRecentMaxTotalTokens(provider, null, 7));
-        return Math.Clamp(outputTokens / (double)goal, 0, 1);
-    }
 
     private async Task RefreshClaudeAsync()
     {
@@ -2743,47 +2673,6 @@ namespace ClaudeUsageTray.ViewModels;
         });
     }
 
-    private async Task RefreshGeminiCliInternalAsync()
-    {
-        await GeminiVm.RefreshAsync();
-
-        var mergedTotals = TrySyncProviderSnapshot(UsageProviderKind.GeminiCli, GeminiVm.LastSnapshot).MergedTotals;
-
-        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-        {
-            GeminiPercent = GeminiVm.Percent;
-            _prevGeminiPercent = GeminiVm.Percent;
-            GeminiHasError = GeminiVm.HasError;
-            GeminiErrorMessage = GeminiVm.ErrorMessage;
-            GeminiSummary = GeminiVm.Summary;
-            GeminiRequestsLabel = GeminiVm.RequestsLabel;
-            GeminiOutputTokensLabel = GeminiVm.OutputTokensLabel;
-            GeminiInputLabel = GeminiVm.InputLabel;
-            GeminiCacheReadLabel = GeminiVm.CacheReadLabel;
-            IsGeminiUsageEmpty = GeminiVm.IsUsageEmpty;
-            _lastGeminiRequestCount = GeminiVm.LastRequestCount;
-            _lastGeminiOutputTokens = GeminiVm.LastOutputTokens;
-            GeminiNote = WithSyncNote(Loc.ProviderGeminiCliNote, mergedTotals);
-
-            if (HasMergedDeviceTotals(mergedTotals))
-            {
-                GeminiRequestsLabel = RequestCountOrDash(mergedTotals!.RequestCount);
-                GeminiInputLabel = TokenOrDash(mergedTotals.InputTokens);
-                GeminiOutputTokensLabel = TokenOrDash(mergedTotals.OutputTokens);
-                GeminiCacheReadLabel = TokenOrDash(mergedTotals.CacheReadTokens);
-                GeminiSummary = Loc.GeminiCliRequestSummary(mergedTotals.RequestCount, mergedTotals.OutputTokens);
-                IsGeminiUsageEmpty = false;
-                _lastGeminiRequestCount = mergedTotals.RequestCount;
-                _lastGeminiOutputTokens = mergedTotals.OutputTokens;
-                // 막대도 합산 기준으로 다시 계산한다. 안 하면 숫자는 여러 PC 합인데 막대만 이 PC 몫이라 어긋난다.
-                GeminiPercent = MergedGoalPercent(UsageProviderKind.GeminiCli, mergedTotals.OutputTokens);
-                _prevGeminiPercent = GeminiPercent;
-            }
-
-            UpdateOverallStatus();
-        });
-    }
-
     private async Task RefreshOpenCodeInternalAsync()
     {
         await OpenCodeVm.RefreshAsync();
@@ -2894,9 +2783,6 @@ namespace ClaudeUsageTray.ViewModels;
     // Manual triggers (optional, usually RefreshAsync is enough)
     [RelayCommand]
     public async Task RefreshCodexAsync() => await RefreshAsync();
-
-    [RelayCommand]
-    public async Task RefreshGeminiCliAsync() => await RefreshAsync();
 
     private void ApplyProviderSnapshot(ProviderUsageSnapshot snapshot, bool isError)
     {
@@ -3306,7 +3192,7 @@ namespace ClaudeUsageTray.ViewModels;
         AntigravityVm.IsEnabled = IsAntigravityEnabled;
         await AntigravityVm.RefreshAsync();
 
-        // Codex/OpenCode/Gemini 와 동일하게 무조건 동기화한다 — IsAntigravityEnabled 는 표시 여부
+        // Codex/OpenCode 와 동일하게 무조건 동기화한다 — IsAntigravityEnabled 는 표시 여부
         // 설정일 뿐 이 provider 를 이 PC 에서 실제로 쓰는지와 무관하다. 여기서 조건부로 걸면
         // "이 PC 는 Antigravity 를 안 쓴다" 상황에서 정작 필요한 동기화 읽기까지 막혀버린다.
         // 표시를 끈 PC 는 로컬 조회를 건너뛰므로 할당량 없는 스냅샷만 쓰게 되고(다른 PC 에 영향 없음),

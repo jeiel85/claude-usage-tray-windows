@@ -21,7 +21,6 @@ public class MainViewModelIntegrationTests
         var apiService = new UsageApiService(credService);
         var sessionMonitor = new SessionMonitor();
         var codexMonitor = new CodexUsageMonitor();
-        var geminiCliMonitor = new GeminiCliUsageMonitor();
         var openCodeMonitor = new OpenCodeUsageMonitor();
         var antigravityMonitor = new AntigravityUsageMonitor();
         var notifier = new NotificationService(() => null);
@@ -32,7 +31,7 @@ public class MainViewModelIntegrationTests
         var weatherAlert = new WeatherAlertService(
             weather, notifier, () => new NotificationSettings(), Array.Empty<IWeatherWarningProvider>());
 
-        return new MainViewModel(apiService, credService, sessionMonitor, codexMonitor, geminiCliMonitor,
+        return new MainViewModel(apiService, credService, sessionMonitor, codexMonitor,
             openCodeMonitor, antigravityMonitor, notifier, settingsService, updater, history, usageSync, weather, weatherAlert);
     }
 
@@ -48,7 +47,6 @@ public class MainViewModelIntegrationTests
                 Assert.NotNull(vm.AntigravityVm);
                 Assert.NotNull(vm.WeatherVm);
                 Assert.NotNull(vm.OpenCodeVm);
-                Assert.NotNull(vm.GeminiVm);
                 Assert.NotNull(vm.CodexVm);
                 Assert.NotNull(vm.ClaudeVm);
             }
@@ -374,6 +372,41 @@ public class MainViewModelIntegrationTests
             }
             finally
             {
+                vm.Dispose();
+            }
+        });
+    }
+
+    // #183: 설정의 Gemini CLI 항목이 Antigravity 로 바뀌었는지 — 표시 체크박스와 트레이 표시 기준 항목이
+    // 같은 값을 따라 움직여야 한다(표시를 끈 공급자는 트레이 기준으로 고를 수 없다).
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task SettingsWindow_OffersAntigravityInsteadOfGeminiCli(bool antigravityEnabled)
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            SettingsWindow? window = null;
+            try
+            {
+                vm.IsAntigravityEnabled = antigravityEnabled;
+                window = new SettingsWindow(vm);
+
+                var check = Assert.IsType<System.Windows.Controls.CheckBox>(window.FindName("ChkVisibleAntigravity"));
+                Assert.Equal(antigravityEnabled, check.IsChecked);
+
+                var combo = Assert.IsType<System.Windows.Controls.ComboBox>(window.FindName("CmbTrayDisplayMode"));
+                var tags = combo.Items.Cast<System.Windows.Controls.ComboBoxItem>().Select(i => i.Tag?.ToString()).ToList();
+                Assert.Contains(UsageProviderKind.Antigravity, tags);
+                Assert.DoesNotContain(UsageProviderKind.LegacyGeminiCli, tags);
+
+                var trayItem = Assert.IsType<System.Windows.Controls.ComboBoxItem>(window.FindName("TrayItemAntigravity"));
+                Assert.Equal(antigravityEnabled, trayItem.IsEnabled);
+            }
+            finally
+            {
+                window?.Close();
                 vm.Dispose();
             }
         });

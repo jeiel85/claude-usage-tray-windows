@@ -51,14 +51,6 @@ public static class Loc
         _ => "Codex Usage"
     };
 
-    public static string GeminiCliUsageTitle => Lang switch
-    {
-        "ko" => "Gemini CLI 사용량",
-        "zh" => "Gemini CLI 用量",
-        "ja" => "Gemini CLI 使用量",
-        _ => "Gemini CLI Usage"
-    };
-
     public static string ProviderSection => Lang switch
     {
         "ko" => "차트 표시 기준",
@@ -83,14 +75,6 @@ public static class Loc
         _ => "Codex (ChatGPT plan)"
     };
 
-    public static string ProviderGeminiCli => Lang switch
-    {
-        "ko" => "Gemini CLI",
-        "zh" => "Gemini CLI",
-        "ja" => "Gemini CLI",
-        _ => "Gemini CLI"
-    };
-
     public static string ProviderCodexNote => Lang switch
     {
         "ko" => "ChatGPT plan 기준 · 로컬 Codex 세션 데이터",
@@ -106,14 +90,6 @@ public static class Loc
         "zh" => "基于 Google 账号配额 · Antigravity 官方数据",
         "ja" => "Google アカウントの割当基準 · Antigravity 公式数値",
         _ => "Based on the Google account quota · official Antigravity figures"
-    };
-
-    public static string ProviderGeminiCliNote => Lang switch
-    {
-        "ko" => "Gemini CLI 로컬 기준 · 공식 수치 아님",
-        "zh" => "Gemini CLI 本地基准 · 非官方数据",
-        "ja" => "Gemini CLI ローカル基準 · 公式数値ではありません",
-        _ => "Gemini CLI local logs · not official quota"
     };
 
     // Header
@@ -1537,46 +1513,6 @@ public static class Loc
         _ => "No usage has been recorded today yet."
     };
 
-    public static string GeminiCliSourceNotFound => Lang switch
-    {
-        "ko" => "Gemini CLI 사용자 폴더를 찾지 못했습니다.",
-        "zh" => "未找到 Gemini CLI 用户目录。",
-        "ja" => "Gemini CLI のユーザーディレクトリが見つかりません。",
-        _ => "Gemini CLI user directory was not found."
-    };
-
-    public static string GeminiCliSessionPathMissing => Lang switch
-    {
-        "ko" => "Gemini CLI 세션 폴더를 아직 찾지 못했습니다.",
-        "zh" => "尚未找到 Gemini CLI 会话文件夹。",
-        "ja" => "Gemini CLI のセッションフォルダがまだ見つかりません。",
-        _ => "Gemini CLI session folder was not found yet."
-    };
-
-    public static string GeminiCliNoUsageToday => Lang switch
-    {
-        "ko" => "오늘 Gemini CLI 세션 기록이 아직 없습니다.",
-        "zh" => "今天还没有 Gemini CLI 会话记录。",
-        "ja" => "本日の Gemini CLI セッション記録はまだありません。",
-        _ => "No Gemini CLI session has been recorded today yet."
-    };
-
-    public static string GeminiCliEstimateOnly => Lang switch
-    {
-        "ko" => "Gemini CLI 로컬 로그 기반 추정치입니다. 공식 대시보드와 차이가 있을 수 있습니다.",
-        "zh" => "基于 Gemini CLI 本地日志的估算值，可能与官方数据存在差异。",
-        "ja" => "Gemini CLI のローカルログに基づく推定値です。公式値と差が出る場合があります。",
-        _ => "Estimated from Gemini CLI local logs and may differ from official dashboard values."
-    };
-
-    public static string GeminiCliRequestSummary(int requests, long outputTokens) => Lang switch
-    {
-        "ko" => $"오늘 {requests}회 요청 · 출력 {FormatTokenShort(outputTokens)} 토큰",
-        "zh" => $"今日 {requests} 次请求 · 输出 {FormatTokenShort(outputTokens)} 词元",
-        "ja" => $"本日 {requests} リクエスト · 出力 {FormatTokenShort(outputTokens)} トークン",
-        _ => $"Today {requests} requests · {FormatTokenShort(outputTokens)} output tokens"
-    };
-
     public static string TrayStatusClaude(double percent) => Lang switch
     {
         "ko" => $"Claude {percent:P0}",
@@ -1589,11 +1525,10 @@ public static class Loc
         _ => dataSource == CodexUsageMonitor.DirectApiSource ? $"Codex {percent:P0}" : $"Codex {percent:P0} (Log)"
     };
 
-    public static string TrayStatusGemini(int requests, long outputTokens) => Lang switch
-    {
-        "ko" => requests > 0 ? $"Gemini {requests}회 · {FormatTokenShort(outputTokens)}" : "Gemini",
-        _ => requests > 0 ? $"Gemini {requests} req · {FormatTokenShort(outputTokens)}" : "Gemini"
-    };
+    // 할당량을 아직 받지 못했을 때 "Antigravity 0%" 라고 쓰면 여유가 100% 라는 뜻으로 읽힌다.
+    // 제품명·퍼센트만으로 이뤄져 Claude 처럼 언어별로 다르게 쓸 문구가 없다.
+    public static string TrayStatusAntigravity(double percent, bool hasData) =>
+        hasData ? $"Antigravity {percent:P0}" : $"Antigravity {QuotaUnknownMark}";
 
     public static string TrayStatusOpenCode(int requests, long inputTokens, long outputTokens) => Lang switch
     {
@@ -1723,14 +1658,6 @@ public static class Loc
         "zh" => "今天还没有 OpenCode 使用记录。",
         "ja" => "本日の OpenCode 使用記録はまだありません。",
         _ => "No OpenCode usage has been recorded today yet."
-    };
-
-    public static string GeminiRequests => CurrentLang switch
-    {
-        "ko" => "요청 횟수",
-        "zh" => "请求次数",
-        "ja" => "リクエスト数",
-        _ => "Requests"
     };
 
     public static string TrayDisplayMode => CurrentLang switch

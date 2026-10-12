@@ -110,23 +110,23 @@ public sealed class UsageSyncServiceTests : IDisposable
         var syncRoot = Path.Combine(_tempRoot, "sync");
 
         desktop.WriteSnapshot(syncRoot, desktop.CreateSnapshot(
-            UsageProviderKind.GeminiCli,
+            UsageProviderKind.Codex,
             null,
             new UsageSyncQuotaSnapshot { HasData = true, ShortUsagePercent = 0.2 },
             new UsageSyncLocalTotals { InputTokens = 100, OutputTokens = 200, RequestCount = 2, HourlyTokens = Hourly(3, 300) }));
         laptop.WriteSnapshot(syncRoot, laptop.CreateSnapshot(
-            UsageProviderKind.GeminiCli,
+            UsageProviderKind.Codex,
             null,
             new UsageSyncQuotaSnapshot { HasData = true, ShortUsagePercent = 0.7 },
             new UsageSyncLocalTotals { InputTokens = 10, OutputTokens = 20, RequestCount = 1, HourlyTokens = Hourly(3, 30) }));
         stale.WriteSnapshot(syncRoot, stale.CreateSnapshot(
-            UsageProviderKind.GeminiCli,
+            UsageProviderKind.Codex,
             null,
             new UsageSyncQuotaSnapshot { HasData = true, ShortUsagePercent = 0.9 },
             new UsageSyncLocalTotals { InputTokens = 999, OutputTokens = 999, RequestCount = 9 }));
 
         var reader = CreateService("reader", now);
-        var result = reader.ReadSnapshots(syncRoot, UsageProviderKind.GeminiCli, null, new DateOnly(2026, 7, 9));
+        var result = reader.ReadSnapshots(syncRoot, UsageProviderKind.Codex, null, new DateOnly(2026, 7, 9));
         var merged = reader.MergeLocalTotals(result.Snapshots, TimeSpan.FromHours(24));
         var newestQuota = reader.SelectNewestQuotaSnapshot(result.Snapshots, TimeSpan.FromHours(24));
 

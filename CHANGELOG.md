@@ -3,7 +3,7 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
-## [1.43.0] - 2026-10-12
+## [1.44.0] - 2026-10-12
 
 <!-- ko -->
 ### 추가
@@ -21,6 +21,32 @@
 
 ### Fixed
 - Fixed extra-limit entries in the Codex session logs being able to overwrite the 5-hour gauge.
+<!-- /en -->
+
+## [1.43.0] - 2026-10-12
+
+<!-- ko -->
+### 변경
+- **Gemini CLI 설정을 Antigravity 설정으로 통합했습니다 (#183)** — Google 이 Gemini CLI 를 Antigravity CLI 로 전환했고(2026-06-18 부터 개인 계정 요청 중단), 앱 설정에는 Gemini CLI 만 있고 Antigravity 는 없었습니다.
+  - 설정 > 표시할 에이전트 선택에서 `Gemini CLI` 대신 `Antigravity` 를 켜고 끌 수 있습니다. 이전에는 Antigravity 섹션을 끌 방법이 없었습니다.
+  - 설정 > 트레이 표시 기준에서 `Antigravity` 를 고를 수 있습니다. 트레이 게이지는 가장 많이 소진된 창(모델 그룹 × 주간·5시간)을 보여 주고, 트레이 메뉴와 툴팁(`AG`)에도 Antigravity 가 나옵니다.
+  - 자동 모드에서는 최근 5시간 안에 Antigravity 를 썼을 때(5시간 창 사용률이 0보다 클 때) 고릅니다. 주간 창은 한 번 쓰면 일주일 내내 0보다 커서 근거로 삼지 않습니다 — 며칠 전 사용분만으로 오늘 쓰는 다른 에이전트를 밀어내지 않게 했습니다.
+  - 기존 설정은 자동으로 옮겨집니다. Antigravity 는 이전처럼 계속 보이고, `Gemini CLI` 로 고정해 둔 트레이 표시 기준은 `Antigravity` 로 바뀝니다.
+
+### 제거
+- **Gemini CLI 섹션** — Antigravity CLI 는 사용 기록을 다른 위치·형식으로 남겨 이 섹션으로는 더 이상 집계되지 않습니다. 팝업 섹션, 트레이 메뉴 항목, 로컬 로그 파서를 함께 정리했습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Changed
+- **Gemini CLI settings are now Antigravity settings (#183)** — Google has replaced Gemini CLI with Antigravity CLI (personal accounts stopped being served on 2026-06-18), yet the app settings still listed Gemini CLI and had no Antigravity entry.
+  - Settings > Select agents to display now has `Antigravity` in place of `Gemini CLI`. Previously there was no way to hide the Antigravity section.
+  - Settings > Tray Display Base now offers `Antigravity`. The tray gauge shows the most-used window (model group × weekly/5-hour), and Antigravity also appears in the tray menu and tooltip (`AG`).
+  - Auto mode picks Antigravity only when you used it in the last 5 hours (5-hour window usage above 0). The weekly window stays above 0 for a whole week after any use, so it is not used as a signal — usage from days ago no longer pushes aside the agent you are using today.
+  - Existing settings migrate automatically. Antigravity stays visible as before, and a tray display base pinned to `Gemini CLI` becomes `Antigravity`.
+
+### Removed
+- **Gemini CLI section** — Antigravity CLI records usage in a different location and format, so this section could no longer count it. The popup section, tray menu item and local log parser were removed.
 <!-- /en -->
 
 ## [1.42.0] - 2026-10-08

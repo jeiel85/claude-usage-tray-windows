@@ -507,8 +507,8 @@
                                     <ComboBoxItem x:Name="TrayItemAuto" Tag="auto"/>
                                     <ComboBoxItem x:Name="TrayItemClaude"   Content="Claude"     Tag="claude"/>
                                     <ComboBoxItem x:Name="TrayItemCodex"    Content="Codex"      Tag="codex"/>
-                                    <ComboBoxItem x:Name="TrayItemGemini"   Content="Gemini CLI" Tag="gemini-cli"/>
                                     <ComboBoxItem x:Name="TrayItemOpenCode" Content="OpenCode"   Tag="opencode"/>
+                                    <ComboBoxItem x:Name="TrayItemAntigravity" Content="Antigravity" Tag="antigravity"/>
                                 </ComboBox>
                                 <TextBlock x:Name="LblTrayAutoHelp" Foreground="#5A5F7A" FontSize="10" Margin="4,0,0,8" TextWrapping="Wrap"/>
                                 <CheckBox x:Name="ChkHideInactive" Style="{StaticResource CheckStyle}" Margin="0,0,0,8" Click="Setting_Changed"/>
@@ -518,8 +518,8 @@
                                 <WrapPanel>
                                     <CheckBox x:Name="ChkVisibleClaude"   Style="{StaticResource CheckStyle}" Margin="0,0,14,4" Click="Setting_Changed"/>
                                     <CheckBox x:Name="ChkVisibleCodex"    Style="{StaticResource CheckStyle}" Margin="0,0,14,4" Click="Setting_Changed"/>
-                                    <CheckBox x:Name="ChkVisibleGemini"   Style="{StaticResource CheckStyle}" Margin="0,0,14,4" Click="Setting_Changed"/>
-                                    <CheckBox x:Name="ChkVisibleOpenCode" Style="{StaticResource CheckStyle}" Margin="0,0,0,4"  Click="Setting_Changed"/>
+                                    <CheckBox x:Name="ChkVisibleOpenCode" Style="{StaticResource CheckStyle}" Margin="0,0,14,4" Click="Setting_Changed"/>
+                                    <CheckBox x:Name="ChkVisibleAntigravity" Style="{StaticResource CheckStyle}" Margin="0,0,0,4" Click="Setting_Changed"/>
                                 </WrapPanel>
 
                                 <!-- v1.27.0: 표시 옵션 토글 -->
