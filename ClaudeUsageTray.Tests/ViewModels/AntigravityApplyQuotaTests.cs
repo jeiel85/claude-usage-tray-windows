@@ -457,6 +457,48 @@ public sealed class AntigravityApplyQuotaTests
         }
     }
 
+    [Theory]
+    [InlineData(12345L)]
+    [InlineData(0L)]      // 다 쓴 경우도 보여준다 — 한도 소진 뒤 이어 쓸 수 없다는 뜻이다.
+    public void ApplyQuota_FormatsAiCredits_WhenAccountIsEligible(long credits)
+    {
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            vm.ApplyQuota([Bucket("gemini-weekly", 0.5)], null, "Google AI Pro", credits);
+
+            Assert.Equal(credits.ToString("N0", System.Globalization.CultureInfo.CurrentCulture), vm.AiCreditsText);
+        }
+    }
+
+    [Fact]
+    public void ApplyQuota_LeavesAiCreditsEmpty_WhenAccountIsNotEligible()
+    {
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            // 먼저 크레딧이 있던 값을 올렸다가, 크레딧 대상이 아닌 값(예: 다른 계정의 동기화 값)으로 바뀌면 줄이 사라져야 한다.
+            vm.ApplyQuota([Bucket("gemini-weekly", 0.5)], null, null, 500);
+            vm.ApplyQuota([Bucket("gemini-weekly", 0.5)], null, null);
+
+            Assert.Equal("", vm.AiCreditsText);
+        }
+    }
+
+    [Fact]
+    public void RefreshLocalizedLabels_KeepsAiCredits()
+    {
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            vm.ApplyQuota([Bucket("gemini-weekly", 0.5)], null, null, 750);
+
+            vm.RefreshLocalizedLabels();
+
+            Assert.Equal(750L.ToString("N0", System.Globalization.CultureInfo.CurrentCulture), vm.AiCreditsText);
+        }
+    }
+
     [Fact]
     public void ApplyQuota_LeavesListEmpty_WhenNothingUsable()
     {

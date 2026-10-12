@@ -356,6 +356,23 @@ public static class Loc
         return $"{group} · {span}";
     }
 
+    /// <summary>Antigravity 상세 게이지 아래 크레딧 줄의 이름 — gemini-cli /stats 의 "Google AI Credits" 와 같은 이름.</summary>
+    public static string AntigravityAiCredits => Lang switch
+    {
+        "ko" => "Google AI 크레딧",
+        "zh" => "Google AI 积分",
+        "ja" => "Google AI クレジット",
+        _ => "Google AI Credits"
+    };
+
+    public static string AntigravityAiCreditsTip => Lang switch
+    {
+        "ko" => "Google One AI 크레딧 잔액입니다. 사용 한도에 도달한 뒤 일부 모델을 계속 쓰면 차감됩니다.",
+        "zh" => "Google One AI 积分余额。达到用量上限后继续使用部分模型时会扣除。",
+        "ja" => "Google One AI クレジットの残高です。使用上限に達した後も一部のモデルを使い続けると差し引かれます。",
+        _ => "Your Google One AI credit balance. Credits are used when you keep using some models after reaching a limit."
+    };
+
     /// <summary>버킷 식별자 앞부분이 모델 그룹을 가리킨다 (gemini-weekly, 3p-5h).</summary>
     private static string? AntigravityGroupName(string bucketId)
     {
