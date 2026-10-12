@@ -18,6 +18,7 @@ internal static class Program
         Console.WriteLine($"IsInformational  = {snap.IsInformational}");
         Console.WriteLine($"TierName         = {snap.TierName}");
         Console.WriteLine($"PaidTierName     = {snap.PaidTierName}");
+        Console.WriteLine($"AiCredits        = {snap.AiCredits?.ToString("N0") ?? "(not eligible)"}");
         Console.WriteLine($"Buckets.Count    = {snap.Models.Count}");
         foreach (var m in snap.Models)
         {

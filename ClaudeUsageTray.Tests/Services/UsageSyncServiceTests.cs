@@ -266,6 +266,7 @@ public sealed class UsageSyncServiceTests : IDisposable
             {
                 HasData = true,
                 TierName = "Gemini Code Assist",
+                AiCredits = 1000,
                 Models =
                 [
                     new UsageSyncModelQuota { ModelId = "gemini-3-pro", RemainingFraction = 0.25, ResetAt = now.AddHours(4) },
@@ -280,6 +281,7 @@ public sealed class UsageSyncServiceTests : IDisposable
 
         Assert.NotNull(newest);
         Assert.Equal("Gemini Code Assist", newest!.Quota!.TierName);
+        Assert.Equal(1000, newest.Quota.AiCredits);   // Google AI 크레딧도 계정 단위라 함께 건너온다
         Assert.Equal(2, newest.Quota.Models.Length);
         Assert.Equal("gemini-3-pro", newest.Quota.Models[0].ModelId);
         Assert.Equal(0.25, newest.Quota.Models[0].RemainingFraction, 6);
@@ -321,6 +323,7 @@ public sealed class UsageSyncServiceTests : IDisposable
         Assert.Null(newest.Quota.ShortWindowMinutes);
         Assert.Empty(newest.Quota.Models);
         Assert.Empty(newest.Quota.AdditionalQuotas);
+        Assert.Null(newest.Quota.AiCredits);   // 크레딧 필드가 없던 버전 — "크레딧 대상 아님" 과 같이 줄을 그리지 않는다
     }
 
     // #182: Codex 추가 한도(이미지 생성 등)도 계정 단위라 다른 PC 로 그대로 건너와야 한다 —
