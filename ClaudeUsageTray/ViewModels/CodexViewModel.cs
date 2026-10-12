@@ -138,30 +138,11 @@ public partial class CodexViewModel : ObservableObject
 
     /// <summary>
     /// 추가 한도(이미지 생성 등, #182)를 게이지 행으로 만든다. 이 PC 가 읽은 값과 다른 PC 에서 받은 값이
-    /// 같은 규칙을 타도록 정적으로 둔다. 리셋 시각이 이미 지난 창은 지금 창을 설명하지 않으므로 뺀다.
+    /// 같은 규칙을 타도록 정적으로 둔다. 행 규칙은 <see cref="QuotaGaugeRow.BuildRows"/> 가 Claude 모델 한도와 함께 정한다.
     /// </summary>
     internal static IReadOnlyList<QuotaGaugeRow> BuildAdditionalLimitRows(
-        IEnumerable<AdditionalQuotaWindow> windows, DateTimeOffset now, bool showAbsoluteResetTime)
-    {
-        var rows = new List<QuotaGaugeRow>();
-        foreach (var window in windows)
-        {
-            if (window.ResetAt is { } reset && reset <= now) continue;
-
-            var row = new QuotaGaugeRow
-            {
-                Key = window.LimitId,
-                DisplayName = Loc.AdditionalQuotaLabel(ResolveLimitName(window.LimitId, window.LimitName), window.WindowMinutes),
-                UsagePercent = window.UsagePercent,
-                Summary = Loc.UsageSummary(window.UsagePercent),
-                ResetAt = window.ResetAt,
-                Window = window.WindowMinutes is int minutes && minutes > 0 ? TimeSpan.FromMinutes(minutes) : null,
-            };
-            row.UpdateTimeProgress(now, showAbsoluteResetTime);
-            rows.Add(row);
-        }
-        return rows;
-    }
+        IEnumerable<AdditionalQuotaWindow> windows, DateTimeOffset now, bool showAbsoluteResetTime) =>
+        QuotaGaugeRow.BuildRows(windows, window => ResolveLimitName(window.LimitId, window.LimitName), now, showAbsoluteResetTime);
 
     /// <summary>
     /// 한도 이름. 이미지 생성 한도는 앱 언어로 부르고, 모르는 한도는 서버가 준 이름을 다듬어 쓴다.

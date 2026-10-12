@@ -355,6 +355,110 @@ public class MainViewModelIntegrationTests
         });
     }
 
+    /// <summary>
+    /// Claude 모델 한정 한도(#187)가 7일 게이지 아래에 Claude 색 게이지 · 시간선 · 요약 한 줄로 그려지는지 — 실제 화면 트리로 확인한다.
+    /// 리셋 창이 없는(아직 쓰지 않은) 한도는 마커를 숨긴다.
+    /// </summary>
+    [Fact]
+    public async Task UsagePopup_ClaudeModelLimitsUseTheClaudeGaugeStructure()
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            UsagePopup? popup = null;
+            try
+            {
+                var now = DateTimeOffset.Now;
+                vm.ClaudeVm.SetModelLimits(
+                [
+                    new AdditionalQuotaWindow { LimitId = "weekly:fable", LimitName = "Fable", UsagePercent = 0.05, ResetAt = now.AddDays(3), WindowMinutes = 10080 },
+                    new AdditionalQuotaWindow { LimitId = "seven_day_sonnet", LimitName = "Sonnet", UsagePercent = 0, ResetAt = null, WindowMinutes = 10080 },
+                ], now, showAbsoluteResetTime: false);
+                vm.ClaudeVm.IsActive = true;
+                vm.FocusedProvider = UsageProviderKind.Claude;
+
+                popup = new UsagePopup(vm) { Left = -10000 };
+                popup.Show();
+                popup.UpdateLayout();
+
+                var list = Assert.IsType<System.Windows.Controls.ItemsControl>(popup.FindName("ClaudeModelLimitList"));
+                list.UpdateLayout();
+                Assert.Equal(2, list.Items.Count);
+
+                var bars = FindChildren<System.Windows.Controls.ProgressBar>(list).ToList();
+                Assert.Equal(2, bars.Count);
+                Assert.All(bars, bar => Assert.Same(popup.FindResource("UsageBarStyle"), bar.Style));
+
+                var markers = FindChildren<System.Windows.Controls.Border>(list)
+                    .Where(border => Math.Abs(border.Width - 1.5) < 0.01)
+                    .ToList();
+                Assert.Equal(2, markers.Count);
+                Assert.Equal(System.Windows.Visibility.Visible, markers[0].Visibility);
+                Assert.Equal(System.Windows.Visibility.Collapsed, markers[1].Visibility);
+
+                var texts = FindChildren<System.Windows.Controls.TextBlock>(list).Select(t => t.Text).ToList();
+                Assert.Contains(Loc.AdditionalQuotaLabel("Fable", 10080), texts);
+                Assert.Contains(Loc.AdditionalQuotaLabel("Sonnet", 10080), texts);
+                Assert.Contains(Loc.UsageSummary(0.05), texts);
+            }
+            finally
+            {
+                popup?.Close();
+                vm.Dispose();
+            }
+        });
+    }
+
+    /// <summary>
+    /// 다른 PC 가 본 Claude 할당량을 쓸 때 모델 한정 한도(#187)도 같은 스냅샷에서 함께 옮긴다.
+    /// 이 필드가 없던 구버전이 쓴 스냅샷이면 비운다 — 남은 행이 다른 시점의 값이 되지 않게.
+    /// </summary>
+    [Fact]
+    public async Task ApplySyncedClaudeQuota_ShowsTheModelLimitsFromThatSnapshot()
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            try
+            {
+                vm.ApplySyncedClaudeQuota(SyncedClaude("laptop", new UsageSyncAdditionalQuota
+                {
+                    LimitId = "weekly:fable", LimitName = "Fable", UsagePercent = 0.4,
+                    ResetAt = DateTimeOffset.Now.AddDays(2), WindowMinutes = 10080,
+                }));
+
+                var row = Assert.Single(vm.ClaudeVm.ModelLimits);
+                Assert.Equal(Loc.AdditionalQuotaLabel("Fable", 10080), row.DisplayName);
+                Assert.Equal(0.4, row.UsagePercent, 6);
+
+                vm.ApplySyncedClaudeQuota(SyncedClaude("old-pc"));
+
+                Assert.Empty(vm.ClaudeVm.ModelLimits);
+            }
+            finally
+            {
+                vm.Dispose();
+            }
+        });
+    }
+
+    private static UsageSyncSnapshot SyncedClaude(string deviceName, params UsageSyncAdditionalQuota[] modelLimits) => new()
+    {
+        Provider = UsageProviderKind.Claude,
+        DeviceId = deviceName,
+        DeviceName = deviceName,
+        ObservedAtUtc = DateTimeOffset.UtcNow,
+        Quota = new UsageSyncQuotaSnapshot
+        {
+            HasData = true,
+            ShortUsagePercent = 0.2,
+            ShortResetAt = DateTimeOffset.Now.AddHours(2),
+            LongUsagePercent = 0.3,
+            LongResetAt = DateTimeOffset.Now.AddDays(2),
+            AdditionalQuotas = modelLimits,
+        },
+    };
+
     [Fact]
     public async Task SettingsWindow_ConstructsWithoutOpacitySliderException()
     {
