@@ -37,7 +37,7 @@ public class NotificationSettings
     // 표시 언어 ("system"=OS 따라가기, "ko", "en", "zh", "ja")
     public string Language { get; set; } = "system";
 
-    // 트레이 아이콘 표시 기준 (auto, claude, codex, gemini-cli, opencode)
+    // 트레이 아이콘 표시 기준 (auto, claude, codex, opencode, antigravity)
     public string TrayDisplayMode { get; set; } = "auto";
 
     // 데이터가 없는 공급자 자동 숨김
@@ -47,14 +47,44 @@ public class NotificationSettings
     public List<string> VisibleProviders { get; set; } = [
         UsageProviderKind.Claude,
         UsageProviderKind.Codex,
-        UsageProviderKind.GeminiCli,
-        UsageProviderKind.OpenCode
+        UsageProviderKind.OpenCode,
+        UsageProviderKind.Antigravity
     ];
 
     // 현재 popup에서 펼쳐 보여주는(=focused) 공급자.
     // 빈 문자열이면 MainViewModel이 자동 결정 (Claude 우선, 비활성 시 활성된 첫 공급자).
     // 사용자가 popup의 다른 공급자 행을 클릭하면 해당 키로 갱신되어 영속화된다.
     public string FocusedProvider { get; set; } = "";
+
+    public const int CurrentProviderSettingsVersion = 1;
+
+    /// <summary>
+    /// 공급자 설정 형식 버전. 0 은 #183 이전 파일 — Gemini CLI 항목이 있고 Antigravity 표시 여부는 저장되지 않던 형식이다.
+    /// 이 값이 없는 예전 파일도 0 으로 읽혀야 하므로 기본값은 0 으로 두고, 저장할 때 현재 버전을 채운다.
+    /// </summary>
+    public int ProviderSettingsVersion { get; set; }
+
+    /// <summary>
+    /// #183 이전 설정을 지금 형식으로 옮긴다. 이미 옮긴 설정에는 아무것도 하지 않는다.
+    /// Antigravity 는 예전에 표시 설정이 없어 늘 보였으므로 표시 목록에 넣어 그 상태를 잇는다 —
+    /// Gemini CLI 체크 상태를 물려받게 하면 Gemini CLI 만 꺼 두었던 사용자에게서 Antigravity 가 사라진다.
+    /// Gemini CLI 로 고정해 둔 트레이 기준·펼친 공급자는 후속 제품인 Antigravity 로 잇는다.
+    /// </summary>
+    public void MigrateLegacyProviders()
+    {
+        if (ProviderSettingsVersion >= CurrentProviderSettingsVersion) return;
+
+        VisibleProviders = [.. (VisibleProviders ?? []).Where(p => p != UsageProviderKind.LegacyGeminiCli).Distinct()];
+        if (!VisibleProviders.Contains(UsageProviderKind.Antigravity))
+            VisibleProviders.Add(UsageProviderKind.Antigravity);
+
+        if (TrayDisplayMode == UsageProviderKind.LegacyGeminiCli)
+            TrayDisplayMode = UsageProviderKind.Antigravity;
+        if (FocusedProvider == UsageProviderKind.LegacyGeminiCli)
+            FocusedProvider = UsageProviderKind.Antigravity;
+
+        ProviderSettingsVersion = CurrentProviderSettingsVersion;
+    }
 
     // v1.27.0 표시 옵션 토글
     // 구독 등급 배지 ("Claude Max 5x", "ChatGPT Plus" 등) 표시 여부 — v1.41.0 부터 전 공급자 공통

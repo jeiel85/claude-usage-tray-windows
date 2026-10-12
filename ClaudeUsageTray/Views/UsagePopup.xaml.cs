@@ -448,7 +448,6 @@ public partial class UsagePopup : Window, IDisposable
     // 클릭 시 해당 공급자만 상세 펼치고 나머지는 컴팩트 행으로 접힘. 영속화 자동.
     private void ClaudeFocus_Click(object sender, RoutedEventArgs e)   => SetFocusedProvider(Models.UsageProviderKind.Claude);
     private void CodexFocus_Click(object sender, RoutedEventArgs e)    => SetFocusedProvider(Models.UsageProviderKind.Codex);
-    private void GeminiFocus_Click(object sender, RoutedEventArgs e)   => SetFocusedProvider(Models.UsageProviderKind.GeminiCli);
     private void OpenCodeFocus_Click(object sender, RoutedEventArgs e) => SetFocusedProvider(Models.UsageProviderKind.OpenCode);
     private async void OpenCodeWebLogin_Click(object sender, RoutedEventArgs e)
     {

@@ -6,7 +6,7 @@
 ![License](https://img.shields.io/badge/license-MIT-10B981?style=flat-square)
 ![Built with Claude](https://img.shields.io/badge/built%20with-Claude%20AI-F59E0B?style=flat-square)
 
-Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode AI 사용량과 날씨 알림을 함께 확인하는 통합 모니터링 앱입니다.
+Windows 시스템 트레이에서 Claude, Codex(ChatGPT), OpenCode, Antigravity AI 사용량과 날씨 알림을 함께 확인하는 통합 모니터링 앱입니다.
 
 > **[claude-usage-mini](https://github.com/jeremy-prt/claude-usage-mini) by [@jeremy-prt](https://github.com/jeremy-prt) 에서 영감을 받았습니다**
 
@@ -40,6 +40,7 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode A
 - **변경 이력**: [CHANGELOG.md](CHANGELOG.md)
 
 ## 이슈
+- `개선` Gemini CLI 설정을 Antigravity 설정으로 통합 — Gemini CLI → Antigravity CLI 전환 반영 (#183, 2026-10-12): Google 이 2026-05-19 Gemini CLI 를 Antigravity CLI 로 전환한다고 발표했고 06-18 부터 개인 계정(Google AI Pro/Ultra·무료)의 Gemini CLI 요청이 중단됐다. 그런데 설정에는 `Gemini CLI` 만 있고 `Antigravity` 는 없었다 — `IsAntigravityEnabled` 가 `true` 고정·미저장이라 섹션을 끌 수 없었고, 트레이 표시 기준으로도 고를 수 없었다(README 는 "트레이 게이지에 가장 많이 소진된 창을 올린다" 고 적었지만 실제로는 선택 불가). Gemini CLI 파서는 `~/.gemini/tmp/*/chats/session-*.jsonl` 을 읽는데 Antigravity CLI 는 세션을 `~/.gemini/antigravity-cli/brain/` 에 다른 형식으로 써서 후속 도구 사용량은 잡히지 않는다. 설정의 표시할 공급자·트레이 표시 기준을 `Antigravity` 로 바꾸고 표시 여부를 `VisibleProviders` 에 저장한다. 트레이 게이지(가장 많이 소진된 창)·상태 문구·트레이 메뉴·툴팁(`AG`)이 Antigravity 를 다루며, 자동 모드에서는 5시간 창 사용률이 0 보다 클 때만 고른다(Codex 와 같은 기준 — 주간 창은 한 번 쓰면 일주일 내내 0 보다 커서 근거로 삼으면 Claude 를 쓰기 전 아침마다 트레이를 빼앗는다). 할당량을 못 받은 상태에서 고정해 두면 0% 대신 "—"/오류 아이콘을 쓴다. 기존 설정은 `NotificationSettings.ProviderSettingsVersion`(없으면 0) 으로 구분해 `SettingsService.Load` 에서 한 번 옮긴다 — `gemini-cli` 를 표시 목록에서 빼고, 예전에 항상 보이던 Antigravity 는 Gemini CLI 체크 여부와 무관하게 표시 목록에 넣으며, `gemini-cli` 로 고정한 트레이 기준·펼친 공급자는 `antigravity` 로 잇는다. 수집 대상이 사라진 Gemini CLI 공급자(`GeminiCliUsageMonitor`·`GeminiViewModel`·팝업 섹션·트레이 메뉴·전용 문자열)는 제거했다.
 - `기능` Claude 로그인 만료 시 팝업에서 바로 터미널을 열어 `claude auth login` 실행 — CLI 가 없으면 설치부터 (#180, 2026-10-08): refresh 토큰이 거절(`invalid_grant`)되거나 토큰 파일이 없으면 "터미널에서 claude auth login 으로 다시 로그인하세요" 라는 안내만 떠서, 사용자가 직접 터미널을 열고 명령을 쳐야 했다. 재로그인만이 해결책인 이 두 상태(`ClaudeViewModel.NeedsLogin`)에서 에러 문구 아래에 "터미널에서 로그인" 버튼을 띄운다. 버튼은 `HasError && NeedsLogin` 일 때만 보여, 에러를 지우는 경로가 플래그를 따로 내리지 않아도 남지 않는다. 누르면 `ClaudeLoginLauncher` 가 새 PowerShell 창(`-NoExit`, 결과를 읽을 수 있게 창 유지)에서 `claude auth login` 을 실행한다. 스크립트는 `-EncodedCommand`(UTF-16LE Base64)로 넘겨 한글·공백·작은따옴표가 든 경로도 인용 규칙과 무관하게 전달한다. CLI 경로는 이 프로세스의 PATH(앱 시작 시점에 고정됨)뿐 아니라 레지스트리의 사용자·시스템 PATH, 네이티브 설치 위치(`%USERPROFILE%\.local\bin`), npm 전역 위치(`%APPDATA%\npm`)에서 `claude.exe`→`claude.cmd` 순으로 찾는다. 찾지 못하면 버튼이 "Claude Code 설치 후 로그인" 으로 바뀌고, 공식 문서의 Windows PowerShell 설치 명령(`irm https://claude.ai/install.ps1 | iex`, 관리자 권한 불필요)으로 설치한 뒤 `%USERPROFILE%\.local\bin\claude.exe auth login` 을 실행한다(설치 직후에는 그 세션의 PATH 가 갱신되지 않으므로 전체 경로). 공식 부트스트랩 스크립트는 실패 시 `exit 1` 을 불러 같은 세션에서 돌리면 오류를 읽기 전에 창이 닫히므로, 자식 PowerShell 로 분리해 종료 코드로만 성패를 판단한다(Windows 10 PowerShell 5.1 대비 TLS 1.2 를 켠다). CLI 설치 여부는 로그인이 필요한 동안 새로고침마다 UI 스레드 밖에서 다시 확인해 문구를 맞추고, 실제 분기는 클릭 시점에 다시 찾는다. 로그인이 끝나 자격 파일이 바뀌면 기존 감시자(`CredentialsChanged`)·폴링이 새로고침을 이어받고, refresh 토큰이 바뀌어 #177 의 백오프도 즉시 풀린다. 문구는 4개 언어로 추가했다. 리뷰 반영(Codex 리뷰봇·자체 리뷰): 클릭 시점의 CLI 탐색도 스레드풀로 옮겨 PATH 의 응답 없는 네트워크 경로가 팝업을 멈추지 않게 했고(Codex P2), 실행 뒤 3초간 버튼을 잠가 연타로 창·설치가 겹치지 않게 했다(두 설치가 같은 다운로드 파일을 다툰다). PowerShell 은 곡선 따옴표(U+2018~U+201B)도 작은따옴표로 읽어 `O’Brien` 같은 사용자 폴더에서 문법 오류가 났으므로 함께 이스케이프한다. 앱 시작 때 `~/.claude` 가 없던 PC(설치 후 로그인 대상)는 파일 감시자가 없고, 감시자가 있어도 트레이 공급자가 Claude 가 아니면 즉시 새로고침하지 않으므로, 터미널을 띄운 뒤 최대 15분간 3초마다 자격 파일 수정 시각을 확인해 바뀌면 바로 새로고침한다. 감시자가 있고 트레이 공급자가 Claude 면 `OnCredentialsChanged` 가 먼저 새로고침하며 이 폴링 감시를 취소해, 같은 변경으로 두 번 새로고침하지 않는다(Codex 리뷰봇 2차 지적 — 폴링 쪽은 변경을 본 뒤 2초를 기다려 감시자에게 우선권을 준다). 한계: 시계상 유효한 액세스 토큰이 서버에서 401 로 거절되는 경우(토큰 폐기 등)는 갱신 실패로 분류되지 않아 버튼이 뜨지 않는다. #180
 - `버그` Claude 토큰 만료 후 갱신 실패가 백오프 없이 반복돼 토큰 엔드포인트가 429 로 막힘 — 사용량 미확인 상태 고착 (#177, 2026-10-08): Claude 섹션이 "사용량을 아직 확인하지 못했습니다" 에 머물렀다. 실측: `~/.claude/.credentials.json` 의 액세스 토큰이 2026-10-01 08:41 에 만료됐고, 이 PC 는 Claude Code CLI 를 거의 쓰지 않아(데스크톱 앱 사용) CLI 가 대신 갱신해 주지 않았다. `CredentialService.GetValidAccessTokenAsync` 는 매 폴링(2분)마다 refresh 를 시도하고 실패해도 백오프 없이 만료 토큰으로 `/api/oauth/usage` 를 불러(401) 2분 뒤 또 refresh 를 두드렸다 — 7일간 하루 약 720회. 같은 요청을 재현하니 토큰 엔드포인트가 `429 rate_limit_error` 를 돌려줬고, 앱은 이 실패를 삼켜 원인 없이 "아직 확인하지 못했습니다" 와 원문 "OAuth access token has expired" 만 보였다. 갱신이 서버에서 실패하면 5분에서 시작해 연속 실패마다 두 배(상한 60분)로 기다리고, 429 의 `Retry-After` 보다 일찍 재시도하지 않는다(네트워크 오류는 서버에 닿지 않았으므로 1분). 유효한 토큰을 읽거나 갱신에 성공하거나 재로그인으로 파일의 refresh 토큰이 바뀌면 백오프를 즉시 푼다. refresh 요청에 Claude Code(2.1.150)처럼 저장된 `scopes` 를 `scope` 로 싣는다. 만료 토큰으로 401 을 받았고 갱신도 실패했으면 원문 대신 "갱신이 일시 제한됨 · HH:mm 이후 자동 재시도"(429), "갱신 실패 · HH:mm 이후 자동 재시도"(그 밖), "로그인이 만료됨 — claude auth login"(`invalid_grant`) 를 4개 언어로 안내한다. v1.41.15 후속(머지 후 코드 리뷰 지적 4건): scope 를 실은 요청이 400(invalid_grant 아님)으로 거부되면 scope 없이 한 번 더 보내 #177 이전 동작으로 폴백, `Retry-After` 는 6시간 상한(안내가 HH:mm 만 표시해 하루 넘는 대기가 오늘처럼 읽힘), 같은 refresh 토큰이 `invalid_grant` 를 받은 뒤 429 가 와도 재로그인 안내 유지, `scopes` 를 `JsonElement` 로 받아 형식이 달라도 자격 파일 전체 파싱이 실패해 "토큰 없음"이 되지 않게 했다. #177
 - `버그` 여러 PC 가 같은 ntfy 토픽으로 같은 알림을 각자 발송함 (#175, 2026-09-30): `NotificationService` 의 "여러 PC 동일 토픽 중복 방지" 검사(`IsRecentDuplicateAsync`)는 본문(title+message)이 같은지 봤는데, 본문에 `— {PC 이름}` 이 붙은 뒤에 비교하고 "N분 후 초기화" 같은 상대 시간 문구도 PC 마다 달라 다른 PC 의 알림과는 절대 일치하지 않았다(검사 창 3분도 슬립에서 깬 PC 를 못 잡음). 본문 비교를 없애고 사건 키(`NtfyEventKey`: 공급자·종류·임계값·서버가 준 창 리셋 시각)를 ntfy `sequence_id` 로 발행한 뒤, 발송 전에 토픽 캐시(`since=12h`)에서 같은 키가 있는지 찾는다. 리셋 시각·예상 소진 시각은 PC 간 오차를 허용(5분·10분)하고, 표시 언어에 따라 달라지는 문구는 키에 쓰지 않는다. 계정이 다른 PC(회사·개인 등)가 같은 토픽을 쓰면 공급자·창·임계값이 같은 알림이 서로를 삼키므로(Codex 리뷰봇 지적), 키에 계정 식별자의 해시 8자리를 넣는다(원문은 공개 토픽 캐시에 남기지 않는다). Codex 는 `auth.json` 의 `tokens.account_id` 와 id_token 의 `chatgpt_user_id`(없으면 `user_id`) — 토큰은 갱신 때마다 바뀌므로 쓰지 않는다 — Claude 는 자격 파일의 `organizationUuid` 다. 계정을 알 수 없으면(API 키 모드처럼 식별자가 없는 로그인, 일시적 읽기 실패) 계정 대신 이 설치의 무작위 기기 ID(`DeviceIdentity`: 처음 한 번 만들어 `~/.claude/claude-usage-tray-device-id` 에 저장하고 재시작해도 유지, 읽기·쓰기가 실패하면 이번 실행에서만 쓰는 임시 ID)의 해시를 넣어, 모르는 쪽끼리 "모름" 이라는 이유로 같은 키가 되어 서로 다른 계정의 알림을 삼키는 일을 막는다(Codex 리뷰봇 2차 지적). 그 PC 는 다른 PC 와 중복이 걸러지지 않을 뿐 알림은 잃지 않고, 같은 PC 의 반복은 재시작 뒤에도 걸러진다. 컴퓨터 이름·사용자 이름은 복제·재설치·같은 이름 설정으로 다른 PC 와 겹칠 수 있어 쓰지 않았다(Codex 리뷰봇 3차 지적). 처음에는 실행마다 새로 뽑는 값으로 충분하다고 봤지만, 레이트 리밋 알림은 오늘 기록에 발생 흔적이 있으면 시작 직후 첫 관측에서도 나가므로 재시작을 넘는 ID 가 필요하다(5차 지적). 한계: `~/.claude` 폴더를 통째로 복제하면 이 파일도 함께 복제되어 두 PC 가 같은 ID 를 갖는다. 그리고 감지 시각으로 대체하는 키(창 리셋 시각을 모르는 경우)는 분 경계를 걸쳐 동시에 감지하면 서로 다른 `sequence_id` 를 발행해 Android·웹에서 합쳐지지 않을 수 있다 — 어떤 시각 내림 방식도 경계는 생기므로 원리적으로 없앨 수 없고, 창의 서버 리셋 시각으로 식별하는 키는 이 문제가 없다(6차 지적). Claude 는 조직 단위 식별자뿐이라, 같은 조직의 서로 다른 사람이 한 토픽을 함께 쓰면 구분하지 못한다. 할당량 초기화 알림의 사건 식별자는 감지 시각이 아니라 "초기화로 끝난 창의 서버 리셋 시각"(`QuotaAlertBaseline` 이 돌려주는 `EndedWindowResetAt`, 추정치면 감지 시각으로 대체)이라, 초기화를 자고 넘겨 30분 넘게 늦게 깬 PC 도 다른 PC 의 같은 알림을 알아본다(Codex 리뷰봇 4차 지적). 발행하는 `sequence_id` 의 시각 조각은 분 단위로 내려, 몇 초 차이로 동시에 감지한 두 PC 가 같은 ID 를 발행해 Android·웹에서 한 알림으로 합쳐지게 한다(비교는 내림 폭 59초만큼 넉넉히 봐서 원래 맞던 짝은 그대로 맞는다). 날씨 알림은 기존 PC 내부 중복 키(위치·날짜 포함)를 그대로 키로 쓰되, PC 의 지역 설정에 따라 키가 달라지지 않도록 `WeatherAlertKeys` 로 InvariantCulture 서식을 쓴다(실측: de-DE/fr-FR/sv-SE 는 좌표가 "37,57", th-TH 는 연도가 불교력, sv-SE 는 음수 부호가 U+2212 — Codex 리뷰봇 3차 지적. en-US·ko-KR 에서는 예전 문자열과 같아 기존 발송 기록이 유효하다). 키의 날짜도 PC 의 "오늘" 이 아니라 예보 자체의 날짜(`DailyWeatherForecast.Date`, 위치의 현지 날짜)이고, 현재 관측으로 판정하는 강풍의 6시간 쿨다운 창은 UTC 기준으로 자른다 — PC 의 로컬 날짜·시각을 쓰면 시간대가 다른 PC 가 다른 날의 알림을 같은 사건으로 착각해 정당한 알림을 삼킨다(도쿄 PC 가 LA 의 9월 29일 예보를 "9월 30일" 키로 보내면 LA PC 의 진짜 9월 30일 예보가 막힘. 강풍 창은 로컬 시각으로 자르면 16시간 떨어진 두 순간이 같은 창으로 찍힘 — Codex 리뷰봇 7차 지적). 강풍 창 경계가 로컬에서 UTC 로 옮겨져, 업데이트 직후 강풍 조건이 이어지고 있으면 알림이 한 번 더 갈 수 있다. 레이트 리밋 알림은 감지 시각이 아니라 세션 로그에 찍힌 기록 시각(`SessionStats.RateLimitAt`)으로 사건을 식별해, 앱을 다시 켜서 같은 기록을 30분 넘게 뒤에 또 읽어도 ntfy 로는 다시 나가지 않는다(Windows 알림 자체는 앱을 켤 때마다 다시 뜰 수 있다 — 기존 동작). 테스트 알림은 키가 없어 항상 발송된다. 실측(2026-09-30, 4회): ntfy.sh 는 발행한 메시지가 폴링에 보이기까지 1.0~1.6초 걸려, 확인 전에 0~4초 무작위 대기를 둔다. 서버가 `sequence_id` 를 거부하면(400) 키 없이 한 번 더 보내 알림을 잃지 않으며, 확인에 실패해도 그냥 보낸다. 한계: 두 PC 가 약 2초 안에 동시에 감지하면 둘 다 보낼 수 있고(Android·웹은 같은 `sequence_id` 를 한 알림으로 합치지만 ntfy 문서상 iOS 는 대상이 아님), 확인 범위는 ntfy 서버 캐시 보존(기본 12시간)까지다. 완전히 없애려면 기존처럼 한 PC 에서만 발송을 켠다.
@@ -117,8 +118,8 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode A
 **통합 모니터링 (Multi-Provider Support)**
 - **Claude (API)**: 실시간 5시간 / 7일 윈도우 할당량 및 소진 예측
 - **Codex (ChatGPT Plan)**: ChatGPT 플랜 사용량 상태 확인
-- **Gemini CLI**: 로컬 로그 기반 요청 수 및 출력 토큰 실시간 추적
 - **OpenCode**: 공식 Go 롤링/주간/월간 사용량 게이지 + 로컬 DB 기반 토큰 모니터링
+- **Antigravity**: Google 계정의 모델 그룹별 주간·5시간 할당량 게이지 (Antigravity 앱의 `Models & Usage` 화면과 같은 값)
 - **날씨 알림**: 설정한 위치의 현재 날씨, 예보, 특보를 트레이 툴팁과 알림 경로로 확인
 - **통합 트레이 툴팁**: 아이콘에 마우스를 올리면 4개 공급자의 상태 요약 즉시 확인
 - **동적 트레이 아이콘**: Claude 5시간 사용량 기준 게이지 표시
@@ -149,18 +150,16 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), Gemini CLI, OpenCode A
 - **할당량**: Anthropic 공식 API를 호출하여 5시간/7일 잔여량을 가져옵니다.
 - **로컬 통계**: Claude Code의 로컬 로그를 스캔하여 오늘 사용한 상세 토큰량과 비용을 집계합니다.
 
-### 2. Gemini CLI
-- **로그 분석**: Gemini CLI가 생성하는 로컬 임시 로그 폴더를 실시간 감시합니다.
-- **실시간 파싱**: 로그 파일에서 요청 수 및 토큰 정보를 추출하여 합산합니다.
-
-### 3. Codex (ChatGPT)
+### 2. Codex (ChatGPT)
 - **상태 추적**: Claude Code의 인증 컨텍스트를 통해 연동된 Codex(ChatGPT) 공급자의 사용량 상태를 동기화합니다.
 
-### 4. OpenCode
+### 3. OpenCode
 - **DB 분석**: OpenCode가 로컬에 저장하는 SQLite DB에서 오늘 사용된 메시지의 입력/출력/캐시 토큰을 집계합니다.
 - **Go 할당량**: 앱 전용 로그인 창으로 연결하면 공식 콘솔의 롤링/주간/월간 사용률과 초기화 시각을 표시합니다. 기존 브라우저 로그인 정보는 읽지 않습니다.
 
-### 5. Antigravity (Google Gemini Code Assist IDE) — v1.31.0+
+### 4. Antigravity (Google Antigravity) — v1.31.0+
+- **Gemini CLI 는 v1.43.0 에서 제거했습니다.** Google 이 Gemini CLI 를 Antigravity CLI 로 전환했고(2026-06-18 부터 개인 계정 요청 중단), 설정의 Gemini CLI 항목은 Antigravity 로 자동 이관됩니다.
+- **설정**: 설정 > 표시할 공급자에서 켜고 끌 수 있고, 트레이 표시 기준으로도 고를 수 있습니다. 자동 모드에서는 최근 5시간 안에 Antigravity 를 썼을 때(5시간 창 사용률 > 0)만 트레이 기준이 됩니다.
 - **인증**: Windows 자격 증명 관리자의 `gemini:antigravity` 항목을 재사용합니다. Antigravity 에 로그인해 두었다면 **따로 설정할 것이 없습니다.**
   - 저장된 access token 이 살아 있으면 그대로 씁니다.
   - 만료되었으면 refresh token 으로 갱신하며, 이때 필요한 OAuth client 값은 설치된 `language_server.exe` 에서 자동으로 찾습니다(약 2초, 한 번 성공하면 저장해 두고 재사용).
