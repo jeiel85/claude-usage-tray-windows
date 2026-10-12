@@ -38,6 +38,43 @@ public partial class ClaudeViewModel : ObservableObject
     [ObservableProperty] private string _longSummary = "";
     [ObservableProperty] private string _shortDepletion = "";
     [ObservableProperty] private string _longDepletion = "";
+
+    // 특정 모델에만 걸린 한도(Sonnet·Fable 등, #187) — 7일 게이지 아래에 창마다 한 줄.
+    // 행 이름은 만들 때 정해지므로, 언어가 바뀌거나 리셋이 지나면 이 원본으로 다시 만든다.
+    [ObservableProperty] private IReadOnlyList<QuotaGaugeRow> _modelLimits = [];
+    private IReadOnlyList<AdditionalQuotaWindow> _modelLimitSource = [];
+
+    internal void SetModelLimits(IReadOnlyList<AdditionalQuotaWindow> windows, DateTimeOffset now, bool showAbsoluteResetTime)
+    {
+        _modelLimitSource = windows;
+        ModelLimits = BuildModelLimitRows(windows, now, showAbsoluteResetTime);
+    }
+
+    internal void RebuildModelLimits(DateTimeOffset now, bool showAbsoluteResetTime) =>
+        SetModelLimits(_modelLimitSource, now, showAbsoluteResetTime);
+
+    /// <summary>매초 호출 — 리셋이 지난 창은 다음 조회를 기다리지 않고 바로 뺀다(리셋 전 사용률이 남아 보이지 않게).</summary>
+    internal void UpdateModelLimitTimeProgress(DateTimeOffset now, bool showAbsoluteResetTime)
+    {
+        if (ModelLimits.Any(row => row.ResetAt is { } reset && reset <= now))
+        {
+            RebuildModelLimits(now, showAbsoluteResetTime);
+            return;
+        }
+
+        foreach (var row in ModelLimits)
+            row.UpdateTimeProgress(now, showAbsoluteResetTime);
+    }
+
+    /// <summary>
+    /// 행 이름은 서버가 준 모델 표시 이름 그대로 — "Fable · 주간". 이름이 비어 있으면(손으로 고친 동기화 파일 등)
+    /// " · 주간" 같은 빈 이름 대신 한도 ID 로 부른다.
+    /// </summary>
+    internal static IReadOnlyList<QuotaGaugeRow> BuildModelLimitRows(
+        IEnumerable<AdditionalQuotaWindow> windows, DateTimeOffset now, bool showAbsoluteResetTime) =>
+        QuotaGaugeRow.BuildRows(windows,
+            window => string.IsNullOrWhiteSpace(window.LimitName) ? window.LimitId : window.LimitName,
+            now, showAbsoluteResetTime);
     [ObservableProperty][NotifyPropertyChangedFor(nameof(ShowLoginAction))] private bool _hasError = false;
     [ObservableProperty] private string _errorMessage = "";
 

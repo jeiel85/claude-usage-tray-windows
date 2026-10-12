@@ -730,6 +730,43 @@
                             </Grid>
                             <TextBlock Text="{Binding ClaudeVm.LongSummary}" Foreground="#8B92B3" FontSize="10" Margin="0,3,0,0"/>
 
+                            <!-- 모델 한정 한도 (Sonnet · Fable 등, #187) — 창마다 한 줄. 행 구조는 Codex 추가 한도 목록과 같고 색은 Claude.
+                                 기본 게이지와 달리 페이스 오버레이(주황 초과분)는 두지 않는다 — 한 줄짜리 보조 게이지라 Codex·Antigravity 행과 맞춘다.
+                                 응답에 모델 한도가 없으면 항목이 없어 아무것도 그리지 않는다. -->
+                            <ItemsControl x:Name="ClaudeModelLimitList" ItemsSource="{Binding ClaudeVm.ModelLimits}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="0,10,0,0">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Foreground="#F1F5F9" FontSize="10.5"
+                                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                                           ToolTip="{Binding DisplayName}"/>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="6,0,0,0">
+                                                    <TextBlock Text="{Binding UsagePercent, StringFormat={}{0:P0}}" Foreground="#A78BFA" FontSize="11" FontWeight="Bold"/>
+                                                    <TextBlock Text="{Binding ResetAtLabel}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0"/>
+                                                </StackPanel>
+                                            </Grid>
+                                            <Grid Height="8" Margin="0,4,0,0" ToolTip="{Binding PaceTip}">
+                                                <ProgressBar Value="{Binding UsagePercent}" Maximum="1" Style="{StaticResource UsageBarStyle}" VerticalAlignment="Center"/>
+                                                <Grid VerticalAlignment="Center" Height="8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="{Binding TimePercent, Converter={StaticResource PercentToStar}}"/>
+                                                        <ColumnDefinition Width="{Binding TimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"
+                                                            Visibility="{Binding HasTimeline, Converter={StaticResource BoolToVisibility}}"/>
+                                                </Grid>
+                                            </Grid>
+                                            <TextBlock Text="{Binding Summary}" Foreground="#8B92B3" FontSize="10" Margin="0,3,0,0"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
                             <!-- Extra Usage (Claude only) -->
                             <Grid Margin="0,10,0,0">
                                 <Grid.Style>
@@ -1347,6 +1384,17 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+
+                            <!-- Google AI 크레딧 잔액 — 한도를 다 쓴 뒤 이어 쓸 수 있는 양. 크레딧 대상이 아닌 계정은 줄이 접힌다 -->
+                            <Grid x:Name="AntigravityAiCreditsRow" Margin="0,0,0,10" ToolTip="{Binding LblAntigravityAiCreditsTip}"
+                                  Visibility="{Binding AntigravityAiCreditsText, Converter={StaticResource StringToVisibility}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{Binding LblAntigravityAiCredits}" Foreground="#F1F5F9" FontSize="10.5" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding AntigravityAiCreditsText}" Foreground="#A5B4FC" FontSize="11" FontWeight="Bold" Margin="6,0,0,0"/>
+                            </Grid>
 
                             <TextBlock Text="{Binding AntigravityErrorMessage}" Foreground="#EF4444" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0"
                                        Visibility="{Binding AntigravityHasError, Converter={StaticResource BoolToVisibility}}"/>

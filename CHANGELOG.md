@@ -3,6 +3,48 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.46.0] - 2026-10-12
+
+<!-- ko -->
+### 추가
+- **Claude 의 모델별 주간 한도도 게이지로 보여줍니다 (#187)** — Claude 는 5시간·7일 한도 말고도 특정 모델에만 거는 주간 한도(예: `Sonnet`, 프로모션 기간의 `Fable`)를 따로 둡니다. Claude 상세에서 7일 게이지 아래에 이런 한도가 한 줄씩(예: `Fable · 주간`) 사용률·초기화 시각·시간선과 함께 나옵니다. 모델 이름은 서버가 준 이름을 그대로 씁니다.
+- 모델별 한도도 다중 PC 동기화에 포함됩니다. 이 PC 의 Claude 조회가 실패해 다른 PC 의 값을 쓸 때 모델별 한도도 함께 보여줍니다.
+
+### 변경
+- 응답에 있었지만 화면에 쓰이지 않던 Opus/Sonnet 주간 값은 위 목록으로 합쳤습니다. 같은 모델이 두 곳에 다 오면 한 줄만 그립니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Claude's per-model weekly limits now get their own gauges (#187)** — Besides the 5-hour and 7-day limits, Claude enforces weekly limits that apply to a single model (e.g. `Sonnet`, or `Fable` during a promotion). They now appear below the 7-day gauge in the Claude details, one row each (e.g. `Fable · Weekly`), with usage, reset time and the timeline marker. Model names are shown as the server provides them.
+- Per-model limits are included in multi-PC sync, so when this PC's Claude fetch fails and another PC's values are used, the per-model limits come along.
+
+### Changed
+- The Opus/Sonnet weekly values that were already in the response but never shown are merged into the list above. A model reported in both places is drawn once.
+<!-- /en -->
+
+## [1.45.0] - 2026-10-12
+
+<!-- ko -->
+### 추가
+- **Antigravity 상세에 Google AI 크레딧 잔액을 보여줍니다 (#190)** — Google AI Pro·Ultra 는 한도를 다 쓴 뒤 일부 모델을 크레딧으로 이어 쓸 수 있습니다. 게이지 아래에 `Google AI 크레딧 · 1,234` 한 줄로 잔액이 나오고, 크레딧 대상이 아닌 계정에는 나오지 않습니다. 다 쓴 경우는 0 으로 표시합니다.
+- 크레딧 잔액도 다중 PC 동기화에 포함됩니다.
+
+### 수정
+- 그 요금제에서 계량하지 않는 창(`disabled`)이 "0% 사용" 게이지로 그려지던 문제를 고쳤습니다. 주간 한도를 다 써서 막혔는데도 5시간 창이 비어 있는 것처럼 보일 수 있었습니다.
+- 잔여 비율 없이 수량만 오거나 값이 없는 창을 "하나도 안 씀" 으로 그리던 문제를 고쳤습니다. 이제 사용률을 지어내지 않고 그 창을 그리지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Antigravity details now show your Google AI credit balance (#190)** — Google AI Pro and Ultra can keep using some models with credits after reaching a limit. The balance appears below the gauges as `Google AI Credits · 1,234`, and is hidden for accounts that are not eligible for credits. A used-up balance shows as 0.
+- The credit balance is included in multi-PC sync.
+
+### Fixed
+- Fixed windows the plan does not meter (`disabled`) being drawn as "0% used" gauges. The 5-hour window could look empty even while the weekly limit was used up and requests were blocked.
+- Fixed windows that come with a quantity instead of a remaining fraction, or with no value at all, being drawn as unused. The app no longer makes up a usage figure and leaves those windows out.
+<!-- /en -->
+
 ## [1.44.0] - 2026-10-12
 
 <!-- ko -->

@@ -136,6 +136,8 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private string _antigravityErrorMessage = "";
     [ObservableProperty] private string _antigravityTierName = "";       // e.g. "Gemini Code Assist"
     [ObservableProperty] private string _antigravityPaidTierName = "";   // e.g. "Gemini Code Assist in Google One AI Pro"
+    // Google AI 크레딧 잔액 — 비어 있으면(크레딧 대상 아님) 게이지 아래 줄이 접힌다.
+    [ObservableProperty] private string _antigravityAiCreditsText = "";
     [ObservableProperty] private System.Collections.Generic.IReadOnlyList<QuotaGaugeRow> _antigravityModels =
         System.Array.Empty<QuotaGaugeRow>();
     [ObservableProperty] private double _antigravityPercent = 0.0;
@@ -284,12 +286,6 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private double _longUsagePercent = 0;
     [ObservableProperty] private string _longResetLabel = "";
 
-    // Per-model usage (7d)
-    [ObservableProperty] private double _opusPercent = 0;
-    [ObservableProperty] private double _sonnetPercent = 0;
-    [ObservableProperty] private long _opusTokens = 0;
-    [ObservableProperty] private long _sonnetTokens = 0;
-
     // Today's local session stats
     [ObservableProperty] private long _todayInputTokens = 0;
     [ObservableProperty] private long _todayOutputTokens = 0;
@@ -387,6 +383,8 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private bool _isExtraOnlyMode = false; // 기본 사용량 100% 소진 후 추가 사용량만 표시
 
     public string LblExtraUsage => Loc.ExtraUsageTitle;
+    public string LblAntigravityAiCredits => Loc.AntigravityAiCredits;
+    public string LblAntigravityAiCreditsTip => Loc.AntigravityAiCreditsTip;
 
     private string? _lastKnownOrgUuid;
 
@@ -1629,6 +1627,7 @@ namespace ClaudeUsageTray.ViewModels;
     private UsageSyncQuotaCandidates TrySyncClaudeUsage(
         string? accountKey,
         UsageResponse? usage,
+        IReadOnlyList<AdditionalQuotaWindow> modelLimits,
         SessionStats sessionStats,
         string errorKind,
         out UsageSyncMergedLocalTotals? mergedTotals)
@@ -1642,7 +1641,7 @@ namespace ClaudeUsageTray.ViewModels;
             var snapshot = _usageSync.CreateSnapshot(
                 UsageProviderKind.Claude,
                 accountKey,
-                CreateClaudeQuotaSnapshot(usage),
+                CreateClaudeQuotaSnapshot(usage, modelLimits),
                 CreateLocalTotals(sessionStats),
                 errorKind);
             _usageSync.WriteSnapshot(UsageSyncFolderPath, snapshot);
@@ -1732,7 +1731,13 @@ namespace ClaudeUsageTray.ViewModels;
         public static UsageSyncProviderResult Empty => new(null, UsageSyncQuotaCandidates.None, []);
     }
 
-    private UsageSyncQuotaSnapshot? CreateClaudeQuotaSnapshot(UsageResponse? usage)
+    /// <summary>
+    /// 이 PC 가 받은 Claude 할당량을 동기화 스냅샷으로. 모델 한정 한도(#187)는 Codex 추가 한도와 같은
+    /// <c>AdditionalQuotas</c> 필드에 싣는다 — 모양(한도 ID·이름·사용률·리셋·창·관측 시각)이 같고, 필드 추가라
+    /// 스키마 버전을 올리지 않는다(구버전 PC 는 이 필드를 무시한다).
+    /// </summary>
+    internal static UsageSyncQuotaSnapshot? CreateClaudeQuotaSnapshot(
+        UsageResponse? usage, IReadOnlyList<AdditionalQuotaWindow> modelLimits)
     {
         if (usage?.FiveHour is null && usage?.SevenDay is null)
             return null;
@@ -1759,8 +1764,20 @@ namespace ClaudeUsageTray.ViewModels;
             ExtraHasLimit = extra?.IsEnabled == true && extraHasLimit,
             ExtraUsagePercent = extraUsagePercent,
             ExtraCreditsLabel = extra?.IsEnabled == true ? extraCreditsLabel : "",
+            AdditionalQuotas = ToSyncAdditionalQuotas(modelLimits),
         };
     }
+
+    private static UsageSyncAdditionalQuota[] ToSyncAdditionalQuotas(IEnumerable<AdditionalQuotaWindow> windows) =>
+        [.. windows.Select(window => new UsageSyncAdditionalQuota
+        {
+            LimitId = window.LimitId,
+            LimitName = window.LimitName,
+            UsagePercent = window.UsagePercent,
+            ResetAt = window.ResetAt,
+            WindowMinutes = window.WindowMinutes,
+            ObservedAt = window.ObservedAt,
+        })];
 
     internal static UsageSyncQuotaSnapshot? CreateProviderQuotaSnapshot(string provider, ProviderUsageSnapshot snapshot)
     {
@@ -1804,15 +1821,7 @@ namespace ClaudeUsageTray.ViewModels;
             LongWindowMinutes = snapshot.LongWindowMinutes,
             HasLongWindow = snapshot.LongWindowMinutes is not null || snapshot.LongResetAt is not null,
             PlanType = snapshot.PlanType ?? "",
-            AdditionalQuotas = [.. snapshot.AdditionalQuotas.Select(window => new UsageSyncAdditionalQuota
-            {
-                LimitId = window.LimitId,
-                LimitName = window.LimitName,
-                UsagePercent = window.UsagePercent,
-                ResetAt = window.ResetAt,
-                WindowMinutes = window.WindowMinutes,
-                ObservedAt = window.ObservedAt,
-            })],
+            AdditionalQuotas = ToSyncAdditionalQuotas(snapshot.AdditionalQuotas),
         };
     }
 
@@ -1938,7 +1947,7 @@ namespace ClaudeUsageTray.ViewModels;
         return copy;
     }
 
-    private void ApplySyncedClaudeQuota(UsageSyncSnapshot snapshot)
+    internal void ApplySyncedClaudeQuota(UsageSyncSnapshot snapshot)
     {
         if (snapshot.Quota is not { HasData: true } quota)
             return;
@@ -1973,6 +1982,10 @@ namespace ClaudeUsageTray.ViewModels;
             quota.ExtraUsagePercent ?? 0,
             quota.ExtraCreditsLabel);
         SetClaudeExtraOnlyMode(ExtraUsageEnabled && ClaudeVm.ShortPercent >= 1.0);
+
+        // 모델 한정 한도(#187)는 기본 창과 같은 조회에서 함께 온 값이라, 같은 스냅샷의 것을 그대로 쓴다
+        // (Codex 처럼 출처를 따로 고를 필요가 없다). 이 필드가 없던 버전의 스냅샷이면 비어 있다.
+        ClaudeVm.SetModelLimits([.. ToAdditionalQuotaWindows(snapshot)], DateTimeOffset.Now, ShowAbsoluteResetTime);
 
         var quotaObservedAt = quota.ObservedAtUtc ?? snapshot.ObservedAtUtc;
         ClaudeVm.ApiNote = Loc.UsageSyncQuotaFromDevice(
@@ -2167,6 +2180,9 @@ namespace ClaudeUsageTray.ViewModels;
             _lastKnownOrgUuid = currentOrgUuid;
             _history.SetScope(UsageProviderKind.Claude, currentOrgUuid);
             _apiRetryAfter = DateTimeOffset.MinValue;
+            // 모델 한정 한도는 계정마다 다르다 — 새 계정 조회가 실패해도 이전 계정의 행이 남지 않게 비운다.
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                ClaudeVm.SetModelLimits([], DateTimeOffset.Now, ShowAbsoluteResetTime));
         }
 
         bool skipApi = DateTimeOffset.UtcNow < _apiRetryAfter;
@@ -2185,9 +2201,11 @@ namespace ClaudeUsageTray.ViewModels;
             // 시작될 수 있으므로(계정 전환 직후 등) 반드시 스레드풀로 밀어낸다.
             var sessionStats = await Task.Run(_session.ScanTodayUsage);
             var syncErrorKind = skipApi ? "api_skipped" : ClassifyClaudeApiError(_api.LastError);
+            var claudeModelLimits = ReadClaudeModelLimits(usage);
             var claudeQuotaCandidates = TrySyncClaudeUsage(
                 currentOrgUuid,
                 usage,
+                claudeModelLimits,
                 sessionStats,
                 syncErrorKind,
                 out var mergedClaudeTotals);
@@ -2323,17 +2341,8 @@ namespace ClaudeUsageTray.ViewModels;
                         LongResetLabel = ClaudeVm.LongReset;
                     }
 
-                    if (usage.SevenDayOpus != null)
-                    {
-                        OpusPercent = usage.SevenDayOpus.UsagePercent;
-                        OpusTokens  = (long)usage.SevenDayOpus.Utilization;
-                    }
-
-                    if (usage.SevenDaySonnet != null)
-                    {
-                        SonnetPercent = usage.SevenDaySonnet.UsagePercent;
-                        SonnetTokens  = (long)usage.SevenDaySonnet.Utilization;
-                    }
+                    // 모델 한정 한도(#187) — 비어 있으면 "지금 걸린 모델 한도 없음"이므로 그대로 비운다.
+                    ClaudeVm.SetModelLimits(claudeModelLimits, DateTimeOffset.Now, ShowAbsoluteResetTime);
 
                     if (usage.ExtraUsage is { IsEnabled: true } eu)
                     {
@@ -2500,6 +2509,29 @@ namespace ClaudeUsageTray.ViewModels;
         }
         finally
         {
+        }
+    }
+
+    /// <summary>
+    /// 모델 한정 한도(#187)는 문서화되지 않은 <c>limits[]</c> 에서 온다. 읽다가 예상 못 한 예외가 나도
+    /// 기본 5시간·7일 게이지와 동기화까지 함께 실패하지 않도록, 이 부가 정보만 빈 목록으로 내려놓는다.
+    /// </summary>
+    private static IReadOnlyList<AdditionalQuotaWindow> ReadClaudeModelLimits(UsageResponse? usage)
+    {
+        if (usage is null)
+            return [];
+
+        try
+        {
+            return ClaudeModelLimits.Read(usage, DateTimeOffset.UtcNow);
+        }
+        catch (Exception ex)
+        {
+#if DEBUG
+            Debug.WriteLine($"[MainViewModel] Claude model limits skipped: {ex}");
+#endif
+            GC.KeepAlive(ex);
+            return [];
         }
     }
 
@@ -2924,6 +2956,7 @@ namespace ClaudeUsageTray.ViewModels;
 
         // 시간 진행률은 리셋 시각만 있으면 매 순간 계산 가능 — 매초 갱신해 막대가 부드럽게 흐르게 한다.
         RecomputeClaudeTimeProgress(now);
+        ClaudeVm.UpdateModelLimitTimeProgress(now, ShowAbsoluteResetTime);
         RecomputeCodexTimeProgress(now);
         UpdateCodexAdditionalTimeProgress(now);
         OpenCodeVm.UpdateTimeProgress(now);
@@ -3156,6 +3189,7 @@ namespace ClaudeUsageTray.ViewModels;
             // 행 객체가 새로 만들어지므로 미러 프로퍼티도 다시 가리켜야 화면이 바뀐다.
             AntigravityModels = AntigravityVm.Models;
             ApplyCodexAdditionalLimits(_codexAdditionalSource);
+            ClaudeVm.RebuildModelLimits(DateTimeOffset.Now, ShowAbsoluteResetTime);
             // 안내·출처 문구는 값이 필드에 담겨 있어 다시 만들어야 바뀐다(다음 조회까지 기다리지 않도록).
             AntigravityNote = Loc.ProviderAntigravityNote;
             RefreshAntigravityDataSourceLabel();
@@ -3222,7 +3256,8 @@ namespace ClaudeUsageTray.ViewModels;
                 AntigravityVm.ApplyQuota(
                     ToAntigravityModelQuotas(snapshot.Quota!.Models),
                     snapshot.Quota.TierName,
-                    snapshot.Quota.PaidTierName);
+                    snapshot.Quota.PaidTierName,
+                    snapshot.Quota.AiCredits);
 
                 // 스냅샷에 담긴 모델이 전부 리셋을 지나 ApplyQuota 의 필터에서 다 걸러졌을 수 있다
                 // (Models.Count == 0). ApplyQuota 는 빈 목록에도 HasData 를 무조건 true 로
@@ -3232,6 +3267,13 @@ namespace ClaudeUsageTray.ViewModels;
                 if (ShouldClearAntigravityFallbackData(usedFallbackModels, hadGenuineLocalError))
                 {
                     AntigravityVm.HasData = false;
+                }
+
+                // 모델을 하나도 못 쓴 폴백이면 아래에서 출처도 밝히지 않는다. 그 스냅샷의 크레딧만 남기면
+                // 최대 24시간 전 잔액이 지금 값처럼 보이므로(로컬 에러 때문에 섹션이 켜진 경우) 함께 버린다.
+                if (!usedFallbackModels)
+                {
+                    AntigravityVm.AiCreditsText = "";
                 }
 
                 if (hadGenuineLocalError)
@@ -3257,6 +3299,7 @@ namespace ClaudeUsageTray.ViewModels;
             AntigravityErrorMessage = AntigravityVm.ErrorMessage;
             AntigravityTierName = AntigravityVm.TierName;
             AntigravityPaidTierName = AntigravityVm.PaidTierName;
+            AntigravityAiCreditsText = AntigravityVm.AiCreditsText;
             AntigravityModels = AntigravityVm.Models;
             AntigravityPercent = AntigravityVm.Percent;
         });
@@ -3323,6 +3366,7 @@ namespace ClaudeUsageTray.ViewModels;
             HasData = true,
             TierName = snapshot.TierName ?? "",
             PaidTierName = snapshot.PaidTierName ?? "",
+            AiCredits = snapshot.AiCredits,
             Models = [.. snapshot.Models.Select(model => new UsageSyncModelQuota
             {
                 ModelId = model.ModelId,

@@ -44,6 +44,14 @@ public sealed class AntigravitySnapshot
     public bool IsInformational { get; init; }
     public string? TierName { get; init; }                   // 예: "Gemini Code Assist"
     public string? PaidTierName { get; init; }               // 예: "Gemini Code Assist in Google One AI Pro"
+
+    /// <summary>
+    /// Google AI 크레딧 잔액 — loadCodeAssist 의 <c>paidTier.availableCredits</c> 중 GOOGLE_ONE_AI 항목의 합.
+    /// 한도를 다 쓴 뒤 일부 모델을 계속 쓰는 데 차감된다. 크레딧 대상이 아닌 계정(무료 등)이면 null,
+    /// 대상이지만 다 쓴 경우는 0 이다.
+    /// </summary>
+    public long? AiCredits { get; init; }
+
     public string? UserEmail { get; init; }
     public IReadOnlyList<AntigravityModelQuota> Models { get; init; } = Array.Empty<AntigravityModelQuota>();
 }
