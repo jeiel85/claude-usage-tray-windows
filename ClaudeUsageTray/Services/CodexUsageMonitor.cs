@@ -1,4 +1,5 @@
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -27,28 +28,39 @@ public class CodexUsageMonitor
     public const string DirectApiSource = "Direct API";
     private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(AppConstants.ApiTimeoutSeconds) };
 
-    public async Task<ProviderUsageSnapshot> GetTodaySnapshotAsync(bool useDirectApi = true)
+    public Task<ProviderUsageSnapshot> GetTodaySnapshotAsync(bool useDirectApi = true) =>
+        GetTodaySnapshotAsync(useDirectApi, _http, AuthPath, SessionsPath);
+
+    // HTTP·경로를 주입받는 오버로드 — 단위 테스트에서 가짜 응답과 임시 로그인 파일·로그 폴더를 쓰기 위한 것.
+    internal async Task<ProviderUsageSnapshot> GetTodaySnapshotAsync(
+        bool useDirectApi, HttpClient http, string authPath, string sessionsPath)
     {
+        var apiStatus = CodexApiStatus.NotAttempted;
         if (useDirectApi)
         {
-            var apiSnapshot = await FetchUsageFromApiAsync();
+            var (apiSnapshot, status) = await FetchUsageFromApiAsync(http, authPath);
+            apiStatus = status;
             if (apiSnapshot is { HasData: true })
             {
                 // API 데이터가 있으면 로그 기반 데이터와 병합하거나 API 우선 사용
                 // 여기서는 API 데이터를 우선하고, 상세 히스토리(시간대별)만 로그에서 보완
-                var logSnapshot = GetTodaySnapshot();
+                var logSnapshot = GetTodaySnapshot(sessionsPath);
                 apiSnapshot.HourlyTokens = logSnapshot.HourlyTokens;
                 apiSnapshot.TotalInputTokens = logSnapshot.TotalInputTokens;
                 apiSnapshot.TotalOutputTokens = logSnapshot.TotalOutputTokens;
                 apiSnapshot.TotalCacheReadTokens = logSnapshot.TotalCacheReadTokens;
                 apiSnapshot.SessionCount = logSnapshot.SessionCount;
+                apiSnapshot.CodexApiStatus = status;
                 return apiSnapshot;
             }
         }
 
-        var snapshot = GetTodaySnapshot();
+        // 폴백 이유를 함께 싣는다 — 추가 한도(이미지 생성 등)는 사실상 API 응답에서만 오므로, 로그인이 만료된 PC 에서
+        // 그 게이지가 왜 사라졌는지 화면이 설명할 수 있어야 한다(#198).
+        var snapshot = GetTodaySnapshot(sessionsPath);
         snapshot.DataSource = "Local Log";
-        snapshot.PlanType ??= TryReadPlanTypeFromAuth(AuthPath);
+        snapshot.PlanType ??= TryReadPlanTypeFromAuth(authPath);
+        snapshot.CodexApiStatus = apiStatus;
         return snapshot;
     }
 
@@ -182,14 +194,22 @@ public class CodexUsageMonitor
         }
     }
 
-    private async Task<ProviderUsageSnapshot?> FetchUsageFromApiAsync()
+    /// <summary>
+    /// Direct API 로 계정 사용량을 읽는다. 못 읽으면 스냅샷 없이 그 이유를 돌려준다(#198).
+    ///
+    /// 토큰이 만료돼도 여기서 refresh_token 으로 갱신하거나 auth.json 에 쓰지 않는다. refresh token 은 한 번 쓰면
+    /// 새 것으로 바뀌므로, 앱이 갱신하면 Codex 가 들고 있는 refresh token 이 무효가 돼 Codex 자체가 로그아웃될 수 있다.
+    /// 갱신은 Codex 가 실행될 때 스스로 한다 — 앱은 실패 사유만 알린다.
+    /// </summary>
+    internal static async Task<(ProviderUsageSnapshot? Snapshot, CodexApiStatus Status)> FetchUsageFromApiAsync(
+        HttpClient http, string authPath)
     {
+        var (token, accountId) = TryGetApiCredentials(authPath);
+        if (string.IsNullOrEmpty(token)) return (null, CodexApiStatus.NoCredentials);
+
         try
         {
-            var (token, accountId) = TryGetApiCredentials();
-            if (string.IsNullOrEmpty(token)) return null;
-
-            var request = new HttpRequestMessage(HttpMethod.Get, UsageApiEndpoint);
+            using var request = new HttpRequestMessage(HttpMethod.Get, UsageApiEndpoint);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             // 실제 CLI 와 같은 값 — 서버가 User-Agent 로 클라이언트를 가리는지는 불명이지만,
             // Antigravity 쪽(v1internal 엔드포인트)이 이미 이 방식으로 403 을 겪은 전례가 있어 맞춰 둔다.
@@ -197,17 +217,57 @@ public class CodexUsageMonitor
             if (!string.IsNullOrEmpty(accountId))
                 request.Headers.TryAddWithoutValidation("ChatGPT-Account-Id", accountId);
 
-            var response = await _http.SendAsync(request);
-            if (!response.IsSuccessStatusCode) return null;
+            using var response = await http.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+                return (null, ClassifyFailedResponse(
+                    response.StatusCode, IsCloudflareChallenge(response), IsJwtExpired(token, DateTimeOffset.UtcNow)));
 
             var json = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(json);
-            return ParseDirectApiUsage(doc.RootElement, DateTimeOffset.Now);
+            var snapshot = ParseDirectApiUsage(doc.RootElement, DateTimeOffset.Now);
+            return snapshot is null ? (null, CodexApiStatus.Unavailable) : (snapshot, CodexApiStatus.Succeeded);
         }
         catch
         {
-            return null;
+            // 네트워크 실패·타임아웃·응답 해석 실패 — 일시적일 수 있어 로그인 문제로 보지 않는다.
+            return (null, CodexApiStatus.Unavailable);
         }
+    }
+
+    /// <summary>
+    /// 실패한 응답이 "다시 로그인해야 하는" 실패인지 가린다(#198).
+    /// 401 은 서버가 토큰을 거부한 것이다. 403 도 대개 인증 문제(계정 헤더 불일치 등)지만, chatgpt.com 앞단의
+    /// Cloudflare 가 봇 챌린지 페이지를 403 으로 돌려줄 때도 있다 — 그 경우엔 토큰이 실제로 만료됐을 때만 인증
+    /// 실패로 본다. 멀쩡한 로그인에 "다시 로그인" 을 띄우면 사용자가 엉뚱한 조치를 하게 된다.
+    /// 그 밖의 오류(429·5xx 등)는 일시적일 수 있어 인증 문제로 보지 않는다.
+    /// </summary>
+    internal static CodexApiStatus ClassifyFailedResponse(
+        HttpStatusCode statusCode, bool isCloudflareChallenge, bool isTokenExpired) => statusCode switch
+    {
+        HttpStatusCode.Unauthorized => CodexApiStatus.AuthFailed,
+        HttpStatusCode.Forbidden when !isCloudflareChallenge || isTokenExpired => CodexApiStatus.AuthFailed,
+        _ => CodexApiStatus.Unavailable,
+    };
+
+    // Cloudflare 가 챌린지 페이지로 응답할 때 붙이는 헤더(Cloudflare 문서 "Detect a Challenge Page response").
+    private static bool IsCloudflareChallenge(HttpResponseMessage response) =>
+        response.Headers.TryGetValues("cf-mitigated", out var values) &&
+        values.Any(value => value.Equals("challenge", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// access_token(JWT) 의 <c>exp</c> 가 이미 지났는지. JWT 가 아니거나 <c>exp</c> 를 못 읽으면 false(모름).
+    /// 서명 검증 없이 payload 만 읽는다 — 실패 사유를 가리는 표시 판단에만 쓰고, 이 값으로 호출을 건너뛰지 않는다
+    /// (PC 시계가 어긋나 있을 수 있으니 유효 여부는 서버가 정한다).
+    /// </summary>
+    internal static bool IsJwtExpired(string? jwt, DateTimeOffset now)
+    {
+        using var payload = DecodeJwtPayload(jwt);
+        return payload is { RootElement.ValueKind: JsonValueKind.Object } &&
+               payload.RootElement.TryGetProperty("exp", out var expEl) &&
+               // TryGetInt64 는 숫자가 아닌 요소에서 false 가 아니라 예외를 던진다 — 종류를 먼저 본다.
+               expEl.ValueKind == JsonValueKind.Number &&
+               expEl.TryGetInt64(out var exp) &&
+               exp <= now.ToUnixTimeSeconds();
     }
 
     /// <summary>
@@ -236,8 +296,6 @@ public class CodexUsageMonitor
             return (null, null);
         }
     }
-
-    private (string? Token, string? AccountId) TryGetApiCredentials() => TryGetApiCredentials(AuthPath);
 
     /// <summary>
     /// Direct API(<c>/backend-api/wham/usage</c>) 응답을 스냅샷으로 편다.

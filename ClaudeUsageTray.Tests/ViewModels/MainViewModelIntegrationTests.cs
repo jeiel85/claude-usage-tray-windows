@@ -242,6 +242,37 @@ public class MainViewModelIntegrationTests : IDisposable
         });
     }
 
+    // #198: Codex 로그인이 서버에서 거부돼 로컬 로그로 폴백했을 때만 안내 줄이 보이고, 정상으로 돌아오면 접힌다.
+    [Fact]
+    public async Task UsagePopup_CodexSignInNotice_FollowsSignInState()
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            UsagePopup? popup = null;
+            try
+            {
+                // 띄우지 않은 창은 바인딩 연결이 미뤄지므로 화면 밖에 띄운다.
+                popup = new UsagePopup(vm) { Left = -10000 };
+                popup.Show();
+                popup.UpdateLayout();
+                var notice = Assert.IsType<System.Windows.Controls.TextBlock>(popup.FindName("CodexSignInNotice"));
+
+                vm.CodexNeedsSignIn = true;
+                Assert.Equal(System.Windows.Visibility.Visible, notice.Visibility);
+                Assert.Equal(Loc.CodexSignInExpiredNotice, notice.Text);
+
+                vm.CodexNeedsSignIn = false;
+                Assert.Equal(System.Windows.Visibility.Collapsed, notice.Visibility);
+            }
+            finally
+            {
+                popup?.Close();
+                vm.Dispose();
+            }
+        });
+    }
+
     /// <summary>
     /// 재로그인이 필요한 에러에서만 "터미널에서 로그인" 버튼이 보이고, CLI 가 없으면 "설치 후 로그인" 으로 바뀌며,
     /// 에러가 풀리면 사라지는지(#180). 버튼을 누르면 실제 터미널이 뜨므로 명령은 실행하지 않고 바인딩만 본다.

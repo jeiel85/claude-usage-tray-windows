@@ -38,6 +38,30 @@ public class ProviderUsageSnapshot
     public List<AdditionalQuotaWindow> AdditionalQuotas { get; set; } = [];
 
     public OpenCodeUsageDetails? OpenCodeDetails { get; set; }
+
+    /// <summary>
+    /// Codex 전용: Direct API(<c>wham/usage</c>) 조회 결과(#198). 로컬 로그로 폴백했을 때 그 이유를 화면에 알리는 데 쓴다.
+    /// 다른 공급자 스냅샷에서는 기본값(<see cref="Models.CodexApiStatus.NotAttempted"/>) 그대로다.
+    /// </summary>
+    public CodexApiStatus CodexApiStatus { get; set; }
+}
+
+/// <summary>
+/// Codex Direct API 조회 결과(#198). "못 읽었다" 를 한 덩어리로 묶으면 로그인 만료와 일시적 네트워크 실패를
+/// 구분할 수 없어, 만료된 PC 에서 추가 한도(이미지 생성 등)가 아무 설명 없이 사라진다.
+/// </summary>
+public enum CodexApiStatus
+{
+    /// <summary>조회하지 않았다(Direct API 비활성).</summary>
+    NotAttempted,
+    /// <summary>공식 값을 읽었다.</summary>
+    Succeeded,
+    /// <summary>로그인 파일이 없거나 access_token 이 없다 — 로그아웃·API 키 모드 등.</summary>
+    NoCredentials,
+    /// <summary>서버가 토큰을 거부했다(만료·폐기) — Codex 를 실행해 갱신하거나 다시 로그인해야 한다.</summary>
+    AuthFailed,
+    /// <summary>그 밖의 HTTP 오류·네트워크 실패·응답 해석 실패 — 일시적일 수 있다.</summary>
+    Unavailable,
 }
 
 /// <summary>추가 한도의 창 하나(계정 단위 값).</summary>
