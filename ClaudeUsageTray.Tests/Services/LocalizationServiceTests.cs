@@ -122,7 +122,8 @@ public class LocalizationServiceTests
         }
     }
 
-    private static readonly Regex Hangul = new("[가-힣]");
+    // 완성형 음절뿐 아니라 자모(ㄱ·ㅏ 등 IME 실수로 섞이기 쉬운 글자)도 잡는다.
+    private static readonly Regex Hangul = new("[ᄀ-ᇿ㄰-㆏가-힣]");
 
     // window_minutes 를 창 길이에 맞는 라벨로 변환한다(주간/5시간/일 단위).
     [Theory]
