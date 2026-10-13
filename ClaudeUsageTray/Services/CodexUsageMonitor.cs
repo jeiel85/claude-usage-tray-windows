@@ -55,8 +55,8 @@ public class CodexUsageMonitor
             }
         }
 
-        // 폴백 이유를 함께 싣는다 — 추가 한도(이미지 생성 등)는 사실상 API 응답에서만 오므로, 로그인이 만료된 PC 에서
-        // 그 게이지가 왜 사라졌는지 화면이 설명할 수 있어야 한다(#198).
+        // 폴백 이유를 함께 싣는다 — 로그 값은 이 PC 에서 Codex 를 써야 생겨 옛 값·빈 값일 수 있고, 모델별 추가 한도
+        // (Spark 등)는 사실상 API 응답에서만 온다. 로그인이 만료된 PC 에서 화면이 왜 그런지 설명할 수 있어야 한다(#198).
         var snapshot = GetTodaySnapshot(sessionsPath);
         snapshot.DataSource = "Local Log";
         snapshot.PlanType ??= TryReadPlanTypeFromAuth(authPath);
