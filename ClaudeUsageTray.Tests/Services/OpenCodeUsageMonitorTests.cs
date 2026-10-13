@@ -33,6 +33,35 @@ public sealed class OpenCodeUsageMonitorTests : IDisposable
         Assert.Equal(now.AddMinutes(-10).AddHours(2), snapshot.OpenCodeDetails.RetryAt);
     }
 
+    // #201: 토큰·비용 값 하나가 숫자가 아니어도(null·문자열) 그 행의 나머지 값은 집계한다.
+    // JsonElement.TryGetInt64/TryGetDecimal 은 숫자가 아닌 요소에서 예외를 던져, 예전에는 그 행 전체가 빠졌다.
+    [Fact]
+    public void GetSnapshot_NonNumericTokenValues_SkipOnlyThatField()
+    {
+        // 이 PC 의 오늘 정오 — 고정 시각(+09:00)은 어떤 시간대에서는 현지 자정 근처라 행이 "어제" 로 빠진다.
+        var now = new DateTimeOffset(DateTime.Today.AddHours(12));
+        CreateDatabase();
+        Insert(new
+        {
+            role = "assistant",
+            time = new { created = now.AddMinutes(-10).ToUnixTimeMilliseconds() },
+            tokens = new { input = (long?)null, output = 50, cache = new { read = "10", write = 5 } },
+            cost = (decimal?)null,
+        });
+
+        var snapshot = new OpenCodeUsageMonitor(_dbPath).GetSnapshot(now);
+
+        Assert.True(snapshot.HasData);
+        Assert.Equal(1, snapshot.RequestCount);
+        Assert.Equal(0, snapshot.TotalInputTokens);
+        Assert.Equal(50, snapshot.TotalOutputTokens);
+        Assert.Equal(0, snapshot.TotalCacheReadTokens);
+        Assert.Equal(5, snapshot.TotalCacheWriteTokens);
+        Assert.NotNull(snapshot.OpenCodeDetails);
+        Assert.Equal(55, snapshot.OpenCodeDetails.LastFiveHours.Tokens);
+        Assert.Equal(0m, snapshot.OpenCodeDetails.LastFiveHours.CostUsd);
+    }
+
     private void CreateDatabase()
     {
         using var connection = new SqliteConnection($"Data Source={_dbPath}");

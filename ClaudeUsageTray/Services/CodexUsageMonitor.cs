@@ -96,14 +96,7 @@ public class CodexUsageMonitor
         {
             if (!File.Exists(authPath)) return null;
 
-            string json;
-            using (var stream = new FileStream(authPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-            using (var reader = new StreamReader(stream))
-            {
-                json = reader.ReadToEnd();
-            }
-
-            using var doc = JsonDocument.Parse(json);
+            using var doc = JsonDocument.Parse(ReadAuthFile(authPath));
             if (!doc.RootElement.TryGetProperty("tokens", out var tokens) || tokens.ValueKind != JsonValueKind.Object)
                 return null;
 
@@ -130,6 +123,16 @@ public class CodexUsageMonitor
         }
     }
 
+    // auth.json 은 Codex 가 토큰을 갱신할 때 다시 쓰고 로그아웃할 때 지운다. File.ReadAllText(FileShare.Read)로 열면
+    // Codex 가 쓰기로 열어 둔 동안엔 읽지 못하고, 읽는 동안엔 Codex 의 쓰기·삭제를 막는다 — 쓰기·삭제 공유를 허용해 연다(#201).
+    // 앱은 이 파일에 쓰지 않는다.
+    private static string ReadAuthFile(string authPath)
+    {
+        using var stream = new FileStream(authPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+
     private static string? ReadString(JsonElement element, string name) =>
         element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String &&
         !string.IsNullOrWhiteSpace(value.GetString())
@@ -150,7 +153,7 @@ public class CodexUsageMonitor
         {
             if (!File.Exists(authPath)) return null;
 
-            using var doc = JsonDocument.Parse(File.ReadAllText(authPath));
+            using var doc = JsonDocument.Parse(ReadAuthFile(authPath));
             if (!doc.RootElement.TryGetProperty("tokens", out var tokens) ||
                 tokens.ValueKind != JsonValueKind.Object ||
                 !tokens.TryGetProperty("id_token", out var idTokenEl) ||
@@ -274,7 +277,7 @@ public class CodexUsageMonitor
         try
         {
             if (!File.Exists(authPath)) return (null, null);
-            using var doc = JsonDocument.Parse(File.ReadAllText(authPath));
+            using var doc = JsonDocument.Parse(ReadAuthFile(authPath));
             if (!doc.RootElement.TryGetProperty("tokens", out var tokens) || tokens.ValueKind != JsonValueKind.Object)
                 return (null, null);
 
@@ -412,13 +415,12 @@ public class CodexUsageMonitor
             ? Math.Clamp(percentEl.GetDouble() / 100.0, 0, 1)
             : 0;
 
-        DateTimeOffset? resetAt = windowEl.TryGetProperty("reset_at", out var resetEl) &&
-                                  resetEl.TryGetInt64(out var epoch) && epoch > 0
+        // 숫자가 아닌 값(null 등)은 그 필드만 "없음"이다 — 예외로 응답 전체를 버리지 않는다(#201).
+        DateTimeOffset? resetAt = JsonNumber.TryReadInt64(windowEl, "reset_at", out var epoch) && epoch > 0
             ? DateTimeOffset.FromUnixTimeSeconds(epoch)
             : null;
 
-        int? windowMinutes = windowEl.TryGetProperty("limit_window_seconds", out var wsEl) &&
-                             wsEl.TryGetInt32(out var ws) && ws > 0
+        int? windowMinutes = JsonNumber.TryReadInt32(windowEl, "limit_window_seconds", out var ws) && ws > 0
             ? (int)Math.Round(ws / 60.0, MidpointRounding.AwayFromZero)
             : null;
 
@@ -555,7 +557,7 @@ public class CodexUsageMonitor
                     }
                 }
 
-                if (!TryReadTotals(payloadEl, out var totals))
+                if (!TryReadTotals(payloadEl, prevTotals, out var totals))
                     continue;
 
                 if (ts != DateTimeOffset.MinValue && ts.ToLocalTime().Date == today)
@@ -591,20 +593,25 @@ public class CodexUsageMonitor
         }
     }
 
-    private static bool TryReadTotals(JsonElement payloadEl, out UsageTotals totals)
+    // 합계 값은 세션 누적이고, 오늘 사용량은 직전 줄과의 차분으로 센다. 그래서 읽지 못한 값을 0 으로 두면
+    // 차분의 기준이 0 으로 떨어져 다음 줄이 세션 누적 전체를 오늘 사용량으로 한 번 더 더한다(#201).
+    // 합계 객체가 없으면 이 줄을 쓰지 않고, 필드 하나만 숫자가 아니면(null 등) 그 필드만 직전 값을 이어 받아 증가 0 으로 둔다.
+    private static bool TryReadTotals(JsonElement payloadEl, UsageTotals? previous, out UsageTotals totals)
     {
         totals = default;
         if (!payloadEl.TryGetProperty("info", out var infoEl) ||
-            infoEl.ValueKind == JsonValueKind.Null ||
-            !infoEl.TryGetProperty("total_token_usage", out var totalEl))
+            infoEl.ValueKind != JsonValueKind.Object ||
+            !infoEl.TryGetProperty("total_token_usage", out var totalEl) ||
+            totalEl.ValueKind != JsonValueKind.Object)
             return false;
 
+        var baseline = previous ?? default;
         totals = new UsageTotals(
-            ReadLong(totalEl, "input_tokens"),
-            ReadLong(totalEl, "cached_input_tokens"),
-            ReadLong(totalEl, "output_tokens"),
-            ReadLong(totalEl, "reasoning_output_tokens"),
-            ReadLong(totalEl, "total_tokens"));
+            ReadCounter(totalEl, "input_tokens", baseline.InputTokens),
+            ReadCounter(totalEl, "cached_input_tokens", baseline.CachedInputTokens),
+            ReadCounter(totalEl, "output_tokens", baseline.OutputTokens),
+            ReadCounter(totalEl, "reasoning_output_tokens", baseline.ReasoningOutputTokens),
+            ReadCounter(totalEl, "total_tokens", baseline.TotalTokens));
         return true;
     }
 
@@ -678,13 +685,11 @@ public class CodexUsageMonitor
 
         // epoch 가 0/음수면 "리셋 시각 없음"이다. 그대로 받으면 1970-01-01 이 되어
         // 시간선이 100% 경과로 계산되고 막대 오른쪽 끝에 박힌다(window_minutes 처럼 양수만 받는다).
-        DateTimeOffset? resetAt = windowEl.TryGetProperty("resets_at", out var resetEl) &&
-                                  resetEl.TryGetInt64(out var epoch) && epoch > 0
+        DateTimeOffset? resetAt = JsonNumber.TryReadInt64(windowEl, "resets_at", out var epoch) && epoch > 0
             ? DateTimeOffset.FromUnixTimeSeconds(epoch)
             : null;
 
-        int? windowMinutes = windowEl.TryGetProperty("window_minutes", out var wmEl) &&
-                             wmEl.TryGetInt32(out var wm) && wm > 0
+        int? windowMinutes = JsonNumber.TryReadInt32(windowEl, "window_minutes", out var wm) && wm > 0
             ? wm
             : null;
 
@@ -693,9 +698,10 @@ public class CodexUsageMonitor
 
     private readonly record struct RateWindow(double Percent, DateTimeOffset? ResetAt, int? WindowMinutes);
 
-    // TryGetInt64 는 숫자가 아니면(null 등) 예외 대신 false 를 반환하므로 GetInt64 보다 안전하다.
-    private static long ReadLong(JsonElement el, string name) =>
-        el.TryGetProperty(name, out var valueEl) && valueEl.TryGetInt64(out var value) ? value : 0;
+    // 없거나 숫자가 아니면(null 등) fallback — JsonElement.TryGetInt64 는 숫자가 아닌 값에서 false 가 아니라 예외를
+    // 던지므로 종류를 먼저 보는 JsonNumber 로 읽는다. 값 하나 때문에 줄 전체가 건너뛰어지지 않는다(#201).
+    private static long ReadCounter(JsonElement el, string name, long fallback) =>
+        JsonNumber.TryReadInt64(el, name, out var value) ? value : fallback;
 
     private readonly record struct UsageTotals(
         long InputTokens,
