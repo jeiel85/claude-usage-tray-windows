@@ -38,12 +38,12 @@ public sealed class OpenCodeUsageMonitorTests : IDisposable
     [Fact]
     public void GetSnapshot_NonNumericTokenValues_SkipOnlyThatField()
     {
-        var now = new DateTimeOffset(2026, 8, 10, 12, 0, 0, TimeSpan.FromHours(9));
+        // 이 PC 의 오늘 정오 — 고정 시각(+09:00)은 어떤 시간대에서는 현지 자정 근처라 행이 "어제" 로 빠진다.
+        var now = new DateTimeOffset(DateTime.Today.AddHours(12));
         CreateDatabase();
         Insert(new
         {
             role = "assistant",
-            // now 가 UTC 03:00 이라 한 시간 전이면 UTC-3 PC 에서 "어제" 가 된다 — 기존 테스트처럼 10분 전으로 둔다.
             time = new { created = now.AddMinutes(-10).ToUnixTimeMilliseconds() },
             tokens = new { input = (long?)null, output = 50, cache = new { read = "10", write = 5 } },
             cost = (decimal?)null,
