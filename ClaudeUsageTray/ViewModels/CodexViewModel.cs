@@ -73,8 +73,7 @@ public partial class CodexViewModel : ObservableObject
                 var informational = UsageCalculator.IsNoUsageInformational(snapshot.ErrorMessage, UsageProviderKind.Codex);
                 HasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage) && !informational;
                 ErrorMessage = informational ? "" : (snapshot.ErrorMessage ?? "");
-                // 로그인 파일이 없는 경우(로그아웃·API 키 모드)는 사용자가 고른 상태이고, 네트워크 실패는 일시적일 수 있어 띄우지 않는다.
-                NeedsSignIn = snapshot.CodexApiStatus == CodexApiStatus.AuthFailed;
+                NeedsSignIn = NeedsSignInFor(snapshot.CodexApiStatus);
                 Summary = Loc.UsageSummary(newPercent);
 
                 // 알림이 꺼져 있어도 기준선은 갱신한다 — 나중에 켰을 때 낡은 기준선과 비교하지 않도록.
@@ -127,9 +126,17 @@ public partial class CodexViewModel : ObservableObject
             {
                 HasError = true;
                 ErrorMessage = ex.Message;
+                // 이번 조회 결과를 모르므로 이전 안내를 남기지 않는다 — 빨간 오류와 회색 안내가 함께 보이지 않게.
+                NeedsSignIn = false;
             });
         }
     }
+
+    /// <summary>
+    /// 로그인 만료 안내를 띄울지(#198). 서버가 토큰을 거부했을 때만이다 — 로그인 파일이 없는 경우(로그아웃·API 키 모드)는
+    /// 사용자가 고른 상태이고, 네트워크 실패 등은 일시적일 수 있다.
+    /// </summary>
+    internal static bool NeedsSignInFor(CodexApiStatus status) => status == CodexApiStatus.AuthFailed;
 
     public void UpdateResetLabels(bool showAbsoluteResetTime)
     {

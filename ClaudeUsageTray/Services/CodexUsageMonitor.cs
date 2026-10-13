@@ -55,8 +55,8 @@ public class CodexUsageMonitor
             }
         }
 
-        // 폴백 이유를 함께 싣는다 — 추가 한도(이미지 생성 등)는 사실상 API 응답에서만 오므로, 로그인이 만료된 PC 에서
-        // 그 게이지가 왜 사라졌는지 화면이 설명할 수 있어야 한다(#198).
+        // 폴백 이유를 함께 싣는다 — 로그 값은 이 PC 에서 Codex 를 써야 생겨 옛 값·빈 값일 수 있고, 모델별 추가 한도
+        // (Spark 등)는 사실상 API 응답에서만 온다. 로그인이 만료된 PC 에서 화면이 왜 그런지 설명할 수 있어야 한다(#198).
         var snapshot = GetTodaySnapshot(sessionsPath);
         snapshot.DataSource = "Local Log";
         snapshot.PlanType ??= TryReadPlanTypeFromAuth(authPath);
@@ -219,8 +219,7 @@ public class CodexUsageMonitor
 
             using var response = await http.SendAsync(request);
             if (!response.IsSuccessStatusCode)
-                return (null, ClassifyFailedResponse(
-                    response.StatusCode, IsCloudflareChallenge(response), IsJwtExpired(token, DateTimeOffset.UtcNow)));
+                return (null, ClassifyFailedResponse(response.StatusCode, IsJwtExpired(token, DateTimeOffset.UtcNow)));
 
             var json = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(json);
@@ -236,23 +235,17 @@ public class CodexUsageMonitor
 
     /// <summary>
     /// 실패한 응답이 "다시 로그인해야 하는" 실패인지 가린다(#198).
-    /// 401 은 서버가 토큰을 거부한 것이다. 403 도 대개 인증 문제(계정 헤더 불일치 등)지만, chatgpt.com 앞단의
-    /// Cloudflare 가 봇 챌린지 페이지를 403 으로 돌려줄 때도 있다 — 그 경우엔 토큰이 실제로 만료됐을 때만 인증
-    /// 실패로 본다. 멀쩡한 로그인에 "다시 로그인" 을 띄우면 사용자가 엉뚱한 조치를 하게 된다.
+    /// 401 은 서버가 토큰을 거부한 것이다. 403 은 원인이 여럿이다 — chatgpt.com 앞단 Cloudflare 의 챌린지·차단
+    /// (1020 등), 계정 헤더 누락 같은 요청 문제도 403 이다. 그래서 403 은 access_token 이 실제로 만료됐을 때만
+    /// 인증 실패로 본다. 멀쩡한 로그인에 "다시 로그인" 을 띄우면 사용자가 엉뚱한 조치를 하게 된다.
     /// 그 밖의 오류(429·5xx 등)는 일시적일 수 있어 인증 문제로 보지 않는다.
     /// </summary>
-    internal static CodexApiStatus ClassifyFailedResponse(
-        HttpStatusCode statusCode, bool isCloudflareChallenge, bool isTokenExpired) => statusCode switch
+    internal static CodexApiStatus ClassifyFailedResponse(HttpStatusCode statusCode, bool isTokenExpired) => statusCode switch
     {
         HttpStatusCode.Unauthorized => CodexApiStatus.AuthFailed,
-        HttpStatusCode.Forbidden when !isCloudflareChallenge || isTokenExpired => CodexApiStatus.AuthFailed,
+        HttpStatusCode.Forbidden when isTokenExpired => CodexApiStatus.AuthFailed,
         _ => CodexApiStatus.Unavailable,
     };
-
-    // Cloudflare 가 챌린지 페이지로 응답할 때 붙이는 헤더(Cloudflare 문서 "Detect a Challenge Page response").
-    private static bool IsCloudflareChallenge(HttpResponseMessage response) =>
-        response.Headers.TryGetValues("cf-mitigated", out var values) &&
-        values.Any(value => value.Equals("challenge", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// access_token(JWT) 의 <c>exp</c> 가 이미 지났는지. JWT 가 아니거나 <c>exp</c> 를 못 읽으면 false(모름).

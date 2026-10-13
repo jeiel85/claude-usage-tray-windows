@@ -48,7 +48,7 @@ public class ProviderUsageSnapshot
 
 /// <summary>
 /// Codex Direct API 조회 결과(#198). "못 읽었다" 를 한 덩어리로 묶으면 로그인 만료와 일시적 네트워크 실패를
-/// 구분할 수 없어, 만료된 PC 에서 추가 한도(이미지 생성 등)가 아무 설명 없이 사라진다.
+/// 구분할 수 없어, 만료된 PC 에서 게이지가 옛 값·빈 값이 되고 모델별 추가 한도가 아무 설명 없이 사라진다.
 /// </summary>
 public enum CodexApiStatus
 {
