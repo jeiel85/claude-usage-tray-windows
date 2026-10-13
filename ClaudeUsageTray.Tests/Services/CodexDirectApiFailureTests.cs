@@ -212,6 +212,36 @@ public sealed class CodexDirectApiFailureTests : IDisposable
         Assert.Equal(0.42, snapshot!.ShortUsagePercent, 3);
     }
 
+    // #201: 추가 한도 창 하나에 숫자가 아닌 값(null)이 섞여 와도 응답 해석 실패로 보지 않는다 —
+    // 예전에는 그 값 하나 때문에 API 결과 전체가 버려지고 로컬 로그로 폴백했다.
+    [Fact]
+    public async Task Fetch_NullFieldInAnAdditionalLimit_IsStillSucceeded()
+    {
+        WriteAuth(AccessToken(DateTimeOffset.UtcNow.AddDays(3)));
+        var body = $$"""
+            {
+                "plan_type": "plus",
+                "rate_limit": {
+                    "primary_window": { "used_percent": 42, "limit_window_seconds": 18000, "reset_at": {{DateTimeOffset.UtcNow.AddHours(3).ToUnixTimeSeconds()}} }
+                },
+                "additional_rate_limits": [
+                    {
+                        "limit_name": "image_gen",
+                        "metered_feature": "codex_image_gen",
+                        "rate_limit": { "primary_window": { "used_percent": 70, "limit_window_seconds": null, "reset_at": null } }
+                    }
+                ]
+            }
+            """;
+
+        var (snapshot, status) = await FetchAsync(new StubHandler(_ => Ok(body)));
+
+        Assert.Equal(CodexApiStatus.Succeeded, status);
+        Assert.NotNull(snapshot);
+        Assert.Equal(0.42, snapshot!.ShortUsagePercent, 3);
+        Assert.Equal(0.70, Assert.Single(snapshot.AdditionalQuotas).UsagePercent, 3);
+    }
+
     // 완료 기준: 만료된 로그인에서는 로컬 로그 게이지를 그대로 보여 주면서 안내 사유(AuthFailed)를 싣는다.
     // 오류 메시지는 만들지 않는다 — 빨간 오류가 아니라 안내다.
     [Fact]

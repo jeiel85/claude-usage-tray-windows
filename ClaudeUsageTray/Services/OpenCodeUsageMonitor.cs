@@ -114,21 +114,20 @@ public class OpenCodeUsageMonitor
                     DetectLimit(root, createdMs, ref latestLimitMs, details);
                     if (!root.TryGetProperty("tokens", out var tokensEl)) continue;
 
-                    long inp = 0, out_ = 0, cacheRead = 0, cacheWrite = 0;
-                    if (tokensEl.TryGetProperty("input",  out var inpEl))  inpEl.TryGetInt64(out inp);
-                    if (tokensEl.TryGetProperty("output", out var outEl))  outEl.TryGetInt64(out out_);
-                    if (tokensEl.TryGetProperty("cache",  out var cacheEl))
+                    // 숫자가 아닌 값(null 등)은 그 필드만 0 이다 — 예외로 행 전체를 빼지 않는다(#201).
+                    JsonNumber.TryReadInt64(tokensEl, "input",  out var inp);
+                    JsonNumber.TryReadInt64(tokensEl, "output", out var out_);
+                    long cacheRead = 0, cacheWrite = 0;
+                    if (tokensEl.ValueKind == JsonValueKind.Object && tokensEl.TryGetProperty("cache", out var cacheEl))
                     {
-                        if (cacheEl.TryGetProperty("read",  out var crEl)) crEl.TryGetInt64(out cacheRead);
-                        if (cacheEl.TryGetProperty("write", out var cwEl)) cwEl.TryGetInt64(out cacheWrite);
+                        JsonNumber.TryReadInt64(cacheEl, "read",  out cacheRead);
+                        JsonNumber.TryReadInt64(cacheEl, "write", out cacheWrite);
                     }
 
                     var totalTokens = inp + out_ + cacheRead + cacheWrite;
                     if (totalTokens == 0) continue;
 
-                    decimal cost = 0;
-                    if (root.TryGetProperty("cost", out var costEl) && costEl.TryGetDecimal(out var parsedCost))
-                        cost = parsedCost;
+                    JsonNumber.TryReadDecimal(root, "cost", out var cost);
 
                     AddPeriod(details.LastSevenDays, createdMs >= sevenDaysMs, totalTokens, cost);
                     AddPeriod(details.ThisMonth, createdMs >= monthStartMs, totalTokens, cost);
