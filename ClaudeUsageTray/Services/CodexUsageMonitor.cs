@@ -557,7 +557,7 @@ public class CodexUsageMonitor
                     }
                 }
 
-                if (!TryReadTotals(payloadEl, out var totals))
+                if (!TryReadTotals(payloadEl, prevTotals, out var totals))
                     continue;
 
                 if (ts != DateTimeOffset.MinValue && ts.ToLocalTime().Date == today)
@@ -593,23 +593,25 @@ public class CodexUsageMonitor
         }
     }
 
-    private static bool TryReadTotals(JsonElement payloadEl, out UsageTotals totals)
+    // 합계 값은 세션 누적이고, 오늘 사용량은 직전 줄과의 차분으로 센다. 그래서 읽지 못한 값을 0 으로 두면
+    // 차분의 기준이 0 으로 떨어져 다음 줄이 세션 누적 전체를 오늘 사용량으로 한 번 더 더한다(#201).
+    // 합계 객체가 없으면 이 줄을 쓰지 않고, 필드 하나만 숫자가 아니면(null 등) 그 필드만 직전 값을 이어 받아 증가 0 으로 둔다.
+    private static bool TryReadTotals(JsonElement payloadEl, UsageTotals? previous, out UsageTotals totals)
     {
         totals = default;
-        // 합계 객체가 없으면 이 줄의 합계는 쓰지 않는다. 필드마다 0 으로 읽어 버리면 누적값 차분의 기준이 0 이 돼
-        // 다음 줄이 세션 누적 전체를 오늘 사용량으로 한 번 더 더한다.
         if (!payloadEl.TryGetProperty("info", out var infoEl) ||
             infoEl.ValueKind != JsonValueKind.Object ||
             !infoEl.TryGetProperty("total_token_usage", out var totalEl) ||
             totalEl.ValueKind != JsonValueKind.Object)
             return false;
 
+        var baseline = previous ?? default;
         totals = new UsageTotals(
-            ReadLong(totalEl, "input_tokens"),
-            ReadLong(totalEl, "cached_input_tokens"),
-            ReadLong(totalEl, "output_tokens"),
-            ReadLong(totalEl, "reasoning_output_tokens"),
-            ReadLong(totalEl, "total_tokens"));
+            ReadCounter(totalEl, "input_tokens", baseline.InputTokens),
+            ReadCounter(totalEl, "cached_input_tokens", baseline.CachedInputTokens),
+            ReadCounter(totalEl, "output_tokens", baseline.OutputTokens),
+            ReadCounter(totalEl, "reasoning_output_tokens", baseline.ReasoningOutputTokens),
+            ReadCounter(totalEl, "total_tokens", baseline.TotalTokens));
         return true;
     }
 
@@ -696,10 +698,10 @@ public class CodexUsageMonitor
 
     private readonly record struct RateWindow(double Percent, DateTimeOffset? ResetAt, int? WindowMinutes);
 
-    // 없거나 숫자가 아니면(null 등) 0 — JsonElement.TryGetInt64 는 숫자가 아닌 값에서 false 가 아니라 예외를 던지므로
-    // 종류를 먼저 보는 JsonNumber 로 읽는다. 값 하나 때문에 줄 전체가 건너뛰어지지 않는다(#201).
-    private static long ReadLong(JsonElement el, string name) =>
-        JsonNumber.TryReadInt64(el, name, out var value) ? value : 0;
+    // 없거나 숫자가 아니면(null 등) fallback — JsonElement.TryGetInt64 는 숫자가 아닌 값에서 false 가 아니라 예외를
+    // 던지므로 종류를 먼저 보는 JsonNumber 로 읽는다. 값 하나 때문에 줄 전체가 건너뛰어지지 않는다(#201).
+    private static long ReadCounter(JsonElement el, string name, long fallback) =>
+        JsonNumber.TryReadInt64(el, name, out var value) ? value : fallback;
 
     private readonly record struct UsageTotals(
         long InputTokens,

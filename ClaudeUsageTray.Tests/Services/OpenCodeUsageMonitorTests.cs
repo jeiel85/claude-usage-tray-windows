@@ -43,7 +43,8 @@ public sealed class OpenCodeUsageMonitorTests : IDisposable
         Insert(new
         {
             role = "assistant",
-            time = new { created = now.AddHours(-1).ToUnixTimeMilliseconds() },
+            // now 가 UTC 03:00 이라 한 시간 전이면 UTC-3 PC 에서 "어제" 가 된다 — 기존 테스트처럼 10분 전으로 둔다.
+            time = new { created = now.AddMinutes(-10).ToUnixTimeMilliseconds() },
             tokens = new { input = (long?)null, output = 50, cache = new { read = "10", write = 5 } },
             cost = (decimal?)null,
         });

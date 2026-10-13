@@ -714,26 +714,59 @@ public class CodexUsageMonitorTests
         finally { Directory.Delete(root, true); }
     }
 
+    // 합계 필드 하나만 숫자가 아니면 그 필드는 직전 값을 이어 받는다(이 줄의 증가 0). 0 으로 읽으면 차분의 기준이 0 으로
+    // 떨어져 input 1000 → null → 1500 이 2500 으로 세어진다. 같은 줄의 다른 필드(output)는 그대로 센다.
+    [Fact]
+    public void LocalLog_NonNumericCounterMidStream_KeepsItsBaseline()
+    {
+        var root = CreateTempCodexRoot();
+        try
+        {
+            var dir = Path.Combine(root, "s");
+            Directory.CreateDirectory(dir);
+            var nullInputTs = MakeTodayLocalIsoUtc(9, 10);
+            File.WriteAllLines(Path.Combine(dir, "rollout-today-nullcounter.jsonl"), new[]
+            {
+                TokenCountLine(MakeTodayLocalIsoUtc(9, 0), input: 1000, cached: 0, output: 10, reasoning: 0,
+                    total: 1010, primaryPercent: 10.0, primaryWindowMinutes: 300, secondaryJson: "null"),
+                $$$"""{"timestamp":"{{{nullInputTs}}}","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":null,"cached_input_tokens":0,"output_tokens":15,"reasoning_output_tokens":0,"total_tokens":1215}},"rate_limits":null}}""",
+                TokenCountLine(MakeTodayLocalIsoUtc(9, 20), input: 1500, cached: 0, output: 20, reasoning: 0,
+                    total: 1520, primaryPercent: 12.0, primaryWindowMinutes: 300, secondaryJson: "null"),
+            });
+
+            var snap = new CodexUsageMonitor().GetTodaySnapshot(root);
+
+            Assert.Equal(1500, snap.TotalInputTokens);
+            Assert.Equal(20, snap.TotalOutputTokens);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     // #201: Codex 가 토큰을 저장하려고 auth.json 을 쓰기로 열어 둔 순간에도 읽혀야 한다.
     // File.ReadAllText 는 FileShare.Read 로 열어, 다른 프로세스가 쓰기 핸들을 쥐고 있으면 공유 위반으로 실패했다.
     [Fact]
     public void AuthReaders_ReadWhileCodexHoldsTheFileOpenForWriting()
     {
-        var authPath = Path.Combine(CreateTempCodexRoot(), "auth.json");
-        File.WriteAllText(authPath,
-            "{\"tokens\":{\"id_token\":\"" + IdToken("""{"chatgpt_plan_type":"plus","chatgpt_user_id":"user-1"}""") +
-            "\",\"access_token\":\"test-access-token\",\"account_id\":\"acc-1\"}}");
-
-        // Rust 의 std::fs::File 은 Windows 에서 읽기·쓰기·삭제 공유를 모두 허용해 연다 — Codex 의 쓰기 핸들을 흉내 낸다.
-        using (new FileStream(authPath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete))
+        var root = CreateTempCodexRoot();
+        try
         {
-            var (token, accountId) = CodexUsageMonitor.TryGetApiCredentials(authPath);
+            var authPath = Path.Combine(root, "auth.json");
+            File.WriteAllText(authPath,
+                "{\"tokens\":{\"id_token\":\"" + IdToken("""{"chatgpt_plan_type":"plus","chatgpt_user_id":"user-1"}""") +
+                "\",\"access_token\":\"test-access-token\",\"account_id\":\"acc-1\"}}");
 
-            Assert.Equal("test-access-token", token);
-            Assert.Equal("acc-1", accountId);
-            Assert.Equal("plus", CodexUsageMonitor.TryReadPlanTypeFromAuth(authPath));
-            Assert.Equal("acc-1|user-1", CodexUsageMonitor.TryReadAccountIdentity(authPath));
+            // Rust 의 std::fs::File 은 Windows 에서 읽기·쓰기·삭제 공유를 모두 허용해 연다 — Codex 의 쓰기 핸들을 흉내 낸다.
+            using (new FileStream(authPath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete))
+            {
+                var (token, accountId) = CodexUsageMonitor.TryGetApiCredentials(authPath);
+
+                Assert.Equal("test-access-token", token);
+                Assert.Equal("acc-1", accountId);
+                Assert.Equal("plus", CodexUsageMonitor.TryReadPlanTypeFromAuth(authPath));
+                Assert.Equal("acc-1|user-1", CodexUsageMonitor.TryReadAccountIdentity(authPath));
+            }
         }
+        finally { Directory.Delete(root, true); }
     }
 
     [Fact]
