@@ -1538,7 +1538,7 @@ public static class Loc
     {
         "ko" => "오늘 Codex 사용 기록이 아직 없습니다.",
         "zh" => "今天还没有 Codex 使用记录。",
-        "ja" => "本지의 Codex 使用記録はまだありません。",
+        "ja" => "本日の Codex 使用記録はまだありません。",
         _ => "No Codex usage has been recorded today yet."
     };
 
@@ -1550,15 +1550,15 @@ public static class Loc
         _ => "Loading Codex session data…"
     };
 
-    // 서버가 Codex 로그인 토큰을 거부해 로컬 로그로 폴백했을 때의 안내(#198). 로그 값은 이 PC 에서 Codex 를 써야
-    // 생기므로 최신이 아닐 수 있고, 모델별 추가 한도(Spark 등)는 공식 조회에서만 온다. 앱은 토큰을 갱신하지 않으므로
-    // 사용자가 할 수 있는 조치(Codex 실행 → 자동 갱신, 안 되면 다시 로그인)를 함께 알린다.
+    // 서버가 이 PC 의 Codex 로그인 토큰을 거부했을 때의 안내(#198). 게이지 출처는 단정하지 않는다 — 로컬 로그일 수도,
+    // 동기화로 받은 다른 PC 값일 수도 있다. 그동안 값이 최신이 아닐 수 있고 모델별 추가 한도(Spark 등)는 공식 조회에서만
+    // 온다. 앱은 토큰을 갱신하지 않으므로 사용자가 할 수 있는 조치(Codex 실행 → 자동 갱신, 안 되면 다시 로그인)를 알린다.
     public static string CodexSignInExpiredNotice => Lang switch
     {
-        "ko" => "Codex 로그인이 만료돼 로컬 로그로 표시 중입니다(값이 최신이 아니거나 모델별 추가 한도가 빠질 수 있음). Codex 를 실행하거나 다시 로그인하세요.",
-        "zh" => "Codex 登录已过期，正在按本地日志显示（数值可能不是最新，也可能缺少按模型的额外限额）。请运行 Codex 或重新登录。",
-        "ja" => "Codex のログインが期限切れのため、ローカルログで表示しています（値が最新でない、またはモデル別の追加制限が表示されない場合があります）。Codex を起動するか再ログインしてください。",
-        _ => "Codex sign-in has expired, so local logs are shown (values may be out of date and per-model extra limits may be missing). Run Codex or sign in again."
+        "ko" => "이 PC 의 Codex 로그인이 만료됐습니다. Codex 를 실행하거나 다시 로그인하세요(그동안 사용량이 최신이 아니거나 모델별 추가 한도가 빠질 수 있습니다).",
+        "zh" => "此电脑上的 Codex 登录已过期。请运行 Codex 或重新登录（在此之前，用量可能不是最新的，也可能缺少按模型的额外限额）。",
+        "ja" => "この PC の Codex ログインの有効期限が切れています。Codex を起動するか再ログインしてください（それまでは使用量が最新でなかったり、モデル別の追加制限が表示されなかったりすることがあります）。",
+        _ => "This PC's Codex sign-in has expired. Run Codex or sign in again (until then, usage may be out of date and per-model extra limits may be missing)."
     };
 
     public static string ClaudeNoUsageToday => Lang switch

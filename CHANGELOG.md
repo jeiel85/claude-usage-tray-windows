@@ -7,16 +7,20 @@
 
 <!-- ko -->
 ### 수정
-- **Codex 로그인이 만료되면 그 사실을 알려 줍니다 (#198)** — Codex 로그인 토큰이 만료돼 공식 사용량 조회가 거부되면, 앱은 지금까지 아무 말 없이 로컬 로그로 바꿔 보여 줬습니다. 로그 값은 그 PC 에서 Codex 를 써야 생기므로 게이지가 옛 값이나 빈 값이 되고, 공식 조회에서만 오는 모델별 추가 한도(Spark 등)는 이유 없이 사라진 채 출처만 `Local Log` 로 바뀌었습니다. 이제 Codex 상세에 `Codex 로그인이 만료돼 로컬 로그로 표시 중입니다…` 안내가 나옵니다. Codex 를 실행하면 로그인이 갱신되고, 그래도 안 되면 Codex 에 다시 로그인하면 됩니다.
-- 기본 게이지는 로컬 로그로 계속 보이고, 빨간 오류로 표시하지 않습니다. 네트워크가 잠깐 끊긴 경우에는 안내를 띄우지 않습니다.
+- **Codex 로그인이 만료되면 그 사실을 알려 줍니다 (#198)** — Codex 로그인 토큰이 만료돼 공식 사용량 조회가 거부되면, 앱은 지금까지 아무 말 없이 로컬 로그로 바꿔 보여 줬습니다. 로그 값은 그 PC 에서 Codex 를 써야 생기므로 게이지가 옛 값이나 빈 값이 되고, 공식 조회에서만 오는 모델별 추가 한도(Spark 등)는 이유 없이 사라진 채 출처만 `Local Log` 로 바뀌었습니다. 이제 Codex 상세에 `이 PC 의 Codex 로그인이 만료됐습니다…` 안내가 나옵니다. Codex 를 실행하면 로그인이 갱신되고, 그래도 안 되면 Codex 에 다시 로그인하면 됩니다.
+- 안내는 서버가 로그인을 거부했을 때만 나옵니다. 거부 응답이라도 원인이 여럿인 경우(접근 차단 등)에는 이 PC 의 로그인이 실제로 만료됐을 때만 띄우고, 네트워크가 잠깐 끊긴 경우에는 띄우지 않습니다.
+- 기본 게이지는 계속 보이고(이 PC 로그나 다중 PC 동기화 값), 빨간 오류로 표시하지 않습니다. 조회 중 예기치 않은 오류가 나면 이전 안내는 지웁니다.
 - 앱은 로그인 토큰을 직접 갱신하거나 Codex 로그인 파일에 쓰지 않습니다. 앱이 갱신하면 Codex 쪽 로그인이 풀릴 수 있기 때문입니다.
+- 일본어 화면의 "오늘 Codex 사용 기록 없음" 문구에 한글이 섞여 있던 것을 고쳤습니다.
 <!-- /ko -->
 
 <!-- en -->
 ### Fixed
-- **The app now tells you when your Codex sign-in has expired (#198)** — When the Codex sign-in token expired and the official usage request was rejected, the app silently switched to local logs. Local logs only exist where Codex is used on that PC, so the gauges could show old or empty values, and per-model extra limits (such as Spark), which only come from the official request, disappeared without explanation while the source changed to `Local Log`. The Codex details now show `Codex sign-in has expired, so local logs are shown…`. Running Codex refreshes the sign-in; if that does not help, sign in to Codex again.
-- The main gauges keep showing from local logs and are not marked as an error. The notice does not appear for a brief network outage.
+- **The app now tells you when your Codex sign-in has expired (#198)** — When the Codex sign-in token expired and the official usage request was rejected, the app silently switched to local logs. Local logs only exist where Codex is used on that PC, so the gauges could show old or empty values, and per-model extra limits (such as Spark), which only come from the official request, disappeared without explanation while the source changed to `Local Log`. The Codex details now show `This PC's Codex sign-in has expired…`. Running Codex refreshes the sign-in; if that does not help, sign in to Codex again.
+- The notice only appears when the server rejects the sign-in. For rejections that can have other causes (such as access blocks), it appears only when this PC's sign-in has actually expired, and it never appears for a brief network outage.
+- The main gauges keep showing (from this PC's logs or multi-PC sync) and are not marked as an error. If the check fails unexpectedly, the previous notice is cleared.
 - The app never refreshes the sign-in token or writes to the Codex sign-in file itself, because doing so could sign Codex out.
+- Fixed Korean characters mixed into the Japanese "no Codex usage today" text.
 <!-- /en -->
 
 ## [1.48.0] - 2026-10-12

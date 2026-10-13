@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using ClaudeUsageTray.Models;
 using ClaudeUsageTray.Services;
+using ClaudeUsageTray.ViewModels;
 using Xunit;
 
 namespace ClaudeUsageTray.Tests.Services;
@@ -38,20 +39,29 @@ public sealed class CodexDirectApiFailureTests : IDisposable
         try { Directory.Delete(_root, true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
     }
 
-    // 401 은 언제나 토큰 거부다. 403 은 Cloudflare 챌린지일 수 있어, 그때는 토큰이 실제로 만료됐을 때만 로그인 문제로 본다.
-    // 429·5xx 는 토큰 상태와 무관하게 일시적인 실패로 본다.
+    // 401 은 언제나 토큰 거부다. 403 은 Cloudflare 챌린지·차단, 계정 헤더 누락 등 원인이 여럿이라 토큰이 실제로
+    // 만료됐을 때만 로그인 문제로 본다. 429·5xx 는 토큰 상태와 무관하게 일시적인 실패로 본다.
     [Theory]
-    [InlineData(HttpStatusCode.Unauthorized, false, false, CodexApiStatus.AuthFailed)]
-    [InlineData(HttpStatusCode.Unauthorized, true, false, CodexApiStatus.AuthFailed)]
-    [InlineData(HttpStatusCode.Forbidden, false, false, CodexApiStatus.AuthFailed)]
-    [InlineData(HttpStatusCode.Forbidden, true, false, CodexApiStatus.Unavailable)]
-    [InlineData(HttpStatusCode.Forbidden, true, true, CodexApiStatus.AuthFailed)]
-    [InlineData(HttpStatusCode.TooManyRequests, false, true, CodexApiStatus.Unavailable)]
-    [InlineData(HttpStatusCode.InternalServerError, false, true, CodexApiStatus.Unavailable)]
-    [InlineData(HttpStatusCode.BadGateway, false, false, CodexApiStatus.Unavailable)]
+    [InlineData(HttpStatusCode.Unauthorized, false, CodexApiStatus.AuthFailed)]
+    [InlineData(HttpStatusCode.Unauthorized, true, CodexApiStatus.AuthFailed)]
+    [InlineData(HttpStatusCode.Forbidden, false, CodexApiStatus.Unavailable)]
+    [InlineData(HttpStatusCode.Forbidden, true, CodexApiStatus.AuthFailed)]
+    [InlineData(HttpStatusCode.TooManyRequests, true, CodexApiStatus.Unavailable)]
+    [InlineData(HttpStatusCode.InternalServerError, true, CodexApiStatus.Unavailable)]
+    [InlineData(HttpStatusCode.BadGateway, false, CodexApiStatus.Unavailable)]
     public void ClassifyFailedResponse_OnlyRejectedTokensNeedSignIn(
-        HttpStatusCode statusCode, bool isCloudflareChallenge, bool isTokenExpired, CodexApiStatus expected) =>
-        Assert.Equal(expected, CodexUsageMonitor.ClassifyFailedResponse(statusCode, isCloudflareChallenge, isTokenExpired));
+        HttpStatusCode statusCode, bool isTokenExpired, CodexApiStatus expected) =>
+        Assert.Equal(expected, CodexUsageMonitor.ClassifyFailedResponse(statusCode, isTokenExpired));
+
+    // 화면 연결 고정: 안내는 서버가 토큰을 거부했을 때만 띄운다.
+    [Theory]
+    [InlineData(CodexApiStatus.NotAttempted, false)]
+    [InlineData(CodexApiStatus.Succeeded, false)]
+    [InlineData(CodexApiStatus.NoCredentials, false)]
+    [InlineData(CodexApiStatus.AuthFailed, true)]
+    [InlineData(CodexApiStatus.Unavailable, false)]
+    public void NeedsSignInFor_OnlyWhenTheServerRejectedTheToken(CodexApiStatus status, bool expected) =>
+        Assert.Equal(expected, CodexViewModel.NeedsSignInFor(status));
 
     [Fact]
     public void IsJwtExpired_ComparesExpWithNow()
@@ -63,7 +73,7 @@ public sealed class CodexDirectApiFailureTests : IDisposable
         Assert.False(CodexUsageMonitor.IsJwtExpired(Jwt("""{"exp":1800000001}"""), now));
     }
 
-    // 모르면 "만료 아님" — 만료라고 단정할 근거가 없으면 Cloudflare 챌린지를 로그인 문제로 몰지 않는다.
+    // 모르면 "만료 아님" — 만료라고 단정할 근거가 없으면 403 을 로그인 문제로 몰지 않는다.
     [Theory]
     [InlineData(null)]
     [InlineData("")]
@@ -125,32 +135,34 @@ public sealed class CodexDirectApiFailureTests : IDisposable
         Assert.Equal(before, File.ReadAllBytes(_authPath));
     }
 
+    // 토큰이 살아 있는데 403 이면(Cloudflare 차단 1020·계정 헤더 누락 등) 다시 로그인해도 풀리지 않는다.
     [Fact]
-    public async Task Fetch_ForbiddenWithoutChallenge_IsAuthFailed()
+    public async Task Fetch_Forbidden_WithLiveToken_IsUnavailable()
     {
         WriteAuth(AccessToken(DateTimeOffset.UtcNow.AddDays(3)));
 
-        var (_, status) = await FetchAsync(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Forbidden)));
+        var (_, status) = await FetchAsync(new StubHandler(_ => CloudflareBlocked()));
 
-        Assert.Equal(CodexApiStatus.AuthFailed, status);
+        Assert.Equal(CodexApiStatus.Unavailable, status);
     }
 
+    // JWT 가 아닌 토큰은 만료 여부를 모른다 — 403 만으로 로그인 문제라고 단정하지 않는다.
     [Fact]
-    public async Task Fetch_CloudflareChallenge_WithLiveToken_IsUnavailable()
+    public async Task Fetch_Forbidden_WithOpaqueToken_IsUnavailable()
     {
-        WriteAuth(AccessToken(DateTimeOffset.UtcNow.AddDays(3)));
+        WriteAuth("opaque-access-token");
 
-        var (_, status) = await FetchAsync(new StubHandler(_ => CloudflareChallenge()));
+        var (_, status) = await FetchAsync(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Forbidden)));
 
         Assert.Equal(CodexApiStatus.Unavailable, status);
     }
 
     [Fact]
-    public async Task Fetch_CloudflareChallenge_WithExpiredToken_IsAuthFailed()
+    public async Task Fetch_Forbidden_WithExpiredToken_IsAuthFailed()
     {
         WriteAuth(AccessToken(DateTimeOffset.UtcNow.AddDays(-3)));
 
-        var (_, status) = await FetchAsync(new StubHandler(_ => CloudflareChallenge()));
+        var (_, status) = await FetchAsync(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Forbidden)));
 
         Assert.Equal(CodexApiStatus.AuthFailed, status);
     }
@@ -211,6 +223,7 @@ public sealed class CodexDirectApiFailureTests : IDisposable
         var snapshot = await SnapshotAsync(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized)));
 
         Assert.Equal(CodexApiStatus.AuthFailed, snapshot.CodexApiStatus);
+        Assert.True(CodexViewModel.NeedsSignInFor(snapshot.CodexApiStatus));
         Assert.Equal("Local Log", snapshot.DataSource);
         Assert.True(snapshot.HasData);
         Assert.Equal(0.30, snapshot.ShortUsagePercent, 3);
@@ -226,6 +239,7 @@ public sealed class CodexDirectApiFailureTests : IDisposable
         var snapshot = await SnapshotAsync(new StubHandler(_ => throw new HttpRequestException("offline")));
 
         Assert.Equal(CodexApiStatus.Unavailable, snapshot.CodexApiStatus);
+        Assert.False(CodexViewModel.NeedsSignInFor(snapshot.CodexApiStatus));
         Assert.Equal("Local Log", snapshot.DataSource);
         Assert.Equal(0.30, snapshot.ShortUsagePercent, 3);
     }
@@ -305,16 +319,12 @@ public sealed class CodexDirectApiFailureTests : IDisposable
     private static HttpResponseMessage Ok(string body) =>
         new(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
 
-    // Cloudflare 가 챌린지 페이지를 돌려줄 때의 모양 — 403 + cf-mitigated: challenge.
-    private static HttpResponseMessage CloudflareChallenge()
-    {
-        var response = new HttpResponseMessage(HttpStatusCode.Forbidden)
+    // Cloudflare 가 요청을 막을 때의 모양 — 403 + HTML 오류 페이지(Error 1020).
+    private static HttpResponseMessage CloudflareBlocked() =>
+        new(HttpStatusCode.Forbidden)
         {
-            Content = new StringContent("<html><title>Just a moment...</title></html>", Encoding.UTF8, "text/html"),
+            Content = new StringContent("<html><title>Access denied | Error 1020</title></html>", Encoding.UTF8, "text/html"),
         };
-        response.Headers.TryAddWithoutValidation("cf-mitigated", "challenge");
-        return response;
-    }
 
     private static string AccessToken(DateTimeOffset expiresAt) =>
         Jwt("{\"exp\":" + expiresAt.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture) + "}");

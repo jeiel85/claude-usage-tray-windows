@@ -1,3 +1,5 @@
+using System.Reflection;
+using System.Text.RegularExpressions;
 using ClaudeUsageTray.Services;
 using Xunit;
 
@@ -90,6 +92,37 @@ public class LocalizationServiceTests
             Loc.SetLanguage(originalLang);
         }
     }
+
+    // 일본어·중국어 화면에 한글이 섞이지 않는다 — CodexNoUsageToday(ja) 가 "本지의 …" 였던 회귀 방지(#198).
+    // Loc 의 매개변수 없는 문자열 속성을 전부 훑으므로 새 문구도 자동으로 검사된다.
+    [Theory]
+    [InlineData("ja")]
+    [InlineData("zh")]
+    public void JapaneseAndChineseTexts_ContainNoHangul(string lang)
+    {
+        var originalLang = Loc.CurrentLang;
+
+        try
+        {
+            Loc.SetLanguage(lang);
+
+            var offenders = typeof(Loc)
+                .GetProperties(BindingFlags.Public | BindingFlags.Static)
+                .Where(p => p.PropertyType == typeof(string) && p.GetIndexParameters().Length == 0)
+                .Select(p => (p.Name, Text: (string?)p.GetValue(null) ?? ""))
+                .Where(entry => Hangul.IsMatch(entry.Text))
+                .Select(entry => $"{entry.Name}: {entry.Text}")
+                .ToList();
+
+            Assert.Empty(offenders);
+        }
+        finally
+        {
+            Loc.SetLanguage(originalLang);
+        }
+    }
+
+    private static readonly Regex Hangul = new("[가-힣]");
 
     // window_minutes 를 창 길이에 맞는 라벨로 변환한다(주간/5시간/일 단위).
     [Theory]
