@@ -34,6 +34,8 @@ public partial class CodexViewModel : ObservableObject
     [ObservableProperty] private string _outputLabel = "—";
     [ObservableProperty] private string _cacheReadLabel = "—";
     [ObservableProperty] private bool _isUsageEmpty = true;
+    // 서버가 로그인 토큰을 거부해 로컬 로그로 폴백했는지(#198). 오류가 아니라 안내다 — 로그 기반 게이지는 그대로 보인다.
+    [ObservableProperty] private bool _needsSignIn;
 
     public double PrevPercent => _alertBaseline.Percent;
     public DateTimeOffset? RawShortResetAt => _rawShortResetAt;
@@ -71,6 +73,8 @@ public partial class CodexViewModel : ObservableObject
                 var informational = UsageCalculator.IsNoUsageInformational(snapshot.ErrorMessage, UsageProviderKind.Codex);
                 HasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage) && !informational;
                 ErrorMessage = informational ? "" : (snapshot.ErrorMessage ?? "");
+                // 로그인 파일이 없는 경우(로그아웃·API 키 모드)는 사용자가 고른 상태이고, 네트워크 실패는 일시적일 수 있어 띄우지 않는다.
+                NeedsSignIn = snapshot.CodexApiStatus == CodexApiStatus.AuthFailed;
                 Summary = Loc.UsageSummary(newPercent);
 
                 // 알림이 꺼져 있어도 기준선은 갱신한다 — 나중에 켰을 때 낡은 기준선과 비교하지 않도록.

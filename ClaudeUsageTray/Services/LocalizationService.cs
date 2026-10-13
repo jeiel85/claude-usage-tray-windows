@@ -1550,6 +1550,16 @@ public static class Loc
         _ => "Loading Codex session data…"
     };
 
+    // 서버가 Codex 로그인 토큰을 거부해 로컬 로그로 폴백했을 때의 안내(#198). 앱은 토큰을 갱신하지 않으므로
+    // 사용자가 할 수 있는 조치(Codex 실행 → 자동 갱신, 안 되면 다시 로그인)를 함께 알린다.
+    public static string CodexSignInExpiredNotice => Lang switch
+    {
+        "ko" => "Codex 로그인이 만료돼 로컬 로그로 표시 중입니다. Codex 를 실행하거나 다시 로그인하면 이미지 생성 등 추가 한도도 보입니다.",
+        "zh" => "Codex 登录已过期，正在按本地日志显示。运行 Codex 或重新登录后，图像生成等额外限额也会显示。",
+        "ja" => "Codex のログインが期限切れのため、ローカルログで表示しています。Codex を起動するか再ログインすると、画像生成などの追加制限も表示されます。",
+        _ => "Codex sign-in has expired, so local logs are shown. Run Codex or sign in again to also see extra limits such as image generation."
+    };
+
     public static string ClaudeNoUsageToday => Lang switch
     {
         "ko" => "오늘 사용 기록이 아직 없습니다.",

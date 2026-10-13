@@ -63,6 +63,34 @@ public class LocalizationServiceTests
         }
     }
 
+    // #198: Codex 로그인 만료 안내는 언어마다 따로 있어야 하고(영어로 떨어지지 않게), 어느 앱 얘기인지 담아야 한다.
+    [Theory]
+    [InlineData("ko")]
+    [InlineData("zh")]
+    [InlineData("ja")]
+    [InlineData("en")]
+    public void CodexSignInExpiredNotice_IsLocalized_AndNamesCodex(string lang)
+    {
+        var originalLang = Loc.CurrentLang;
+
+        try
+        {
+            Loc.SetLanguage("en");
+            var english = Loc.CodexSignInExpiredNotice;
+            Loc.SetLanguage(lang);
+
+            var msg = Loc.CodexSignInExpiredNotice;
+
+            Assert.Contains("Codex", msg);
+            if (lang != "en")
+                Assert.NotEqual(english, msg);
+        }
+        finally
+        {
+            Loc.SetLanguage(originalLang);
+        }
+    }
+
     // window_minutes 를 창 길이에 맞는 라벨로 변환한다(주간/5시간/일 단위).
     [Theory]
     [InlineData(10080, "ko", "주간 윈도우")]

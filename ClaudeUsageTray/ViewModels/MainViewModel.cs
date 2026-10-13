@@ -78,6 +78,8 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private string _codexDataSource = "";
     [ObservableProperty] private bool _codexHasError = false;
     [ObservableProperty] private string _codexErrorMessage = "";
+    // 이 PC 의 Codex 로그인이 서버에서 거부돼 로컬 로그로 표시 중인지(#198) — 다른 PC 값으로 게이지를 채워도 이 PC 사정이라 그대로 둔다.
+    [ObservableProperty] private bool _codexNeedsSignIn;
     [ObservableProperty] private string _codexNote = Loc.ProviderCodexNote;
     [ObservableProperty] private string _codexSummary = "";
     // v1.26.0: 보조(secondary) 윈도우 — Anthropic 의 7d 와 같은 위치
@@ -494,6 +496,7 @@ namespace ClaudeUsageTray.ViewModels;
     public string LblCheckUpdate     => Loc.CheckUpdate;
     public string LblClaudeNoUsage   => Loc.ClaudeNoUsageToday;
     public string LblCodexNoUsage    => IsCodexLoading ? Loc.CodexLoading : Loc.CodexNoUsageToday;
+    public string LblCodexSignInExpired => Loc.CodexSignInExpiredNotice;
     public string LblOpenCodeNoUsage => Loc.OpenCodeNoUsageToday;
     public string LblVisibleProviders => Loc.VisibleProviders;
     public string DisclaimerText     => SelectedProvider == UsageProviderKind.Claude ? Loc.Disclaimer : Loc.GenericDisclaimer;
@@ -2662,6 +2665,7 @@ namespace ClaudeUsageTray.ViewModels;
             CodexDataSource = CodexVm.DataSource;
             CodexHasError = CodexVm.HasError;
             CodexErrorMessage = CodexVm.ErrorMessage;
+            CodexNeedsSignIn = CodexVm.NeedsSignIn;
             CodexSummary = CodexVm.Summary;
             CodexLongPercent = CodexVm.LongPercent;
             _rawCodexLongResetAt = CodexVm.RawLongResetAt;
