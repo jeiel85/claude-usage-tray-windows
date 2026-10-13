@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.48.2] - 2026-10-13
+
+<!-- ko -->
+### 수정
+- **Codex·OpenCode 사용량 데이터에 이상한 값 하나가 섞여도 나머지는 그대로 읽습니다 (#201)** — 지금까지는 Codex 공식 사용량 응답의 한 칸(예: 추가 한도의 초기화 시각)이 비어 있거나 숫자가 아니기만 해도 응답 전체를 버리고 로컬 로그로 바꿔 보여 줬습니다. Codex 로그 한 줄과 OpenCode 요청 한 건도 같은 이유로 통째로 집계에서 빠졌습니다. 이제 그 칸만 "값 없음"으로 두고 나머지 게이지·토큰·비용은 평소대로 보여 줍니다.
+- 앱이 Codex 로그인 파일을 읽는 동안에도 Codex 가 로그인 정보를 저장하거나 로그아웃할 수 있게 파일을 엽니다. 앱은 이 파일에 쓰지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **One odd value in Codex or OpenCode usage data no longer throws away the rest (#201)** — Until now, if a single field in the official Codex usage response (for example, the reset time of an extra limit) came back empty or non-numeric, the whole response was dropped and the app fell back to local logs. A Codex log line or an OpenCode request with such a value was also left out of the totals entirely. Now only that field is treated as missing, and the other gauges, tokens and costs are shown as usual.
+- The Codex sign-in file is now opened so that Codex can still save its sign-in or sign out while the app is reading it. The app never writes to this file.
+<!-- /en -->
+
 ## [1.48.1] - 2026-10-13
 
 <!-- ko -->
