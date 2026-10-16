@@ -292,6 +292,40 @@ public sealed class UsageSyncServiceTests : IDisposable
         Assert.DoesNotContain("user@example.com", written, StringComparison.OrdinalIgnoreCase);
     }
 
+    // Gemini 4 Argon 처럼 앱이 이름을 모르는 그룹(#204)은 그룹 이름이 있어야 "Gemini 4 Argon · 주간" 으로 부를 수 있다.
+    // 로컬 조회에서 동기화 파일을 거쳐 다른 PC 의 화면 입력으로 돌아올 때까지 그룹 이름이 남아야 한다.
+    [Fact]
+    public void QuotaSnapshot_CarriesAntigravityGroupName_AcrossPcs()
+    {
+        var now = new DateTimeOffset(2026, 10, 16, 9, 0, 0, TimeSpan.Zero);
+        var desktop = CreateService("desktop", now);
+        var syncRoot = Path.Combine(_tempRoot, "sync");
+        var quota = ClaudeUsageTray.ViewModels.MainViewModel.CreateAntigravityQuotaSnapshot(new AntigravitySnapshot
+        {
+            HasData = true,
+            Models =
+            [
+                new AntigravityModelQuota
+                {
+                    ModelId = "gemini-argon-wtu-weekly", TokenType = "weekly", GroupName = "Gemini 4 Argon",
+                    DisplayName = "Gemini 4 Argon Weekly Limit", RemainingFraction = 0.71, ResetTime = now.AddDays(6),
+                },
+            ],
+        });
+
+        desktop.WriteSnapshot(syncRoot, desktop.CreateSnapshot(
+            UsageProviderKind.Antigravity, "user@example.com", quota, new UsageSyncLocalTotals()));
+
+        var laptop = CreateService("laptop", now.AddMinutes(1));
+        var read = laptop.ReadSnapshots(syncRoot, UsageProviderKind.Antigravity, "user@example.com", new DateOnly(2026, 10, 16));
+        var newest = laptop.SelectNewestQuotaSnapshot(read.Snapshots, TimeSpan.FromMinutes(5));
+
+        var model = Assert.Single(ClaudeUsageTray.ViewModels.MainViewModel.ToAntigravityModelQuotas(newest!.Quota!.Models));
+        Assert.Equal("Gemini 4 Argon", model.GroupName);
+        Assert.Equal("weekly", model.TokenType);
+        Assert.Equal(0.71, model.RemainingFraction, 6);
+    }
+
     // 스키마 버전은 정확히 일치할 때만 읽히므로, 필드 추가만으로는 올리지 않는다.
     // 올리면 롤아웃 중 구/신 버전 PC 가 서로의 스냅샷을 통째로 무시해 동기화가 끊긴다.
     [Fact]

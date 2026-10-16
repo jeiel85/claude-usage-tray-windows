@@ -347,11 +347,14 @@ public static class Loc
 
     /// <summary>
     /// Antigravity 할당량 한 칸의 이름. 서버는 이 값을 영어로만 내려주므로 아는 버킷은 직접 번역한다.
-    /// 모르는 버킷이면 null 을 돌려주고, 화면은 서버가 준 문구를 그대로 쓴다.
+    /// 앱이 모르는 그룹이라도 서버가 그룹 이름을 주면(<paramref name="groupName"/>, 예: "Gemini 4 Argon", #204)
+    /// 그 이름에 앱 언어의 창 이름을 붙인다 — 모델 이름은 번역하지 않는 고유 명사다.
+    /// 그룹 이름도 모르거나 창 종류를 모르면 null 을 돌려주고, 화면은 서버가 준 문구를 그대로 쓴다.
     /// </summary>
-    public static string? AntigravityBucketLabel(string bucketId, string window)
+    public static string? AntigravityBucketLabel(string bucketId, string window, string groupName = "")
     {
-        var group = AntigravityGroupName(bucketId);
+        var group = AntigravityGroupName(bucketId)
+                    ?? (string.IsNullOrWhiteSpace(groupName) ? null : groupName.Trim());
         var span = AntigravityWindowName(window);
         if (group is null || span is null) return null;
         return $"{group} · {span}";

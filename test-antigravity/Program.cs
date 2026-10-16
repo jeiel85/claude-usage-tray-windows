@@ -32,7 +32,7 @@ internal static class Program
         Console.WriteLine($"Buckets.Count    = {snap.Models.Count}");
         foreach (var m in snap.Models)
         {
-            Console.WriteLine($"  - {m.DisplayName,-38} {m.RemainingFraction,6:P0} left  window={m.TokenType,-7} id={m.ModelId,-12} reset={m.ResetTime:u}");
+            Console.WriteLine($"  - {m.DisplayName,-38} {m.RemainingFraction,6:P0} left  window={m.TokenType,-7} id={m.ModelId,-24} group={m.GroupName} reset={m.ResetTime:u}");
         }
         await VerifyRefreshPathAsync();
         return snap.HasData ? 0 : 1;
@@ -57,8 +57,10 @@ internal static class Program
             return;
         }
 
+        // 앱과 같은 식별자로 묻는다 — 서버가 식별자에 따라 버킷(예: Gemini 4 Argon, #204)을 넣고 뺀다.
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("antigravity/2.6.0");
+        http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", AntigravityUsageMonitor.ClientUserAgent);
+        Console.WriteLine($"User-Agent       = {AntigravityUsageMonitor.ClientUserAgent}");
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         using var assist = await PostAsync(http, "loadCodeAssist", "{}");

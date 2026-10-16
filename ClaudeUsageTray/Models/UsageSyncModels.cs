@@ -93,6 +93,12 @@ public sealed class UsageSyncModelQuota
 
     /// <summary>창 종류("weekly", "5h"). 받는 쪽에서 이름을 자기 언어로 부르는 데 쓴다.</summary>
     public string Window { get; set; } = "";
+
+    /// <summary>
+    /// 서버가 준 그룹 이름("Gemini 4 Argon"). 받는 쪽이 모르는 그룹을 "그룹 이름 · 창" 으로 부르는 데 쓴다(#204).
+    /// 이 필드가 없던 버전이 올린 스냅샷에서는 비어 있고, 그 버전은 모르는 필드를 무시하므로 스키마 버전은 그대로 둔다.
+    /// </summary>
+    public string GroupName { get; set; } = "";
 }
 
 public sealed class UsageSyncOpenCodeQuota
