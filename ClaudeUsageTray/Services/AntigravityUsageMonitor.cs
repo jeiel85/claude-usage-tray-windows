@@ -46,6 +46,8 @@ public sealed class AntigravityUsageMonitor : IDisposable
     /// 데스크톱 앱(hub) 계열의 최신 식별자에만 오고, IDE 계열("antigravity/ide/…")이나 예전 형식
     /// (<see cref="LegacyClientUserAgent"/>)으로 물으면 빠진다. 그래서 데스크톱 앱이 실제로 보내는
     /// "antigravity/hub/버전 os/arch" 형식을 쓴다. 버전은 Argon 이 나온(2026-10-13) 뒤의 데스크톱 앱 버전이다.
+    /// 이후 Google 이 새 한도를 더 높은 버전에만 내려주면 그때의 데스크톱 앱 버전으로 올린다 — 낡은 버전을 거부하더라도
+    /// <see cref="CallV1InternalAsync"/> 가 예전 요청으로 되돌아가 공유 풀 게이지는 남는다.
     /// 이 형식은 '/' 가 두 번 들어가 User-Agent 문법 검사를 통과하지 못하므로 검사 없이 넣는다.
     /// </summary>
     internal static readonly string ClientUserAgent = $"antigravity/hub/2.23.0 windows/{UserAgentArch()}";
@@ -94,8 +96,9 @@ public sealed class AntigravityUsageMonitor : IDisposable
     internal AntigravityUsageMonitor(HttpMessageHandler handler)
     {
         _http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(AppConstants.AuthTimeoutSeconds) };
-        // 토큰 갱신 요청에 붙는 기본값. v1internal 호출은 요청마다 식별자를 직접 고른다(CallV1InternalAsync).
-        _http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", ClientUserAgent);
+        // 토큰 갱신 요청(oauth2.googleapis.com)에만 쓰이는 기본값 — 그쪽은 식별자를 보지 않으므로 예전 값을 그대로 둔다.
+        // v1internal 호출은 요청마다 식별자를 직접 고른다(CallV1InternalAsync).
+        _http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", LegacyClientUserAgent);
     }
 
     public void Dispose()
@@ -138,13 +141,10 @@ public sealed class AntigravityUsageMonitor : IDisposable
             return Failure($"token refresh failed: {ex.Message}");
         }
 
-        // 3. 사용량 요약과 tier 를 함께 받는다.
-        var summaryTask = CallV1InternalAsync("retrieveUserQuotaSummary", accessToken, ct);
-        var tierTask = CallV1InternalAsync("loadCodeAssist", accessToken, ct);
-        await Task.WhenAll(summaryTask, tierTask).ConfigureAwait(false);
-
-        using var summaryDoc = summaryTask.Result;
-        using var tierDoc = tierTask.Result;
+        // 3. tier 와 사용량 요약을 받는다.
+        var (summary, tierResult) = await FetchQuotaDocumentsAsync(accessToken, ct).ConfigureAwait(false);
+        using var summaryDoc = summary;
+        using var tierDoc = tierResult;
 
         if (summaryDoc is null)
             return Failure("retrieveUserQuotaSummary returned no data");
@@ -345,36 +345,94 @@ public sealed class AntigravityUsageMonitor : IDisposable
         if (group.Length == 0) return bucket;
         if (bucket.Length == 0) return group;
         // 모델 한정 그룹은 버킷 이름에 그룹 이름이 이미 들어 있다 — 다시 붙이면 같은 말이 두 번 나온다
-        // ("Gemini 4 Argon" + "Gemini 4 Argon Weekly Limit").
-        if (bucket.StartsWith(group, StringComparison.OrdinalIgnoreCase)) return bucket;
+        // ("Gemini 4 Argon" + "Gemini 4 Argon Weekly Limit"). 단어 단위로만 본다("Gemini 4" 와 "Gemini 40 …" 은 다르다).
+        if (bucket.StartsWith(group, StringComparison.OrdinalIgnoreCase) &&
+            (bucket.Length == group.Length || bucket[group.Length] == ' '))
+        {
+            return bucket;
+        }
         return $"{group} · {bucket}";
     }
 
     // ---------- HTTP ----------
 
+    private const string EmptyBody = "{}";
+
     /// <summary>
-    /// v1internal 메서드를 부른다. 서버가 지금 식별자를 거부(403)하면 예전 식별자로 한 번 더 묻는다 —
-    /// 식별자 규칙이 바뀌어도 공유 풀 게이지까지 잃지는 않게 하려는 것이다. 401 은 토큰 문제라 다시 묻지 않는다.
-    /// 끝내 받지 못하면 null.
+    /// loadCodeAssist 로 tier 와 계정의 Cloud AI Companion 프로젝트를 먼저 받고, 그 프로젝트를 실어 사용량 요약을 묻는다.
+    /// 앱과 gemini-cli 가 같은 방식으로 묻는다 — 프로젝트 없이 물으면 그 프로젝트 기준 버킷(Argon 등, #204)이
+    /// 빠지거나 기본값이 올 수 있다. loadCodeAssist 를 받지 못했으면 예전처럼 빈 본문으로 묻는다.
+    /// 반환한 문서는 호출부가 정리한다.
     /// </summary>
-    internal async Task<JsonDocument?> CallV1InternalAsync(string method, string accessToken, CancellationToken ct)
+    internal async Task<(JsonDocument? Summary, JsonDocument? Tier)> FetchQuotaDocumentsAsync(string accessToken, CancellationToken ct)
     {
-        var (doc, status) = await SendV1InternalAsync(method, accessToken, ClientUserAgent, ct).ConfigureAwait(false);
-        if (status != System.Net.HttpStatusCode.Forbidden)
+        var tierDoc = await CallV1InternalAsync("loadCodeAssist", accessToken, EmptyBody, ct).ConfigureAwait(false);
+        var project = tierDoc is null ? null : ReadCompanionProject(tierDoc);
+        var summaryDoc = await CallV1InternalAsync(
+            "retrieveUserQuotaSummary", accessToken, QuotaSummaryBody(project), ct).ConfigureAwait(false);
+        return (summaryDoc, tierDoc);
+    }
+
+    /// <summary>
+    /// loadCodeAssist 응답의 <c>cloudaicompanionProject</c>. 보통 프로젝트 ID 문자열이고, 객체로 오면 그 <c>id</c> 를 쓴다.
+    /// 없으면 null.
+    /// </summary>
+    internal static string? ReadCompanionProject(JsonDocument doc)
+    {
+        var root = doc.RootElement;
+        if (root.ValueKind != JsonValueKind.Object ||
+            !root.TryGetProperty("cloudaicompanionProject", out var project))
+        {
+            return null;
+        }
+
+        var id = project.ValueKind switch
+        {
+            JsonValueKind.String => project.GetString(),
+            JsonValueKind.Object => ReadString(project, "id"),
+            _ => null,
+        };
+        return string.IsNullOrWhiteSpace(id) ? null : id.Trim();
+    }
+
+    internal static string QuotaSummaryBody(string? project) =>
+        project is null
+            ? EmptyBody
+            : JsonSerializer.Serialize(new Dictionary<string, string> { ["project"] = project });
+
+    /// <summary>
+    /// v1internal 메서드를 부른다. 서버가 지금 요청을 4xx 로 거부하면 이 기능 이전과 똑같은 요청
+    /// (<see cref="LegacyClientUserAgent"/> + 빈 본문)으로 한 번 더 묻는다 — 식별자·프로젝트 규칙이 바뀌어도
+    /// 공유 풀 게이지까지 잃지는 않게 하려는 것이다. 401(토큰)·408(시간 초과)·429(호출 제한)는 요청 모양 탓이
+    /// 아니므로 다시 묻지 않는다. 끝내 받지 못하면 null.
+    /// </summary>
+    internal async Task<JsonDocument?> CallV1InternalAsync(string method, string accessToken, string body, CancellationToken ct)
+    {
+        var (doc, status) = await SendV1InternalAsync(method, accessToken, ClientUserAgent, body, ct).ConfigureAwait(false);
+        if (!ShouldRetryWithLegacyRequest(status))
             return doc;
 
-        (doc, _) = await SendV1InternalAsync(method, accessToken, LegacyClientUserAgent, ct).ConfigureAwait(false);
+        System.Diagnostics.Trace.TraceWarning(
+            $"[AntigravityUsageMonitor] {method} rejected with HTTP {(int?)status}; retrying with the legacy request");
+        (doc, _) = await SendV1InternalAsync(method, accessToken, LegacyClientUserAgent, EmptyBody, ct).ConfigureAwait(false);
         return doc;
     }
 
+    private static bool ShouldRetryWithLegacyRequest(System.Net.HttpStatusCode? status) =>
+        status is { } code &&
+        (int)code is >= 400 and < 500 &&
+        code is not (System.Net.HttpStatusCode.Unauthorized
+                     or System.Net.HttpStatusCode.RequestTimeout
+                     or System.Net.HttpStatusCode.TooManyRequests);
+
     /// <summary>요청 한 번. 응답을 받지 못했으면(네트워크 오류 등) 상태 코드도 null 이다.</summary>
     private async Task<(JsonDocument? Doc, System.Net.HttpStatusCode? Status)> SendV1InternalAsync(
-        string method, string accessToken, string userAgent, CancellationToken ct)
+        string method, string accessToken, string userAgent, string body, CancellationToken ct)
     {
         using var req = new HttpRequestMessage(HttpMethod.Post, $"{CloudCodeBase}:{method}");
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         req.Headers.TryAddWithoutValidation("User-Agent", userAgent);
-        req.Content = new StringContent("{}", Encoding.UTF8, "application/json");
+        req.Content = new StringContent(body, Encoding.UTF8, "application/json");
 
         try
         {

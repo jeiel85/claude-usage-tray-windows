@@ -129,7 +129,7 @@ public sealed class AntigravityUsageMonitorTests
         var handler = new StubHandler(_ => Json("""{"groups":[]}"""));
         using var monitor = new AntigravityUsageMonitor(handler);
 
-        using var doc = await monitor.CallV1InternalAsync("retrieveUserQuotaSummary", "token", CancellationToken.None);
+        using var doc = await monitor.CallV1InternalAsync("retrieveUserQuotaSummary", "token", "{}", CancellationToken.None);
 
         Assert.NotNull(doc);
         // Argon 은 데스크톱 앱(hub) 계열 식별자에만 온다. 기본 헤더가 덧붙어 값이 두 개가 되어도 안 된다.
@@ -138,47 +138,114 @@ public sealed class AntigravityUsageMonitorTests
         Assert.Matches(@" windows/(amd64|arm64)$", AntigravityUsageMonitor.ClientUserAgent);
     }
 
-    [Fact]
-    public async Task CallV1Internal_RetriesWithTheLegacyIdentity_WhenTheServerRejectsTheNewOne()
+    [Theory]
+    [InlineData(HttpStatusCode.Forbidden)]
+    [InlineData(HttpStatusCode.BadRequest)]
+    [InlineData(HttpStatusCode.NotFound)]
+    public async Task CallV1Internal_FallsBackToTheLegacyRequest_WhenTheServerRejectsTheNewOne(HttpStatusCode rejection)
     {
         var handler = new StubHandler(request =>
             StubHandler.UserAgentOf(request) == AntigravityUsageMonitor.ClientUserAgent
-                ? new HttpResponseMessage(HttpStatusCode.Forbidden)
+                ? new HttpResponseMessage(rejection)
                 : Json("""{"groups":[]}"""));
         using var monitor = new AntigravityUsageMonitor(handler);
 
-        using var doc = await monitor.CallV1InternalAsync("retrieveUserQuotaSummary", "token", CancellationToken.None);
+        using var doc = await monitor.CallV1InternalAsync(
+            "retrieveUserQuotaSummary", "token", """{"project":"fixture-project"}""", CancellationToken.None);
 
-        // 식별자 규칙이 바뀌어도 공유 풀 게이지는 예전 식별자로 계속 받는다.
+        // 식별자·프로젝트 규칙이 바뀌어도 이 기능 이전과 똑같은 요청(예전 식별자 + 빈 본문)으로 공유 풀 게이지를 받는다.
         Assert.NotNull(doc);
         Assert.Equal(
             [AntigravityUsageMonitor.ClientUserAgent, AntigravityUsageMonitor.LegacyClientUserAgent],
             handler.UserAgents);
+        Assert.Equal(["""{"project":"fixture-project"}""", "{}"], handler.Bodies);
     }
 
-    [Fact]
-    public async Task CallV1Internal_DoesNotRetry_WhenTheTokenIsRejected()
+    [Theory]
+    [InlineData(HttpStatusCode.Unauthorized)]      // 토큰 문제
+    [InlineData(HttpStatusCode.TooManyRequests)]   // 호출 제한
+    [InlineData(HttpStatusCode.InternalServerError)]
+    public async Task CallV1Internal_DoesNotRetry_WhenTheRequestShapeIsNotTheCause(HttpStatusCode failure)
     {
-        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+        var handler = new StubHandler(_ => new HttpResponseMessage(failure));
         using var monitor = new AntigravityUsageMonitor(handler);
 
-        using var doc = await monitor.CallV1InternalAsync("retrieveUserQuotaSummary", "token", CancellationToken.None);
+        using var doc = await monitor.CallV1InternalAsync("retrieveUserQuotaSummary", "token", "{}", CancellationToken.None);
 
-        // 401 은 식별자가 아니라 토큰 문제다 — 다른 식별자로 다시 물어도 소용없다.
+        // 요청 모양을 바꿔 다시 물어도 소용없는 실패다.
         Assert.Null(doc);
         Assert.Single(handler.UserAgents);
     }
 
     [Fact]
-    public async Task CallV1Internal_ReturnsNull_WhenBothIdentitiesAreRejected()
+    public async Task CallV1Internal_ReturnsNull_WhenBothRequestsAreRejected()
     {
         var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Forbidden));
         using var monitor = new AntigravityUsageMonitor(handler);
 
-        using var doc = await monitor.CallV1InternalAsync("retrieveUserQuotaSummary", "token", CancellationToken.None);
+        using var doc = await monitor.CallV1InternalAsync("retrieveUserQuotaSummary", "token", "{}", CancellationToken.None);
 
         Assert.Null(doc);
         Assert.Equal(2, handler.UserAgents.Count);
+    }
+
+    [Fact]
+    public async Task FetchQuotaDocuments_AsksForTheSummaryWithTheAccountsProject()
+    {
+        var handler = new StubHandler(request => request.RequestUri!.AbsolutePath.EndsWith(":loadCodeAssist")
+            ? Json("""{"cloudaicompanionProject":"fixture-project","paidTier":{"name":"Google AI Ultra"}}""")
+            : Json(ArgonSummaryResponse));
+        using var monitor = new AntigravityUsageMonitor(handler);
+
+        var (summary, tier) = await monitor.FetchQuotaDocumentsAsync("token", CancellationToken.None);
+        using (summary)
+        using (tier)
+        {
+            // 앱·gemini-cli 처럼 loadCodeAssist 의 프로젝트를 받아 그 프로젝트의 요약을 묻는다.
+            Assert.Equal(["/v1internal:loadCodeAssist", "/v1internal:retrieveUserQuotaSummary"], handler.Paths);
+            Assert.Equal(["{}", """{"project":"fixture-project"}"""], handler.Bodies);
+            Assert.NotNull(summary);
+            Assert.NotNull(tier);
+        }
+    }
+
+    [Fact]
+    public async Task FetchQuotaDocuments_AsksWithoutAProject_WhenLoadCodeAssistFails()
+    {
+        var handler = new StubHandler(request => request.RequestUri!.AbsolutePath.EndsWith(":loadCodeAssist")
+            ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+            : Json(ArgonSummaryResponse));
+        using var monitor = new AntigravityUsageMonitor(handler);
+
+        var (summary, tier) = await monitor.FetchQuotaDocumentsAsync("token", CancellationToken.None);
+        using (summary)
+        {
+            // tier 는 부가 정보다 — 받지 못해도 게이지는 예전처럼 빈 본문으로 묻는다.
+            Assert.Null(tier);
+            Assert.NotNull(summary);
+            Assert.Equal("{}", handler.Bodies[^1]);
+        }
+    }
+
+    [Theory]
+    [InlineData("""{"cloudaicompanionProject":"my-project-123"}""", "my-project-123")]
+    [InlineData("""{"cloudaicompanionProject":{"id":"my-project-123","name":"x"}}""", "my-project-123")]
+    [InlineData("""{"cloudaicompanionProject":""}""", null)]
+    [InlineData("""{"cloudaicompanionProject":null}""", null)]
+    [InlineData("""{"currentTier":{"name":"Free"}}""", null)]
+    [InlineData("""[]""", null)]
+    public void ReadCompanionProject_ReadsStringOrObjectId(string json, string? expected)
+    {
+        using var doc = JsonDocument.Parse(json);
+
+        Assert.Equal(expected, AntigravityUsageMonitor.ReadCompanionProject(doc));
+    }
+
+    [Fact]
+    public void QuotaSummaryBody_CarriesTheProject_OrStaysEmpty()
+    {
+        Assert.Equal("{}", AntigravityUsageMonitor.QuotaSummaryBody(null));
+        Assert.Equal("""{"project":"my-project-123"}""", AntigravityUsageMonitor.QuotaSummaryBody("my-project-123"));
     }
 
     private static HttpResponseMessage Json(string body) =>
@@ -188,14 +255,18 @@ public sealed class AntigravityUsageMonitorTests
     {
         /// <summary>요청마다 실제로 붙은 User-Agent 값. 여러 개가 붙었으면 " | " 로 이어 드러낸다.</summary>
         public List<string> UserAgents { get; } = [];
+        public List<string> Paths { get; } = [];
+        public List<string> Bodies { get; } = [];
 
         public static string UserAgentOf(HttpRequestMessage request) =>
             request.Headers.TryGetValues("User-Agent", out var values) ? string.Join(" | ", values) : "";
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             UserAgents.Add(UserAgentOf(request));
-            return Task.FromResult(respond(request));
+            Paths.Add(request.RequestUri!.AbsolutePath);
+            Bodies.Add(request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken));
+            return respond(request);
         }
     }
 
@@ -423,6 +494,7 @@ public sealed class AntigravityUsageMonitorTests
     [InlineData("  Gemini Models  ", "  Weekly Limit  ", "Gemini Models · Weekly Limit")]
     // 모델 한정 그룹은 버킷 이름에 그룹 이름이 이미 들어 있다 — 겹쳐 붙이지 않는다(#204).
     [InlineData("Gemini 4 Argon", "Gemini 4 Argon Weekly Limit", "Gemini 4 Argon Weekly Limit")]
+    [InlineData("Gemini 4", "Gemini 40 Weekly Limit", "Gemini 4 · Gemini 40 Weekly Limit")]   // 단어 단위로만 겹침을 본다
     public void ComposeDisplayName_JoinsAvailableParts(string group, string bucket, string expected)
     {
         Assert.Equal(expected, AntigravityUsageMonitor.ComposeDisplayName(group, bucket));
