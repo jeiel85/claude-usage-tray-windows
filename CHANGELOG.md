@@ -3,6 +3,26 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.49.0] - 2026-10-16
+
+<!-- ko -->
+### 추가
+- **Antigravity 상세에 Gemini 4 Argon 주간 한도를 별도 게이지로 보여줍니다 (#204)** — Antigravity 앱의 사용량 화면처럼, 공유 한도(Gemini 모델 · Claude·GPT 모델) 아래에 `Gemini 4 Argon · 주간` 게이지가 따로 나옵니다.
+  - Google 이 Argon 한도를 Antigravity 데스크톱 앱이 보내는 요청에만 알려 주기 때문에, 이제 앱도 같은 방식으로 요청합니다. 서버가 거부하면 이전 방식으로 다시 요청해 기존 게이지는 그대로 받습니다.
+  - Argon 을 쓸 수 없는 계정에서는 이 게이지가 나오지 않습니다.
+  - 트레이 숫자는 지금처럼 공유 한도 기준입니다. Argon 을 다 써도 다른 모델은 계속 쓸 수 있기 때문이며, Claude 의 모델 한정 한도·Codex 추가 한도와 같은 규칙입니다.
+  - 다중 PC 동기화로 받은 값도 같은 이름으로 보입니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Antigravity details now show the Gemini 4 Argon weekly limit as its own gauge (#204)** — Like the usage screen in the Antigravity app, a separate `Gemini 4 Argon · Weekly` gauge appears below the shared limits (Gemini models · Claude and GPT models).
+  - Google only reports the Argon limit to requests made the way the Antigravity desktop app makes them, so the app now asks the same way. If the server refuses, it asks again the previous way so the existing gauges still arrive.
+  - Accounts that can't use Argon don't get this gauge.
+  - The tray number still follows the shared limits. Using up Argon doesn't stop you from using other models, and Claude's model-specific limits and Codex's extra limits follow the same rule.
+  - Values received through multi-PC sync show the same name.
+<!-- /en -->
+
 ## [1.48.2] - 2026-10-13
 
 <!-- ko -->
