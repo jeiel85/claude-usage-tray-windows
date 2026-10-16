@@ -22,7 +22,8 @@ namespace ClaudeUsageTray.Services;
 ///  3. 만료됐으면 refresh_token 으로 갱신한다. 이때만 client_id/secret 이 필요하며,
 ///     사용자가 적어 둔 파일이 없으면 설치된 language_server.exe 에서 찾아낸다.
 ///  4. v1internal:retrieveUserQuotaSummary 로 그룹별(Gemini / Claude·GPT) 주간·5시간 잔여량을 받는다.
-///     Antigravity 앱의 "Models &amp; Usage" 화면이 그리는 값이 이것이다.
+///     Antigravity 앱의 "Models &amp; Usage" 화면이 그리는 값이 이것이다. 공유 풀과 별개로 모델 하나에만 걸린
+///     한도(Gemini 4 Argon 주간, #204)도 자기 그룹으로 함께 온다.
 ///  5. v1internal:loadCodeAssist 로 tier 표기와 Google AI 크레딧 잔액을 함께 받는다.
 ///
 /// Antigravity 를 실행하지 않아도 동작한다. 앱의 로컬 서버가 아니라 Google 백엔드를 직접 부르기 때문이다.
@@ -38,11 +39,25 @@ public sealed class AntigravityUsageMonitor : IDisposable
     private const string CloudCodeBase = "https://daily-cloudcode-pa.googleapis.com/v1internal";
 
     /// <summary>
-    /// 클라이언트 신원. 이 형식의 User-Agent 가 없으면 retrieveUserQuotaSummary 가 403 을 준다
+    /// 클라이언트 신원. "antigravity/" 로 시작하는 User-Agent 가 없으면 retrieveUserQuotaSummary 가 403 을 준다
     /// (retrieveUserQuota 는 없어도 통과하지만 화면과 다른 모델별 값이라 쓰지 않는다).
-    /// 서버가 버전 값 자체를 검사하지는 않는다.
+    ///
+    /// 서버는 이 값의 클라이언트 계열과 버전을 보고 내려줄 버킷을 고른다. Gemini 4 Argon 주간 한도(#204)는
+    /// 데스크톱 앱(hub) 계열의 최신 식별자에만 오고, IDE 계열("antigravity/ide/…")이나 예전 형식
+    /// (<see cref="LegacyClientUserAgent"/>)으로 물으면 빠진다. 그래서 데스크톱 앱이 실제로 보내는
+    /// "antigravity/hub/버전 os/arch" 형식을 쓴다. 버전은 Argon 이 나온(2026-10-13) 뒤의 데스크톱 앱 버전이다.
+    /// 이 형식은 '/' 가 두 번 들어가 User-Agent 문법 검사를 통과하지 못하므로 검사 없이 넣는다.
     /// </summary>
-    private const string ClientUserAgent = "antigravity/2.6.0";
+    internal static readonly string ClientUserAgent = $"antigravity/hub/2.23.0 windows/{UserAgentArch()}";
+
+    /// <summary>
+    /// 이전까지 쓰던 식별자. 공유 풀(Gemini · Claude/GPT) 게이지는 이것으로도 온다.
+    /// 서버가 <see cref="ClientUserAgent"/> 를 거부(403)하면 이것으로 한 번 더 물어 게이지가 통째로 사라지지 않게 한다.
+    /// </summary>
+    internal const string LegacyClientUserAgent = "antigravity/2.6.0";
+
+    private static string UserAgentArch() =>
+        RuntimeInformation.OSArchitecture == Architecture.Arm64 ? "arm64" : "amd64";
 
     private static readonly TimeSpan TokenRefreshSkew = TimeSpan.FromMinutes(2);
 
@@ -71,10 +86,16 @@ public sealed class AntigravityUsageMonitor : IDisposable
     // 바이너리 스캔은 한 번만 시도한다 (144MB, 약 1.5초).
     private bool _clientLookupAttempted;
 
-    public AntigravityUsageMonitor()
+    public AntigravityUsageMonitor() : this(new HttpClientHandler())
     {
-        _http = new HttpClient { Timeout = TimeSpan.FromSeconds(AppConstants.AuthTimeoutSeconds) };
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd(ClientUserAgent);
+    }
+
+    /// <summary>테스트용 — 서버 대신 꾸민 응답을 돌려주는 handler 를 넣는다.</summary>
+    internal AntigravityUsageMonitor(HttpMessageHandler handler)
+    {
+        _http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(AppConstants.AuthTimeoutSeconds) };
+        // 토큰 갱신 요청에 붙는 기본값. v1internal 호출은 요청마다 식별자를 직접 고른다(CallV1InternalAsync).
+        _http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", ClientUserAgent);
     }
 
     public void Dispose()
@@ -240,6 +261,7 @@ public sealed class AntigravityUsageMonitor : IDisposable
             RemainingFraction = Math.Clamp(remaining, 0.0, 1.0),
             ResetTime = reset,
             DisplayName = ComposeDisplayName(groupName, ReadString(bucket, "displayName")),
+            GroupName = groupName.Trim(),
         };
     }
 
@@ -318,17 +340,40 @@ public sealed class AntigravityUsageMonitor : IDisposable
 
     internal static string ComposeDisplayName(string groupName, string bucketName)
     {
-        if (string.IsNullOrWhiteSpace(groupName)) return bucketName.Trim();
-        if (string.IsNullOrWhiteSpace(bucketName)) return groupName.Trim();
-        return $"{groupName.Trim()} · {bucketName.Trim()}";
+        var group = groupName.Trim();
+        var bucket = bucketName.Trim();
+        if (group.Length == 0) return bucket;
+        if (bucket.Length == 0) return group;
+        // 모델 한정 그룹은 버킷 이름에 그룹 이름이 이미 들어 있다 — 다시 붙이면 같은 말이 두 번 나온다
+        // ("Gemini 4 Argon" + "Gemini 4 Argon Weekly Limit").
+        if (bucket.StartsWith(group, StringComparison.OrdinalIgnoreCase)) return bucket;
+        return $"{group} · {bucket}";
     }
 
     // ---------- HTTP ----------
 
-    private async Task<JsonDocument?> CallV1InternalAsync(string method, string accessToken, CancellationToken ct)
+    /// <summary>
+    /// v1internal 메서드를 부른다. 서버가 지금 식별자를 거부(403)하면 예전 식별자로 한 번 더 묻는다 —
+    /// 식별자 규칙이 바뀌어도 공유 풀 게이지까지 잃지는 않게 하려는 것이다. 401 은 토큰 문제라 다시 묻지 않는다.
+    /// 끝내 받지 못하면 null.
+    /// </summary>
+    internal async Task<JsonDocument?> CallV1InternalAsync(string method, string accessToken, CancellationToken ct)
+    {
+        var (doc, status) = await SendV1InternalAsync(method, accessToken, ClientUserAgent, ct).ConfigureAwait(false);
+        if (status != System.Net.HttpStatusCode.Forbidden)
+            return doc;
+
+        (doc, _) = await SendV1InternalAsync(method, accessToken, LegacyClientUserAgent, ct).ConfigureAwait(false);
+        return doc;
+    }
+
+    /// <summary>요청 한 번. 응답을 받지 못했으면(네트워크 오류 등) 상태 코드도 null 이다.</summary>
+    private async Task<(JsonDocument? Doc, System.Net.HttpStatusCode? Status)> SendV1InternalAsync(
+        string method, string accessToken, string userAgent, CancellationToken ct)
     {
         using var req = new HttpRequestMessage(HttpMethod.Post, $"{CloudCodeBase}:{method}");
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        req.Headers.TryAddWithoutValidation("User-Agent", userAgent);
         req.Content = new StringContent("{}", Encoding.UTF8, "application/json");
 
         try
@@ -343,15 +388,15 @@ public sealed class AntigravityUsageMonitor : IDisposable
                     _accessExpiresAt = DateTimeOffset.MinValue;
                     _rejectedStoredToken = accessToken;
                 }
-                return null;
+                return (null, resp.StatusCode);
             }
 
             var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-            return await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
+            return (await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false), resp.StatusCode);
         }
         catch
         {
-            return null;
+            return (null, null);
         }
     }
 

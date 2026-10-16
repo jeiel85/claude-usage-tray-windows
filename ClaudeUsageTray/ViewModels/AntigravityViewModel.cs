@@ -122,6 +122,8 @@ public partial class AntigravityViewModel : ObservableObject
     {
         var models = _appliedQuota;
         double worstUsed = 0;
+        double worstSharedUsed = 0;
+        bool hasSharedPool = false;
         var now = DateTimeOffset.Now;
         var rows = new List<QuotaGaugeRow>(models.Count);
         foreach (var m in models)
@@ -139,6 +141,11 @@ public partial class AntigravityViewModel : ObservableObject
 
             double used = Math.Clamp(1.0 - m.RemainingFraction, 0.0, 1.0);
             if (used > worstUsed) worstUsed = used;
+            if (IsSharedPoolBucket(m.ModelId))
+            {
+                hasSharedPool = true;
+                if (used > worstSharedUsed) worstSharedUsed = used;
+            }
 
             // 아직 쓰지 않은 창도 남겨 둔다. 보여 주기로 한 그룹의 주간·5시간 칸이
             // 항상 보여야 지금 무엇이 얼마나 남았는지 읽을 수 있다.
@@ -158,7 +165,11 @@ public partial class AntigravityViewModel : ObservableObject
 
         // 창마다 한도가 따로 걸리므로 평균은 가장 급한 제약을 가린다 (주간 90% + 5시간 0% → 45%).
         // 트레이 게이지에는 가장 많이 쓴 창을 올린다.
-        Percent = worstUsed;
+        // 모델 하나에만 걸린 한도(Gemini 4 Argon 등, #204)는 행으로만 보이고 트레이 값에는 넣지 않는다 —
+        // 그 모델을 다 써도 같은 풀의 다른 모델은 계속 쓸 수 있고, Claude 모델 한정 한도(#187)·
+        // Codex 추가 한도(#182)도 같은 규칙이다. 공유 풀 행이 하나도 없으면(구버전이 동기화로 올린
+        // 모델별 값, 버킷 이름 규칙이 바뀐 응답) 트레이가 0% 로 거짓말하지 않도록 전체 행으로 계산한다.
+        Percent = hasSharedPool ? worstSharedUsed : worstUsed;
     }
 
     /// <summary>
@@ -188,12 +199,26 @@ public partial class AntigravityViewModel : ObservableObject
         string.Equals(GroupKey(modelId), "3p", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
+    /// 여러 모델이 함께 쓰는 공유 풀의 창인가 — Gemini 모델 묶음(gemini)과 Claude·GPT 묶음(3p).
+    /// 그 밖의 그룹(Gemini 4 Argon 의 gemini-argon-wtu 등, #204)은 모델 하나에만 걸린 한도다.
+    /// 그룹 키를 정확히 비교한다 — 앞부분만 보면 gemini 로 시작하는 모델 한정 그룹이 공유 풀로 잡힌다.
+    /// </summary>
+    internal static bool IsSharedPoolBucket(string modelId)
+    {
+        var group = GroupKey(modelId);
+        return string.Equals(group, "gemini", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(group, "3p", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// 게이지 순서를 Claude·Codex 와 맞춘다 — 짧은 창(5시간)이 위, 긴 창(주간)이 아래.
     /// 사용량 내림차순으로 세우면 새로고침마다 순서가 뒤바뀌어 같은 자리를 눈으로 좇을 수 없고,
     /// 다른 provider 는 창 길이 순으로 고정돼 있어 같은 화면에서 읽는 방식이 달라진다.
     ///
-    /// 그룹(Gemini · Claude·GPT)끼리는 서버가 준 순서를 지켜 같은 그룹의 두 창이 붙어 보이게 한다.
-    /// 창 길이를 모르는 행(새 창 종류)은 맨 뒤로 — 자리를 지어내지 않는다.
+    /// 공유 풀(Gemini · Claude·GPT)을 먼저, 모델 한정 한도(Gemini 4 Argon 등)를 그 아래에 둔다 —
+    /// Antigravity 앱 화면과 같은 순서이고, Claude 의 모델 한정 한도(#187)도 기본 게이지 아래에 붙는다.
+    /// 같은 종류 안에서는 서버가 준 그룹 순서를 지켜 같은 그룹의 창이 붙어 보이게 한다.
+    /// 창 길이를 모르는 행(새 창 종류)은 그룹 안에서 맨 뒤로 — 자리를 지어내지 않는다.
     /// </summary>
     private static IReadOnlyList<QuotaGaugeRow> SortLikeOtherProviders(
         List<QuotaGaugeRow> rows, IReadOnlyList<AntigravityModelQuota> source)
@@ -207,7 +232,8 @@ public partial class AntigravityViewModel : ObservableObject
         }
 
         return [.. rows
-            .OrderBy(r => groupOrder.TryGetValue(GroupKey(r.Key), out var i) ? i : int.MaxValue)
+            .OrderBy(r => IsSharedPoolBucket(r.Key) ? 0 : 1)
+            .ThenBy(r => groupOrder.TryGetValue(GroupKey(r.Key), out var i) ? i : int.MaxValue)
             .ThenBy(r => r.Window ?? TimeSpan.MaxValue)];
     }
 
@@ -255,12 +281,13 @@ public partial class AntigravityViewModel : ObservableObject
     }
 
     /// <summary>
-    /// 아는 버킷은 앱 언어로 부르고, 모르는 버킷만 서버가 준 영어 문구를 쓴다.
+    /// 아는 버킷은 앱 언어로 부르고, 모르는 그룹은 서버의 그룹 이름 + 앱 언어의 창 이름("Gemini 4 Argon · 주간")으로,
+    /// 그것도 안 되는 버킷만 서버가 준 영어 문구를 쓴다.
     /// 표시 이름을 함께 보내지 않던 버전이 동기화한 값은 식별자를 다듬어 쓴다.
     /// </summary>
     internal static string ResolveDisplayName(AntigravityModelQuota quota)
     {
-        var localized = Loc.AntigravityBucketLabel(quota.ModelId, quota.TokenType);
+        var localized = Loc.AntigravityBucketLabel(quota.ModelId, quota.TokenType, quota.GroupName);
         if (localized is not null) return localized;
 
         return string.IsNullOrWhiteSpace(quota.DisplayName)

@@ -25,6 +25,13 @@ public sealed class AntigravityModelQuota
     /// (구버전이 동기화로 올린 모델별 값이 이 경우다).
     /// </summary>
     public string DisplayName { get; init; } = "";
+
+    /// <summary>
+    /// 버킷이 속한 그룹의 서버 표시 이름. 예: "Gemini 4 Argon".
+    /// 앱이 이름을 모르는 그룹(모델 하나에만 걸린 한도 등, #204)을 "그룹 이름 · 창" 으로 부르는 데 쓴다.
+    /// 그룹 없이 온 버킷이나 이 필드가 없던 버전이 동기화로 올린 값에서는 비어 있다.
+    /// </summary>
+    public string GroupName { get; init; } = "";
 }
 
 /// <summary>

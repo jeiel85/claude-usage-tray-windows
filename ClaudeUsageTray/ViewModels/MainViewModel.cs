@@ -3402,7 +3402,7 @@ namespace ClaudeUsageTray.ViewModels;
             ? Loc.UsageSyncQuotaFromDevice(origin.Device, UsageCalculator.FormatObservedAt(origin.ObservedAt, DateTimeOffset.Now))
             : "";
 
-    private static UsageSyncQuotaSnapshot? CreateAntigravityQuotaSnapshot(AntigravitySnapshot snapshot)
+    internal static UsageSyncQuotaSnapshot? CreateAntigravityQuotaSnapshot(AntigravitySnapshot snapshot)
     {
         if (!snapshot.HasData || snapshot.Models.Count == 0)
             return null;
@@ -3420,11 +3420,12 @@ namespace ClaudeUsageTray.ViewModels;
                 ResetAt = model.ResetTime,
                 DisplayName = model.DisplayName,
                 Window = model.TokenType,
+                GroupName = model.GroupName,
             })],
         };
     }
 
-    private static IReadOnlyList<AntigravityModelQuota> ToAntigravityModelQuotas(UsageSyncModelQuota[] models) =>
+    internal static IReadOnlyList<AntigravityModelQuota> ToAntigravityModelQuotas(UsageSyncModelQuota[] models) =>
         [.. models.Select(model => new AntigravityModelQuota
         {
             ModelId = model.ModelId,
@@ -3432,5 +3433,6 @@ namespace ClaudeUsageTray.ViewModels;
             ResetTime = model.ResetAt,
             DisplayName = model.DisplayName,
             TokenType = model.Window,
+            GroupName = model.GroupName,
         })];
 }

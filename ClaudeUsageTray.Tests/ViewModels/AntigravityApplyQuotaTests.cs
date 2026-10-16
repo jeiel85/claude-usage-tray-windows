@@ -461,6 +461,97 @@ public sealed class AntigravityApplyQuotaTests
         }
     }
 
+    /// <summary>Gemini 4 Argon 주간 한도(#204) — 공유 풀과 별개로 자기 그룹으로 온다.</summary>
+    private static AntigravityModelQuota Argon(double remaining) =>
+        new()
+        {
+            ModelId = "gemini-argon-wtu-weekly",
+            TokenType = "weekly",
+            GroupName = "Gemini 4 Argon",
+            DisplayName = "Gemini 4 Argon Weekly Limit",
+            RemainingFraction = remaining,
+            ResetTime = Reset,
+        };
+
+    [Theory]
+    [InlineData("ko", "Gemini 4 Argon · 주간")]
+    [InlineData("en", "Gemini 4 Argon · Weekly")]
+    [InlineData("ja", "Gemini 4 Argon · 週間")]
+    [InlineData("zh", "Gemini 4 Argon · 每周")]
+    public void ResolveDisplayName_NamesAModelOnlyGroup_ByItsServerName_AndTheAppLanguageWindow(string lang, string expected)
+    {
+        var previous = Loc.CurrentLang;
+        try
+        {
+            Loc.SetLanguage(lang);
+
+            // 모델 이름은 고유 명사라 그대로, 창 이름만 다른 행과 같은 말로 부른다.
+            Assert.Equal(expected, AntigravityViewModel.ResolveDisplayName(Argon(0.71)));
+        }
+        finally
+        {
+            Loc.SetLanguage(previous);
+        }
+    }
+
+    [Fact]
+    public void ApplyQuota_PutsArgonBelowTheSharedPools_AndKeepsItOutOfTheTrayValue()
+    {
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            vm.ShowThirdPartyQuota = true;
+            // 서버가 Argon 그룹을 맨 앞에 보내도(그룹 순서는 보장되지 않는다) 공유 풀 아래로 간다.
+            vm.ApplyQuota(
+            [
+                Argon(0.0),                                          // Argon 은 다 썼다
+                Bucket("gemini-weekly", 0.80, window: "weekly"),
+                Bucket("gemini-5h",     0.90, window: "5h"),
+                Bucket("3p-weekly",     0.70, window: "weekly"),     // 공유 풀 중 가장 많이 씀(30%)
+                Bucket("3p-5h",         1.00, window: "5h"),
+            ], null, null);
+
+            Assert.Equal(
+                ["gemini-5h", "gemini-weekly", "3p-5h", "3p-weekly", "gemini-argon-wtu-weekly"],
+                vm.Models.Select(m => m.Key));
+            Assert.Equal(1.0, vm.Models[^1].UsagePercent, 3);
+            // Argon 을 다 써도 다른 모델은 계속 쓸 수 있다 — 트레이는 공유 풀 기준(Claude 모델 한정 한도 #187 과 같은 규칙).
+            Assert.Equal(0.30, vm.Percent, 3);
+        }
+    }
+
+    [Fact]
+    public void ApplyQuota_ShowsArgon_EvenWhenClaudeGptQuotaIsHidden()
+    {
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            // 기본 설정(Claude·GPT 숨김) — Argon 은 Gemini 모델이라 그 설정과 상관없이 보인다.
+            vm.ApplyQuota(
+            [
+                Bucket("gemini-weekly", 0.80, window: "weekly"),
+                Bucket("3p-weekly",     0.10, window: "weekly"),
+                Argon(0.71),
+            ], null, null);
+
+            Assert.Equal(["gemini-weekly", "gemini-argon-wtu-weekly"], vm.Models.Select(m => m.Key));
+            Assert.Equal(0.20, vm.Percent, 3);
+        }
+    }
+
+    [Fact]
+    public void ApplyQuota_UsesEveryRowForTheTrayValue_WhenNoSharedPoolIsPresent()
+    {
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            // 공유 풀 행이 하나도 없으면(구버전 동기화 값, 버킷 이름 규칙 변경) 트레이가 0% 로 거짓말하지 않는다.
+            vm.ApplyQuota([Argon(0.40)], null, null);
+
+            Assert.Equal(0.60, vm.Percent, 3);
+        }
+    }
+
     private static IReadOnlyList<AntigravityModelQuota> FourWindows() =>
     [
         Bucket("gemini-5h",     0.90, window: "5h"),       // 10% 사용
