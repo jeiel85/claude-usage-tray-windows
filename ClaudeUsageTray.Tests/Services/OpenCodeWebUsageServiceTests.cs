@@ -7,6 +7,8 @@ using Xunit;
 
 namespace ClaudeUsageTray.Tests.Services;
 
+// 기대 문구를 Loc 에서 읽는다 — 언어를 바꾸는 테스트와 병렬로 돌면 중간에 언어가 바뀌어 깨지므로 같은 컬렉션에서 직렬로 돈다.
+[Collection("WpfTests")]
 public sealed class OpenCodeWebUsageServiceTests
 {
     private static readonly DateTimeOffset Now = new(2026, 9, 20, 9, 0, 0, TimeSpan.FromHours(9));
