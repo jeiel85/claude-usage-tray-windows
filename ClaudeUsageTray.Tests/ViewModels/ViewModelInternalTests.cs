@@ -82,6 +82,8 @@ public class AntigravityViewModelTests
     }
 }
 
+// 기대 문구를 Loc 에서 읽는다 — 언어를 바꾸는 테스트와 병렬로 돌면 중간에 언어가 바뀌어 깨지므로 같은 컬렉션에서 직렬로 돈다.
+[Collection("WpfTests")]
 public class ClaudeViewModelTests
 {
     [Theory]
@@ -223,6 +225,8 @@ public class OpenCodeViewModelTests
 /// <summary>
 /// OpenCode 를 다른 PC 에서만 쓰는 PC 에서, 동기화 값의 시효가 지났다고 로그인 버튼을 들이밀지 않는지 검증.
 /// </summary>
+// 기대 문구를 Loc 에서 읽는다 — 언어를 바꾸는 테스트와 병렬로 돌면 중간에 언어가 바뀌어 깨지므로 같은 컬렉션에서 직렬로 돈다.
+[Collection("WpfTests")]
 public class OpenCodeWebLoginPromptTests
 {
     private static OpenCodeViewModel CreateViewModel() =>

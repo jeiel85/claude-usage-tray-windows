@@ -4,6 +4,8 @@ using Xunit;
 
 namespace ClaudeUsageTray.Tests.Services;
 
+// 기대 문구를 Loc 에서 읽는다 — 언어를 바꾸는 테스트와 병렬로 돌면 중간에 언어가 바뀌어 깨지므로 같은 컬렉션에서 직렬로 돈다.
+[Collection("WpfTests")]
 public class UsageCalculatorTests
 {
     [Theory]
@@ -114,7 +116,7 @@ public class UsageCalculatorTests
     {
         var resetAt = DateTimeOffset.Now.AddHours(2);
         var result = UsageCalculator.FormatResetLabel(resetAt, true, false, DateTimeOffset.Now);
-        Assert.True(result.Contains("~") || result.Contains("약") || result.Contains("estimated") || result.Contains("推定"),
+        Assert.True(result.Contains("~") || result.Contains("약") || result.Contains("estimated") || result.Contains("推定") || result.Contains("估算"),
             $"Expected estimated format indicator in: {result}");
     }
 

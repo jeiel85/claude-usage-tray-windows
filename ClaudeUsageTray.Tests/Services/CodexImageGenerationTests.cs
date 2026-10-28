@@ -19,6 +19,8 @@ namespace ClaudeUsageTray.Tests.Services;
 /// ChatGPT 이미지 생성 잔여 횟수(#206). wham/usage 에는 이 값이 없어 같은 Codex 로그인으로
 /// <c>conversation/init</c> 을 한 번 더 부른다. 보조 조회라 실패해도 Codex 조회 결과를 해치지 않아야 한다.
 /// </summary>
+// 기대 문구를 Loc 에서 읽는다 — 언어를 바꾸는 테스트와 병렬로 돌면 중간에 언어가 바뀌어 깨지므로 같은 컬렉션에서 직렬로 돈다.
+[Collection("WpfTests")]
 public sealed class CodexImageGenerationTests : IDisposable
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 28, 7, 16, 0, TimeSpan.Zero);
