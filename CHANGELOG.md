@@ -3,6 +3,26 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.50.0] - 2026-10-28
+
+<!-- ko -->
+### 수정
+- **Codex 상세에 ChatGPT 이미지 생성 남은 횟수가 실제로 나옵니다 (#206)** — 이전 버전의 이미지 생성 게이지는 Codex 사용량 응답에 이미지 한도가 따로 실려 올 때만 그려졌는데, 실제 응답에는 그 값이 없어 한 번도 나오지 않았습니다. 이제 ChatGPT 웹이 쓰는 값을 같은 Codex 로그인으로 읽어 `ChatGPT 이미지 생성 · 120회 남음 · 1d 0h 후 초기화` 처럼 보여 줍니다.
+  - 서버가 총 한도는 알려주지 않아 사용률 게이지 없이 남은 횟수만 보여 줍니다. 아직 쓰지 않았다면 초기화 시각은 "지금부터 24시간 뒤"로 표시됩니다.
+  - 이 요청은 Windows 에 기본으로 들어 있는 `curl.exe` 로 보냅니다. 앱의 일반 요청 방식은 이 주소에서만 Cloudflare 가 막기 때문입니다. 로그인 정보는 명령줄에 남기지 않습니다.
+  - 값을 읽지 못하면 이 줄만 숨기고, Codex 사용량·로그인 안내는 그대로입니다.
+  - Codex 에서 만든 이미지가 이 횟수에서 함께 빠지는지는 아직 확인되지 않았습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Codex details now actually show your remaining ChatGPT image generations (#206)** — The image generation gauge in earlier versions only appeared when the Codex usage response carried a separate image limit, and real responses never do, so it never showed up. The app now reads the value ChatGPT on the web uses, with the same Codex sign-in, and shows it as `ChatGPT image generation · 120 left · resets in 1d 0h`.
+  - The server doesn't report the total limit, so there's no usage gauge, only the remaining count. If you haven't used any yet, the reset time shows as 24 hours from now.
+  - This request goes through the `curl.exe` that ships with Windows, because Cloudflare blocks the app's usual request method on this address only. Your sign-in token is never put on a command line.
+  - If the value can't be read, only this line is hidden; Codex usage and the sign-in notice are unaffected.
+  - It isn't confirmed yet whether images made in Codex count against this number.
+<!-- /en -->
+
 ## [1.49.0] - 2026-10-16
 
 <!-- ko -->

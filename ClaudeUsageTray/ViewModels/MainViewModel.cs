@@ -497,6 +497,8 @@ namespace ClaudeUsageTray.ViewModels;
     public string LblClaudeNoUsage   => Loc.ClaudeNoUsageToday;
     public string LblCodexNoUsage    => IsCodexLoading ? Loc.CodexLoading : Loc.CodexNoUsageToday;
     public string LblCodexSignInExpired => Loc.CodexSignInExpiredNotice;
+    public string LblChatGptImageGeneration => Loc.ChatGptImageGeneration;
+    public string LblChatGptImageGenerationTip => Loc.ChatGptImageGenerationTip;
     public string LblOpenCodeNoUsage => Loc.OpenCodeNoUsageToday;
     public string LblVisibleProviders => Loc.VisibleProviders;
     public string DisclaimerText     => SelectedProvider == UsageProviderKind.Claude ? Loc.Disclaimer : Loc.GenericDisclaimer;
@@ -2984,7 +2986,7 @@ namespace ClaudeUsageTray.ViewModels;
         AntigravityVm.UpdateTimeProgress(now);
     }
 
-    private void UpdateCodexAdditionalTimeProgress(DateTimeOffset now)
+    private void UpdateCodexAdditionalRows(DateTimeOffset now)
     {
         // 리셋이 지난 창은 다음 조회를 기다리지 않고 바로 뺀다 — 남겨 두면 리셋 전 사용률이 그대로 보인다.
         if (CodexAdditionalLimits.Any(row => row.ResetAt is { } reset && reset <= now))
@@ -2995,6 +2997,12 @@ namespace ClaudeUsageTray.ViewModels;
 
         foreach (var row in CodexAdditionalLimits)
             row.UpdateTimeProgress(now, ShowAbsoluteResetTime);
+    }
+
+    private void UpdateCodexAdditionalTimeProgress(DateTimeOffset now)
+    {
+        UpdateCodexAdditionalRows(now);
+        CodexVm.UpdateImageGenerationLabels(now, ShowAbsoluteResetTime);
     }
 
     /// <summary>
@@ -3235,6 +3243,7 @@ namespace ClaudeUsageTray.ViewModels;
             // 행 객체가 새로 만들어지므로 미러 프로퍼티도 다시 가리켜야 화면이 바뀐다.
             AntigravityModels = AntigravityVm.Models;
             ApplyCodexAdditionalLimits(_codexAdditionalSource);
+            CodexVm.UpdateImageGenerationLabels(DateTimeOffset.Now, ShowAbsoluteResetTime);
             ClaudeVm.RebuildModelLimits(DateTimeOffset.Now, ShowAbsoluteResetTime);
             // 안내·출처 문구는 값이 필드에 담겨 있어 다시 만들어야 바뀐다(다음 조회까지 기다리지 않도록).
             AntigravityNote = Loc.ProviderAntigravityNote;

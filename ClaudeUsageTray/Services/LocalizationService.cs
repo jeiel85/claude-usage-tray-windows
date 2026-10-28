@@ -494,6 +494,31 @@ public static class Loc
         _ => "Image generation"
     };
 
+    /// <summary>ChatGPT 이미지 생성 잔여 횟수 줄의 이름(#206) — Codex 한도가 아니라 같은 계정의 ChatGPT 값임을 이름에 드러낸다.</summary>
+    public static string ChatGptImageGeneration => Lang switch
+    {
+        "ko" => "ChatGPT 이미지 생성",
+        "zh" => "ChatGPT 图像生成",
+        "ja" => "ChatGPT 画像生成",
+        _ => "ChatGPT image generation"
+    };
+
+    public static string ChatGptImageGenerationTip => Lang switch
+    {
+        "ko" => "같은 OpenAI 계정의 ChatGPT 이미지 생성 남은 횟수입니다. 서버가 총 한도는 알려주지 않아 사용률은 표시하지 않습니다. 아직 쓰지 않았다면 초기화 시각은 지금부터 한도 기간이 끝나는 시점으로 표시됩니다.",
+        "zh" => "同一 OpenAI 账户的 ChatGPT 图像生成剩余次数。服务器不提供总额度，因此不显示使用率。如果尚未使用，重置时间显示为从现在起额度周期结束的时间。",
+        "ja" => "同じ OpenAI アカウントの ChatGPT 画像生成の残り回数です。サーバーが総上限を返さないため使用率は表示しません。まだ使っていない場合、リセット時刻は今から上限期間が終わる時点として表示されます。",
+        _ => "Remaining ChatGPT image generations for the same OpenAI account. The server does not report the total limit, so no usage percentage is shown. If you have not used any yet, the reset time is shown as the end of a period starting now."
+    };
+
+    public static string RemainingCount(int count) => Lang switch
+    {
+        "ko" => $"{count}회 남음",
+        "zh" => $"剩余 {count} 次",
+        "ja" => $"残り {count} 回",
+        _ => $"{count} left"
+    };
+
     public static string ResetsIn(string time) => Lang switch
     {
         "ko" => $" · {time} 후 초기화",
