@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.50.1] - 2026-10-28
+
+<!-- ko -->
+### 수정
+- **Codex 상세의 ChatGPT 이미지 생성 줄이 "Ch…" 로 잘리던 문제를 고쳤습니다 (#210)** — 남은 횟수와 초기화 시각을 한 줄에 몰아 두어 이름이 두 글자만 보였습니다. 이제 윗줄에 `ChatGPT 이미지 생성 · 120회 남음`, 아랫줄에 `23h 58m 후 초기화 (10-29 17:47)` 를 다른 한도의 요약 줄과 같은 모양으로 보여 줍니다. 초기화 시각을 모르면 아랫줄은 나오지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The ChatGPT image generation line in Codex details no longer gets cut down to "Ch…" (#210)** — The remaining count and reset time were squeezed onto the same line, leaving room for only two letters of the name. The name and `120 left` now sit on the first line and `resets 23h 58m (10-29 17:47)` on its own line below, styled like the summary line of the other limits. The second line is hidden when the reset time is unknown.
+<!-- /en -->
+
 ## [1.50.0] - 2026-10-28
 
 <!-- ko -->

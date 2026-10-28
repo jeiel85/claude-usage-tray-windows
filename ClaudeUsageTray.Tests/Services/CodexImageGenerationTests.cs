@@ -167,7 +167,9 @@ public sealed class CodexImageGenerationTests : IDisposable
 
         Assert.True(vm.HasImageGeneration);
         Assert.Equal(Loc.RemainingCount(120), vm.ImageGenerationRemaining);
-        Assert.Equal(UsageCalculator.FormatResetLabel(Now.AddHours(24), false, false, Now), vm.ImageGenerationReset);
+        // 초기화 문구는 자기 줄에 그리므로 다른 행의 " · " 구분자 없이 시작한다(#210).
+        Assert.Equal(UsageCalculator.FormatResetLabel(Now.AddHours(24), false, false, Now)[" · ".Length..], vm.ImageGenerationReset);
+        Assert.DoesNotContain("·", vm.ImageGenerationReset);
 
         vm.UpdateImageGenerationLabels(Now.AddHours(24), showAbsoluteResetTime: false);
 
