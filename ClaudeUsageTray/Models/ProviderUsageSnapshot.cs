@@ -44,7 +44,19 @@ public class ProviderUsageSnapshot
     /// 다른 공급자 스냅샷에서는 기본값(<see cref="Models.CodexApiStatus.NotAttempted"/>) 그대로다.
     /// </summary>
     public CodexApiStatus CodexApiStatus { get; set; }
+
+    /// <summary>
+    /// Codex 전용: 같은 OpenAI 계정의 ChatGPT 이미지 생성 잔여 횟수(#206). 서버가 주지 않았거나 읽지 못하면 null.
+    /// </summary>
+    public FeatureAllowance? ImageGeneration { get; set; }
 }
+
+/// <summary>
+/// ChatGPT 기능 하나의 잔여 횟수 — <c>conversation/init</c> 응답 <c>limits_progress</c> 의 한 항목(#206).
+/// 응답에는 남은 횟수와 초기화 시각만 있고 총 한도가 없어 사용률을 만들지 않는다.
+/// 아직 쓰지 않았으면 서버는 초기화 시각을 "지금 + 창 길이" 로 매번 새로 준다(2026-10-28 실측).
+/// </summary>
+public sealed record FeatureAllowance(int Remaining, DateTimeOffset? ResetAt);
 
 /// <summary>
 /// Codex Direct API 조회 결과(#198). "못 읽었다" 를 한 덩어리로 묶으면 로그인 만료와 일시적 네트워크 실패를

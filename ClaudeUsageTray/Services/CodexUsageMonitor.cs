@@ -1,8 +1,12 @@
+using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using ClaudeUsageTray.Models;
 
 namespace ClaudeUsageTray.Services;
@@ -24,21 +28,29 @@ public class CodexUsageMonitor
     // 실제 계정으로 실측하며 드러났다. 아래 응답 파싱도 그때 확인한 실제 스키마 기준이다).
     private const string UsageApiEndpoint = "https://chatgpt.com/backend-api/wham/usage";
 
+    // ChatGPT 웹이 새 대화 화면을 열 때 부르는 엔드포인트. 응답 limits_progress 에 이미지 생성 등 기능별 잔여 횟수가
+    // 실린다(#206). wham/usage 에는 이 값이 없다(additional_rate_limits: null, 2026-10-28 실측).
+    // Codex 로그인 토큰으로 읽히지만 ChatGPT-Account-Id 와 User-Agent 가 없으면 Cloudflare 가 403 HTML 을 준다.
+    private const string ConversationInitEndpoint = "https://chatgpt.com/backend-api/conversation/init";
+    private const string ImageGenerationFeature = "image_gen";
+
     /// <summary>Direct API 로 읽은 스냅샷의 <see cref="ProviderUsageSnapshot.DataSource"/> 값.</summary>
     public const string DirectApiSource = "Direct API";
     private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(AppConstants.ApiTimeoutSeconds) };
 
     public Task<ProviderUsageSnapshot> GetTodaySnapshotAsync(bool useDirectApi = true) =>
-        GetTodaySnapshotAsync(useDirectApi, _http, AuthPath, SessionsPath);
+        GetTodaySnapshotAsync(useDirectApi, _http, AuthPath, SessionsPath, ReadConversationInitWithCurlAsync);
 
     // HTTP·경로를 주입받는 오버로드 — 단위 테스트에서 가짜 응답과 임시 로그인 파일·로그 폴더를 쓰기 위한 것.
+    // readConversationInit 이 null 이면 이미지 생성 잔여 횟수(#206)를 읽지 않는다 — 테스트가 실제 서버를 부르지 않게.
     internal async Task<ProviderUsageSnapshot> GetTodaySnapshotAsync(
-        bool useDirectApi, HttpClient http, string authPath, string sessionsPath)
+        bool useDirectApi, HttpClient http, string authPath, string sessionsPath,
+        ConversationInitReader? readConversationInit = null)
     {
         var apiStatus = CodexApiStatus.NotAttempted;
         if (useDirectApi)
         {
-            var (apiSnapshot, status) = await FetchUsageFromApiAsync(http, authPath);
+            var (apiSnapshot, status) = await FetchUsageFromApiAsync(http, authPath, readConversationInit);
             apiStatus = status;
             if (apiSnapshot is { HasData: true })
             {
@@ -205,11 +217,12 @@ public class CodexUsageMonitor
     /// 갱신은 Codex 가 실행될 때 스스로 한다 — 앱은 실패 사유만 알린다.
     /// </summary>
     internal static async Task<(ProviderUsageSnapshot? Snapshot, CodexApiStatus Status)> FetchUsageFromApiAsync(
-        HttpClient http, string authPath)
+        HttpClient http, string authPath, ConversationInitReader? readConversationInit = null)
     {
         var (token, accountId) = TryGetApiCredentials(authPath);
         if (string.IsNullOrEmpty(token)) return (null, CodexApiStatus.NoCredentials);
 
+        ProviderUsageSnapshot? snapshot;
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, UsageApiEndpoint);
@@ -226,14 +239,159 @@ public class CodexUsageMonitor
 
             var json = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(json);
-            var snapshot = ParseDirectApiUsage(doc.RootElement, DateTimeOffset.Now);
-            return snapshot is null ? (null, CodexApiStatus.Unavailable) : (snapshot, CodexApiStatus.Succeeded);
+            snapshot = ParseDirectApiUsage(doc.RootElement, DateTimeOffset.Now);
+            if (snapshot is null) return (null, CodexApiStatus.Unavailable);
         }
         catch
         {
             // 네트워크 실패·타임아웃·응답 해석 실패 — 일시적일 수 있어 로그인 문제로 보지 않는다.
             return (null, CodexApiStatus.Unavailable);
         }
+
+        // 보조 조회 — 실패해도 Codex 조회 결과·로그인 상태 판단에 영향을 주지 않고 이 항목만 비운다.
+        if (readConversationInit is not null)
+            snapshot.ImageGeneration = ParseImageGeneration(await ReadSafelyAsync(readConversationInit, token, accountId), DateTimeOffset.Now);
+        return (snapshot, CodexApiStatus.Succeeded);
+    }
+
+    /// <summary><c>conversation/init</c> 응답 본문을 읽는다. 못 읽으면(HTTP 오류·차단·실행 실패) null.</summary>
+    internal delegate Task<string?> ConversationInitReader(string token, string? accountId);
+
+    private static async Task<string?> ReadSafelyAsync(ConversationInitReader reader, string token, string? accountId)
+    {
+        try
+        {
+            return await reader(token, accountId);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// <c>conversation/init</c> 을 Windows 내장 <c>curl.exe</c> 로 부른다(#206).
+    /// .NET HttpClient(SocketsHttpHandler)와 WinRT HttpClient 로 같은 요청을 보내면 chatgpt.com 앞단 Cloudflare 가 이 경로에만
+    /// 챌린지(403, <c>cf-mitigated: challenge</c>)를 건다. 같은 요청을 curl.exe·Python 으로 보내면 200 이다 — 헤더 순서·구성,
+    /// HTTP 1.1/2, TLS 1.2/1.3 을 맞춰도 .NET 쪽만 막혀 클라이언트 연결 특성으로 판정되는 것으로 본다(2026-10-28 실측, 프록시 없음).
+    /// curl.exe 는 Windows 10 1803 부터 System32 에 기본으로 있다(앱 최소 대상 1809). 없거나 막히면 이 항목만 비운다.
+    /// 빈 본문으로 POST 한다 — 웹이 보내는 다른 필드(gizmo_id 등)가 없어도 같은 응답이고, 대화를 만들지 않는다(실측).
+    /// </summary>
+    private static async Task<string?> ReadConversationInitWithCurlAsync(string token, string? accountId)
+    {
+        var config = BuildCurlConfig(token, accountId);
+        var curlPath = Path.Combine(Environment.SystemDirectory, "curl.exe");
+        if (config is null || !File.Exists(curlPath)) return null;
+
+        var startInfo = new ProcessStartInfo(curlPath)
+        {
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            StandardOutputEncoding = Encoding.UTF8,
+        };
+        // --fail: 2xx 가 아니면(403 챌린지 HTML 등) 본문 없이 실패 코드로 끝난다.
+        foreach (var arg in new[] { "--silent", "--fail", "--max-time", AppConstants.ApiTimeoutSeconds.ToString(CultureInfo.InvariantCulture), "--config", "-", ConversationInitEndpoint })
+            startInfo.ArgumentList.Add(arg);
+
+        using var process = Process.Start(startInfo);
+        if (process is null) return null;
+
+        // 토큰은 명령줄(다른 프로세스가 볼 수 있다)이 아니라 표준 입력의 curl 설정으로 넘긴다.
+        await process.StandardInput.WriteAsync(config);
+        process.StandardInput.Close();
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        var stderr = process.StandardError.ReadToEndAsync(); // 버퍼가 차서 curl 이 멈추지 않도록 비운다
+
+        // --max-time 이 끝내지 못한 경우의 안전장치.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(AppConstants.ApiTimeoutSeconds + 5));
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            try { process.Kill(); } catch (InvalidOperationException) { } catch (System.ComponentModel.Win32Exception) { }
+            return null;
+        }
+
+        await stderr;
+        return process.ExitCode == 0 ? await stdout : null;
+    }
+
+    // 설정 문법(따옴표·줄바꿈)에 끼어들 수 있는 값은 쓰지 않는다 — JWT(base64url·점)와 계정 UUID 만 받는다.
+    private static readonly Regex CurlConfigSafeValue = new("^[A-Za-z0-9._-]+$", RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// <c>conversation/init</c> 요청을 curl 설정 문법으로 만든다. 값이 허용 문자 밖이면 null.
+    /// 헤더는 wham/usage 요청과 같다 — 계정 헤더와 User-Agent 가 빠지면 Cloudflare 가 403 을 준다(실측).
+    /// </summary>
+    internal static string? BuildCurlConfig(string token, string? accountId)
+    {
+        if (!CurlConfigSafeValue.IsMatch(token) || (accountId is not null && !CurlConfigSafeValue.IsMatch(accountId)))
+            return null;
+
+        var config = new StringBuilder()
+            .Append("request = \"POST\"\n")
+            .Append("data = \"{}\"\n")
+            .Append("header = \"Content-Type: application/json\"\n")
+            .Append("user-agent = \"codex-cli\"\n")
+            .Append("header = \"Authorization: Bearer ").Append(token).Append("\"\n");
+        if (accountId is not null)
+            config.Append("header = \"ChatGPT-Account-Id: ").Append(accountId).Append("\"\n");
+        return config.ToString();
+    }
+
+    /// <summary>응답 본문에서 이미지 생성 잔여 횟수를 읽는다. 본문이 없거나 JSON 이 아니면 null.</summary>
+    internal static FeatureAllowance? ParseImageGeneration(string? json, DateTimeOffset now)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            return ParseFeatureAllowance(doc.RootElement, ImageGenerationFeature, now);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// <c>conversation/init</c> 응답에서 기능 하나의 잔여 횟수를 읽는다(#206).
+    ///
+    /// Input : 응답 루트, 기능 이름(<c>image_gen</c> 등), 현재 시각
+    /// Output: <c>limits_progress[{feature_name, remaining, reset_after}]</c> 중 그 기능. 없거나 남은 횟수를 못 읽으면 null
+    /// 핵심 로직: 초기화 시각이 이미 지났으면 그 남은 횟수는 지난 창의 값이라 버린다(기본 한도의 DropExpiredWindows 와 같은 이유).
+    ///           초기화 시각만 못 읽으면 남은 횟수는 그대로 쓴다.
+    /// </summary>
+    internal static FeatureAllowance? ParseFeatureAllowance(JsonElement root, string featureName, DateTimeOffset now)
+    {
+        if (root.ValueKind != JsonValueKind.Object ||
+            !root.TryGetProperty("limits_progress", out var limitsEl) || limitsEl.ValueKind != JsonValueKind.Array)
+            return null;
+
+        foreach (var limitEl in limitsEl.EnumerateArray())
+        {
+            if (limitEl.ValueKind != JsonValueKind.Object ||
+                !string.Equals(ReadString(limitEl, "feature_name"), featureName, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (!JsonNumber.TryReadInt32(limitEl, "remaining", out var remaining) || remaining < 0)
+                return null;
+
+            DateTimeOffset? resetAt = ReadString(limitEl, "reset_after") is { } raw &&
+                                      DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed)
+                ? parsed
+                : null;
+            if (resetAt is { } reset && reset <= now) return null;
+
+            return new FeatureAllowance(remaining, resetAt);
+        }
+
+        return null;
     }
 
     /// <summary>

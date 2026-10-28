@@ -36,6 +36,11 @@ public partial class CodexViewModel : ObservableObject
     [ObservableProperty] private bool _isUsageEmpty = true;
     // 서버가 로그인 토큰을 거부해 로컬 로그로 폴백했는지(#198). 오류가 아니라 안내다 — 로그 기반 게이지는 그대로 보인다.
     [ObservableProperty] private bool _needsSignIn;
+    // ChatGPT 이미지 생성 잔여 횟수(#206). 응답에 총 한도가 없어 게이지가 아니라 "N회 남음" 한 줄로 둔다.
+    [ObservableProperty] private bool _hasImageGeneration;
+    [ObservableProperty] private string _imageGenerationRemaining = "";
+    [ObservableProperty] private string _imageGenerationReset = "";
+    private FeatureAllowance? _imageGeneration;
 
     public double PrevPercent => _alertBaseline.Percent;
     public DateTimeOffset? RawShortResetAt => _rawShortResetAt;
@@ -74,6 +79,7 @@ public partial class CodexViewModel : ObservableObject
                 HasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage) && !informational;
                 ErrorMessage = informational ? "" : (snapshot.ErrorMessage ?? "");
                 NeedsSignIn = NeedsSignInFor(snapshot.CodexApiStatus);
+                ApplyImageGeneration(snapshot.ImageGeneration, DateTimeOffset.Now, showAbsoluteResetTime);
                 Summary = Loc.UsageSummary(newPercent);
 
                 // 알림이 꺼져 있어도 기준선은 갱신한다 — 나중에 켰을 때 낡은 기준선과 비교하지 않도록.
@@ -128,6 +134,7 @@ public partial class CodexViewModel : ObservableObject
                 ErrorMessage = ex.Message;
                 // 이번 조회 결과를 모르므로 이전 안내를 남기지 않는다 — 빨간 오류와 회색 안내가 함께 보이지 않게.
                 NeedsSignIn = false;
+                ApplyImageGeneration(null, DateTimeOffset.Now, showAbsoluteResetTime);
             });
         }
     }
@@ -145,6 +152,26 @@ public partial class CodexViewModel : ObservableObject
             Reset = UsageCalculator.FormatResetLabel(_rawShortResetAt, _rawShortResetEstimated, showAbsoluteResetTime, now);
         if (_rawLongResetAt.HasValue && (_rawLongResetAt.Value - now).TotalMinutes < 10)
             LongReset = UsageCalculator.FormatResetLabel(_rawLongResetAt, false, showAbsoluteResetTime, now);
+    }
+
+    internal void ApplyImageGeneration(FeatureAllowance? allowance, DateTimeOffset now, bool showAbsoluteResetTime)
+    {
+        _imageGeneration = allowance;
+        UpdateImageGenerationLabels(now, showAbsoluteResetTime);
+    }
+
+    /// <summary>
+    /// 이미지 생성 잔여 횟수 줄을 다시 쓴다(#206) — 조회 직후, 매초 카운트다운, 표시 설정·언어가 바뀔 때.
+    /// 초기화 시각이 지나면 남은 횟수는 지난 창의 값이라 다음 조회까지 숨긴다.
+    /// </summary>
+    public void UpdateImageGenerationLabels(DateTimeOffset now, bool showAbsoluteResetTime)
+    {
+        if (_imageGeneration is { ResetAt: { } reset } && reset <= now)
+            _imageGeneration = null;
+
+        HasImageGeneration = _imageGeneration is not null;
+        ImageGenerationRemaining = _imageGeneration is { } allowance ? Loc.RemainingCount(allowance.Remaining) : "";
+        ImageGenerationReset = UsageCalculator.FormatResetLabel(_imageGeneration?.ResetAt, false, showAbsoluteResetTime, now);
     }
 
     /// <summary>
