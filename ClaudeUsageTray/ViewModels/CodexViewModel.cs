@@ -171,7 +171,9 @@ public partial class CodexViewModel : ObservableObject
 
         HasImageGeneration = _imageGeneration is not null;
         ImageGenerationRemaining = _imageGeneration is { } allowance ? Loc.RemainingCount(allowance.Remaining) : "";
-        ImageGenerationReset = UsageCalculator.FormatResetLabel(_imageGeneration?.ResetAt, false, showAbsoluteResetTime, now);
+        // 초기화 문구는 남은 횟수 옆이 아니라 자기 줄에 그리므로(#210) 앞의 " · " 구분자를 뗀다.
+        ImageGenerationReset = UsageCalculator.FormatResetLabel(_imageGeneration?.ResetAt, false, showAbsoluteResetTime, now)
+            .TrimStart(' ', '·');
     }
 
     /// <summary>

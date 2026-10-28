@@ -1122,22 +1122,26 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <!-- ChatGPT 이미지 생성 잔여 횟수(#206) — 응답에 총 한도가 없어 게이지 없이 "N회 남음" 한 줄.
+                        <!-- ChatGPT 이미지 생성 잔여 횟수(#206) — 응답에 총 한도가 없어 게이지 없이 "N회 남음"만 그린다.
+                             초기화 문구는 윗줄에 같이 두면 라벨이 "Ch…" 로 잘려서(#210), 윈도우 행의 요약 줄처럼 아랫줄로 내린다.
                              서버가 값을 주지 않았거나 읽지 못하면 숨긴다. -->
-                        <Grid x:Name="CodexImageGenerationRow" Margin="0,10,0,0" Background="Transparent"
-                              ToolTip="{Binding LblChatGptImageGenerationTip}"
-                              Visibility="{Binding CodexVm.HasImageGeneration, Converter={StaticResource BoolToVisibility}}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="{Binding LblChatGptImageGeneration}" Foreground="#F1F5F9" FontSize="10.5"
-                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="6,0,0,0">
-                                <TextBlock Text="{Binding CodexVm.ImageGenerationRemaining}" Foreground="#6EE7B7" FontSize="11" FontWeight="Bold"/>
-                                <TextBlock Text="{Binding CodexVm.ImageGenerationReset}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0"/>
-                            </StackPanel>
-                        </Grid>
+                        <StackPanel x:Name="CodexImageGenerationRow" Margin="0,10,0,0" Background="Transparent"
+                                    ToolTip="{Binding LblChatGptImageGenerationTip}"
+                                    Visibility="{Binding CodexVm.HasImageGeneration, Converter={StaticResource BoolToVisibility}}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="CodexImageGenerationLabel" Grid.Column="0" Text="{Binding LblChatGptImageGeneration}" Foreground="#F1F5F9" FontSize="10.5"
+                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding CodexVm.ImageGenerationRemaining}" Foreground="#6EE7B7"
+                                           FontSize="11" FontWeight="Bold" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                            </Grid>
+                            <TextBlock x:Name="CodexImageGenerationReset" Text="{Binding CodexVm.ImageGenerationReset}" Foreground="#8B92B3" FontSize="10" Margin="0,4,0,0"
+                                       TextTrimming="CharacterEllipsis"
+                                       Visibility="{Binding CodexVm.ImageGenerationReset, Converter={StaticResource StringToVisibility}}"/>
+                        </StackPanel>
 
                         <!-- 로그인이 서버에서 거부돼 로컬 로그로 표시 중(#198) — 추가 한도가 왜 안 보이는지 알린다.
                              오류가 아니라 안내라 OpenCode 의 확인 실패 안내와 같은 회색 이탤릭으로 둔다. -->
