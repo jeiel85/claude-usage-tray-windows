@@ -16,6 +16,12 @@ namespace ClaudeUsageTray.Views;
 
 public partial class UsagePopup : Window, IDisposable
 {
+    /// <summary>
+    /// 창 사각형과 작업 영역 가장자리 사이 간격 (DIP). 트레이 모서리 기본 위치와 자석이 함께 쓴다 —
+    /// 오른쪽 아래에 붙이면 기본 위치와 같아진다 (#216). 기본 화면은 이 안쪽에 그림자 여백 8 이 더 있다.
+    /// </summary>
+    private const double EdgeGap = 8;
+
     private readonly MainViewModel _vm;
     private readonly WindowEdgeSnapper _edgeSnapper;
     private SettingsWindow? _settingsWindow;
@@ -35,9 +41,8 @@ public partial class UsagePopup : Window, IDisposable
         _vm = vm;
         DataContext = vm;
 
-        // 끄는 동안 작업 영역 가장자리에 자석처럼 붙인다 (#214). 기본 화면은 그림자 자리인 투명 여백을 빼고
-        // 눈에 보이는 테두리를 붙인다 — 미니 화면은 여백이 0 이다.
-        _edgeSnapper = new WindowEdgeSnapper(this, () => PopupShell.Margin);
+        // 끄는 동안 작업 영역 가장자리에 자석처럼 붙인다 (#214). 기본 위치와 같은 간격을 두고 붙는다 (#216).
+        _edgeSnapper = new WindowEdgeSnapper(this, EdgeGap);
 
         Deactivated += (_, _) => { if (!_settingsOpen && !_vm.KeepPopupAboveTaskbar) Hide(); };
         MouseLeftButtonDown += (_, e) =>
@@ -91,13 +96,13 @@ public partial class UsagePopup : Window, IDisposable
     }
 
     /// <summary>
-    /// popup 우하단(작업표시줄 위) 8px 마진 위치로 정렬. 화면 work area 밖으로 밀려나지 않도록 클램프.
+    /// popup 우하단(작업표시줄 위) <see cref="EdgeGap"/> 마진 위치로 정렬. 화면 work area 밖으로 밀려나지 않도록 클램프.
     /// </summary>
     private void AnchorToTrayCorner()
     {
         var workArea = SystemParameters.WorkArea;
-        Left = workArea.Right - Width - 8;
-        Top  = Math.Max(workArea.Top, workArea.Bottom - ActualHeight - 8);
+        Left = workArea.Right - Width - EdgeGap;
+        Top  = Math.Max(workArea.Top, workArea.Bottom - ActualHeight - EdgeGap);
     }
 
     /// <summary>

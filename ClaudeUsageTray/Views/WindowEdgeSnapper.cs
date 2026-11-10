@@ -9,13 +9,14 @@ namespace ClaudeUsageTray.Views;
 internal readonly record struct PixelRect(int Left, int Top, int Right, int Bottom)
 {
     public PixelRect Offset(int dx, int dy) => new(Left + dx, Top + dy, Right + dx, Bottom + dy);
+
+    /// <summary>네 변을 <paramref name="amount"/> 만큼 안쪽으로 줄인 사각형.</summary>
+    public PixelRect Deflate(int amount) => new(Left + amount, Top + amount, Right - amount, Bottom - amount);
 }
 
-/// <summary>창 사각형과 눈에 보이는 테두리 사이의 투명 여백 (물리 픽셀).</summary>
-internal readonly record struct PixelInsets(int Left, int Top, int Right, int Bottom);
-
 /// <summary>
-/// 창을 작업 영역 가장자리에 맞추는 계산 (#214). 모두 물리 픽셀이고, 기준은 여백을 뺀 눈에 보이는 테두리다.
+/// 창 사각형을 "붙는 영역" 가장자리에 맞추는 계산 (#214). 모두 물리 픽셀이다.
+/// 붙는 영역은 작업 영역에서 기본 위치와 같은 간격만큼 줄인 사각형이다 (#216) — <see cref="WindowEdgeSnapper"/> 가 넘긴다.
 /// </summary>
 internal static class EdgeSnap
 {
@@ -26,39 +27,39 @@ internal static class EdgeSnap
     internal const int AttachTolerance = 2;
 
     /// <summary>
-    /// 테두리가 작업 영역 가장자리에서 <paramref name="threshold"/> 안이면 그 가장자리로 옮긴다. 크기는 그대로다.
+    /// 창이 영역 가장자리에서 <paramref name="threshold"/> 안이면 그 가장자리로 옮긴다. 크기는 그대로다.
     /// 가로·세로를 따로 본다 — 모서리 근처면 두 가장자리에 함께 붙는다.
     /// </summary>
-    public static PixelRect Snap(PixelRect window, PixelRect area, PixelInsets inset, int threshold)
+    public static PixelRect Snap(PixelRect window, PixelRect area, int threshold)
     {
-        int dx = SnapOffset(window.Left + inset.Left, window.Right - inset.Right, area.Left, area.Right, threshold);
-        int dy = SnapOffset(window.Top + inset.Top, window.Bottom - inset.Bottom, area.Top, area.Bottom, threshold);
+        int dx = SnapOffset(window.Left, window.Right, area.Left, area.Right, threshold);
+        int dy = SnapOffset(window.Top, window.Bottom, area.Top, area.Bottom, threshold);
         return window.Offset(dx, dy);
     }
 
     /// <summary>
-    /// 테두리가 작업 영역 밖으로 나가 있으면 안으로 들인다. 작업 영역보다 크면 왼쪽·위를 맞춘다.
+    /// 창이 영역 밖으로 나가 있으면 안으로 들인다. 영역보다 크면 왼쪽·위를 맞춘다.
     /// </summary>
-    public static PixelRect Clamp(PixelRect window, PixelRect area, PixelInsets inset)
+    public static PixelRect Clamp(PixelRect window, PixelRect area)
     {
-        int dx = ClampOffset(window.Left + inset.Left, window.Right - inset.Right, area.Left, area.Right);
-        int dy = ClampOffset(window.Top + inset.Top, window.Bottom - inset.Bottom, area.Top, area.Bottom);
+        int dx = ClampOffset(window.Left, window.Right, area.Left, area.Right);
+        int dy = ClampOffset(window.Top, window.Bottom, area.Top, area.Bottom);
         return window.Offset(dx, dy);
     }
 
     /// <summary>
     /// 크기가 바뀌기 전(<paramref name="before"/>) 오른쪽·아래 가장자리에 붙어 있었으면 바뀐 뒤(<paramref name="after"/>)에도
     /// 그 가장자리에 남도록 옮긴다. WPF 는 창이 커지거나 줄 때 왼쪽·위를 두고 오른쪽·아래를 움직이므로,
-    /// 왼쪽·위에 붙은 창은 손댈 필요가 없다. 양쪽에 다 붙어 있었으면(작업 영역만큼 큰 창) 왼쪽·위를 지킨다.
+    /// 왼쪽·위에 붙은 창은 손댈 필요가 없다. 양쪽에 다 붙어 있었으면(영역만큼 큰 창) 왼쪽·위를 지킨다.
     /// </summary>
-    public static PixelRect KeepAttached(PixelRect before, PixelRect after, PixelRect area, PixelInsets inset)
+    public static PixelRect KeepAttached(PixelRect before, PixelRect after, PixelRect area)
     {
         int dx = 0, dy = 0;
 
-        if (IsNear(before.Right - inset.Right, area.Right) && !IsNear(before.Left + inset.Left, area.Left))
-            dx = area.Right - (after.Right - inset.Right);
-        if (IsNear(before.Bottom - inset.Bottom, area.Bottom) && !IsNear(before.Top + inset.Top, area.Top))
-            dy = area.Bottom - (after.Bottom - inset.Bottom);
+        if (IsNear(before.Right, area.Right) && !IsNear(before.Left, area.Left))
+            dx = area.Right - after.Right;
+        if (IsNear(before.Bottom, area.Bottom) && !IsNear(before.Top, area.Top))
+            dy = area.Bottom - after.Bottom;
 
         return after.Offset(dx, dy);
     }
@@ -92,6 +93,8 @@ internal static class EdgeSnap
 /// 창을 끄는 동안 창이 놓인 모니터의 작업 영역 가장자리(작업표시줄 경계 포함)에 자석처럼 붙인다 (#214).
 /// DragMove 의 이동 루프가 보내는 WM_MOVING 에서 제안된 사각형을 고쳐 쓴다. 제안 사각형은 늘 커서 위치에서
 /// 새로 계산되므로, 가장자리에서 더 멀리 끌면 붙었던 창이 저절로 떨어진다.
+/// 붙는 선은 가장자리에서 <c>edgeGap</c> 만큼 안쪽이다 — 트레이 모서리 기본 위치와 같은 간격이라,
+/// 오른쪽 아래에 붙이면 기본 위치와 같아진다 (#216).
 /// 창 사각형·작업 영역(GetMonitorInfo)을 같은 물리 픽셀로 다뤄 디스플레이 배율이 달라도 어긋나지 않는다.
 /// </summary>
 internal sealed class WindowEdgeSnapper : IDisposable
@@ -106,16 +109,16 @@ internal sealed class WindowEdgeSnapper : IDisposable
     private const uint SWP_NOACTIVATE = 0x0010;
 
     private readonly Window _window;
-    private readonly Func<Thickness> _visualInset;
+    private readonly double _edgeGapDip;
     private HwndSource? _source;
     private bool _disposed;
 
     /// <param name="window">대상 창.</param>
-    /// <param name="visualInset">창 가장자리와 눈에 보이는 테두리 사이의 투명 여백 (DIP). 그림자 자리 등.</param>
-    public WindowEdgeSnapper(Window window, Func<Thickness> visualInset)
+    /// <param name="edgeGapDip">창 사각형과 작업 영역 가장자리 사이에 둘 간격 (DIP).</param>
+    public WindowEdgeSnapper(Window window, double edgeGapDip)
     {
         _window = window;
-        _visualInset = visualInset;
+        _edgeGapDip = edgeGapDip;
 
         if (FindSource() is { } source)
             Attach(source);
@@ -123,18 +126,17 @@ internal sealed class WindowEdgeSnapper : IDisposable
             window.SourceInitialized += OnSourceInitialized;
     }
 
-    /// <summary>테두리가 지금 모니터의 작업 영역 밖으로 나가 있으면 안으로 들인다.</summary>
+    /// <summary>창이 붙는 선(작업 영역에서 간격만큼 안쪽) 밖으로 나가 있으면 안으로 들인다.</summary>
     public void KeepInWorkArea()
     {
         if (!TryGetWindowRect(out var hwnd, out var rect) || !TryGetWorkArea(rect, out var area))
             return;
 
-        var inset = InsetPixels(VisualTreeHelper.GetDpi(_window));
-        MoveTo(hwnd, rect, EdgeSnap.Clamp(rect, area, inset));
+        MoveTo(hwnd, rect, EdgeSnap.Clamp(rect, SnapArea(area, VisualTreeHelper.GetDpi(_window))));
     }
 
     /// <summary>
-    /// 크기가 바뀐 뒤 호출한다. 바뀌기 전 붙어 있던 가장자리에 남기고, 작업 영역 밖으로 나간 만큼 들인다.
+    /// 크기가 바뀐 뒤 호출한다. 바뀌기 전 붙어 있던 가장자리에 남기고, 붙는 선 밖으로 나간 만큼 들인다.
     /// 크기는 DIP 로 받는다 — SizeChanged 시점의 창 핸들 크기가 새 크기인지 장담할 수 없어 위치만 핸들에서 읽는다.
     /// </summary>
     public void KeepInWorkAreaAfterResize(System.Windows.Size previousSize, System.Windows.Size newSize)
@@ -148,8 +150,8 @@ internal sealed class WindowEdgeSnapper : IDisposable
         if (!TryGetWorkArea(after, out var area))
             return;
 
-        var inset = InsetPixels(dpi);
-        MoveTo(hwnd, rect, EdgeSnap.Clamp(EdgeSnap.KeepAttached(before, after, area, inset), area, inset));
+        var snapArea = SnapArea(area, dpi);
+        MoveTo(hwnd, rect, EdgeSnap.Clamp(EdgeSnap.KeepAttached(before, after, snapArea), snapArea));
     }
 
     /// <summary>창이 지금 놓인 모니터의 작업 영역 높이 (DIP). 창 핸들이 없으면 null.</summary>
@@ -205,7 +207,7 @@ internal sealed class WindowEdgeSnapper : IDisposable
 
         var dpi = VisualTreeHelper.GetDpi(_window);
         var threshold = (int)Math.Round(SnapDistanceDip * dpi.DpiScaleX);
-        var snapped = EdgeSnap.Snap(proposed, area, InsetPixels(dpi), threshold);
+        var snapped = EdgeSnap.Snap(proposed, SnapArea(area, dpi), threshold);
         if (snapped == proposed)
             return IntPtr.Zero;
 
@@ -214,15 +216,9 @@ internal sealed class WindowEdgeSnapper : IDisposable
         return new IntPtr(1);
     }
 
-    private PixelInsets InsetPixels(DpiScale dpi)
-    {
-        var t = _visualInset();
-        return new PixelInsets(
-            (int)Math.Round(t.Left * dpi.DpiScaleX),
-            (int)Math.Round(t.Top * dpi.DpiScaleY),
-            (int)Math.Round(t.Right * dpi.DpiScaleX),
-            (int)Math.Round(t.Bottom * dpi.DpiScaleY));
-    }
+    /// <summary>작업 영역에서 간격만큼 줄인, 창 사각형이 붙는 영역.</summary>
+    private PixelRect SnapArea(PixelRect workArea, DpiScale dpi) =>
+        workArea.Deflate((int)Math.Round(_edgeGapDip * dpi.DpiScaleX));
 
     private static PixelRect WithSize(PixelRect rect, System.Windows.Size size, DpiScale dpi) => new(
         rect.Left,

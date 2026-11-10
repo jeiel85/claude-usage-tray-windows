@@ -17,22 +17,22 @@ public class WindowEdgeSnapperTests
     private const int WM_MOVING = 0x0216;
 
     [Fact]
-    public async Task WmMoving_NearWorkAreaEdge_AttachesVisibleBorder()
+    public async Task WmMoving_NearWorkAreaEdge_AttachesWithGap()
     {
         await WpfTestHost.RunAsync(() =>
         {
             var (window, hwnd) = CreateWindow();
-            using var snapper = new WindowEdgeSnapper(window, () => new Thickness(8));
+            using var snapper = new WindowEdgeSnapper(window, edgeGapDip: 8);
             try
             {
                 var area = PrimaryWorkArea();
-                var inset = (int)Math.Round(8 * VisualTreeHelper.GetDpi(window).DpiScaleX);
-                var rect = new TestRect(area.Left + 5, area.Top + 200, area.Left + 205, area.Top + 320);
+                var gap = (int)Math.Round(8 * VisualTreeHelper.GetDpi(window).DpiScaleX);
+                var rect = new TestRect(area.Left + 1, area.Top + 200, area.Left + 201, area.Top + 320);
 
                 var result = SendMessage(hwnd, WM_MOVING, IntPtr.Zero, ref rect);
 
                 Assert.Equal(new IntPtr(1), result);
-                Assert.Equal(area.Left - inset, rect.Left);
+                Assert.Equal(area.Left + gap, rect.Left);
                 Assert.Equal(200, rect.Right - rect.Left);
                 Assert.Equal(area.Top + 200, rect.Top);
             }
@@ -49,7 +49,7 @@ public class WindowEdgeSnapperTests
         await WpfTestHost.RunAsync(() =>
         {
             var (window, hwnd) = CreateWindow();
-            using var snapper = new WindowEdgeSnapper(window, () => new Thickness(0));
+            using var snapper = new WindowEdgeSnapper(window, edgeGapDip: 8);
             try
             {
                 var area = PrimaryWorkArea();
@@ -74,7 +74,7 @@ public class WindowEdgeSnapperTests
         await WpfTestHost.RunAsync(() =>
         {
             var (window, hwnd) = CreateWindow();
-            var snapper = new WindowEdgeSnapper(window, () => new Thickness(0));
+            var snapper = new WindowEdgeSnapper(window, edgeGapDip: 0);
             try
             {
                 snapper.Dispose();
@@ -94,21 +94,22 @@ public class WindowEdgeSnapperTests
     }
 
     [Fact]
-    public async Task KeepInWorkArea_WindowAboveTopEdge_PullsItBackInside()
+    public async Task KeepInWorkArea_WindowAboveTopEdge_PullsItBackInsideTheGap()
     {
         await WpfTestHost.RunAsync(() =>
         {
             var (window, hwnd) = CreateWindow();
-            using var snapper = new WindowEdgeSnapper(window, () => new Thickness(0));
+            using var snapper = new WindowEdgeSnapper(window, edgeGapDip: 8);
             try
             {
                 var area = PrimaryWorkArea();
+                var gap = (int)Math.Round(8 * VisualTreeHelper.GetDpi(window).DpiScaleX);
                 SetWindowPos(hwnd, IntPtr.Zero, area.Left + 100, area.Top - 30, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
 
                 snapper.KeepInWorkArea();
 
                 Assert.True(GetWindowRect(hwnd, out var rect));
-                Assert.Equal(area.Top, rect.Top);
+                Assert.Equal(area.Top + gap, rect.Top);
                 Assert.Equal(area.Left + 100, rect.Left);
             }
             finally
@@ -124,7 +125,7 @@ public class WindowEdgeSnapperTests
         await WpfTestHost.RunAsync(() =>
         {
             var (window, hwnd) = CreateWindow();
-            using var snapper = new WindowEdgeSnapper(window, () => new Thickness(0));
+            using var snapper = new WindowEdgeSnapper(window, edgeGapDip: 8);
             try
             {
                 var area = PrimaryWorkArea();
