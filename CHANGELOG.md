@@ -3,6 +3,32 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.51.0] - 2026-11-10
+
+<!-- ko -->
+### 추가
+- **사용량 창을 끌면 화면 가장자리에 자석처럼 붙습니다 (#214)** — 기본 화면과 미니 화면 모두, 창이 놓인 모니터의 상하좌우 가장자리나 작업표시줄 경계에서 16px 안으로 끌면 그 가장자리에 붙고, 더 끌면 떨어집니다.
+  - 기본 화면은 그림자 자리인 바깥 투명 여백을 빼고, 눈에 보이는 테두리를 가장자리에 맞춥니다.
+  - 모니터가 여러 대면 창이 놓인 모니터의 가장자리를 씁니다.
+
+### 수정
+- **미니 화면이 디스플레이 배율 100%가 아닐 때 가장자리에서 어긋나던 문제를 고쳤습니다 (#214)** — 위치 계산에 화면 픽셀과 앱 좌표가 섞여 있었습니다. 이제 같은 픽셀 기준으로 계산합니다.
+- **옮겨 둔 기본 화면이 트레이 모서리로 되돌아가지 않습니다 (#214)** — 이전에는 공급자 행을 눌러 창 높이가 바뀌면 트레이 모서리로 되돌아갔습니다. 이제 옮긴 자리를 지키고, 아래·오른쪽 가장자리에 붙여 둔 창은 높이가 바뀌어도 그 가장자리에 남습니다. 트레이 아이콘을 다시 눌러 열면 지금처럼 트레이 모서리에서 열립니다.
+- 끌기를 마쳤을 때 창이 화면 밖으로 나가 있으면, 이제 기본 화면도 미니 화면처럼 작업 영역 안으로 들어옵니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **The usage window now snaps to screen edges like a magnet while you drag it (#214)** — In both the regular and mini views, dragging the window within 16px of any edge of its monitor, including the taskbar edge, snaps it to that edge. Keep dragging to pull it away.
+  - The regular view lines up its visible border with the edge, not the transparent shadow margin around it.
+  - With several monitors, it snaps to the edges of the monitor the window is on.
+
+### Fixed
+- **The mini view no longer lands slightly off the screen edges when display scaling isn't 100% (#214)** — Its position math mixed screen pixels with app coordinates. Both now use the same pixels.
+- **A moved regular view no longer jumps back to the tray corner (#214)** — Clicking a provider row used to send it back there when the window height changed. It now stays where you put it. A window attached to the bottom or right edge stays on that edge when its height changes. Opening it again from the tray icon still opens it at the tray corner.
+- If the window ends up partly off screen when you finish dragging, the regular view is now pulled back inside the work area, just like the mini view.
+<!-- /en -->
+
 ## [1.50.1] - 2026-10-28
 
 <!-- ko -->
