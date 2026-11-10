@@ -5,7 +5,6 @@ using System.Windows.Input;
 using System.Windows.Shapes;
 using ClaudeUsageTray.Services;
 using ClaudeUsageTray.ViewModels;
-using Forms = System.Windows.Forms;
 using WColor  = System.Windows.Media.Color;
 using WPoint  = System.Windows.Point;
 using WRect   = System.Windows.Shapes.Rectangle;
@@ -18,10 +17,17 @@ namespace ClaudeUsageTray.Views;
 public partial class UsagePopup : Window, IDisposable
 {
     private readonly MainViewModel _vm;
+    private readonly WindowEdgeSnapper _edgeSnapper;
     private SettingsWindow? _settingsWindow;
     private bool _showHourly = false;
     private bool _settingsOpen = false;
     private bool _disposed = false;
+
+    /// <summary>
+    /// 이번에 연 뒤 사용자가 창을 끌어 옮겼는지. 옮기지 않았으면 크기가 바뀔 때 트레이 모서리에 다시 맞추고,
+    /// 옮겼으면 그 자리(붙인 가장자리)를 지킨다. ShowNearTray 가 트레이 모서리로 되돌리며 지운다.
+    /// </summary>
+    private bool _userMoved = false;
 
     public UsagePopup(MainViewModel vm)
     {
@@ -29,19 +35,28 @@ public partial class UsagePopup : Window, IDisposable
         _vm = vm;
         DataContext = vm;
 
+        // 끄는 동안 작업 영역 가장자리에 자석처럼 붙인다 (#214). 기본 화면은 그림자 자리인 투명 여백을 빼고
+        // 눈에 보이는 테두리를 붙인다 — 미니 화면은 여백이 0 이다.
+        _edgeSnapper = new WindowEdgeSnapper(this, () => PopupShell.Margin);
+
         Deactivated += (_, _) => { if (!_settingsOpen && !_vm.KeepPopupAboveTaskbar) Hide(); };
         MouseLeftButtonDown += (_, e) =>
         {
             if (e.Handled) return;
 
+            var startLeft = Left;
+            var startTop = Top;
             try
             {
                 DragMove();
             }
             finally
             {
-                if (_vm.KeepPopupAboveTaskbar)
-                    SnapToWorkingAreaEdges();
+                if (Left != startLeft || Top != startTop)
+                {
+                    _userMoved = true;
+                    _edgeSnapper.KeepInWorkArea();
+                }
             }
         };
         PreviewKeyDown += OnPreviewKeyDown;
@@ -62,13 +77,14 @@ public partial class UsagePopup : Window, IDisposable
     /// <summary>
     /// popup 의 컨텐츠 사이즈가 변경되면(예: 사용자가 컴팩트 행 클릭 → 다른 공급자 detail 펼침)
     /// 우하단 모서리 앵커를 다시 적용해 작업표시줄 위로 끌어올린다.
+    /// 사용자가 옮긴 창은 트레이 모서리로 되돌리지 않고, 붙어 있던 가장자리에 남긴 채 작업 영역 안에 둔다 (#214).
     /// </summary>
     private void OnSizeChangedKeepAnchor(object sender, SizeChangedEventArgs e)
     {
         if (!IsLoaded || !IsVisible) return;
 
-        if (_vm.KeepPopupAboveTaskbar)
-            SnapToWorkingAreaEdges();
+        if (_userMoved)
+            _edgeSnapper.KeepInWorkAreaAfterResize(e.PreviousSize, e.NewSize);
         else
             AnchorToTrayCorner();
     }
@@ -81,39 +97,6 @@ public partial class UsagePopup : Window, IDisposable
         var workArea = SystemParameters.WorkArea;
         Left = workArea.Right - Width - 8;
         Top  = Math.Max(workArea.Top, workArea.Bottom - ActualHeight - 8);
-    }
-
-    private void SnapToWorkingAreaEdges()
-    {
-        if (ActualWidth <= 0 || ActualHeight <= 0)
-            return;
-
-        var workArea = GetCurrentWorkingArea();
-        var minLeft = workArea.Left;
-        var minTop = workArea.Top;
-        var maxLeft = Math.Max(minLeft, workArea.Right - ActualWidth);
-        var maxTop = Math.Max(minTop, workArea.Bottom - ActualHeight);
-
-        Left = SnapCoordinate(Left, minLeft, maxLeft);
-        Top = SnapCoordinate(Top, minTop, maxTop);
-    }
-
-    private static double SnapCoordinate(double value, double min, double max)
-    {
-        const double snapDistance = 16;
-
-        if (Math.Abs(value - min) <= snapDistance) return min;
-        if (Math.Abs(value - max) <= snapDistance) return max;
-        return Math.Min(Math.Max(value, min), max);
-    }
-
-    private System.Drawing.Rectangle GetCurrentWorkingArea()
-    {
-        var center = new System.Drawing.Point(
-            (int)Math.Round(Left + ActualWidth / 2),
-            (int)Math.Round(Top + ActualHeight / 2));
-
-        return Forms.Screen.FromPoint(center).WorkingArea;
     }
 
     /// <summary>
@@ -154,6 +137,7 @@ public partial class UsagePopup : Window, IDisposable
         if (disposing)
         {
             _vm.PropertyChanged -= OnVmPropertyChanged;
+            _edgeSnapper.Dispose();
             _settingsWindow?.Dispose();
         }
 
@@ -482,6 +466,7 @@ public partial class UsagePopup : Window, IDisposable
             _vm.FocusedProvider = "";
         }
 
+        _userMoved = false;
         AnchorToTrayCorner();
         Show();
         Activate();
