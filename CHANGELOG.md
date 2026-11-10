@@ -13,7 +13,7 @@
 
 ### 수정
 - **미니 화면이 디스플레이 배율 100%가 아닐 때 가장자리에서 어긋나던 문제를 고쳤습니다 (#214)** — 위치 계산에 화면 픽셀과 앱 좌표가 섞여 있었습니다. 이제 같은 픽셀 기준으로 계산합니다.
-- **옮겨 둔 기본 화면이 트레이 모서리로 되돌아가지 않습니다 (#214)** — 이전에는 공급자 행을 눌러 창 높이가 바뀌면 트레이 모서리로 되돌아갔습니다. 이제 옮긴 자리를 지키고, 아래·오른쪽 가장자리에 붙여 둔 창은 높이가 바뀌어도 그 가장자리에 남습니다. 트레이 아이콘을 다시 눌러 열면 지금처럼 트레이 모서리에서 열립니다.
+- **옮겨 둔 기본 화면이 트레이 모서리로 되돌아가지 않습니다 (#214)** — 이전에는 공급자 행을 눌러 창 높이가 바뀌면 트레이 모서리로 되돌아갔습니다. 이제 옮긴 자리를 지키고, 아래·오른쪽 가장자리에 붙여 둔 창은 높이가 바뀌어도 그 가장자리에 남습니다. 설정 창을 닫을 때도 옮긴 자리에 그대로 있습니다. 다른 모니터로 옮긴 창의 최대 높이는 그 모니터 기준으로 맞춥니다. 트레이 아이콘을 다시 눌러 열면 지금처럼 트레이 모서리에서 열립니다.
 - 끌기를 마쳤을 때 창이 화면 밖으로 나가 있으면, 이제 기본 화면도 미니 화면처럼 작업 영역 안으로 들어옵니다.
 <!-- /ko -->
 
@@ -25,7 +25,7 @@
 
 ### Fixed
 - **The mini view no longer lands slightly off the screen edges when display scaling isn't 100% (#214)** — Its position math mixed screen pixels with app coordinates. Both now use the same pixels.
-- **A moved regular view no longer jumps back to the tray corner (#214)** — Clicking a provider row used to send it back there when the window height changed. It now stays where you put it. A window attached to the bottom or right edge stays on that edge when its height changes. Opening it again from the tray icon still opens it at the tray corner.
+- **A moved regular view no longer jumps back to the tray corner (#214)** — Clicking a provider row used to send it back there when the window height changed. It now stays where you put it. A window attached to the bottom or right edge stays on that edge when its height changes. Closing the settings window no longer moves it either. On another monitor, its maximum height follows that monitor. Opening it again from the tray icon still opens it at the tray corner.
 - If the window ends up partly off screen when you finish dragging, the regular view is now pulled back inside the work area, just like the mini view.
 <!-- /en -->
 

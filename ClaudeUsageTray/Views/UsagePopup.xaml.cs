@@ -55,6 +55,7 @@ public partial class UsagePopup : Window, IDisposable
                 if (Left != startLeft || Top != startTop)
                 {
                     _userMoved = true;
+                    ApplyMaxHeight();
                     _edgeSnapper.KeepInWorkArea();
                 }
             }
@@ -101,10 +102,13 @@ public partial class UsagePopup : Window, IDisposable
 
     /// <summary>
     /// popup 최대 높이를 현재 작업영역 높이로 클램프 — 극단적으로 작은 모니터/공급자 4개 활성 케이스 안전망.
+    /// 사용자가 다른 모니터로 옮긴 창은 그 모니터의 작업 영역을 쓴다 (#214).
     /// </summary>
     private void ApplyMaxHeight()
     {
-        MaxHeight = SystemParameters.WorkArea.Height - 24;
+        var workAreaHeight = (_userMoved ? _edgeSnapper.CurrentWorkAreaHeight() : null)
+                             ?? SystemParameters.WorkArea.Height;
+        MaxHeight = workAreaHeight - 24;
     }
 
     private void ApplyPopupMode()
@@ -420,7 +424,11 @@ public partial class UsagePopup : Window, IDisposable
             if (!(bool)ev.NewValue)
             {
                 _settingsOpen = false;
-                ShowNearTray();
+                // 사용자가 옮겨 둔 창은 그 자리에 둔다 — 트레이 모서리로 되돌리면 붙여 둔 가장자리를 잃는다 (#214)
+                if (_userMoved && IsVisible)
+                    Activate();
+                else
+                    ShowNearTray();
             }
         };
     }
@@ -456,6 +464,7 @@ public partial class UsagePopup : Window, IDisposable
 
     public void ShowNearTray()
     {
+        _userMoved = false;
         ApplyMaxHeight();
         ApplyPopupMode();
 
@@ -466,7 +475,6 @@ public partial class UsagePopup : Window, IDisposable
             _vm.FocusedProvider = "";
         }
 
-        _userMoved = false;
         AnchorToTrayCorner();
         Show();
         Activate();

@@ -152,6 +152,15 @@ internal sealed class WindowEdgeSnapper : IDisposable
         MoveTo(hwnd, rect, EdgeSnap.Clamp(EdgeSnap.KeepAttached(before, after, area, inset), area, inset));
     }
 
+    /// <summary>창이 지금 놓인 모니터의 작업 영역 높이 (DIP). 창 핸들이 없으면 null.</summary>
+    public double? CurrentWorkAreaHeight()
+    {
+        if (!TryGetWindowRect(out _, out var rect) || !TryGetWorkArea(rect, out var area))
+            return null;
+
+        return (area.Bottom - area.Top) / VisualTreeHelper.GetDpi(_window).DpiScaleY;
+    }
+
     public void Dispose()
     {
         if (_disposed) return;

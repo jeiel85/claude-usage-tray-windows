@@ -118,6 +118,28 @@ public class WindowEdgeSnapperTests
         });
     }
 
+    [Fact]
+    public async Task CurrentWorkAreaHeight_ReturnsMonitorWorkAreaInDip()
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            var (window, hwnd) = CreateWindow();
+            using var snapper = new WindowEdgeSnapper(window, () => new Thickness(0));
+            try
+            {
+                var area = PrimaryWorkArea();
+                SetWindowPos(hwnd, IntPtr.Zero, area.Left + 100, area.Top + 100, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+                var expected = (area.Bottom - area.Top) / VisualTreeHelper.GetDpi(window).DpiScaleY;
+
+                Assert.Equal(expected, snapper.CurrentWorkAreaHeight());
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
     private static (Window Window, IntPtr Hwnd) CreateWindow()
     {
         var window = new Window
