@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.51.1] - 2026-11-10
+
+<!-- ko -->
+### 수정
+- **자석으로 붙은 사용량 창이 기본 위치처럼 가장자리에서 살짝 띄워집니다 (#216)** — 1.51.0 은 창을 화면 가장자리에 딱 붙였고, 트레이 모서리 기본 위치는 조금 띄워 두어 붙인 위치가 기본 위치와 달랐습니다. 이제 기본 위치와 같은 간격으로 붙으므로, 오른쪽 아래 구석에 붙이면 기본 위치와 정확히 같은 자리에 놓입니다. 기본 화면·미니 화면 모두 같습니다.
+  - 기본 화면의 그림자가 화면 밖이나 작업표시줄, 옆 모니터로 잘려 나가지 않습니다.
+  - 끌기를 마친 뒤 화면 안으로 들이는 처리와 높이가 바뀔 때 가장자리를 지키는 처리도 같은 간격을 씁니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **A snapped usage window now keeps the same small gap from the edge as its default position (#216)** — 1.51.0 snapped the window flush against the screen edge, while the default tray-corner position leaves a small gap, so a snapped window never lined up with the default. It now snaps with the same gap, so snapping it into the bottom-right corner puts it exactly at the default position. This applies to both the regular and mini views.
+  - The regular view's shadow is no longer cut off at the screen edge or drawn over the taskbar or a neighboring monitor.
+  - Pulling the window back on screen after a drag and keeping it on an edge when its height changes use the same gap.
+<!-- /en -->
+
 ## [1.51.0] - 2026-11-10
 
 <!-- ko -->
