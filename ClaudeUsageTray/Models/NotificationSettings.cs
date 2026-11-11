@@ -101,6 +101,12 @@ public class NotificationSettings
         set => ShowPlanBadge = value;
     }
 
+    /// <summary>
+    /// Claude 등급 배지 줄 뒤에 계정 이름·조직("· 김민준 · Acme Corp")을 붙일지(#218). 기본 켜짐 —
+    /// 스크린샷을 공유할 때 실명·회사명을 가리려면 끈다. 키가 없던 예전 파일도 켜짐으로 읽힌다.
+    /// </summary>
+    public bool ShowClaudeAccount { get; set; } = true;
+
     // 리셋 라벨에 절대 시각을 병기할지 ("1h 23m 후 리셋 (18:30)")
     public bool ShowAbsoluteResetTime { get; set; } = false;
 

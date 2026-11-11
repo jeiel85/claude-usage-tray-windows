@@ -160,6 +160,8 @@ public partial class SettingsWindow : Window, IDisposable
         // v1.27.0 표시 옵션 토글
         LblDisplayOptions.Text              = Loc.DisplayOptionsSection;
         ChkShowPlanBadge.Content            = Loc.ShowPlanBadge;
+        ChkShowClaudeAccount.Content        = Loc.ShowClaudeAccount;
+        LblShowClaudeAccountHint.Text       = Loc.ShowClaudeAccountHint;
         ChkShowAbsoluteResetTime.Content    = Loc.ShowAbsoluteResetTime;
         LblShowAbsoluteResetTimeHint.Text   = Loc.ShowAbsoluteResetTimeHint;
         ChkShowAntigravityThirdPartyQuota.Content   = Loc.AntigravityShowThirdPartyQuota;
@@ -316,6 +318,7 @@ public partial class SettingsWindow : Window, IDisposable
         ChkVisibleAntigravity.IsChecked = _vm.IsAntigravityEnabled;
 
         ChkShowPlanBadge.IsChecked         = _vm.ShowPlanBadge;
+        ChkShowClaudeAccount.IsChecked     = _vm.ShowClaudeAccount;
         ChkShowAbsoluteResetTime.IsChecked = _vm.ShowAbsoluteResetTime;
         ChkShowAntigravityThirdPartyQuota.IsChecked = _vm.ShowAntigravityThirdPartyQuota;
         ChkKeepPopupAboveTaskbar.IsChecked = _vm.KeepPopupAboveTaskbar;
@@ -382,6 +385,7 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.IsAntigravityEnabled = ChkVisibleAntigravity.IsChecked == true;
 
         _vm.ShowPlanBadge         = ChkShowPlanBadge.IsChecked == true;
+        _vm.ShowClaudeAccount     = ChkShowClaudeAccount.IsChecked == true;
         _vm.ShowAbsoluteResetTime = ChkShowAbsoluteResetTime.IsChecked == true;
         _vm.ShowAntigravityThirdPartyQuota = ChkShowAntigravityThirdPartyQuota.IsChecked == true;
         _vm.KeepPopupAboveTaskbar = ChkKeepPopupAboveTaskbar.IsChecked == true;

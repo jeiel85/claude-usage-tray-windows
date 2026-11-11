@@ -816,6 +816,23 @@ public static class Loc
         _ => "Show subscription plan badge (e.g. Claude Max 5x, ChatGPT Plus)"
     };
 
+    // #218 Claude 등급 배지 줄 뒤에 붙는 계정 이름·조직
+    public static string ShowClaudeAccount => Lang switch
+    {
+        "ko" => "Claude 계정 이름·조직 표시",
+        "zh" => "显示 Claude 账户名称和组织",
+        "ja" => "Claude のアカウント名と組織を表示",
+        _ => "Show Claude account name and organization"
+    };
+
+    public static string ShowClaudeAccountHint => Lang switch
+    {
+        "ko" => "Claude 클라이언트 왼쪽 아래와 같은 정보입니다. 조직은 팀·엔터프라이즈일 때만 보이고, 이메일은 보이지 않습니다.",
+        "zh" => "与 Claude 客户端左下角显示的信息相同。仅团队或企业组织会显示组织名称，不显示邮箱。",
+        "ja" => "Claude クライアント左下と同じ情報です。組織名はチーム・エンタープライズのときだけ表示し、メールアドレスは表示しません。",
+        _ => "Same info as the bottom left of the Claude app. The organization shows only for Team or Enterprise, and your email is never shown."
+    };
+
     public static string ShowAbsoluteResetTime => Lang switch
     {
         "ko" => "리셋 라벨에 절대 시각 병기",

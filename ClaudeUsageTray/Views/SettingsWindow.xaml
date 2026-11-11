@@ -526,6 +526,9 @@
                                 <Border Height="1" Background="#2D2F45" Margin="0,8,0,8"/>
                                 <TextBlock x:Name="LblDisplayOptions" Style="{StaticResource SectionLabel}" Margin="0,0,0,8"/>
                                 <CheckBox x:Name="ChkShowPlanBadge"        Style="{StaticResource CheckStyle}" Margin="0,0,0,4" Click="Setting_Changed"/>
+                                <!-- #218 Claude 등급 배지 줄 뒤의 계정 이름·조직 -->
+                                <CheckBox x:Name="ChkShowClaudeAccount"    Style="{StaticResource CheckStyle}" Margin="0,2,0,2" Click="Setting_Changed"/>
+                                <TextBlock x:Name="LblShowClaudeAccountHint" Foreground="#5A5F7A" FontSize="10" Margin="2,0,0,6" TextWrapping="Wrap"/>
                                 <CheckBox x:Name="ChkShowAbsoluteResetTime" Style="{StaticResource CheckStyle}" Margin="0,0,0,4" Click="Setting_Changed"/>
                                 <TextBlock x:Name="LblShowAbsoluteResetTimeHint" Foreground="#5A5F7A" FontSize="10" Margin="2,0,0,0" TextWrapping="Wrap"/>
                                 <!-- Antigravity 는 기본으로 Gemini 한도만 보여준다 — 켜면 Claude·GPT 창도 행·트레이 숫자에 들어간다 -->

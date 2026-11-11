@@ -593,6 +593,27 @@ public class UsageSyncQuotaPolicyTests
     }
 
     [Theory]
+    // 둘 다 보이면 계정 앞에 구분자를 붙인다.
+    [InlineData(true, "Claude Team 5x", true, "김민준 · Acme Corp", "Claude Team 5x", " · 김민준 · Acme Corp", true)]
+    // 계정 표시를 끄면 지금처럼 등급만.
+    [InlineData(true, "Claude Team 5x", false, "김민준 · Acme Corp", "Claude Team 5x", "", true)]
+    // 계정을 모르면(파일 없음·읽기 실패) 등급만.
+    [InlineData(true, "Claude Team 5x", true, "", "Claude Team 5x", "", true)]
+    // 등급 배지를 끄고 계정만 켜면 계정만, 구분자 없이.
+    [InlineData(false, "Claude Team 5x", true, "김민준 · Acme Corp", "", "김민준 · Acme Corp", true)]
+    // 등급을 모르고 계정도 끄면 줄 자체가 없다.
+    [InlineData(true, "", false, "김민준", "", "", false)]
+    [InlineData(false, "Claude Max 5x", false, "김민준", "", "", false)]
+    public void ClaudeBadge_SplitsPlanAndAccount(bool showPlan, string plan, bool showAccount, string account,
+        string expectedPlan, string expectedAccount, bool expectedVisible)
+    {
+        var badge = MainViewModel.ComposeClaudeBadge(showPlan, plan, showAccount, account);
+        Assert.Equal(expectedPlan, badge.Plan);
+        Assert.Equal(expectedAccount, badge.Account);
+        Assert.Equal(expectedVisible, badge.IsVisible);
+    }
+
+    [Theory]
     [InlineData("max", true)]
     [InlineData("pro", true)]
     [InlineData("team", true)]
