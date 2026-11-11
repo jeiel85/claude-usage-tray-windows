@@ -3,6 +3,28 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.52.0] - 2026-11-11
+
+<!-- ko -->
+### 추가
+- **Claude 섹션에 계정 이름과 조직이 함께 보입니다 (#218)** — 등급 배지 뒤에 Claude 클라이언트 왼쪽 아래와 같은 이름·조직을 흐린 색으로 붙입니다. 예: `Claude Team 5x · 김민준 · Acme Corp`. 개인 계정과 회사 계정을 오갈 때 지금 보는 할당량이 어느 계정 것인지 바로 알 수 있습니다.
+  - 이 PC의 `~/.claude.json`에 Claude Code가 받아 둔 프로필을 읽습니다. 토큰이나 네트워크 호출은 쓰지 않습니다.
+  - 조직 이름은 팀·엔터프라이즈 조직일 때만 보입니다. 개인 구독은 조직 이름이 이메일로 자동 생성되는 경우가 있어서 숨깁니다. 이메일은 어디에도 보이지 않습니다.
+  - 줄이 늘어나지 않습니다. 길면 말줄임으로 자르고, 마우스를 올리면 전체 문구가 보입니다.
+  - 계정을 바꾸면 다음 새로고침 때 반영됩니다. 프로필을 읽지 못하면 지금처럼 등급만 보입니다.
+  - 설정 → 트레이 → 표시 옵션의 **Claude 계정 이름·조직 표시**로 끌 수 있습니다(기본 켜짐). 화면을 캡처해 공유할 때 실명·회사명을 가리려면 끄세요.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **The Claude section now shows your account name and organization (#218)** — The same name and organization the Claude app shows in its bottom-left corner are added after the plan badge in a muted color, for example `Claude Team 5x · Jane Doe · Acme Inc`. If you switch between a personal and a work account, you can tell at a glance whose quota you're looking at.
+  - It reads the profile Claude Code keeps in `~/.claude.json` on this PC. No token or network call is used.
+  - The organization shows only for Team or Enterprise organizations. Personal plans can have an organization name generated from your email, so it's hidden for them. Your email is never shown.
+  - The badge stays on one line. Long text is cut off with an ellipsis, and hovering shows the full text.
+  - Switching accounts shows up on the next refresh. If the profile can't be read, only the plan badge shows, as before.
+  - Turn it off under Settings → Tray → Display options → **Show Claude account name and organization** (on by default), for example before sharing a screenshot.
+<!-- /en -->
+
 ## [1.51.1] - 2026-11-10
 
 <!-- ko -->
