@@ -15,6 +15,7 @@ namespace ClaudeUsageTray.ViewModels;
 {
     private readonly UsageApiService _api;
     private readonly CredentialService _credentials;
+    private readonly ClaudeAccountProfileReader _claudeAccount;
     private readonly SessionMonitor _session;
     private readonly CodexUsageMonitor _codex;
     private readonly OpenCodeUsageMonitor _openCode;
@@ -172,14 +173,63 @@ namespace ClaudeUsageTray.ViewModels;
     //   OpenCode     ~/.local/share/opencode/auth.json 에 저장된 OpenCode 로그인 항목
     //   Antigravity  loadCodeAssist 응답의 tier 이름
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsClaudePlanBadgeVisible))]
     private string _claudePlanLabel = "";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsOpenCodePlanBadgeVisible))]
     private string _openCodePlanLabel = "";
 
-    public bool IsClaudePlanBadgeVisible => ShowPlanBadge && !string.IsNullOrWhiteSpace(ClaudePlanLabel);
+    // Claude 계정 이름·조직(#218) — 등급 배지 줄 뒤에 흐린 색으로 붙인다. 출처는 ~/.claude.json 의 oauthAccount.
+    [ObservableProperty]
+    private string _claudeAccountLabel = "";
+
+    [ObservableProperty]
+    private bool _showClaudeAccount = true;
+
+    partial void OnClaudePlanLabelChanged(string value) => NotifyClaudeBadgeChanged();
+    partial void OnClaudeAccountLabelChanged(string value) => NotifyClaudeBadgeChanged();
+    partial void OnShowClaudeAccountChanged(bool value) => NotifyClaudeBadgeChanged();
+    partial void OnShowPlanBadgeChanged(bool value) => NotifyClaudeBadgeChanged();
+
+    private void NotifyClaudeBadgeChanged()
+    {
+        OnPropertyChanged(nameof(IsClaudePlanBadgeVisible));
+        OnPropertyChanged(nameof(ClaudePlanBadgeText));
+        OnPropertyChanged(nameof(ClaudeAccountBadgeText));
+        OnPropertyChanged(nameof(ClaudePlanBadgeToolTip));
+    }
+
+    private ClaudeBadgeParts ClaudeBadge =>
+        ComposeClaudeBadge(ShowPlanBadge, ClaudePlanLabel, ShowClaudeAccount, ClaudeAccountLabel);
+
+    /// <summary>등급 배지 줄 — 등급이나 계정 중 하나라도 보이면 줄을 그린다.</summary>
+    public bool IsClaudePlanBadgeVisible => ClaudeBadge.IsVisible;
+    /// <summary>등급 부분("Claude Team 5x"). 강조색.</summary>
+    public string ClaudePlanBadgeText => ClaudeBadge.Plan;
+    /// <summary>계정 부분(" · 김민준 · Acme Corp"). 흐린 색.</summary>
+    public string ClaudeAccountBadgeText => ClaudeBadge.Account;
+    /// <summary>말줄임으로 잘린 줄의 전체 문구. 계정이 안 보이면 지금처럼 툴팁 없음.</summary>
+    public string? ClaudePlanBadgeToolTip =>
+        string.IsNullOrEmpty(ClaudeBadge.Account) ? null : ClaudeBadge.Plan + ClaudeBadge.Account;
+
+    internal readonly record struct ClaudeBadgeParts(string Plan, string Account)
+    {
+        public bool IsVisible => Plan.Length > 0 || Account.Length > 0;
+    }
+
+    /// <summary>
+    /// 등급 배지 줄을 등급·계정 두 부분으로 나눈다. 둘 다 보이면 계정 앞에 " · " 를 붙이고,
+    /// 등급을 끄고 계정만 켰으면 계정만 구분자 없이 보인다.
+    /// </summary>
+    internal static ClaudeBadgeParts ComposeClaudeBadge(
+        bool showPlan, string? planLabel, bool showAccount, string? accountLabel)
+    {
+        var plan = showPlan && !string.IsNullOrWhiteSpace(planLabel) ? planLabel.Trim() : "";
+        var account = showAccount && !string.IsNullOrWhiteSpace(accountLabel) ? accountLabel.Trim() : "";
+        if (plan.Length > 0 && account.Length > 0) account = " · " + account;
+        return new ClaudeBadgeParts(plan, account);
+    }
+
     public bool IsCodexPlanBadgeVisible => ShowPlanBadge && !string.IsNullOrWhiteSpace(CodexPlanLabel);
     public bool IsOpenCodePlanBadgeVisible => ShowPlanBadge && !string.IsNullOrWhiteSpace(OpenCodePlanLabel);
     public bool IsAntigravityPlanBadgeVisible => ShowPlanBadge && !string.IsNullOrWhiteSpace(AntigravityPlanLabel);
@@ -341,7 +391,6 @@ namespace ClaudeUsageTray.ViewModels;
 
     // v1.27.0 표시 옵션 토글 (v1.41.0: Codex 전용 → 전 공급자 공통)
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsClaudePlanBadgeVisible))]
     [NotifyPropertyChangedFor(nameof(IsCodexPlanBadgeVisible))]
     [NotifyPropertyChangedFor(nameof(IsOpenCodePlanBadgeVisible))]
     [NotifyPropertyChangedFor(nameof(IsAntigravityPlanBadgeVisible))]
@@ -516,10 +565,12 @@ namespace ClaudeUsageTray.ViewModels;
                          UpdateService updater, HistoryService history,
                          UsageSyncService usageSync,
                          WeatherService weather, WeatherAlertService weatherAlert,
-                         OpenCodeWebUsageService? openCodeWebUsage = null)
+                         OpenCodeWebUsageService? openCodeWebUsage = null,
+                         ClaudeAccountProfileReader? claudeAccount = null)
     {
         _api = api;
         _credentials = credentials;
+        _claudeAccount = claudeAccount ?? new ClaudeAccountProfileReader();
         _session = session;
         _codex = codex;
         _openCode = openCode;
@@ -631,6 +682,7 @@ namespace ClaudeUsageTray.ViewModels;
 
         // v1.27.0 표시 옵션
         ShowPlanBadge         = s.ShowPlanBadge;
+        ShowClaudeAccount     = s.ShowClaudeAccount;
         ShowAbsoluteResetTime = s.ShowAbsoluteResetTime;
         ShowAntigravityThirdPartyQuota = s.ShowAntigravityThirdPartyQuota;
         KeepPopupAboveTaskbar = s.KeepPopupAboveTaskbar;
@@ -782,6 +834,8 @@ namespace ClaudeUsageTray.ViewModels;
     /// 유료 구독(pro·max·team …)이면 0% 사용이어도 Claude 섹션을 남긴다.
     /// 파일이 있는데 읽지 못했으면(Claude Code 가 쓰는 도중 등) 직전 값을 유지한다 — 일시적 실패로
     /// 구독 중인 섹션이 접혔다 펴지는 깜빡임을 막는다. 파일이 없으면 로그아웃으로 확정해 반영한다.
+    /// 계정 이름·조직(#218)도 여기서 함께 다시 읽는다 — 자격 파일 변경(계정 전환)과 정기 새로고침 모두 이 경로를 지난다.
+    /// 로그아웃으로 자격 파일이 없으면 ~/.claude.json 에 프로필이 남아 있어도 보이지 않는다.
     /// </summary>
     private void UpdateClaudeSubscription()
     {
@@ -789,6 +843,7 @@ namespace ClaudeUsageTray.ViewModels;
             return;
         ClaudeVm.IsSubscribed = IsPaidClaudeSubscription(info.SubscriptionType);
         ClaudePlanLabel = PlanLabels.Claude(info.SubscriptionType, info.RateLimitTier);
+        ClaudeAccountLabel = _credentials.HasCredentials() ? _claudeAccount.GetLabel() : "";
     }
 
     /// <summary>
@@ -844,6 +899,7 @@ namespace ClaudeUsageTray.ViewModels;
             ProviderSettingsVersion = NotificationSettings.CurrentProviderSettingsVersion,
             FocusedProvider = FocusedProvider,
             ShowPlanBadge = ShowPlanBadge,
+            ShowClaudeAccount = ShowClaudeAccount,
             ShowAbsoluteResetTime = ShowAbsoluteResetTime,
             ShowAntigravityThirdPartyQuota = ShowAntigravityThirdPartyQuota,
             KeepPopupAboveTaskbar = KeepPopupAboveTaskbar,

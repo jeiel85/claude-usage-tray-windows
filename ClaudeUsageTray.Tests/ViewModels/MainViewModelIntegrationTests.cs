@@ -50,8 +50,12 @@ public class MainViewModelIntegrationTests : IDisposable
         var weatherAlert = new WeatherAlertService(
             weather, notifier, () => new NotificationSettings(), Array.Empty<IWeatherWarningProvider>());
 
+        // 개발자 PC 의 ~/.claude.json(실명·조직) 대신 테스트 폴더의 프로필을 읽는다(#218).
+        var claudeAccount = new ClaudeAccountProfileReader(Path.Combine(_dir, ".claude.json"));
+
         return new MainViewModel(apiService, credService, sessionMonitor, codexMonitor,
-            openCodeMonitor, antigravityMonitor, notifier, settingsService, updater, history, usageSync, weather, weatherAlert);
+            openCodeMonitor, antigravityMonitor, notifier, settingsService, updater, history, usageSync, weather, weatherAlert,
+            claudeAccount: claudeAccount);
     }
 
     [Fact]
@@ -389,6 +393,54 @@ public class MainViewModelIntegrationTests : IDisposable
                 // 하단 안내·출처도 다른 provider 상세와 같은 자리에 있다.
                 var note = Assert.IsType<System.Windows.Controls.TextBlock>(popup.FindName("AntigravityNoteText"));
                 Assert.Equal(Loc.ProviderAntigravityNote, note.Text);
+            }
+            finally
+            {
+                popup?.Close();
+                vm.Dispose();
+            }
+        });
+    }
+
+    /// <summary>
+    /// 자격 파일의 등급과 ~/.claude.json 의 계정 이름·조직이 Claude 등급 배지 한 줄에 두 부분으로 그려지고,
+    /// 설정을 끄면 등급만 남는지(#218) — 실제 화면 트리로 확인한다.
+    /// </summary>
+    [Fact]
+    public async Task UsagePopup_ClaudeBadgeLineShowsAccountAfterPlan()
+    {
+        // 만료 시각을 먼 미래로 둬 토큰 갱신(네트워크)이 일어나지 않게 한다.
+        File.WriteAllText(Path.Combine(_dir, ".credentials.json"), """
+            { "claudeAiOauth": { "accessToken": "t", "expiresAt": 4102444800000,
+                                 "subscriptionType": "team", "rateLimitTier": "default_claude_max_5x" } }
+            """);
+        File.WriteAllText(Path.Combine(_dir, ".claude.json"), """
+            { "oauthAccount": { "emailAddress": "someone@example.com", "displayName": "김민준",
+                                "organizationName": "Acme Corp", "organizationType": "claude_team" } }
+            """);
+
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            UsagePopup? popup = null;
+            try
+            {
+                popup = new UsagePopup(vm);
+                popup.Left = -10000;
+                popup.Show();
+                popup.UpdateLayout();
+
+                var badge = Assert.IsType<System.Windows.Controls.TextBlock>(popup.FindName("ClaudePlanBadge"));
+                var runs = badge.Inlines.OfType<System.Windows.Documents.Run>().Select(r => r.Text).ToList();
+                Assert.Equal(["Claude Team 5x", " · 김민준 · Acme Corp"], runs);
+                Assert.Equal("Claude Team 5x · 김민준 · Acme Corp", badge.ToolTip);
+                Assert.DoesNotContain("@", badge.Text);
+
+                vm.ShowClaudeAccount = false;
+                popup.UpdateLayout();
+                runs = badge.Inlines.OfType<System.Windows.Documents.Run>().Select(r => r.Text).ToList();
+                Assert.Equal(["Claude Team 5x", ""], runs);
+                Assert.Null(badge.ToolTip);
             }
             finally
             {
