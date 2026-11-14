@@ -42,6 +42,13 @@ class MainActivity : ComponentActivity() {
     /** A pairing link the app was opened with (camera → link, or the install page's button). */
     private var pairingLink by mutableStateOf<String?>(null)
 
+    /**
+     * Settings screen open (#230). Lives on the activity, not in the composition, so an update notification
+     * tapped while Settings is showing (onNewIntent) can return to home — the update dialog opens from the
+     * home banner (Codex review on #231).
+     */
+    private var settingsOpen by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(Palette.Bg.toArgb()),
@@ -50,6 +57,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         AppPrefs.load(this)
         pairingLink = if (savedInstanceState == null) intent.pairingLink() else savedInstanceState.getString(KEY_PAIRING_LINK)
+        settingsOpen = savedInstanceState?.getBoolean(KEY_SETTINGS_OPEN) ?: false
         // Opened from the "new version" notification (#228): the home banner opens the update dialog right away.
         // Not on recreation (rotation) — the request was already consumed then.
         if (savedInstanceState == null && intent.opensUpdate()) UpdateSurface.requestOpen()
@@ -72,7 +80,6 @@ class MainActivity : ComponentActivity() {
             AppTheme {
                 val status by hub.status.collectAsStateWithLifecycle()
                 var pairing by rememberSaveable { mutableStateOf(false) }
-                var settings by rememberSaveable { mutableStateOf(false) }
                 // Settings → Display → keep the screen on while the app is visible (#230). The window flag only
                 // applies while this activity is in front, so it never keeps the phone awake in the background.
                 val keepOn = AppPrefs.keepScreenOn
@@ -80,7 +87,7 @@ class MainActivity : ComponentActivity() {
                     if (keepOn) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 }
-                BackHandler(enabled = settings && !pairing) { settings = false }
+                BackHandler(enabled = settingsOpen && !pairing) { settingsOpen = false }
                 LaunchedEffect(pairingLink) { if (pairingLink != null) pairing = true }
                 BackHandler(enabled = pairing) {
                     pairing = false
@@ -101,14 +108,14 @@ class MainActivity : ComponentActivity() {
                         },
                         link = pairingLink,
                     )
-                } else if (settings) {
-                    SettingsScreen(store, api, onBack = { settings = false })
+                } else if (settingsOpen) {
+                    SettingsScreen(store, api, onBack = { settingsOpen = false })
                 } else {
                     HomeScreen(
                         status,
                         onAdd = { pairing = true },
                         onRemove = { pcId -> removePc(store, api, pcId) },
-                        onSettings = { settings = true },
+                        onSettings = { settingsOpen = true },
                     )
                 }
             }
@@ -127,12 +134,16 @@ class MainActivity : ComponentActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         pairingLink?.let { outState.putString(KEY_PAIRING_LINK, it) }
+        outState.putBoolean(KEY_SETTINGS_OPEN, settingsOpen)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         intent.pairingLink()?.let { pairingLink = it }
-        if (intent.opensUpdate()) UpdateSurface.requestOpen()
+        if (intent.opensUpdate()) {
+            settingsOpen = false // the update dialog opens from the home banner
+            UpdateSurface.requestOpen()
+        }
     }
 
     private fun Intent?.opensUpdate(): Boolean = this?.getBooleanExtra(UpdateNotifier.EXTRA_OPEN_UPDATE, false) == true
@@ -142,5 +153,6 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val KEY_PAIRING_LINK = "pairingLink"
+        const val KEY_SETTINGS_OPEN = "settingsOpen"
     }
 }
