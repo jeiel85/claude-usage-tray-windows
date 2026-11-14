@@ -1,6 +1,5 @@
 using System.IO;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using ClaudeUsageTray.Models;
@@ -52,7 +51,7 @@ public class UiSnapshotTests : IDisposable
                 popup.Close();
 
                 var settings = new SettingsWindow(vm);
-                var tabs = FindChild<TabControl>(settings);
+                var tabs = FindChild<System.Windows.Controls.TabControl>(settings);
                 if (tabs is null)
                 {
                     Render(settings, "settings");
@@ -99,7 +98,7 @@ public class UiSnapshotTests : IDisposable
         var visual = new DrawingVisual();
         using (var dc = visual.RenderOpen())
         {
-            dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(0x30, 0x30, 0x38)), null, new Rect(0, 0, width, height));
+            dc.DrawRectangle(new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x30, 0x30, 0x38)), null, new Rect(0, 0, width, height));
             dc.DrawRectangle(new VisualBrush(root), null, new Rect(0, 0, width, height));
         }
         bitmap.Render(visual);
