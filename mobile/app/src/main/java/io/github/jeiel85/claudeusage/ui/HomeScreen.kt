@@ -47,6 +47,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.jeiel85.claudeusage.R
+import io.github.jeiel85.claudeusage.data.PcStore
+import io.github.jeiel85.claudeusage.net.UsageApi
 import io.github.jeiel85.claudeusage.domain.AccountAggregator
 import io.github.jeiel85.claudeusage.domain.AccountCard
 import io.github.jeiel85.claudeusage.domain.PcConnection
@@ -60,7 +62,13 @@ import kotlinx.coroutines.delay
  * across PCs) and PCs (connection health and removal).
  */
 @Composable
-fun HomeScreen(status: Map<String, PcStatus>, onAdd: () -> Unit, onRemove: (String) -> Unit) {
+fun HomeScreen(
+    status: Map<String, PcStatus>,
+    store: PcStore,
+    api: UsageApi,
+    onAdd: () -> Unit,
+    onRemove: (String) -> Unit,
+) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     // Re-evaluate "resets in" / "x min ago" without waiting for the next frame from a PC.
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -81,8 +89,9 @@ fun HomeScreen(status: Map<String, PcStatus>, onAdd: () -> Unit, onRemove: (Stri
         TabRow(selectedTabIndex = tab, containerColor = Palette.Bg, contentColor = Palette.AccentLight) {
             Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.tab_accounts)) })
             Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.tab_pcs)) })
+            Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text(stringResource(R.string.tab_alerts)) })
         }
-        if (pcs.isEmpty()) {
+        if (pcs.isEmpty() && tab != 2) {
             EmptyState(onAdd)
             return@Column
         }
@@ -91,11 +100,13 @@ fun HomeScreen(status: Map<String, PcStatus>, onAdd: () -> Unit, onRemove: (Stri
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (tab == 0) {
-                if (cards.isEmpty()) item { Hint(stringResource(R.string.no_usage_yet)) }
-                items(cards, key = { it.key }) { AccountCardView(it, now) }
-            } else {
-                items(pcs, key = { it.pc.pcId }) { PcRow(it, now, onRemove) }
+            when (tab) {
+                0 -> {
+                    if (cards.isEmpty()) item { Hint(stringResource(R.string.no_usage_yet)) }
+                    items(cards, key = { it.key }) { AccountCardView(it, now) }
+                }
+                1 -> items(pcs, key = { it.pc.pcId }) { PcRow(it, now, onRemove) }
+                else -> item { NotificationsTab(store, api) }
             }
         }
     }

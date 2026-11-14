@@ -39,6 +39,8 @@ class LiveHub(
     private val store: PcStore,
     private val api: UsageApi,
     private val clock: () -> Long = System::currentTimeMillis,
+    /** Called on the first frame of every (re)connection — the moment to (re)register push with that PC. */
+    private val onConnected: (PcEntry) -> Unit = {},
 ) {
     private val _status = MutableStateFlow<Map<String, PcStatus>>(emptyMap())
     val status: StateFlow<Map<String, PcStatus>> = _status.asStateFlow()
@@ -86,6 +88,9 @@ class LiveHub(
 
     private fun apply(pc: PcEntry, state: LiveState) {
         val now = clock()
+        if (state is LiveState.Live && _status.value[pc.pcId]?.connection != PcConnection.LIVE) {
+            onConnected(store.get(pc.pcId) ?: pc)
+        }
         if (state is LiveState.Live) store.cacheSnapshot(pc.pcId, state.json, now)
         _status.update { m ->
             val old = m[pc.pcId] ?: PcStatus(pc, PcConnection.CONNECTING, null, null, null, null, null)

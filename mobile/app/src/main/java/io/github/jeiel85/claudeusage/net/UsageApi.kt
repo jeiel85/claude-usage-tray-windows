@@ -1,6 +1,8 @@
 package io.github.jeiel85.claudeusage.net
 
 import io.github.jeiel85.claudeusage.data.PcEntry
+import io.github.jeiel85.claudeusage.push.PushSubscription
+import io.github.jeiel85.claudeusage.push.PushSubscriptionResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
@@ -89,6 +91,39 @@ class UsageApi(
             }
             throw IOException(failures.joinToString("\n").ifBlank { "no endpoints" })
         }
+
+    /**
+     * Registers this phone's UnifiedPush endpoint and keys with [pc] (`POST /api/v1/push`), trying each
+     * path in order. Throws [UnauthorizedException] when the PC no longer knows this phone and
+     * [IOException] when no path answered or the PC is too old for push (404).
+     */
+    suspend fun registerPush(pc: PcEntry, subscription: PushSubscription): PushSubscriptionResponse =
+        pushCall(pc, Request.Builder().post(subscription.toJson().toString().toRequestBody(JSON)))
+
+    /** Removes this phone's subscription from [pc] (`DELETE /api/v1/push`). */
+    suspend fun unregisterPush(pc: PcEntry): PushSubscriptionResponse = pushCall(pc, Request.Builder().delete())
+
+    private suspend fun pushCall(pc: PcEntry, builder: Request.Builder): PushSubscriptionResponse = withContext(Dispatchers.IO) {
+        var last: Exception = IOException("no endpoints")
+        for (e in pc.orderedEndpoints(networks())) {
+            val req = builder.url(e.url("/api/v1/push")).header("Authorization", "Bearer ${pc.token}").build()
+            val res = try {
+                clientFor(e, quick).newCall(req).execute()
+            } catch (ex: IOException) {
+                last = IOException("${e.label}: ${describe(ex)}")
+                continue
+            }
+            res.use {
+                val text = it.body?.string()
+                when {
+                    it.isSuccessful -> return@withContext PushSubscriptionResponse.parse(text!!)
+                    it.code == 401 -> throw UnauthorizedException()
+                    else -> throw IOException("push registration failed (HTTP ${it.code})")
+                }
+            }
+        }
+        throw last
+    }
 
     /** The PC's current endpoints (null on any failure). */
     private fun fetchEndpoints(pc: PcEntry, e: Endpoint): List<Endpoint>? = try {

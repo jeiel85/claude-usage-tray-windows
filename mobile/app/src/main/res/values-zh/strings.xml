@@ -44,4 +44,34 @@
     <string name="pair_err_locked">错误代码过多。请几分钟后再试。</string>
     <string name="pair_err_unreachable">无法连接电脑。请确认在同一 Wi-Fi (Windows 中为\"专用\"网络) 或已开启 Tailscale，并检查电脑的防火墙规则。
 %1$s</string>
+    <string name="tab_alerts">通知</string>
+    <string name="push_distributor_label">来自电脑的 AI 用量通知</string>
+    <string name="push_title">推送通知</string>
+    <string name="push_need_ntfy">接收电脑通知需要 UnifiedPush 应用。安装 ntfy(免费、无需账号)后返回即可自动开启。</string>
+    <string name="push_off">已关闭。开启后电脑的用量通知会发送到此手机。</string>
+    <string name="push_registering">正在向 %1$s 注册…</string>
+    <string name="push_on">通过 %1$s · 已在 %3$d 台电脑中的 %2$d 台注册。无需设置主题，扫描二维码连接即可。</string>
+    <string name="push_get_ntfy">获取 ntfy</string>
+    <string name="push_permission_needed">Android 正在阻止本应用的通知。</string>
+    <string name="push_allow">允许通知</string>
+    <string name="push_battery_hint">提示: 如果手机休眠时通知延迟，请将 ntfy 的电池使用设为\"无限制\"。</string>
+    <string name="push_categories">接收的通知</string>
+    <string name="push_privacy">通知在电脑上端到端加密(RFC 8291)，中转服务器只能看到密文。多台电脑发送同一事件时只显示一次。</string>
+    <string name="push_pick">用哪个应用接收通知？</string>
+    <string name="push_err_rejected">推送应用拒绝了注册 (%1$s)。</string>
+    <string name="push_err_unregistered">推送应用已取消注册。请重新开启。</string>
+    <string name="push_err_temp">推送服务器暂时不可用。</string>
+    <string name="push_err_removed">推送应用已被卸载。</string>
+    <string name="cat_usage">用量警告</string>
+    <string name="cat_usage_desc">窗口达到 50/75/90/100%</string>
+    <string name="cat_exhaustion">提前耗尽预测</string>
+    <string name="cat_exhaustion_desc">预计在重置前用完</string>
+    <string name="cat_rate_limit">速率限制</string>
+    <string name="cat_rate_limit_desc">Claude Code 达到限制</string>
+    <string name="cat_reset">配额重置</string>
+    <string name="cat_reset_desc">窗口已重新填充</string>
+    <string name="cat_weather">天气</string>
+    <string name="cat_weather_desc">如在电脑上开启，则为预报和预警</string>
+    <string name="cat_test">测试</string>
+    <string name="cat_other">其他</string>
 </resources>

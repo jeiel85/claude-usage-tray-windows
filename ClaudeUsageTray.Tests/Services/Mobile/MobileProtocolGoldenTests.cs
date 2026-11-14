@@ -23,6 +23,8 @@ public class MobileProtocolGoldenTests
         return Path.Combine(dir!.FullName, "docs", "mobile-protocol");
     }
 
+    internal static void AssertGoldenFile(string name, string actual) => AssertGolden(name, actual);
+
     private static void AssertGolden(string name, string actual)
     {
         var path = Path.Combine(FixtureDir(), name);

@@ -44,4 +44,34 @@
     <string name="pair_err_locked">Too many wrong codes. Try again in a few minutes.</string>
     <string name="pair_err_unreachable">Can\'t reach the PC. Check the same Wi-Fi (Private network on Windows) or Tailscale, and the firewall rules on the PC.
 %1$s</string>
+    <string name="tab_alerts">Alerts</string>
+    <string name="push_distributor_label">AI usage alerts from your PCs</string>
+    <string name="push_title">Push notifications</string>
+    <string name="push_need_ntfy">Alerts from your PCs need a UnifiedPush app. Install ntfy (free, no account), then come back — it turns on by itself.</string>
+    <string name="push_off">Off. Turn it on to get usage alerts from your PCs on this phone.</string>
+    <string name="push_registering">Registering with %1$s…</string>
+    <string name="push_on">Via %1$s · registered on %2$d of %3$d PCs. No topic to set up: pairing by QR is enough.</string>
+    <string name="push_get_ntfy">Get ntfy</string>
+    <string name="push_permission_needed">Android is blocking this app\'s notifications.</string>
+    <string name="push_allow">Allow notifications</string>
+    <string name="push_battery_hint">Tip: if alerts arrive late while the phone sleeps, set ntfy\'s battery usage to Unrestricted.</string>
+    <string name="push_categories">Alerts to receive</string>
+    <string name="push_privacy">Alerts are end-to-end encrypted on the PC (RFC 8291); the push server only sees ciphertext. When several PCs report the same event, it is shown once.</string>
+    <string name="push_pick">Which app should deliver alerts?</string>
+    <string name="push_err_rejected">The push app refused the registration (%1$s).</string>
+    <string name="push_err_unregistered">The push app removed the registration. Turn push on again.</string>
+    <string name="push_err_temp">The push server is temporarily unavailable.</string>
+    <string name="push_err_removed">The push app was uninstalled.</string>
+    <string name="cat_usage">Usage thresholds</string>
+    <string name="cat_usage_desc">50 / 75 / 90 / 100% of a window</string>
+    <string name="cat_exhaustion">Early exhaustion</string>
+    <string name="cat_exhaustion_desc">Usage will run out before the reset</string>
+    <string name="cat_rate_limit">Rate limit</string>
+    <string name="cat_rate_limit_desc">Claude Code hit a usage limit</string>
+    <string name="cat_reset">Quota reset</string>
+    <string name="cat_reset_desc">A window was refilled</string>
+    <string name="cat_weather">Weather</string>
+    <string name="cat_weather_desc">Forecast and warnings, if enabled on the PC</string>
+    <string name="cat_test">Test</string>
+    <string name="cat_other">Other</string>
 </resources>

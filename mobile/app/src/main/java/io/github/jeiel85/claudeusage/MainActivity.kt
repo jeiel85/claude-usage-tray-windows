@@ -22,6 +22,9 @@ import io.github.jeiel85.claudeusage.domain.LiveHub
 import io.github.jeiel85.claudeusage.net.NetworkProbe
 import io.github.jeiel85.claudeusage.net.PairingLink
 import io.github.jeiel85.claudeusage.net.UsageApi
+import io.github.jeiel85.claudeusage.push.PushRegistrar
+import io.github.jeiel85.claudeusage.push.PushState
+import io.github.jeiel85.claudeusage.ui.PushAutoSetup
 import io.github.jeiel85.claudeusage.ui.AppTheme
 import io.github.jeiel85.claudeusage.ui.HomeScreen
 import io.github.jeiel85.claudeusage.ui.PairScreen
@@ -43,7 +46,9 @@ class MainActivity : ComponentActivity() {
 
         val store = PcStore(this)
         val api = UsageApi(networks = NetworkProbe(this)::current)
-        val hub = LiveHub(store, api)
+        // Every (re)connection re-registers this phone's push endpoint with that PC (#222): pairing by QR is
+        // all it takes, and a PC that lost the subscription (404/410, reinstall) gets it back on next contact.
+        val hub = LiveHub(store, api, onConnected = { pc -> PushRegistrar.ensureAsync(this, api, pc) })
 
         // Sockets only while the app is on screen: the PC would otherwise push to a phone nobody looks at.
         lifecycleScope.launch {
@@ -59,10 +64,12 @@ class MainActivity : ComponentActivity() {
                     pairing = false
                     pairingLink = null
                 }
+                if (!pairing) PushAutoSetup(store)
                 if (pairing) {
                     PairScreen(
                         store, api,
-                        onDone = {
+                        onDone = { pc ->
+                            PushRegistrar.ensureAsync(this, api, pc)
                             pairingLink = null
                             pairing = false
                         },
@@ -73,10 +80,23 @@ class MainActivity : ComponentActivity() {
                         link = pairingLink,
                     )
                 } else {
-                    HomeScreen(status, onAdd = { pairing = true }, onRemove = store::remove)
+                    HomeScreen(
+                        status, store, api,
+                        onAdd = { pairing = true },
+                        onRemove = { pcId -> removePc(store, api, pcId) },
+                    )
                 }
             }
         }
+    }
+
+    /** Removes a PC and, best effort, its copy of this phone's push subscription (so it stops sending). */
+    private fun removePc(store: PcStore, api: UsageApi, pcId: String) {
+        val pc = store.get(pcId)
+        store.remove(pcId)
+        PushRegistrar.forget(pcId)
+        PushState(this).markRegistered(pcId, false)
+        if (pc != null) PushRegistrar.scope.launch { runCatching { api.unregisterPush(pc) } }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

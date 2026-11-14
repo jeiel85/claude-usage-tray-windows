@@ -44,4 +44,34 @@
     <string name="pair_err_locked">誤ったコードが多すぎます。数分後に再試行してください。</string>
     <string name="pair_err_unreachable">PCに届きません。同じWi-Fi(Windowsで「プライベート」ネットワーク)か、Tailscaleがオンか、PCのファイアウォール規則を確認してください。
 %1$s</string>
+    <string name="tab_alerts">通知</string>
+    <string name="push_distributor_label">PCからのAI使用量通知</string>
+    <string name="push_title">プッシュ通知</string>
+    <string name="push_need_ntfy">PCからの通知にはUnifiedPushアプリが必要です。ntfy(無料、アカウント不要)をインストールして戻ると自動でオンになります。</string>
+    <string name="push_off">オフです。オンにするとPCの使用量通知がこのスマホに届きます。</string>
+    <string name="push_registering">%1$s に登録中…</string>
+    <string name="push_on">%1$s 経由 · PC %3$d台中 %2$d台に登録済み。トピック設定は不要で、QR接続だけで使えます。</string>
+    <string name="push_get_ntfy">ntfy を入手</string>
+    <string name="push_permission_needed">Androidがこのアプリの通知をブロックしています。</string>
+    <string name="push_allow">通知を許可</string>
+    <string name="push_battery_hint">ヒント: スリープ中に通知が遅れる場合は、ntfyの電池使用を「制限なし」にしてください。</string>
+    <string name="push_categories">受け取る通知</string>
+    <string name="push_privacy">通知はPCでエンドツーエンド暗号化(RFC 8291)され、中継サーバーは暗号文しか見ません。複数のPCが同じ出来事を送っても1回だけ表示します。</string>
+    <string name="push_pick">どのアプリで通知を受け取りますか？</string>
+    <string name="push_err_rejected">プッシュアプリが登録を拒否しました (%1$s)。</string>
+    <string name="push_err_unregistered">プッシュアプリが登録を解除しました。もう一度オンにしてください。</string>
+    <string name="push_err_temp">プッシュサーバーが一時的に応答しません。</string>
+    <string name="push_err_removed">プッシュアプリがアンインストールされました。</string>
+    <string name="cat_usage">使用量の警告</string>
+    <string name="cat_usage_desc">枠の50・75・90・100%到達</string>
+    <string name="cat_exhaustion">早期枯渇の予測</string>
+    <string name="cat_exhaustion_desc">リセット前に使い切る見込み</string>
+    <string name="cat_rate_limit">レート制限</string>
+    <string name="cat_rate_limit_desc">Claude Codeが制限に到達</string>
+    <string name="cat_reset">使用枠のリセット</string>
+    <string name="cat_reset_desc">枠が補充された</string>
+    <string name="cat_weather">天気</string>
+    <string name="cat_weather_desc">PCで有効なら予報・警報</string>
+    <string name="cat_test">テスト</string>
+    <string name="cat_other">その他</string>
 </resources>
