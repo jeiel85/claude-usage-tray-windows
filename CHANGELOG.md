@@ -12,6 +12,7 @@
   - **중계 서버 없이 직접 연결합니다**: 같은 Wi-Fi에서는 QR에 담긴 PC 인증서만 믿는 TLS로, 밖에서는 Tailscale로 붙습니다.
   - **보안**: QR 코드는 5분·1회용이고 5분에 10번 틀리면 잠깁니다. PC는 토큰의 해시만 저장하고, 원시 계정 ID·이메일은 휴대폰에 보내지 않습니다.
   - **방화벽**: 연결 창의 **방화벽 규칙 추가(관리자)**를 한 번 누르면 이 exe·포트로 한정한 규칙(LAN은 '개인' 네트워크에서만)을 넣습니다. 기본은 꺼져 있고, 켜야 포트(47830)를 엽니다.
+  - **휴대폰 앱 설치**: 이 릴리스의 `ClaudeUsageTray-Mobile.apk`를 휴대폰에서 받아 설치합니다(Android 8.0+). 앱이 없을 때 PC의 QR을 휴대폰 카메라로 찍으면 설치 안내 페이지가 열립니다.
 - **QR 연결만으로 휴대폰 알림까지 연결됩니다 (#222)** — 휴대폰에 ntfy 앱이 있으면 PC를 QR로 연결하는 순간 알림도 켜집니다. 토픽 이름을 정하거나 입력할 필요가 없습니다.
   - 사용량 경고·조기 소진·레이트 리밋·초기화·날씨 알림이 휴대폰 앱으로 옵니다. 내용은 PC에서 종단 암호화(RFC 8291)되어 ntfy 서버는 암호문만 봅니다.
   - 여러 PC가 같은 계정의 같은 사건을 보내도 휴대폰에는 한 번만 뜹니다.
@@ -37,6 +38,7 @@
   - **Direct, no relay server**: on the same Wi-Fi via TLS that trusts only the PC certificate from the QR; away from home via Tailscale.
   - **Security**: QR codes work once for 5 minutes and lock after 10 wrong tries. The PC stores only token hashes and never sends raw account IDs or emails.
   - **Firewall**: one click on **Add firewall rules (admin)** adds rules limited to this exe and port (LAN on Private networks only). Off by default; port 47830 opens only when it's on.
+  - **Install the phone app**: download `ClaudeUsageTray-Mobile.apk` from this release on the phone (Android 8.0+). Without the app, scanning the PC's QR with the phone camera opens an install guide.
 - **Pairing by QR also sets up phone alerts (#222)** — With the ntfy app on the phone, alerts turn on the moment a PC is paired. No topic to choose or type.
   - Usage thresholds, early exhaustion, rate limits, resets and weather alerts arrive in the phone app, end-to-end encrypted on the PC (RFC 8291); the ntfy server only sees ciphertext.
   - When several PCs report the same event for one account, the phone shows it once.

@@ -56,8 +56,7 @@ jobs:
             ClaudeUsageTray.exe
             SHA256.txt
 
-  # 휴대폰 앱(mobile/, #220). 서명 키 시크릿이 있을 때만 서명된 APK 를 만든다 — 서명 없는 APK 는 설치·업데이트가
-  # 안 되고, 매번 다른 디버그 키로 서명하면 다음 버전이 기존 설치 위에 올라가지 않는다.
+  # 휴대폰 앱(mobile/, #220). 서명 키 시크릿이 있으면 정식 서명 APK, 없으면 디버그 서명 APK 를 올린다.
   # 시크릿: CUT_RELEASE_KEYSTORE_BASE64, CUT_RELEASE_STORE_PASSWORD, CUT_RELEASE_KEY_ALIAS, CUT_RELEASE_KEY_PASSWORD
   build-apk:
     runs-on: ubuntu-latest
@@ -73,11 +72,10 @@ jobs:
         run: |
           if [ -n "$KEYSTORE" ]; then echo "enabled=true" >> $GITHUB_OUTPUT; else
             echo "enabled=false" >> $GITHUB_OUTPUT
-            echo "::notice::CUT_RELEASE_KEYSTORE_BASE64 is not set — the Android APK is skipped for this release."
+            echo "::warning::CUT_RELEASE_KEYSTORE_BASE64 is not set — attaching a debug-signed APK instead (installable, but a later properly signed APK needs one reinstall)."
           fi
 
       - name: Setup Java
-        if: steps.signing.outputs.enabled == 'true'
         uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -100,8 +98,18 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk ../ClaudeUsageTray-Mobile.apk
           rm -f release.jks
 
+      # 서명 키가 아직 없을 때의 대체: 디버그 서명 APK. 설치는 되지만 실행마다 다른 디버그 키라, 나중에 정식 서명으로
+      # 바꾸면 한 번 지우고 다시 설치해야 한다. 휴대폰 앱 배포가 서명 키 준비를 기다리지 않게 한다(#220).
+      - name: Build debug-signed APK (no signing secrets)
+        if: steps.signing.outputs.enabled != 'true'
+        shell: bash
+        working-directory: mobile
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon testDebugUnitTest assembleDebug -Pcut.version=${GITHUB_REF_NAME#v}
+          cp app/build/outputs/apk/debug/app-debug.apk ../ClaudeUsageTray-Mobile.apk
+
       - name: Upload APK
-        if: steps.signing.outputs.enabled == 'true'
         uses: actions/upload-artifact@v6
         with:
           name: apk-release
