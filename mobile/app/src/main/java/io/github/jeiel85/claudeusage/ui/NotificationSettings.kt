@@ -42,7 +42,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import io.github.jeiel85.claudeusage.R
-import io.github.jeiel85.claudeusage.update.UpdateSurface
 import io.github.jeiel85.claudeusage.data.PcStore
 import io.github.jeiel85.claudeusage.net.UsageApi
 import io.github.jeiel85.claudeusage.push.NotificationGroups
@@ -96,18 +95,18 @@ private fun enablePush(context: Context, distributor: String) {
 }
 
 /** Asked once per process, so declining doesn't bring the dialog back every two seconds. */
-private object NotificationAsk {
+internal object NotificationAsk {
     var asked = false
 }
 
 /**
- * The "Notifications" tab (#222). Pairing a PC by QR is all it takes: with exactly one distributor
+ * Notification settings (#222), shown in the Settings screen's "Notifications" section (#230). Pairing a PC by QR is all it takes: with exactly one distributor
  * installed ([PushAutoSetup]) push turns itself on and every paired PC is told where to send. With none
  * installed it explains how to get ntfy — the same app the old topic-based alerts used, so most users
  * already have it.
  */
 @Composable
-fun NotificationsTab(store: PcStore, api: UsageApi) {
+fun NotificationSettings(store: PcStore, api: UsageApi) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -208,19 +207,6 @@ fun NotificationsTab(store: PcStore, api: UsageApi) {
             }
         }
         Text(stringResource(R.string.push_privacy), color = Palette.TextDim, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 4.dp))
-
-        // App updates (#228) live here because this tab is the app's settings: what the phone receives, and from where.
-        UpdateSurface.SettingsCard(
-            canNotify = view.canNotify,
-            onAllowNotifications = {
-                if (Build.VERSION.SDK_INT >= 33 && !NotificationAsk.asked) {
-                    NotificationAsk.asked = true
-                    permission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                } else {
-                    openNotificationSettings(context)
-                }
-            },
-        )
     }
 
     if (picking) {
@@ -244,12 +230,12 @@ fun NotificationsTab(store: PcStore, api: UsageApi) {
 }
 
 @Composable
-private fun Card(content: @Composable () -> Unit) {
+internal fun Card(content: @Composable () -> Unit) {
     Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Palette.Card).padding(16.dp)) { content() }
 }
 
 @Composable
-private fun SwitchRow(title: String, checked: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit, subtitle: String? = null) {
+internal fun SwitchRow(title: String, checked: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit, subtitle: String? = null) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.Medium)
@@ -310,7 +296,7 @@ private fun openUri(context: Context, primary: String, fallback: String?) {
     }
 }
 
-private fun openNotificationSettings(context: Context) {
+internal fun openNotificationSettings(context: Context) {
     context.startActivity(
         Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
             .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)

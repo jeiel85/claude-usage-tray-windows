@@ -2,6 +2,7 @@ package io.github.jeiel85.claudeusage
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
@@ -17,6 +18,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import io.github.jeiel85.claudeusage.data.AppPrefs
 import io.github.jeiel85.claudeusage.data.PcStore
 import io.github.jeiel85.claudeusage.domain.LiveHub
 import io.github.jeiel85.claudeusage.net.NetworkProbe
@@ -28,6 +30,7 @@ import io.github.jeiel85.claudeusage.ui.PushAutoSetup
 import io.github.jeiel85.claudeusage.ui.AppTheme
 import io.github.jeiel85.claudeusage.ui.HomeScreen
 import io.github.jeiel85.claudeusage.ui.PairScreen
+import io.github.jeiel85.claudeusage.ui.SettingsScreen
 import io.github.jeiel85.claudeusage.update.UpdateCheckScheduler
 import io.github.jeiel85.claudeusage.update.UpdateNotifier
 import io.github.jeiel85.claudeusage.update.UpdateSurface
@@ -39,13 +42,22 @@ class MainActivity : ComponentActivity() {
     /** A pairing link the app was opened with (camera → link, or the install page's button). */
     private var pairingLink by mutableStateOf<String?>(null)
 
+    /**
+     * Settings screen open (#230). Lives on the activity, not in the composition, so an update notification
+     * tapped while Settings is showing (onNewIntent) can return to home — the update dialog opens from the
+     * home banner (Codex review on #231).
+     */
+    private var settingsOpen by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(Palette.Bg.toArgb()),
             navigationBarStyle = SystemBarStyle.dark(Palette.Bg.toArgb()),
         )
         super.onCreate(savedInstanceState)
+        AppPrefs.load(this)
         pairingLink = if (savedInstanceState == null) intent.pairingLink() else savedInstanceState.getString(KEY_PAIRING_LINK)
+        settingsOpen = savedInstanceState?.getBoolean(KEY_SETTINGS_OPEN) ?: false
         // Opened from the "new version" notification (#228): the home banner opens the update dialog right away.
         // Not on recreation (rotation) — the request was already consumed then.
         if (savedInstanceState == null && intent.opensUpdate()) UpdateSurface.requestOpen()
@@ -68,6 +80,14 @@ class MainActivity : ComponentActivity() {
             AppTheme {
                 val status by hub.status.collectAsStateWithLifecycle()
                 var pairing by rememberSaveable { mutableStateOf(false) }
+                // Settings → Display → keep the screen on while the app is visible (#230). The window flag only
+                // applies while this activity is in front, so it never keeps the phone awake in the background.
+                val keepOn = AppPrefs.keepScreenOn
+                LaunchedEffect(keepOn) {
+                    if (keepOn) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+                BackHandler(enabled = settingsOpen && !pairing) { settingsOpen = false }
                 LaunchedEffect(pairingLink) { if (pairingLink != null) pairing = true }
                 BackHandler(enabled = pairing) {
                     pairing = false
@@ -88,11 +108,14 @@ class MainActivity : ComponentActivity() {
                         },
                         link = pairingLink,
                     )
+                } else if (settingsOpen) {
+                    SettingsScreen(store, api, onBack = { settingsOpen = false })
                 } else {
                     HomeScreen(
-                        status, store, api,
+                        status,
                         onAdd = { pairing = true },
                         onRemove = { pcId -> removePc(store, api, pcId) },
+                        onSettings = { settingsOpen = true },
                     )
                 }
             }
@@ -111,12 +134,16 @@ class MainActivity : ComponentActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         pairingLink?.let { outState.putString(KEY_PAIRING_LINK, it) }
+        outState.putBoolean(KEY_SETTINGS_OPEN, settingsOpen)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         intent.pairingLink()?.let { pairingLink = it }
-        if (intent.opensUpdate()) UpdateSurface.requestOpen()
+        if (intent.opensUpdate()) {
+            settingsOpen = false // the update dialog opens from the home banner
+            UpdateSurface.requestOpen()
+        }
     }
 
     private fun Intent?.opensUpdate(): Boolean = this?.getBooleanExtra(UpdateNotifier.EXTRA_OPEN_UPDATE, false) == true
@@ -126,5 +153,6 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val KEY_PAIRING_LINK = "pairingLink"
+        const val KEY_SETTINGS_OPEN = "settingsOpen"
     }
 }

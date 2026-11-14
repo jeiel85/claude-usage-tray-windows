@@ -44,7 +44,6 @@
     <string name="pair_err_locked">誤ったコードが多すぎます。数分後に再試行してください。</string>
     <string name="pair_err_unreachable">PCに届きません。同じWi-Fi(Windowsで「プライベート」ネットワーク)か、Tailscaleがオンか、PCの「外出先からも接続(Cloudflare)」がオンか、PCのファイアウォール規則を確認してください。
 %1$s</string>
-    <string name="tab_alerts">通知</string>
     <string name="push_distributor_label">PCからのAI使用量通知</string>
     <string name="push_title">プッシュ通知</string>
     <string name="push_need_ntfy">PCからの通知にはUnifiedPushアプリが必要です。ntfy(無料、アカウント不要)をインストールして戻ると自動でオンになります。</string>
@@ -103,4 +102,31 @@
     <string name="update_dialog_close">閉じる</string>
     <string name="update_dialog_reinstall">現在のアプリは一時的な(デバッグ)署名版のため、Android はこの上に更新をインストールしません。一度アプリを削除してリリースページの APK をインストールしてください — 以降はアプリ内で更新できます。接続した PC は追加し直す必要があります。</string>
     <string name="update_dialog_release_page">リリースページを開く</string>
+
+    <!-- Settings screen (#230) -->
+    <string name="settings_title">設定</string>
+    <string name="settings_section_notifications">通知</string>
+    <string name="settings_section_display">表示</string>
+    <string name="settings_section_updates">更新</string>
+    <string name="settings_section_about">情報</string>
+    <string name="settings_reset_absolute">リセット時刻を時刻で表示</string>
+    <string name="settings_reset_absolute_desc">オフ:「2h 13m 後にリセット」、オン:「15:20 にリセット」(今日でなければ日付も)。</string>
+    <string name="settings_keep_screen_on">表示中は画面をオンのままにする</string>
+    <string name="settings_keep_screen_on_desc">余ったスマホを使用量の表示用に立てておくときに。電池を多く使い、このアプリが画面にあるときだけ有効です。</string>
+    <string name="settings_language">言語</string>
+    <string name="settings_language_desc">Android の設定でこのアプリの言語を選びます</string>
+    <string name="reset_at">%1$s にリセット</string>
+    <string name="about_release_notes">このバージョンの変更内容</string>
+    <string name="about_release_notes_desc">v%1$s のリリースノート</string>
+    <string name="about_pc_app">PC プログラムを入手</string>
+    <string name="about_pc_app_desc">別の PC に入れる Windows トレイアプリ(最新リリース)</string>
+    <string name="about_repo">GitHub リポジトリ</string>
+    <string name="about_repo_desc">ソースコードと説明書</string>
+    <string name="about_report">問題の報告・提案</string>
+    <string name="about_report_desc">アプリと Android のバージョンを記入済みの GitHub Issue を開きます</string>
+    <string name="about_licenses">オープンソースライセンス</string>
+    <string name="about_licenses_desc">このアプリに含まれるライブラリ</string>
+    <string name="about_licenses_intro">このアプリには次のライブラリが含まれています:</string>
+    <string name="about_apache_text">Apache License 2.0 全文</string>
+    <string name="about_privacy">このアプリは接続した PC にだけ接続します — 直接、またはその PC でオンにした Cloudflare Tunnel 経由で。広告・分析・利用履歴の収集はありません。ほかに外へ出るのは 1日1回の更新確認(GitHub)と、プッシュアプリの中継サーバーを通るエンドツーエンド暗号化された通知だけです。</string>
 </resources>

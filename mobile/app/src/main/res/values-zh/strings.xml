@@ -44,7 +44,6 @@
     <string name="pair_err_locked">错误代码过多。请几分钟后再试。</string>
     <string name="pair_err_unreachable">无法连接电脑。请确认在同一 Wi-Fi (Windows 中为\"专用\"网络) 、已开启 Tailscale 或电脑已开启\"外网也可连接(Cloudflare)\"，并检查电脑的防火墙规则。
 %1$s</string>
-    <string name="tab_alerts">通知</string>
     <string name="push_distributor_label">来自电脑的 AI 用量通知</string>
     <string name="push_title">推送通知</string>
     <string name="push_need_ntfy">接收电脑通知需要 UnifiedPush 应用。安装 ntfy(免费、无需账号)后返回即可自动开启。</string>
@@ -103,4 +102,31 @@
     <string name="update_dialog_close">关闭</string>
     <string name="update_dialog_reinstall">当前安装的是临时(调试)签名版本，Android 不会在其上安装更新。请先卸载一次，再安装发布页面上的 APK — 之后即可在应用内更新。已连接的电脑需要重新添加。</string>
     <string name="update_dialog_release_page">打开发布页面</string>
+
+    <!-- Settings screen (#230) -->
+    <string name="settings_title">设置</string>
+    <string name="settings_section_notifications">通知</string>
+    <string name="settings_section_display">显示</string>
+    <string name="settings_section_updates">更新</string>
+    <string name="settings_section_about">关于</string>
+    <string name="settings_reset_absolute">以具体时间显示重置时间</string>
+    <string name="settings_reset_absolute_desc">关闭:\"2h 13m 后重置\"，开启:\"15:20 重置\"(不是今天时显示日期)。</string>
+    <string name="settings_keep_screen_on">查看时保持屏幕常亮</string>
+    <string name="settings_keep_screen_on_desc">把闲置手机立着当用量显示屏时使用。更耗电，仅在本应用显示在屏幕上时生效。</string>
+    <string name="settings_language">语言</string>
+    <string name="settings_language_desc">在 Android 设置中选择本应用的语言</string>
+    <string name="reset_at">%1$s 重置</string>
+    <string name="about_release_notes">此版本的更新内容</string>
+    <string name="about_release_notes_desc">v%1$s 发布说明</string>
+    <string name="about_pc_app">获取电脑程序</string>
+    <string name="about_pc_app_desc">安装到其他电脑的 Windows 托盘应用(最新版本)</string>
+    <string name="about_repo">GitHub 仓库</string>
+    <string name="about_repo_desc">源代码和说明文档</string>
+    <string name="about_report">报告问题·提出建议</string>
+    <string name="about_report_desc">打开已填好应用和 Android 版本的 GitHub Issue</string>
+    <string name="about_licenses">开源许可</string>
+    <string name="about_licenses_desc">本应用包含的库</string>
+    <string name="about_licenses_intro">本应用包含以下库:</string>
+    <string name="about_apache_text">Apache License 2.0 全文</string>
+    <string name="about_privacy">本应用只连接你配对的电脑 — 直接连接，或经由该电脑开启的 Cloudflare Tunnel。没有广告、分析或使用记录收集。其他外发流量只有每天一次的更新检查(GitHub)和经由推送应用中继服务器的端到端加密通知。</string>
 </resources>
