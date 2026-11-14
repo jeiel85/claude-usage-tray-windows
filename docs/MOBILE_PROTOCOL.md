@@ -1,4 +1,4 @@
-# 휴대폰 앱 연동 프로토콜 v1 (#220)
+# 휴대폰 앱 연동·PC 동기화 프로토콜 v1 (#220·#222·#223)
 
 휴대폰 앱(`mobile/`)과 각 PC의 트레이 앱 사이 계약입니다. 구조는 [Homebase](https://github.com/jeiel85/homebase)의
 Mobile Protocol v1(`docs/MOBILE_PROTOCOL.md`, DECISIONS M-1~M-20)을 따릅니다. 형식은 [`mobile-protocol/`](mobile-protocol/)의
@@ -61,8 +61,11 @@ https://jeiel85.github.io/claude-usage-tray-windows/pair/#<base64url(UTF-8 JSON 
 | POST | `/api/v1/pair` | 본문의 `code` | 200 `{schema, deviceId, token, pcId, pcName}` · 400 `invalid_code` · 410 `code_expired` · 429 `locked` |
 | GET | `/api/v1/endpoints` | Bearer | 200 `{schema, endpoints}`([`endpoints.v1.json`](mobile-protocol/endpoints.v1.json)) · 401 |
 | GET | `/api/v1/usage` | Bearer | 200 `UsageSnapshot` · 401 |
+| POST | `/api/v1/push` | Bearer | 200 `{schema, deviceId, registered: true}` · 400 `invalid_subscription` · 401 |
+| DELETE | `/api/v1/push` | Bearer | 200 `{schema, deviceId, registered: false}` · 401 |
+| GET (WS) | `/api/v1/sync` | Bearer | PC 동기화 WebSocket(아래) |
 
-`POST /api/v1/pair` 본문은 `{code, deviceName, deviceModel}`. 오류 응답은 항상 `{schema, error, message}`.
+`POST /api/v1/pair` 본문은 `{code, deviceName, deviceModel, kind?}` — `kind`는 `phone`(기본) 또는 `pc`(PC 동기화). 오류 응답은 항상 `{schema, error, message}`.
 토큰은 256bit이며 PC는 SHA-256만 `%APPDATA%\ClaudeUsageTray\mobile\state.json`에 저장합니다. 앱은 Android Keystore AES-GCM으로 암호화해 둡니다.
 
 ## Live (WebSocket)
@@ -84,3 +87,41 @@ https://jeiel85.github.io/claude-usage-tray-windows/pair/#<base64url(UTF-8 JSON 
 | `providers[].observedAt`, `errorKind` | 이 PC가 마지막으로 조회한 시각, 실패 종류 |
 | `providers[].quota` | 다중 PC 동기화와 같은 `UsageSyncQuotaSnapshot`(사용률은 0~1 비율) |
 | `providers[].today` | 오늘 이 PC의 토큰·세션·요청 수(없으면 생략) |
+
+## 앱 푸시 알림 (#222, Homebase M-19·M-21·M-25)
+
+QR로 PC를 연결하면 알림도 함께 연결됩니다. 토픽 이름을 정하거나 입력할 필요가 없습니다.
+
+1. 앱은 휴대폰의 UnifiedPush 배포자(보통 ntfy 앱)에서 엔드포인트를 받고, P-256 키쌍과 16바이트 auth를 만듭니다(Keystore로 감싸 저장). 배포자가 하나면 첫 PC 연결 때 자동으로 켭니다.
+2. 앱은 연결된 모든 PC에 `POST /api/v1/push` `{schema, endpoint, p256dh, auth, mutedCategories?}`([`push-subscription.v1.json`](mobile-protocol/push-subscription.v1.json))로 등록합니다. 엔드포인트가 바뀔 때, 페어링 직후, 실시간 연결이 될 때마다 다시 등록합니다.
+3. PC는 알림마다 RFC 8291(`aes128gcm`)로 암호화해 엔드포인트로 POST합니다. 중계 서버(ntfy.sh)는 암호문만 봅니다. `TTL` 86400초, `Urgency`는 경고·심각이면 `high`.
+   - 429: `Retry-After`(기본 60초, 최대 1시간) 동안 그 엔드포인트를 쉼. 404·410: 구독 삭제(앱이 다음 연결 때 다시 등록).
+   - 같은 엔드포인트를 가진 다른 기기 항목은 같은 휴대폰의 옛 페어링이므로 철회합니다(알림 중복 방지).
+4. **기존 ntfy 토픽 이전**: 앱 푸시를 등록한 휴대폰이 있으면 PC는 평문 토픽으로 보내지 않습니다. 앱 푸시가 모두 실패했거나 등록된 휴대폰이 없을 때만 토픽으로 보냅니다(iOS·앱 미설치 호환). 휴대폰이 그 범주를 껐으면 토픽으로도 보내지 않습니다.
+
+복호화된 메시지([`push-message.v1.json`](mobile-protocol/push-message.v1.json)):
+
+| 필드 | 의미 |
+|---|---|
+| `schema` | 1 |
+| `id`, `pcId`, `pcName` | 알림 id, 보낸 PC. 앱은 페어링하지 않은 PC의 메시지를 버림 |
+| `category` | `usage`·`exhaustion`·`rate_limit`·`reset`·`weather`·`test`. 앱의 "받을 알림" 스위치 단위 |
+| `priority` | `info`·`warning`·`critical` |
+| `title`, `body` | 표시할 평문 |
+| `eventKey`, `eventToleranceSec` | 사건 키(예전 ntfy `sequence_id`, #175). 여러 PC가 같은 사건을 보내면 앱이 한 번만 띄움 — 접두사가 같고 시각 차가 허용 오차(+59초) 안이면 같은 사건 |
+| `clickUrl` | 날씨 알림의 예보 링크(https만) |
+| `ts` | 생성 시각 |
+
+두 구현이 맞는지는 [`push-message.v1.aes128gcm.txt`](mobile-protocol/push-message.v1.aes128gcm.txt)로 확인합니다. .NET이 RFC 8291 부록 A의 서버 키·salt로 위 메시지를 암호화하고, Kotlin 테스트가 부록 A의 휴대폰 키로 복호화합니다.
+
+## PC 동기화 (#223)
+
+공유 폴더 없이 PC끼리 직접 사용량을 주고받습니다.
+
+- **동기화 코드** = 휴대폰 QR과 같은 일회용 링크(5분·1회용). PC A의 설정 → 연결 → "이 PC의 동기화 코드 복사"(또는 휴대폰 연결 창의 같은 버튼) → PC B의 설정 → 연결에 붙여 넣기 → B가 `POST /api/v1/pair`에 `kind: "pc"`로 페어링하고 토큰을 DPAPI로 감싸 `peers.json`에 저장합니다.
+- **연결**: B → A `GET /api/v1/sync` WebSocket(Bearer). B가 여는 쪽이라 A만 B에서 닿으면 됩니다(B의 포트·방화벽은 필요 없음). 경로는 LAN(TLS 핀) → Tailscale 순.
+- **프레임**: 양쪽 모두 `{schema: 1, kind: "sync", fromPcId, fromPcName, snapshots: UsageSyncSnapshot[]}`를 연결 직후, 표가 바뀔 때, 변화가 없으면 60초마다 보냅니다. `snapshots`는 공유 폴더 동기화 파일과 **같은 형식·같은 계정 해시**라, 받은 쪽은 기존 선택 규칙(`SelectQuotaCandidates`·`MergeLocalTotals`)을 그대로 씁니다.
+- **가십**: 각 PC는 (원래 PC, provider)별 최신 스냅샷 표를 갖고, 받은 것 중 더 새로운 것만 반영하며, 바뀌면 모든 연결로 다시 보냅니다. 그래서 B·C가 A에만 연결해도 B와 C가 서로의 값을 갖습니다. 자기 원본 값은 다른 PC를 거쳐 돌아와도 받지 않고, 24시간 넘은 관측·5분 넘는 미래 시각은 버립니다.
+- **Claude Code가 없는 PC**: 계정 키(orgUuid)가 없으면 그룹에서 할당량을 가장 최근에 관측한 Claude 계정을 대신 보여 줍니다.
+- **해제**: A의 연결 탭(또는 휴대폰 연결 창)에서 B를 해제하면 다음 전송 전에 1008 `revoked`로 끊기고, B는 다시 연결하지 않습니다.
+- **한계**: PC끼리 같은 LAN이나 Tailscale로 닿아야 합니다. 다른 네트워크(회사·집)이고 Tailscale이 없다면 기존 공유 폴더 동기화를 함께 쓰세요 — 두 경로의 값은 한 목록으로 합쳐지고, 같은 PC가 두 경로로 들어오면 더 새로운 하나만 씁니다.
