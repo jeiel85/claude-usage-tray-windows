@@ -105,6 +105,34 @@ public class MobileServerTests : IDisposable
     }
 
     [Fact]
+    public void FeedKeepsLastGoodQuotaWhenARefreshFails()
+    {
+        var time = new FakeTime(MobileProtocolFixtures.Now);
+        var feed = new MobileUsageFeed(time);
+        var good = new UsageSyncQuotaSnapshot { HasData = true, ObservedAtUtc = time.Now, ShortUsagePercent = 0.4 };
+        feed.Publish(new MobileFeedEntry("claude", "org|acct", "Me", time.Now, "", good, null));
+
+        // 다음 조회가 레이트 리밋으로 실패: 오류 종류는 새 값, 쿼터는 직전 성공값과 그 관측 시각.
+        time.Now += TimeSpan.FromMinutes(5);
+        feed.Publish(new MobileFeedEntry("claude", "org|acct", "Me", time.Now, "rate_limited", null, null));
+        var kept = feed.Current("pc-a").Single();
+        Assert.Equal("rate_limited", kept.ErrorKind);
+        Assert.Equal(time.Now, kept.ObservedAt);
+        Assert.Equal(0.4, kept.Quota!.ShortUsagePercent);
+        Assert.Equal(good.ObservedAtUtc, kept.Quota.ObservedAtUtc);
+
+        // 계정이 바뀌었으면 잇지 않는다.
+        feed.Publish(new MobileFeedEntry("claude", "org|other", "Other", time.Now, "", null, null));
+        Assert.Null(feed.Current("pc-a").Single().Quota);
+
+        // 너무 오래된 쿼터도 잇지 않는다.
+        feed.Publish(new MobileFeedEntry("claude", "org|acct", "Me", time.Now, "", good, null));
+        time.Now = good.ObservedAtUtc!.Value + MobileUsageFeed.MaxAge + TimeSpan.FromMinutes(1);
+        feed.Publish(new MobileFeedEntry("claude", "org|acct", "Me", time.Now, "api_failed", null, null));
+        Assert.Null(feed.Current("pc-a").Single().Quota);
+    }
+
+    [Fact]
     public async Task PairThenReadUsageAndLiveThenRevoke()
     {
         var store = new MobileDeviceStore(_dir);

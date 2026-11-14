@@ -44,11 +44,22 @@ public sealed class MobileUsageFeed
     /// Output: 없음(구독자에게 "바뀜" 신호)
     /// 핵심 로직: 같은 provider 는 덮어쓴다. 내용 비교 없이 매번 알린다 — 갱신 주기가 분 단위라 휴대폰이 받는 양이 작고,
     ///           관측 시각(observedAt)이 바뀐 것 자체가 "PC 가 살아서 갱신 중" 이라는 정보다.
+    ///           단, 이번 조회가 실패·쿨다운으로 쿼터 없이 왔으면 같은 계정의 직전 성공 쿼터를 원래 관측 시각 그대로
+    ///           이어 붙인다(Codex 리뷰 P2) — 휴대폰은 이 PC 의 스냅샷을 통째로 교체하므로, 그대로 두면 API 한 번
+    ///           실패에 게이지가 사라진다. 오류 종류·오늘 토큰은 새 값을 쓴다. 너무 오래된(MaxAge 초과) 쿼터는 잇지 않는다.
     /// </summary>
     public void Publish(MobileFeedEntry entry)
     {
         lock (_gate)
         {
+            if (entry.Quota is not { HasData: true }
+                && _entries.TryGetValue(entry.Provider, out var previous)
+                && previous.Quota is { HasData: true } previousQuota
+                && string.Equals(previous.AccountKey, entry.AccountKey, StringComparison.Ordinal)
+                && _time.GetUtcNow() - (previousQuota.ObservedAtUtc ?? previous.ObservedAt) <= MaxAge)
+            {
+                entry = entry with { Quota = previousQuota };
+            }
             _entries[entry.Provider] = entry;
             Notify();
         }
