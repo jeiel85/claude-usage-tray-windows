@@ -10,8 +10,12 @@ using System.Text.Json;
 
 namespace ClaudeUsageTray.Services.Mobile;
 
-/// <summary>휴대폰 서버 설정. 설정 파일(<c>settings.json</c>)의 <c>Mobile*</c> 값에서 만든다.</summary>
-public sealed record MobileServerOptions(int Port, bool Lan, bool Tailscale, bool BindLoopback = false);
+/// <summary>
+/// 휴대폰 서버 설정. 설정 파일(<c>settings.json</c>)의 <c>Mobile*</c> 값에서 만든다.
+/// <c>Cloudflare</c> 가 켜지면 터널 커넥터가 닿을 127.0.0.1 평문 리스너도 연다(#225) — 이 루프백 경로 자체는 휴대폰에 알리지 않고
+/// (<c>BindLoopback</c> 일 때만 알린다), 대신 터널이 열린 주소를 <c>cloudflare</c> 경로로 알린다.
+/// </summary>
+public sealed record MobileServerOptions(int Port, bool Lan, bool Tailscale, bool BindLoopback = false, bool Cloudflare = false);
 
 /// <summary>설정 창에 보이는 서버 상태.</summary>
 public sealed record MobileServerStatus(bool Running, bool Listening, IReadOnlyList<MobileEndpoint> Endpoints, int Watchers, string? LastError);
@@ -22,7 +26,7 @@ public sealed record MobileServerStatus(bool Running, bool Listening, IReadOnlyL
 /// <list type="bullet">
 /// <item>LAN: 기본 게이트웨이가 있는 어댑터의 사설 IPv4, 핀 고정 자체 서명 인증서 TLS.</item>
 /// <item>Tailscale: 100.64.0.0/10 주소, 평문(WireGuard 가 암호화).</item>
-/// <item>루프백: 개발·에뮬레이터 전용(설정 파일에서만 켤 수 있음).</item>
+/// <item>루프백: Cloudflare Tunnel 커넥터의 연결 대상(#225), 또는 개발·에뮬레이터용(설정 파일에서만 켤 수 있음).</item>
 /// </list>
 /// 이 서버의 실패는 트레이 본기능(사용량 표시)을 멈추지 않는다 — 모든 예외를 잡아 상태 문구에 남기고 다시 시도한다.
 /// </summary>
@@ -67,6 +71,15 @@ public sealed class MobileApiServer : IDisposable
 
     /// <summary>상태가 바뀌면(바인딩 성공·실패·주소 변경) 알린다. 설정 창의 QR 을 새 경로로 다시 만들 때 쓴다.</summary>
     public event Action? StatusChanged;
+
+    /// <summary>
+    /// 지금 열린 Cloudflare Tunnel 경로(없으면 null). <see cref="MobileLinkService"/> 가 터널을 연결한다 — 서버는 터널의
+    /// 생명 주기를 모르고, 경로 목록을 만들 때 물어보기만 한다.
+    /// </summary>
+    public Func<MobileEndpoint?>? TunnelEndpoint { get; set; }
+
+    /// <summary>터널 주소가 바뀌었을 때 호출한다 — 연결 창이 새 경로로 QR 을 다시 만들게.</summary>
+    public void NotifyEndpointsChanged() => StatusChanged?.Invoke();
 
     public MobileApiServer(MobileUsageFeed feed, MobileDeviceStore devices, PairingService pairing, string? pcName = null,
         PeerSyncHub? sync = null)
@@ -162,7 +175,8 @@ public sealed class MobileApiServer : IDisposable
     }
 
     /// <summary>
-    /// 경로를 앱의 기본 선호 순서(LAN → Tailscale 이름 → Tailscale IP → 루프백)로 나열한다.
+    /// 경로를 앱의 기본 선호 순서(LAN → Tailscale 이름 → Tailscale IP → Cloudflare → 루프백)로 나열한다.
+    /// Cloudflare 는 커넥터가 닿을 루프백 리스너가 열려 있고 터널이 열렸을 때만 싣는다.
     /// MagicDNS 이름을 IP 보다 앞에 두는 이유는 <see cref="MobileNetwork.FindMagicDnsName"/> 참고.
     /// </summary>
     private IReadOnlyList<MobileEndpoint> EndpointsLocked()
@@ -176,7 +190,10 @@ public sealed class MobileApiServer : IDisposable
             list.Add(new MobileEndpoint(MobileTransport.Tailscale, dns, port, false));
         foreach (var b in _bound.Where(b => b.Kind == PathKind.Tailnet))
             list.Add(new MobileEndpoint(MobileTransport.Tailscale, b.Address.ToString(), port, false));
-        if (_bound.Any(b => b.Kind == PathKind.Loopback))
+        var loopback = _bound.Any(b => b.Kind == PathKind.Loopback);
+        if (loopback && _options.Cloudflare && TunnelEndpoint?.Invoke() is { } tunnel)
+            list.Add(tunnel);
+        if (loopback && _options.BindLoopback)
             list.Add(new MobileEndpoint(MobileTransport.Loopback, IPAddress.Loopback.ToString(), port, false));
         return list;
     }
@@ -188,7 +205,7 @@ public sealed class MobileApiServer : IDisposable
             list.AddRange(MobileNetwork.FindTailnetAddresses().Select(a => new Binding(a, PathKind.Tailnet, 32)));
         if (options.Lan && EnsureLanCertificate())
             list.AddRange(MobileNetwork.FindLanAddresses().Select(a => new Binding(a.Address, PathKind.Lan, a.PrefixLength)));
-        if (options.BindLoopback) list.Add(new Binding(IPAddress.Loopback, PathKind.Loopback, 8));
+        if (options.BindLoopback || options.Cloudflare) list.Add(new Binding(IPAddress.Loopback, PathKind.Loopback, 8));
         return list;
     }
 

@@ -17,11 +17,13 @@ data class LocalNetworks(val subnets: List<Subnet>, val tailnetUp: Boolean)
  *
  * 1. LAN address inside a subnet the phone is on — same Wi-Fi, fastest.
  * 2. Tailscale while the phone's Tailscale VPN is up.
- * 3. The rest (Tailscale with the VPN apparently down, LAN on another subnet, loopback) as a last try.
+ * 3. Cloudflare Tunnel (#225) — works from anywhere with internet, no Tailscale needed, but every byte
+ *    goes through Cloudflare, so it comes after the direct paths.
+ * 4. The rest (Tailscale with the VPN apparently down, LAN on another subnet, loopback) as a last try.
  *
  * Every endpoint stays in the list: detection is a hint, not a filter (a wrong guess only costs one
  * timeout). Within a rank the path that worked last goes first, then the PC's own order. With no
- * network facts the order is LAN → Tailscale.
+ * network facts the order is LAN → Tailscale → Cloudflare.
  */
 object RouteSelector {
 
@@ -39,12 +41,14 @@ object RouteSelector {
             return when (e.transport) {
                 Endpoint.LAN -> 0
                 Endpoint.TAILSCALE -> 1
+                Endpoint.CLOUDFLARE -> 2
                 else -> 5
             }
         }
         return when (e.transport) {
             Endpoint.LAN -> if (ipv4(e.host)?.let { ip -> net.subnets.any { it.contains(ip) } } == true) 0 else 4
             Endpoint.TAILSCALE -> if (net.tailnetUp) 1 else 3
+            Endpoint.CLOUDFLARE -> 2
             else -> 5
         }
     }

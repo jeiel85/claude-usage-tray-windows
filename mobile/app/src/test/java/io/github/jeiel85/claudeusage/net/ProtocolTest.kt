@@ -70,7 +70,12 @@ class ProtocolTest {
         val offer = PairingOffer.parse(link)
         assertNotNull(offer)
         assertEquals("HOME-PC", offer!!.pcName)
-        assertEquals(3, offer.endpoints.size)
+        assertEquals(4, offer.endpoints.size)
+        val cf = offer.endpoints.single { it.transport == Endpoint.CLOUDFLARE }
+        assertTrue(cf.tls)
+        assertNull(cf.certSha256) // public certificate: system CAs, no pin
+        assertTrue(cf.isQuickTunnel)
+        assertEquals("https://bright-fox-quiet-river.trycloudflare.com/api/v1/live", cf.url("/api/v1/live"))
         val lan = offer.endpoints.first { it.transport == Endpoint.LAN }
         assertTrue(lan.tls)
         assertEquals(64, lan.certSha256!!.length)
@@ -88,7 +93,7 @@ class ProtocolTest {
     @Test
     fun endpoints_fixture_parses() {
         val list = parseEndpointsResponse(fixture("endpoints.v1.json"))
-        assertEquals(listOf(Endpoint.LAN, Endpoint.TAILSCALE, Endpoint.TAILSCALE), list.map { it.transport })
+        assertEquals(listOf(Endpoint.LAN, Endpoint.TAILSCALE, Endpoint.TAILSCALE, Endpoint.CLOUDFLARE), list.map { it.transport })
     }
 
     @Test(expected = ProtocolException::class)

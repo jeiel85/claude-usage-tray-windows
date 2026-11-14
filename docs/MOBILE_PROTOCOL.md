@@ -1,7 +1,7 @@
-# 휴대폰 앱 연동·PC 동기화 프로토콜 v1 (#220·#222·#223)
+# 휴대폰 앱 연동·PC 동기화 프로토콜 v1 (#220·#222·#223·#225)
 
 휴대폰 앱(`mobile/`)과 각 PC의 트레이 앱 사이 계약입니다. 구조는 [Homebase](https://github.com/jeiel85/homebase)의
-Mobile Protocol v1(`docs/MOBILE_PROTOCOL.md`, DECISIONS M-1~M-20)을 따릅니다. 형식은 [`mobile-protocol/`](mobile-protocol/)의
+Mobile Protocol v1(`docs/MOBILE_PROTOCOL.md`, DECISIONS M-1~M-25)을 따릅니다. 형식은 [`mobile-protocol/`](mobile-protocol/)의
 픽스처로 고정하며, .NET(`MobileProtocolGoldenTests`)과 Kotlin(`ProtocolTest`)이 같은 파일을 검증합니다.
 의도적으로 형식을 바꿀 때는 `CUT_UPDATE_GOLDEN=1 dotnet test`로 픽스처를 다시 쓰고, 호환이 깨지면 `schema`를 올립니다.
 
@@ -33,12 +33,23 @@ HTTP/1.1 + WebSocket, 요청당 연결 하나(`Connection: close`). 인증은 �
 |---|---|---|---|---|
 | `lan` | 기본 게이트웨이가 있는 어댑터의 사설 IPv4 | TLS 1.2/1.3, 자체 서명 ECDSA P-256. 앱은 `certSha256`(DER의 SHA-256)과 일치하는 인증서만 받음 | 그 LAN IP · 같은 서브넷의 사설 주소 | `MobileLan` |
 | `tailscale` | MagicDNS 이름, 100.x IP | 평문(WireGuard가 암호화) | tailnet IP · 100.64.0.0/10과 루프백 | `MobileTailscale` |
+| `cloudflare` | `*.trycloudflare.com`(Quick Tunnel) 또는 설정한 호스트명, 443 | TLS(Cloudflare 공인 인증서, 시스템 CA로 검증·핀 없음) | 127.0.0.1 평문 리스너 · 루프백(커넥터가 연결) | `MobileCloudflare` (#225) |
 | `loopback` | 127.0.0.1 | 평문 | 루프백 | `MobileBindLoopback`(개발·에뮬레이터 전용, 설정 파일에서만) |
 
 - 와일드카드(0.0.0.0)에는 바인딩하지 않습니다. 주소가 바뀌면 30초 안에 다시 바인딩합니다.
 - 방화벽: 연결 창의 **방화벽 규칙 추가(관리자)** 버튼이 규칙 두 개를 넣습니다 — LAN(원격 LocalSubnet, **개인 프로필만**), Tailscale(원격 100.64.0.0/10). 둘 다 이 exe·TCP 포트로 한정합니다.
-- 경로 선택(앱): PC 서브넷 안의 LAN → (휴대폰 Tailscale VPN이 켜져 있으면) Tailscale → 나머지 순으로 모두 시도합니다. 같은 순위에서는 마지막 성공 경로를 먼저 씁니다.
-- 경로 갱신: 앱은 연결할 때마다 `GET /api/v1/endpoints`로 현재 경로를 받아 저장합니다(DHCP 변경, Tailscale 켬).
+- 경로 선택(앱): PC 서브넷 안의 LAN → (휴대폰 Tailscale VPN이 켜져 있으면) Tailscale → Cloudflare → 나머지 순으로 모두 시도합니다. 같은 순위에서는 마지막 성공 경로를 먼저 씁니다.
+- 경로 갱신: 앱은 연결할 때마다 `GET /api/v1/endpoints`로 현재 경로를 받아 저장합니다(DHCP 변경, Tailscale 켬). 연결하기 전에 바뀐 경로(Quick Tunnel 새 주소)는 [경로 갱신 푸시](#경로-갱신-푸시-225-homebase-m-23)로 받습니다.
+
+### Cloudflare Tunnel (#225, Homebase M-17)
+
+Tailscale 없이 밖에서 닿는 경로입니다. 설정 → 연결 → **밖에서도 연결(Cloudflare Tunnel)**을 켜면 트레이 앱이 `cloudflared`를 하위 프로세스로 띄웁니다.
+
+- 커넥터가 Cloudflare로 **바깥 연결만** 열고 `http://127.0.0.1:<포트>`로 넘깁니다. 인바운드 포트·방화벽 규칙이 필요 없습니다. 루프백 리스너 자체는 경로로 알리지 않습니다(`MobileBindLoopback`일 때만).
+- **Quick Tunnel**(기본): 계정·도메인 없이 `*.trycloudflare.com` 임시 주소를 받습니다. 주소는 커넥터 로그에서 읽고(`api.trycloudflare.com`은 커넥터가 부르는 API 주소라 제외), **앱을 다시 시작할 때마다 바뀝니다**. Cloudflare는 Quick Tunnel을 테스트용·가용성 무보장으로 안내합니다.
+- **이름 있는 터널**: Cloudflare 대시보드의 터널 토큰과 그 터널에 연결한 공개 호스트명을 넣으면 고정 주소를 씁니다. 토큰은 DPAPI(현재 사용자)로 감싸 `MobileCloudflareTokenProtected`에 저장하고, 커넥터에는 명령줄이 아닌 `TUNNEL_TOKEN` 환경 변수로 넘깁니다. 토큰만 있고 호스트명이 없으면 열지 않습니다(휴대폰에 줄 주소를 알 수 없음).
+- 커넥터는 kill-on-close Job Object에 넣어 앱과 함께 종료되고, 실패하면 5초→15초→1분→5분 백오프로 다시 띄웁니다. 설치되어 있지 않으면 1분마다 다시 찾습니다(설치 폴더 → `%LOCALAPPDATA%\Microsoft\WinGet\Links` → PATH). 설정의 **설치 (winget)** 버튼이 `winget install --id Cloudflare.cloudflared`를 실행합니다.
+- **노출 면**: 터널 주소를 아는 누구나 인증 없는 `/api/v1/info`(PC 이름·버전)와 `/api/v1/pair`에 닿습니다. 페어링은 128비트 1회용 코드(5분)와 5분 10회 실패 잠금으로, 그 밖의 모든 API는 256비트 Bearer 토큰으로 보호합니다. 요청 본문 읽기에도 10초 제한이 있어 느린 연결이 슬롯을 붙잡지 못합니다.
 
 ## 페어링 QR
 
@@ -114,14 +125,24 @@ QR로 PC를 연결하면 알림도 함께 연결됩니다. 토픽 이름을 정�
 
 두 구현이 맞는지는 [`push-message.v1.aes128gcm.txt`](mobile-protocol/push-message.v1.aes128gcm.txt)로 확인합니다. .NET이 RFC 8291 부록 A의 서버 키·salt로 위 메시지를 암호화하고, Kotlin 테스트가 부록 A의 휴대폰 키로 복호화합니다.
 
+### 경로 갱신 푸시 (#225, Homebase M-23)
+
+휴대폰은 연결에 성공해야 `/api/v1/endpoints`를 읽으므로, 앱 재시작으로 Quick Tunnel 주소가 바뀌면 그 경로로만 닿던 휴대폰은 새 주소를 알 수 없습니다. 그래서 PC가 새 경로를 같은 앱 푸시로 조용히 보냅니다(알림 없음).
+
+- **언제**: 15초마다 경로 목록을 보고, 두 번 연속 같고(터널이 리스너보다 늦게 열리는 시작 직후를 기다림) **그 휴대폰에 알린 적 없는 경로가 있을 때만** 보냅니다. 경로가 빠지기만 하면 보내지 않습니다. 받지 못한 휴대폰에만 5분 뒤 다시 보냅니다. 기억은 메모리에만 있어 앱 재시작마다 한 번 다시 보냅니다.
+- **형식**([`push-endpoints.v1.json`](mobile-protocol/push-endpoints.v1.json)): `{schema, kind: "endpoints", pcId, data, mac}`. `data`는 `{schema, pcId, ts, endpoints}` JSON의 base64url, `mac`은 그 바이트의 HMAC-SHA256이고 키는 **그 기기 토큰의 SHA-256(원시 32바이트)**입니다(PC는 해시만 저장하므로 그대로 씀).
+- **왜 서명하나**: 휴대폰의 푸시 키는 모든 PC가 공유하므로 복호화만으로는 보낸 PC를 알 수 없습니다. 서명이 없으면 한 PC가 다른 PC의 경로를 자기 주소로 바꿔 그 PC의 토큰을 받아 낼 수 있습니다.
+- **앱**: 페어링한 PC의 토큰으로 MAC과 안팎 `pcId`를 확인하고, 그 PC에서 마지막으로 반영한 푸시의 `ts`(PC 시계)보다 새것만 저장합니다(늦게 온 중복이 옛 경로를 되살리지 않게). 실시간 연결은 재시도할 때마다 저장된 경로를 다시 읽습니다.
+- 휴대폰 알림(배포자)이 꺼져 있으면 이 푸시를 받을 수 없으므로, Quick Tunnel만으로 연결된 휴대폰은 PC 앱 재시작 뒤 다시 페어링해야 합니다. 고정 주소(이름 있는 터널)는 이 문제가 없습니다.
+
 ## PC 동기화 (#223)
 
 공유 폴더 없이 PC끼리 직접 사용량을 주고받습니다.
 
 - **동기화 코드** = 휴대폰 QR과 같은 일회용 링크(5분·1회용). PC A의 설정 → 연결 → "이 PC의 동기화 코드 복사"(또는 휴대폰 연결 창의 같은 버튼) → PC B의 설정 → 연결에 붙여 넣기 → B가 `POST /api/v1/pair`에 `kind: "pc"`로 페어링하고 토큰을 DPAPI로 감싸 `peers.json`에 저장합니다.
-- **연결**: B → A `GET /api/v1/sync` WebSocket(Bearer). B가 여는 쪽이라 A만 B에서 닿으면 됩니다(B의 포트·방화벽은 필요 없음). 경로는 LAN(TLS 핀) → Tailscale 순.
+- **연결**: B → A `GET /api/v1/sync` WebSocket(Bearer). B가 여는 쪽이라 A만 B에서 닿으면 됩니다(B의 포트·방화벽은 필요 없음). 경로는 LAN(TLS 핀) → Tailscale → Cloudflare(공인 인증서) 순.
 - **프레임**: 양쪽 모두 `{schema: 1, kind: "sync", fromPcId, fromPcName, snapshots: UsageSyncSnapshot[]}`를 연결 직후, 표가 바뀔 때, 변화가 없으면 60초마다 보냅니다. `snapshots`는 공유 폴더 동기화 파일과 **같은 형식·같은 계정 해시**라, 받은 쪽은 기존 선택 규칙(`SelectQuotaCandidates`·`MergeLocalTotals`)을 그대로 씁니다.
 - **가십**: 각 PC는 (원래 PC, provider)별 최신 스냅샷 표를 갖고, 받은 것 중 더 새로운 것만 반영하며, 바뀌면 모든 연결로 다시 보냅니다. 그래서 B·C가 A에만 연결해도 B와 C가 서로의 값을 갖습니다. 자기 원본 값은 다른 PC를 거쳐 돌아와도 받지 않고, 24시간 넘은 관측·5분 넘는 미래 시각은 버립니다.
 - **Claude Code가 없는 PC**: 계정 키(orgUuid)가 없으면 그룹에서 할당량을 가장 최근에 관측한 Claude 계정을 대신 보여 줍니다.
 - **해제**: A의 연결 탭(또는 휴대폰 연결 창)에서 B를 해제하면 다음 전송 전에 1008 `revoked`로 끊기고, B는 다시 연결하지 않습니다.
-- **한계**: PC끼리 같은 LAN이나 Tailscale로 닿아야 합니다. 다른 네트워크(회사·집)이고 Tailscale이 없다면 기존 공유 폴더 동기화를 함께 쓰세요 — 두 경로의 값은 한 목록으로 합쳐지고, 같은 PC가 두 경로로 들어오면 더 새로운 하나만 씁니다.
+- **한계**: PC끼리 같은 LAN·Tailscale로 닿거나, A가 Cloudflare Tunnel을 켜 두어야 합니다. A가 Quick Tunnel만 쓰면 A의 앱이 다시 시작될 때 주소가 바뀌어 B가 끊깁니다(경로 갱신 푸시는 휴대폰만 받음) — 이때는 새 코드로 다시 연결하거나, A에 고정 주소(이름 있는 터널)를 쓰세요. 그 밖의 경우 기존 공유 폴더 동기화를 함께 쓸 수 있습니다 — 두 경로의 값은 한 목록으로 합쳐지고, 같은 PC가 두 경로로 들어오면 더 새로운 하나만 씁니다.

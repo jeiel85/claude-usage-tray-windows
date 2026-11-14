@@ -4,6 +4,7 @@ import android.content.Context
 import io.github.jeiel85.claudeusage.net.Endpoint
 import io.github.jeiel85.claudeusage.net.LocalNetworks
 import io.github.jeiel85.claudeusage.net.RouteSelector
+import io.github.jeiel85.claudeusage.push.PushEndpointsUpdate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,6 +20,8 @@ data class PcEntry(
     val token: String,
     /** [Endpoint.key] of the path that worked last; preferred among equally good paths. */
     val lastGood: String? = null,
+    /** PC-clock time of the last path push applied (#225) — a late duplicate must not bring back old paths. */
+    val endpointsPushTs: Long = 0L,
 ) {
     /** Paths to try now, best first, for the phone's current network. */
     fun orderedEndpoints(net: LocalNetworks?): List<Endpoint> = RouteSelector.order(endpoints, net, lastGood)
@@ -70,6 +73,19 @@ class PcStore(context: Context) {
         save(list.map { if (it.pcId == pcId) it.copy(endpoints = endpoints) else it })
     }
 
+    /**
+     * Paths the PC pushed (#225), already verified. Returns false when the PC isn't paired or the push is
+     * not newer than the last one applied ([PushEndpointsUpdate.isNewerThan]).
+     */
+    @Synchronized
+    fun applyPushedEndpoints(update: PushEndpointsUpdate): Boolean {
+        val list = all()
+        val pc = list.firstOrNull { it.pcId == update.pcId } ?: return false
+        if (!update.isNewerThan(pc.endpointsPushTs)) return false
+        save(list.map { if (it.pcId == update.pcId) it.copy(endpoints = update.endpoints, endpointsPushTs = update.tsEpochMillis) else it })
+        return true
+    }
+
     fun cacheSnapshot(pcId: String, json: String, receivedAtMs: Long) {
         cache.edit().putString(pcId, json).putLong("$pcId.at", receivedAtMs).apply()
     }
@@ -104,6 +120,7 @@ class PcStore(context: Context) {
         .put("deviceId", pc.deviceId)
         .put("token", cipher.encrypt(pc.token.toByteArray(Charsets.UTF_8)))
         .put("lastGood", pc.lastGood)
+        .put("endpointsPushTs", pc.endpointsPushTs)
 
     /** null when the Keystore key is gone (e.g. app data restored elsewhere) — the PC must be re-paired. */
     private fun fromJson(o: JSONObject): PcEntry? {
@@ -115,13 +132,14 @@ class PcStore(context: Context) {
             deviceId = o.optString("deviceId"),
             token = token,
             lastGood = o.optString("lastGood").ifBlank { null },
+            endpointsPushTs = o.optLong("endpointsPushTs", 0L),
         )
     }
 
     private companion object {
-        const val NAME = "cut_pcs"
-        const val CACHE_NAME = "cut_snapshots"
-        const val KEY_PCS = "pcs"
-        const val KEY_ALIAS = "cut_pc_tokens"
+        private const val NAME = "cut_pcs"
+        private const val CACHE_NAME = "cut_snapshots"
+        private const val KEY_PCS = "pcs"
+        private const val KEY_ALIAS = "cut_pc_tokens"
     }
 }

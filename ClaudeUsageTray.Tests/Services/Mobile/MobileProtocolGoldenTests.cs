@@ -64,7 +64,7 @@ public class MobileProtocolGoldenTests
         Assert.NotNull(json);
         using var doc = JsonDocument.Parse(json!);
         Assert.Equal(1, doc.RootElement.GetProperty("cu").GetInt32());
-        Assert.Equal(3, doc.RootElement.GetProperty("endpoints").GetArrayLength());
+        Assert.Equal(MobileProtocolFixtures.Endpoints().Count, doc.RootElement.GetProperty("endpoints").GetArrayLength());
     }
 
     [Fact]

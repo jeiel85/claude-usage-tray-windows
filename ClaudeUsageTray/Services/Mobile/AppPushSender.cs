@@ -88,6 +88,39 @@ public sealed class AppPushSender
         return delivered > 0 ? AppPushResult.Delivered : AppPushResult.Failed;
     }
 
+    /// <summary>경로 갱신 푸시를 받을 수 있는 기기(구독과 토큰 해시가 둘 다 있는 기기).</summary>
+    public IReadOnlyList<string> EndpointTargetIds() =>
+        _devices.PushTargets().Where(t => t.TokenSha256 is { Length: 64 }).Select(t => t.DeviceId).ToList();
+
+    /// <summary>
+    /// Input : 이 PC 의 현재 경로, 보낼 기기 ID 들
+    /// Output: 받은 기기 ID 들
+    /// 핵심 로직: 기기마다 그 기기 토큰 해시로 따로 서명한다(<see cref="PushEndpoints.Serialize"/>). 알림 범주가 아니므로
+    ///           "받을 알림" 선택과 무관하게 보낸다 — 휴대폰에 아무것도 띄우지 않고 경로만 갱신한다.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> SendEndpointsAsync(
+        IReadOnlyList<MobileEndpoint> endpoints, IReadOnlyCollection<string> deviceIds, CancellationToken ct = default)
+    {
+        var delivered = new List<string>();
+        var ts = _time.GetUtcNow();
+        foreach (var target in _devices.PushTargets())
+        {
+            if (target.TokenSha256 is not { Length: 64 } hash || !deviceIds.Contains(target.DeviceId)) continue;
+            byte[] plaintext;
+            try
+            {
+                plaintext = PushEndpoints.Serialize(_devices.PcId, endpoints, ts, hash);
+            }
+            catch (Exception ex) when (ex is ArgumentException or FormatException)
+            {
+                GC.KeepAlive(ex);
+                continue;
+            }
+            if (await SendOneAsync(target, plaintext, "normal", ct)) delivered.Add(target.DeviceId);
+        }
+        return delivered;
+    }
+
     public PushMessage Build(string category, string title, string? body, int ntfyPriority, string? eventKey,
         TimeSpan eventTolerance, string? clickUrl) =>
         new(MobileProtocol.Schema,

@@ -41,7 +41,8 @@ sealed interface LiveState {
 
 /**
  * Direct phone → PC calls, ported from Homebase's `HomebaseApi`. There is no relay server: each PC
- * is reached over one of the paths in its QR — same-LAN TLS with a pinned certificate, or Tailscale —
+ * is reached over one of the paths in its QR — same-LAN TLS with a pinned certificate, Tailscale, or the
+ * PC's Cloudflare Tunnel (#225, public certificate, no pin) —
  * tried in the order [RouteSelector] picks for the phone's current network ([networks]).
  */
 class UsageApi(
@@ -139,7 +140,8 @@ class UsageApi(
      * Live snapshots while collected. Reconnects with backoff on network loss (re-choosing the path
      * for the network the phone is on now); stops on 401 / revoke or a schema mismatch. Cancelling the
      * collector closes the socket. After the first frame on a path the PC's current endpoint list is
-     * fetched and handed to [onEndpoints], so DHCP changes or a newly enabled Tailscale follow along.
+     * fetched and handed to [onEndpoints], so DHCP changes, a newly enabled Tailscale or a new Cloudflare
+     * Quick Tunnel address follow along.
      * Each attempt starts from [latest] (the stored entry), so path changes made meanwhile are used.
      */
     fun live(

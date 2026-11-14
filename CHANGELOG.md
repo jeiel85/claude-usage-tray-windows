@@ -3,6 +3,30 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.54.0] - 2026-11-14
+
+<!-- ko -->
+### 추가
+- **Tailscale 없이 밖에서도 휴대폰·다른 PC가 연결됩니다 — Cloudflare Tunnel (#225)** — 설정 → **연결** → **밖에서도 연결 (Cloudflare Tunnel)**을 켜면 이 앱이 Cloudflare의 `cloudflared`를 함께 실행해, 집 밖의 휴대폰(LTE 등)에서도 사용량을 실시간으로 봅니다. Homebase와 같은 방식입니다.
+  - **포트·방화벽 설정이 필요 없습니다**: 이 PC가 Cloudflare로 바깥 연결만 엽니다.
+  - **계정 없이 바로 쓸 수 있습니다**: 기본은 임시 주소(`*.trycloudflare.com`)이며, 이 앱을 다시 시작할 때마다 주소가 바뀝니다. 휴대폰 알림(ntfy 앱)이 켜져 있으면 PC가 새 주소를 서명된 푸시로 보내 휴대폰이 알아서 따라갑니다(화면에 알림은 뜨지 않습니다).
+  - **고정 주소도 됩니다**: Cloudflare 계정·도메인이 있으면 "고정 주소 사용"에 터널 토큰과 호스트명을 넣으세요. 토큰은 이 Windows 사용자만 풀 수 있게 암호화해 저장합니다.
+  - `cloudflared`가 없으면 같은 줄의 **설치 (winget)** 버튼으로 설치합니다(Windows가 관리자 승인을 물을 수 있습니다).
+  - 휴대폰 앱은 같은 Wi-Fi → Tailscale(켜져 있을 때) → Cloudflare 순으로 되는 경로를 자동으로 고릅니다. PC 동기화 코드도 Cloudflare 경로로 연결됩니다.
+  - 주의: 터널 주소를 아는 사람은 PC 이름·앱 버전을 볼 수 있습니다. 사용량을 보려면 QR의 1회용 코드(5분)로 받은 토큰이 있어야 합니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Phones and other PCs connect from anywhere without Tailscale — Cloudflare Tunnel (#225)** — Turn on Settings → **Connect** → **Connect from anywhere (Cloudflare Tunnel)** and this app runs Cloudflare's `cloudflared` alongside, so a phone away from home (mobile data, etc.) sees usage live. Same approach as Homebase.
+  - **No port or firewall setup**: this PC only dials out to Cloudflare.
+  - **Works without an account**: by default it uses a temporary address (`*.trycloudflare.com`) that changes each time this app restarts. With phone alerts (the ntfy app) on, the PC sends the new address in a signed push and the phone follows it on its own (no notification is shown).
+  - **Fixed address too**: with a Cloudflare account and domain, enter the tunnel token and hostname under "Use a fixed address". The token is stored encrypted so only this Windows user can read it.
+  - If `cloudflared` is missing, the **Install (winget)** button on the same line installs it (Windows may ask for administrator approval).
+  - The phone app picks the path that works: same Wi-Fi → Tailscale (when on) → Cloudflare. PC sync codes also connect over Cloudflare.
+  - Note: anyone who knows the tunnel address can see the PC name and app version. Seeing usage needs the token issued for the QR's one-time code (5 minutes).
+<!-- /en -->
+
 ## [1.53.0] - 2026-11-14
 
 <!-- ko -->

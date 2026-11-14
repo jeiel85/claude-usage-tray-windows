@@ -95,6 +95,8 @@ public partial class MobileConnectWindow : Window
         if (status is null || !status.Running) problem = Loc.MobileStatusOff;
         else if (!string.IsNullOrEmpty(status.LastError)) problem = Loc.MobileServerError(status.LastError);
         else if (!status.Listening) problem = Loc.MobileStarting;
+        // 켜 둔 Cloudflare 터널이 아직 열리는 중이면 "경로 없음" 대신 기다리라고 알린다(몇 초 걸린다).
+        else if (endpoints.Count == 0 && _mobile.Tunnel.Status() is { State: CloudflareStatus.Starting }) problem = Loc.CloudflareStarting;
         else if (endpoints.Count == 0) problem = Loc.MobileNoPath;
         StatusText.Text = problem ?? "";
         StatusText.Visibility = problem is null ? Visibility.Collapsed : Visibility.Visible;
@@ -146,6 +148,9 @@ public partial class MobileConnectWindow : Window
     {
         MobileTransport.Lan => $"LAN · {e.Host}:{e.Port} · TLS",
         MobileTransport.Tailscale => $"Tailscale · {e.Host}:{e.Port}",
+        MobileTransport.Cloudflare => e.Host.EndsWith(".trycloudflare.com", StringComparison.OrdinalIgnoreCase)
+            ? $"Cloudflare · {e.Host} · {Loc.CloudflareQuickSuffix}"
+            : $"Cloudflare · {e.Host}",
         _ => $"{e.Transport} · {e.Host}:{e.Port}",
     };
 

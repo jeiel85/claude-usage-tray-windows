@@ -36,6 +36,24 @@ class RouteSelectorTest {
         assertEquals(listOf(lan, tsName, tsIp), RouteSelector.order(all, null, null))
     }
 
+    private val cf = Endpoint(Endpoint.CLOUDFLARE, "bright-fox.trycloudflare.com", 443, true)
+
+    @Test
+    fun cloudflare_comes_after_direct_paths_but_before_a_tailscale_that_is_off() {
+        val withCf = listOf(cf) + all
+        // Away from home without Tailscale: Cloudflare is the path that works, so it goes first.
+        val awayNoVpn = LocalNetworks(listOf(subnet("10.20.0.8", 16)), tailnetUp = false)
+        assertEquals(listOf(cf, tsName, tsIp, lan), RouteSelector.order(withCf, awayNoVpn, null))
+        // Same Wi-Fi: LAN first, Cloudflare still before the Tailscale VPN that is off.
+        val home = LocalNetworks(listOf(subnet("192.168.45.20", 24)), tailnetUp = false)
+        assertEquals(listOf(lan, cf, tsName, tsIp), RouteSelector.order(withCf, home, null))
+        // Tailscale up: direct tailnet before the Cloudflare detour.
+        val vpn = LocalNetworks(emptyList(), tailnetUp = true)
+        assertEquals(listOf(tsName, tsIp, cf, lan), RouteSelector.order(withCf, vpn, null))
+        // No network facts: LAN → Tailscale → Cloudflare.
+        assertEquals(listOf(lan, tsName, tsIp, cf), RouteSelector.order(withCf, null, null))
+    }
+
     @Test
     fun parses_only_dotted_ipv4_and_spots_the_tailnet_range() {
         assertEquals(null, RouteSelector.ipv4("home-pc.ts.net"))

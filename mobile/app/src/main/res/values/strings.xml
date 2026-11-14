@@ -31,7 +31,7 @@
     <string name="remove_confirm">Remove %1$s from this phone? To see it again, scan a new QR on the PC.</string>
     <string name="pair_title">Add PC</string>
     <string name="pair_step1">On the PC: tray icon → Settings → Phone App → \"Connect phone… (show QR)\".</string>
-    <string name="pair_step2">Scan the QR. The phone must be on the same Wi-Fi, or have Tailscale on.</string>
+    <string name="pair_step2">Scan the QR. The phone must be on the same Wi-Fi, have Tailscale on, or the PC must have \"Connect from anywhere (Cloudflare)\" on.</string>
     <string name="pair_scan">Scan QR</string>
     <string name="pair_scan_prompt">Point the camera at the QR on the PC</string>
     <string name="pair_paste_hint">Or paste the pairing link</string>
@@ -42,7 +42,7 @@
     <string name="pair_err_invalid">The code is not valid. Show a new QR on the PC.</string>
     <string name="pair_err_expired">The QR expired. Show a new QR on the PC.</string>
     <string name="pair_err_locked">Too many wrong codes. Try again in a few minutes.</string>
-    <string name="pair_err_unreachable">Can\'t reach the PC. Check the same Wi-Fi (Private network on Windows) or Tailscale, and the firewall rules on the PC.
+    <string name="pair_err_unreachable">Can\'t reach the PC. Check the same Wi-Fi (Private network on Windows), Tailscale, or \"Connect from anywhere (Cloudflare)\" on the PC, and the firewall rules on the PC.
 %1$s</string>
     <string name="tab_alerts">Alerts</string>
     <string name="push_distributor_label">AI usage alerts from your PCs</string>
