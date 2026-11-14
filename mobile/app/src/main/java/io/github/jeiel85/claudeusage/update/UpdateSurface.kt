@@ -160,6 +160,9 @@ internal object UpdateSurface {
                         enabled = checked
                         result = null
                         UpdateCheckScheduler.sync(context)
+                        // 배너가 이 설정을 바로 따르게 한다: 끄면 떠 있던 배너가 사라지고(설치 흐름도 막힘), 켜면 캐시·하루 1회
+                        // 규칙대로 다시 판단한다. 배너는 refreshEpoch 가 바뀔 때만 다시 판단하므로 여기서 올린다(Codex 리뷰).
+                        refreshEpoch++
                     },
                     colors = SwitchDefaults.colors(checkedTrackColor = Palette.Accent),
                 )
