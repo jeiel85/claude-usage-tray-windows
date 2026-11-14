@@ -705,10 +705,10 @@ public static class Loc
 
     public static string NtfyTitle => Lang switch
     {
-        "ko" => "스마트폰 알림 (ntfy)",
-        "zh" => "手机推送通知 (ntfy)",
-        "ja" => "スマホ通知 (ntfy)",
-        _ => "Phone Push Notifications (ntfy)"
+        "ko" => "ntfy 토픽 (앱 없이 받을 때)",
+        "zh" => "ntfy 主题 (无应用时使用)",
+        "ja" => "ntfy トピック (アプリなしで受け取る場合)",
+        _ => "ntfy topic (without the app)"
     };
 
     public static string NtfyDesc => Lang switch
@@ -785,18 +785,18 @@ public static class Loc
 
     public static string NtfySendFromThisPc => Lang switch
     {
-        "ko" => "이 PC에서 ntfy 알림 발송",
-        "zh" => "从此电脑发送 ntfy 通知",
-        "ja" => "このPCからntfy通知を送信",
-        _ => "Send ntfy notifications from this PC"
+        "ko" => "이 PC에서 휴대폰 알림 보내기",
+        "zh" => "从此电脑发送手机通知",
+        "ja" => "このPCからスマホ通知を送る",
+        _ => "Send phone alerts from this PC"
     };
 
     public static string NtfySendFromThisPcHint => Lang switch
     {
-        "ko" => "여러 PC에서 같은 토픽 사용 시, 한 PC에서만 활성화하세요",
-        "zh" => "多台电脑使用相同主题时，只在一台上启用",
-        "ja" => "複数のPCで同じトピックを使う場合、1台のみ有効にしてください",
-        _ => "If multiple PCs share the same topic, enable only on one"
+        "ko" => "휴대폰 앱 알림은 여러 PC가 보내도 한 번만 뜹니다. ntfy 토픽만 쓸 때는 같은 토픽을 쓰는 PC 중 한 대에서만 켜세요",
+        "zh" => "手机应用通知即使多台电脑发送也只显示一次。仅使用 ntfy 主题时，请只在使用相同主题的一台电脑上开启",
+        "ja" => "スマホアプリの通知は複数のPCが送っても1回だけ表示されます。ntfy トピックだけを使う場合は、同じトピックのPCのうち1台だけオンにしてください",
+        _ => "Phone-app alerts show once even when several PCs send them. If you only use an ntfy topic, enable this on just one PC sharing it"
     };
 
     // v1.27.0 표시 옵션 토글
@@ -1148,10 +1148,10 @@ public static class Loc
 
     public static string TestNotificationHint => Lang switch
     {
-        "ko" => "Windows 토스트 + 스마트폰 알림(ntfy 설정 시) 동시 테스트",
-        "zh" => "同时测试 Windows 通知 + 手机推送（已设置 ntfy 时）",
-        "ja" => "Windows トースト + スマホ通知（ntfy 設定済みの場合）を同時テスト",
-        _ => "Tests Windows toast + phone push (if ntfy topic is set)"
+        "ko" => "Windows 토스트 + 휴대폰 앱(연결 시)·ntfy 토픽(설정 시) 동시 테스트",
+        "zh" => "同时测试 Windows 通知 + 手机应用(已连接时)·ntfy 主题(已设置时)",
+        "ja" => "Windows トースト + スマホアプリ(接続時)・ntfy トピック(設定時)を同時テスト",
+        _ => "Tests Windows toast + phone app (if paired) + ntfy topic (if set)"
     };
 
     public static string TestNotificationSent => Lang switch
@@ -2027,10 +2027,10 @@ public static class Loc
 
     public static string UsageSyncTitle => Lang switch
     {
-        "ko" => "다중 PC 동기화",
-        "zh" => "多设备同步",
-        "ja" => "複数PC同期",
-        _ => "Multi-PC Sync"
+        "ko" => "공유 폴더 동기화 (네트워크가 다른 PC용)",
+        "zh" => "共享文件夹同步 (用于不同网络的电脑)",
+        "ja" => "共有フォルダー同期 (別ネットワークのPC向け)",
+        _ => "Shared-folder sync (for PCs on other networks)"
     };
 
     public static string UsageSyncEnabled => Lang switch
@@ -2568,5 +2568,471 @@ public static class Loc
         "zh" => $"体感 {temp:F0}°C",
         "ja" => $"体感 {temp:F0}°C",
         _ => $"feels like {temp:F0}°C"
+    };
+
+    // ── 휴대폰 앱 연동 (#220) ──────────────────────────────────────────────
+
+    public static string MobileTitle => Lang switch
+    {
+        "ko" => "휴대폰·PC 연결",
+        "zh" => "手机·电脑连接",
+        "ja" => "スマホ・PC接続",
+        _ => "Phone & PC link"
+    };
+
+    public static string MobileEnabled => Lang switch
+    {
+        "ko" => "이 PC에 연결 허용 (휴대폰 앱·다른 PC)",
+        "zh" => "允许连接到此电脑 (手机应用·其他电脑)",
+        "ja" => "このPCへの接続を許可 (スマホアプリ・他のPC)",
+        _ => "Allow connections to this PC (phone app, other PCs)"
+    };
+
+    public static string MobileDescription => Lang switch
+    {
+        "ko" => "휴대폰 앱이 QR 한 번으로 이 PC에 직접 연결해 실시간 사용량을 받습니다. 중계 서버는 없고, 같은 계정을 쓰는 PC들은 앱에서 한 계정으로 묶여 보입니다.",
+        "zh" => "手机应用扫描一次二维码即可直接连接此电脑并实时接收用量。没有中转服务器，使用同一账号的电脑在应用中会合并为一个账号显示。",
+        "ja" => "スマホアプリがQRコード1回でこのPCに直接つながり、使用量をリアルタイムで受け取ります。中継サーバーはなく、同じアカウントのPCはアプリで1つのアカウントにまとまって表示されます。",
+        _ => "The phone app connects straight to this PC with one QR scan and gets live usage. There is no relay server, and PCs that share an account appear as one account in the app."
+    };
+
+    public static string MobilePathLan => Lang switch
+    {
+        "ko" => "같은 Wi-Fi·LAN (암호화)",
+        "zh" => "同一 Wi-Fi/局域网 (加密)",
+        "ja" => "同じWi-Fi・LAN (暗号化)",
+        _ => "Same Wi-Fi / LAN (encrypted)"
+    };
+
+    public static string MobilePathTailscale => Lang switch
+    {
+        "ko" => "Tailscale (밖에서도 연결)",
+        "zh" => "Tailscale (外网也可连接)",
+        "ja" => "Tailscale (外出先からも接続)",
+        _ => "Tailscale (works away from home)"
+    };
+
+    public static string MobileConnectButton => Lang switch
+    {
+        "ko" => "휴대폰 연결… (QR 표시)",
+        "zh" => "连接手机… (显示二维码)",
+        "ja" => "スマホを接続… (QR表示)",
+        _ => "Connect phone… (show QR)"
+    };
+
+    public static string MobileStatusOff => Lang switch
+    {
+        "ko" => "꺼짐 — 휴대폰용 포트를 열지 않습니다",
+        "zh" => "已关闭 — 不开放手机端口",
+        "ja" => "オフ — スマホ用ポートを開きません",
+        _ => "Off — no port is opened for phones"
+    };
+
+    public static string MobileStatusPaired(int count) => Lang switch
+    {
+        "ko" => count == 0 ? "켜짐 · 연결된 휴대폰 없음" : $"켜짐 · 연결된 휴대폰 {count}대",
+        "zh" => count == 0 ? "已开启 · 没有已连接的手机" : $"已开启 · 已连接 {count} 部手机",
+        "ja" => count == 0 ? "オン · 接続済みのスマホなし" : $"オン · 接続済みのスマホ {count}台",
+        _ => count == 0 ? "On · no phone paired" : $"On · {count} phone(s) paired"
+    };
+
+    public static string MobileConnectTitle => Lang switch
+    {
+        "ko" => "휴대폰 연결",
+        "zh" => "连接手机",
+        "ja" => "スマホを接続",
+        _ => "Connect Phone"
+    };
+
+    public static string MobileScanHint => Lang switch
+    {
+        "ko" => "휴대폰 앱에서 'PC 추가'를 누르고 이 QR을 스캔하세요. 앱이 없으면 휴대폰 기본 카메라로 찍으면 설치 안내 페이지가 열립니다.",
+        "zh" => "在手机应用中点击\"添加电脑\"并扫描此二维码。如果还没有安装应用，用手机自带相机扫描会打开安装说明页面。",
+        "ja" => "スマホアプリで「PCを追加」を押してこのQRをスキャンしてください。アプリがなければスマホの標準カメラで撮ると、インストール案内ページが開きます。",
+        _ => "In the phone app, tap \"Add PC\" and scan this QR. Without the app, scan it with the phone's camera to open the install guide."
+    };
+
+    public static string MobileQrExpiresIn(int seconds) => Lang switch
+    {
+        "ko" => $"{seconds / 60}:{seconds % 60:00} 후 만료 · 한 번만 쓸 수 있습니다",
+        "zh" => $"{seconds / 60}:{seconds % 60:00} 后过期 · 只能使用一次",
+        "ja" => $"{seconds / 60}:{seconds % 60:00} 後に期限切れ · 1回のみ使用可",
+        _ => $"Expires in {seconds / 60}:{seconds % 60:00} · single use"
+    };
+
+    public static string MobileQrExpired => Lang switch
+    {
+        "ko" => "QR이 만료되었습니다. '새 QR'을 누르세요.",
+        "zh" => "二维码已过期，请点击\"新二维码\"。",
+        "ja" => "QRの期限が切れました。「新しいQR」を押してください。",
+        _ => "The QR expired. Click \"New QR\"."
+    };
+
+    public static string MobileNewQr => Lang switch
+    {
+        "ko" => "새 QR",
+        "zh" => "新二维码",
+        "ja" => "新しいQR",
+        _ => "New QR"
+    };
+
+    public static string MobileStarting => Lang switch
+    {
+        "ko" => "연결 경로를 여는 중입니다…",
+        "zh" => "正在打开连接路径…",
+        "ja" => "接続経路を開いています…",
+        _ => "Opening connection paths…"
+    };
+
+    public static string MobileNoPath => Lang switch
+    {
+        "ko" => "휴대폰이 닿을 주소가 없습니다. Wi-Fi·LAN에 연결되어 있는지, 또는 Tailscale이 켜져 있는지 확인하세요.",
+        "zh" => "没有手机可访问的地址。请确认已连接 Wi-Fi/局域网，或 Tailscale 已开启。",
+        "ja" => "スマホが届くアドレスがありません。Wi-Fi・LANに接続しているか、Tailscaleがオンか確認してください。",
+        _ => "No address a phone can reach. Check that this PC is on Wi-Fi/LAN or that Tailscale is on."
+    };
+
+    public static string MobileServerError(string message) => Lang switch
+    {
+        "ko" => $"서버 오류: {message}",
+        "zh" => $"服务器错误: {message}",
+        "ja" => $"サーバーエラー: {message}",
+        _ => $"Server error: {message}"
+    };
+
+    public static string MobilePathsHeader => Lang switch
+    {
+        "ko" => "연결 경로",
+        "zh" => "连接路径",
+        "ja" => "接続経路",
+        _ => "Connection paths"
+    };
+
+    public static string MobileFirewallOk => Lang switch
+    {
+        "ko" => "방화벽 규칙: 설치됨 (LAN은 '개인' 네트워크에서만 열림)",
+        "zh" => "防火墙规则: 已安装 (局域网仅在\"专用\"网络开放)",
+        "ja" => "ファイアウォール規則: 設定済み (LANは「プライベート」ネットワークのみ)",
+        _ => "Firewall rules: installed (LAN opens on Private networks only)"
+    };
+
+    public static string MobileFirewallMissing => Lang switch
+    {
+        "ko" => "방화벽 규칙이 없습니다. 추가하지 않으면 Windows가 연결을 막거나 허용 여부를 묻습니다.",
+        "zh" => "没有防火墙规则。如果不添加，Windows 会阻止连接或询问是否允许。",
+        "ja" => "ファイアウォール規則がありません。追加しないとWindowsが接続をブロックするか許可を尋ねます。",
+        _ => "No firewall rules. Without them Windows blocks the connection or asks whether to allow it."
+    };
+
+    public static string MobileFirewallAdd => Lang switch
+    {
+        "ko" => "방화벽 규칙 추가 (관리자)",
+        "zh" => "添加防火墙规则 (管理员)",
+        "ja" => "ファイアウォール規則を追加 (管理者)",
+        _ => "Add firewall rules (admin)"
+    };
+
+    public static string MobileFirewallCancelled => Lang switch
+    {
+        "ko" => "관리자 승인이 취소되어 규칙을 추가하지 않았습니다.",
+        "zh" => "管理员授权已取消，未添加规则。",
+        "ja" => "管理者の承認がキャンセルされたため、規則を追加しませんでした。",
+        _ => "Admin approval was cancelled; no rules were added."
+    };
+
+    public static string MobileFirewallFailed => Lang switch
+    {
+        "ko" => "방화벽 규칙을 추가하지 못했습니다.",
+        "zh" => "未能添加防火墙规则。",
+        "ja" => "ファイアウォール規則を追加できませんでした。",
+        _ => "Could not add the firewall rules."
+    };
+
+    public static string MobileDevicesHeader => Lang switch
+    {
+        "ko" => "연결된 휴대폰",
+        "zh" => "已连接的手机",
+        "ja" => "接続済みのスマホ",
+        _ => "Paired phones"
+    };
+
+    public static string MobileNoDevices => Lang switch
+    {
+        "ko" => "아직 연결된 휴대폰이 없습니다.",
+        "zh" => "还没有已连接的手机。",
+        "ja" => "まだ接続済みのスマホはありません。",
+        _ => "No phone is paired yet."
+    };
+
+    public static string MobileRevoke => Lang switch
+    {
+        "ko" => "연결 해제",
+        "zh" => "解除连接",
+        "ja" => "接続解除",
+        _ => "Revoke"
+    };
+
+    public static string MobileRevokeConfirm(string name) => Lang switch
+    {
+        "ko" => $"'{name}'의 연결을 해제할까요? 다시 쓰려면 QR로 다시 연결해야 합니다.",
+        "zh" => $"要解除\"{name}\"的连接吗？之后需要重新扫描二维码。",
+        "ja" => $"「{name}」の接続を解除しますか？再び使うにはQRで再接続が必要です。",
+        _ => $"Revoke '{name}'? It will need to scan a new QR to connect again."
+    };
+
+    public static string MobileDeviceSeen(string when) => Lang switch
+    {
+        "ko" => $"마지막 접속 {when}",
+        "zh" => $"最后连接 {when}",
+        "ja" => $"最終接続 {when}",
+        _ => $"last seen {when}"
+    };
+
+    public static string MobileDeviceNeverSeen => Lang switch
+    {
+        "ko" => "아직 접속 기록 없음",
+        "zh" => "尚无连接记录",
+        "ja" => "まだ接続記録なし",
+        _ => "not seen yet"
+    };
+
+    public static string MobileWatching(int count) => Lang switch
+    {
+        "ko" => count == 0 ? "" : $"지금 휴대폰 {count}대가 보는 중",
+        "zh" => count == 0 ? "" : $"现在有 {count} 部手机正在查看",
+        "ja" => count == 0 ? "" : $"いまスマホ {count}台が表示中",
+        _ => count == 0 ? "" : $"{count} phone(s) watching now"
+    };
+
+    public static string MobileGetApp => Lang switch
+    {
+        "ko" => "휴대폰 앱 받기 (Android)",
+        "zh" => "获取手机应用 (Android)",
+        "ja" => "スマホアプリを入手 (Android)",
+        _ => "Get the phone app (Android)"
+    };
+
+    public static string MobileClose => Lang switch
+    {
+        "ko" => "닫기",
+        "zh" => "关闭",
+        "ja" => "閉じる",
+        _ => "Close"
+    };
+
+    public static string TestNotificationSentApp => Lang switch
+    {
+        "ko" => "✓ 전송됨 (Windows + 휴대폰 앱)",
+        "zh" => "✓ 已发送（Windows + 手机应用）",
+        "ja" => "✓ 送信済み（Windows + スマホアプリ）",
+        _ => "✓ Sent (Windows + phone app)"
+    };
+
+    public static string TabConnect => Lang switch
+    {
+        "ko" => "연결",
+        "zh" => "连接",
+        "ja" => "接続",
+        _ => "Connect"
+    };
+
+    public static string PhoneAlertsTitle => Lang switch
+    {
+        "ko" => "휴대폰 알림",
+        "zh" => "手机通知",
+        "ja" => "スマホ通知",
+        _ => "Phone alerts"
+    };
+
+    public static string PhoneAlertsViaApp(int count) => Lang switch
+    {
+        "ko" => $"휴대폰 앱 {count}대로 암호화해 보냅니다(토픽 설정 불필요). 아래 ntfy 토픽은 앱 알림이 실패할 때만 씁니다.",
+        "zh" => $"通过手机应用加密发送到 {count} 部手机(无需设置主题)。下方 ntfy 主题仅在应用通知失败时使用。",
+        "ja" => $"スマホアプリ {count}台へ暗号化して送ります(トピック設定不要)。下の ntfy トピックはアプリ通知が失敗したときだけ使います。",
+        _ => $"Sent encrypted to {count} phone app(s) — no topic needed. The ntfy topic below is used only if app delivery fails."
+    };
+
+    public static string PhoneAlertsNoApp => Lang switch
+    {
+        "ko" => "'연결' 탭에서 휴대폰 앱을 QR로 연결하면 토픽 없이 알림이 자동으로 연결됩니다. 앱이 없으면(iOS 등) 아래 ntfy 토픽으로 받습니다.",
+        "zh" => "在\"连接\"标签用二维码连接手机应用后，无需主题即可自动接收通知。没有应用时(如 iOS)通过下方 ntfy 主题接收。",
+        "ja" => "「接続」タブでスマホアプリをQRで接続すると、トピックなしで通知が自動で届きます。アプリがない場合(iOSなど)は下の ntfy トピックで受け取ります。",
+        _ => "Connect the phone app by QR on the Connect tab and alerts are set up automatically, no topic needed. Without the app (e.g. iOS), use the ntfy topic below."
+    };
+
+    public static string PeerSyncTitle => Lang switch
+    {
+        "ko" => "PC 동기화",
+        "zh" => "电脑同步",
+        "ja" => "PC同期",
+        _ => "PC sync"
+    };
+
+    public static string PeerSyncDescription => Lang switch
+    {
+        "ko" => "다른 PC의 동기화 코드를 붙여 넣으면 두 PC가 사용량을 직접 주고받습니다. 한 PC에만 연결해도 그룹 전체가 공유되고, Claude Code가 없는 PC도 그룹의 사용량을 보여 줍니다. 같은 Wi-Fi·LAN이나 Tailscale로 닿아야 합니다.",
+        "zh" => "粘贴另一台电脑的同步代码后，两台电脑直接交换用量。只需连接其中一台即可在整个组内共享，没有 Claude Code 的电脑也能显示组内用量。需要通过同一 Wi-Fi/局域网或 Tailscale 互通。",
+        "ja" => "別のPCの同期コードを貼り付けると、2台のPCが使用量を直接やり取りします。1台に接続するだけでグループ全体で共有され、Claude CodeのないPCでもグループの使用量を表示します。同じWi-Fi・LANまたはTailscaleで届く必要があります。",
+        _ => "Paste another PC's sync code and the two PCs exchange usage directly. Linking to one PC shares with the whole group, and a PC without Claude Code still shows the group's usage. The PCs must reach each other over the same Wi-Fi/LAN or Tailscale."
+    };
+
+    public static string PeerSyncCopyCode => Lang switch
+    {
+        "ko" => "이 PC의 동기화 코드 복사",
+        "zh" => "复制此电脑的同步代码",
+        "ja" => "このPCの同期コードをコピー",
+        _ => "Copy this PC's sync code"
+    };
+
+    public static string PeerSyncCopied => Lang switch
+    {
+        "ko" => "복사했습니다. 5분 안에 다른 PC의 설정 → 연결에 붙여 넣으세요(한 번만 쓸 수 있습니다).",
+        "zh" => "已复制。请在 5 分钟内粘贴到另一台电脑的 设置 → 连接 (仅可使用一次)。",
+        "ja" => "コピーしました。5分以内に別のPCの 設定 → 接続 に貼り付けてください(1回のみ使用可)。",
+        _ => "Copied. Paste it into the other PC's Settings → Connect within 5 minutes (single use)."
+    };
+
+    public static string PeerSyncCopyFailed => Lang switch
+    {
+        "ko" => "클립보드에 복사하지 못했습니다. 다시 눌러 주세요.",
+        "zh" => "无法复制到剪贴板，请重试。",
+        "ja" => "クリップボードにコピーできませんでした。もう一度押してください。",
+        _ => "Couldn't copy to the clipboard. Please try again."
+    };
+
+    public static string PeerSyncCodeUnavailable => Lang switch
+    {
+        "ko" => "먼저 위의 '이 PC에 연결 허용'을 켜세요. 다른 PC가 이 PC에 닿을 주소가 있어야 코드를 만들 수 있습니다.",
+        "zh" => "请先开启上方的\"允许连接到此电脑\"。需要有其他电脑可访问的地址才能生成代码。",
+        "ja" => "先に上の「このPCへの接続を許可」をオンにしてください。他のPCが届くアドレスがないとコードを作れません。",
+        _ => "Turn on \"Allow connections to this PC\" above first. A code needs an address the other PC can reach."
+    };
+
+    public static string PeerSyncPasteLabel => Lang switch
+    {
+        "ko" => "다른 PC의 동기화 코드",
+        "zh" => "另一台电脑的同步代码",
+        "ja" => "別のPCの同期コード",
+        _ => "Another PC's sync code"
+    };
+
+    public static string PeerSyncJoin => Lang switch
+    {
+        "ko" => "연결",
+        "zh" => "连接",
+        "ja" => "接続",
+        _ => "Link"
+    };
+
+    public static string PeerSyncJoining => Lang switch
+    {
+        "ko" => "연결하는 중…",
+        "zh" => "正在连接…",
+        "ja" => "接続中…",
+        _ => "Linking…"
+    };
+
+    public static string PeerSyncJoined(string name) => Lang switch
+    {
+        "ko" => $"{name}와(과) 연결했습니다.",
+        "zh" => $"已与 {name} 连接。",
+        "ja" => $"{name} と接続しました。",
+        _ => $"Linked with {name}."
+    };
+
+    public static string PeerSyncErrNotACode => Lang switch
+    {
+        "ko" => "동기화 코드가 아닙니다. 다른 PC에서 '이 PC의 동기화 코드 복사'로 받은 내용을 그대로 붙여 넣으세요.",
+        "zh" => "这不是同步代码。请粘贴在另一台电脑上\"复制此电脑的同步代码\"得到的内容。",
+        "ja" => "同期コードではありません。別のPCの「このPCの同期コードをコピー」で得た内容をそのまま貼り付けてください。",
+        _ => "That isn't a sync code. Paste exactly what \"Copy this PC's sync code\" gave you on the other PC."
+    };
+
+    public static string PeerSyncErrSelf => Lang switch
+    {
+        "ko" => "이 PC 자신의 코드입니다. 다른 PC의 코드를 붙여 넣으세요.",
+        "zh" => "这是本机的代码。请粘贴另一台电脑的代码。",
+        "ja" => "このPC自身のコードです。別のPCのコードを貼り付けてください。",
+        _ => "That's this PC's own code. Paste the other PC's code."
+    };
+
+    public static string PeerSyncErrExpired => Lang switch
+    {
+        "ko" => "코드가 만료되었습니다. 다른 PC에서 다시 복사하세요.",
+        "zh" => "代码已过期。请在另一台电脑上重新复制。",
+        "ja" => "コードの期限が切れました。別のPCでもう一度コピーしてください。",
+        _ => "The code expired. Copy a new one on the other PC."
+    };
+
+    public static string PeerSyncErrLocked => Lang switch
+    {
+        "ko" => "잘못된 코드가 너무 많습니다. 몇 분 뒤 다시 시도하세요.",
+        "zh" => "错误代码过多。请几分钟后再试。",
+        "ja" => "誤ったコードが多すぎます。数分後に再試行してください。",
+        _ => "Too many wrong codes. Try again in a few minutes."
+    };
+
+    public static string PeerSyncErrInvalid => Lang switch
+    {
+        "ko" => "코드가 맞지 않거나 이미 사용되었습니다. 다른 PC에서 다시 복사하세요.",
+        "zh" => "代码不正确或已被使用。请在另一台电脑上重新复制。",
+        "ja" => "コードが正しくないか、すでに使われています。別のPCでもう一度コピーしてください。",
+        _ => "The code is wrong or already used. Copy a new one on the other PC."
+    };
+
+    public static string PeerSyncErrUnreachable(string reason) => Lang switch
+    {
+        "ko" => $"그 PC에 닿지 않습니다. 같은 Wi-Fi·LAN(Windows '개인' 네트워크)인지, 또는 Tailscale이 켜져 있는지, 그 PC의 방화벽 규칙을 확인하세요. ({reason})",
+        "zh" => $"无法连接到该电脑。请确认在同一 Wi-Fi/局域网(Windows\"专用\"网络)或已开启 Tailscale，并检查该电脑的防火墙规则。({reason})",
+        "ja" => $"そのPCに届きません。同じWi-Fi・LAN(Windowsの「プライベート」ネットワーク)か、Tailscaleがオンか、そのPCのファイアウォール規則を確認してください。({reason})",
+        _ => $"Can't reach that PC. Check the same Wi-Fi/LAN (a Private network in Windows) or Tailscale, and that PC's firewall rules. ({reason})"
+    };
+
+    public static string PeerSyncConnected(string via) => Lang switch
+    {
+        "ko" => $"연결됨 · {via}",
+        "zh" => $"已连接 · {via}",
+        "ja" => $"接続中 · {via}",
+        _ => $"Connected · {via}"
+    };
+
+    public static string PeerSyncNotConnected => Lang switch
+    {
+        "ko" => "연결 안 됨 — 그 PC가 켜지면 자동으로 다시 연결합니다",
+        "zh" => "未连接 — 该电脑开机后会自动重连",
+        "ja" => "未接続 — そのPCが起動すると自動で再接続します",
+        _ => "Not connected — reconnects automatically when that PC is on"
+    };
+
+    public static string PeerSyncRevoked => Lang switch
+    {
+        "ko" => "그 PC에서 연결이 해제되었습니다. 지우고 새 코드로 다시 연결하세요.",
+        "zh" => "该电脑已解除连接。请删除后用新代码重新连接。",
+        "ja" => "そのPCで接続が解除されました。削除して新しいコードで再接続してください。",
+        _ => "That PC removed this link. Remove it and link again with a new code."
+    };
+
+    public static string PeerSyncIncoming => Lang switch
+    {
+        "ko" => "이 PC에 연결해 둔 PC",
+        "zh" => "已连接到此电脑的电脑",
+        "ja" => "このPCに接続しているPC",
+        _ => "Linked to this PC"
+    };
+
+    public static string PeerSyncRemove => Lang switch
+    {
+        "ko" => "해제",
+        "zh" => "解除",
+        "ja" => "解除",
+        _ => "Remove"
+    };
+
+    public static string MobileDevicesPcSuffix => Lang switch
+    {
+        "ko" => "PC 동기화",
+        "zh" => "电脑同步",
+        "ja" => "PC同期",
+        _ => "PC sync"
     };
 }

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Cleartext is only used on the Tailscale path (100.64.0.0/10 or *.ts.net), where WireGuard encrypts
+     the hop (Homebase DECISIONS M-2). The LAN path uses TLS pinned to the PC's certificate.
+     Android can't scope cleartext to an IP range, so it is allowed here and the PC side only binds
+     plain HTTP to Tailscale addresses. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

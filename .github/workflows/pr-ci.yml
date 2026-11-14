@@ -1,0 +1,79 @@
+name: PR CI
+
+# 릴리스 워크플로(release.yml)는 태그에만 돌기 때문에, PR 단계에서 빌드·테스트를 확인할 곳이 없었다.
+# - windows: Windows 앱 빌드(경고 0 확인) + xUnit 테스트(휴대폰 프로토콜 픽스처 포함)
+# - android: 휴대폰 앱(mobile/) 단위 테스트(같은 픽스처 파싱) + lint + 디버그 APK(아티팩트로 내려받아 설치 시험 가능)
+on:
+  pull_request:
+    paths:
+      - 'ClaudeUsageTray/**'
+      - 'ClaudeUsageTray.Tests/**'
+      - 'mobile/**'
+      - 'docs/mobile-protocol/**'
+      - '.github/workflows/pr-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '9.x'
+
+      - name: Build (warnings as errors)
+        run: dotnet build ClaudeUsageTray/ClaudeUsageTray.csproj -c Release -warnaserror
+
+      - name: Test
+        run: dotnet test ClaudeUsageTray.Tests/ClaudeUsageTray.Tests.csproj -c Release --logger "console;verbosity=normal"
+
+      # 창을 이미지로 렌더링해(#224) 아티팩트로 올리고, 아티팩트를 받을 수 없는 리뷰 환경을 위해 로그에도 base64 로 남긴다.
+      - name: Render UI snapshots
+        env:
+          CUT_UI_SNAPSHOT_DIR: ${{ runner.temp }}\ui
+        run: dotnet test ClaudeUsageTray.Tests/ClaudeUsageTray.Tests.csproj -c Release --no-build --filter "Category=UiSnapshot"
+
+      - name: Print UI snapshots
+        shell: pwsh
+        run: |
+          Get-ChildItem "$env:RUNNER_TEMP\ui\*.jpg" | ForEach-Object {
+            "=====BEGIN $($_.Name)====="
+            $b = [Convert]::ToBase64String([IO.File]::ReadAllBytes($_.FullName))
+            for ($i = 0; $i -lt $b.Length; $i += 4000) { $b.Substring($i, [Math]::Min(4000, $b.Length - $i)) }
+            "=====END $($_.Name)====="
+          }
+
+      - name: Upload UI snapshots
+        uses: actions/upload-artifact@v6
+        with:
+          name: ui-snapshots
+          path: ${{ runner.temp }}\ui\*.jpg
+          if-no-files-found: ignore
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Unit tests, lint, debug build
+        working-directory: mobile
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
+
+      - name: Upload debug APK
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: claude-usage-mobile-debug
+          path: mobile/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: ignore

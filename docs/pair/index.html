@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- The pairing code lives after '#', which browsers never send anywhere; no-referrer keeps even
+       this page's address out of the APK download request. No external resources are loaded. -->
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex">
+  <title>AI Usage — Connect phone</title>
+  <style>
+    :root { --bg:#0F1117; --card:#1A1D2E; --line:#2D2F45; --text:#F1F5F9; --soft:#8B92B3; --accent:#8B5CF6; --accent2:#A78BFA; --warn:#F59E0B; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font: 15px/1.6 system-ui, -apple-system, "Segoe UI", "Noto Sans KR", sans-serif; }
+    main { max-width: 520px; margin: 0 auto; padding: 28px 16px 40px; }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    p { color: var(--soft); margin-bottom: 14px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+    .card.expired { border-color: var(--warn); }
+    .pc { font-size: 18px; font-weight: 600; color: var(--text); }
+    .btn { display: block; text-align: center; background: var(--accent); color: #fff; text-decoration: none; font-weight: 600; padding: 13px; border-radius: 10px; margin: 10px 0; }
+    .btn.secondary { background: transparent; border: 1px solid var(--accent2); color: var(--accent2); }
+    ol { padding-left: 20px; color: var(--soft); }
+    li { margin-bottom: 6px; }
+    .note { font-size: 13px; }
+    code { color: var(--text); }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+<main>
+  <h1 data-t="title"></h1>
+  <p id="lead" data-t="lead"></p>
+
+  <div class="card" id="pcBox" hidden>
+    <div class="pc" id="pcName"></div>
+    <div id="expiry"></div>
+  </div>
+
+  <p id="notAndroid" class="card" data-t="notAndroid" hidden></p>
+
+  <div class="card">
+    <a class="btn" id="apk" href="https://github.com/jeiel85/claude-usage-tray-windows/releases/latest/download/ClaudeUsageTray-Mobile.apk" data-t="getApp"></a>
+    <ol>
+      <li data-t="step1"></li>
+      <li data-t="step2"></li>
+      <li data-t="step3"></li>
+    </ol>
+  </div>
+
+  <a class="btn secondary" id="open" data-t="openApp"></a>
+  <p class="note" id="noPayload" data-t="noPayload" hidden></p>
+  <p class="note" data-t="privacy"></p>
+</main>
+<script>
+(function () {
+  var T = {
+    ko: {
+      title: '휴대폰에서 AI 사용량 보기',
+      lead: '이 QR은 PC의 Claude Usage Tray와 휴대폰 앱을 연결합니다. 앱이 없어 설치 안내를 보여 드립니다.',
+      notAndroid: '휴대폰 앱은 Android용입니다. Android 휴대폰의 카메라로 PC의 QR을 찍어 주세요.',
+      getApp: '앱 받기 (APK)',
+      step1: '받은 ClaudeUsageTray-Mobile.apk를 엽니다. 처음이면 Android가 "이 출처 허용"을 물어봅니다.',
+      step2: '설치가 끝나면 이 페이지로 돌아옵니다.',
+      step3: '아래 "앱에서 열기"를 누르고, 앱에서 "연결"을 누르면 끝입니다.',
+      openApp: '앱에서 열기',
+      noPayload: 'QR 없이 열린 페이지입니다. 앱을 설치한 뒤 앱의 "PC 추가"로 PC의 QR을 스캔하세요.',
+      privacy: 'QR 안의 연결 코드는 주소의 # 뒤에만 있어 이 브라우저 밖으로 전송되지 않습니다. 코드는 5분 동안 한 번만 쓸 수 있습니다.',
+      left: '남은 시간 ', expired: '이 QR은 만료되었습니다. PC 창에서 "새 QR"을 누르고 다시 스캔하세요.'
+    },
+    en: {
+      title: 'See your AI usage on your phone',
+      lead: 'This QR connects Claude Usage Tray on your PC to the phone app. The app is not installed, so here is how to get it.',
+      notAndroid: 'The phone app is for Android. Scan the PC\'s QR with an Android phone\'s camera.',
+      getApp: 'Get the app (APK)',
+      step1: 'Open the downloaded ClaudeUsageTray-Mobile.apk. The first time, Android asks you to allow this source.',
+      step2: 'When it is installed, come back to this page.',
+      step3: 'Tap "Open in app" below, then "Connect" in the app.',
+      openApp: 'Open in app',
+      noPayload: 'This page was opened without a QR. Install the app, then scan the PC\'s QR with "Add PC".',
+      privacy: 'The pairing code sits after the # in this address, so it never leaves this browser. It works once, for 5 minutes.',
+      left: 'Time left ', expired: 'This QR expired. Click "New QR" on the PC and scan again.'
+    },
+    ja: {
+      title: 'スマホでAI使用量を見る',
+      lead: 'このQRはPCのClaude Usage Trayとスマホアプリをつなぎます。アプリがないためインストール案内を表示しています。',
+      notAndroid: 'スマホアプリはAndroid用です。AndroidスマホのカメラでPCのQRを撮ってください。',
+      getApp: 'アプリを入手 (APK)',
+      step1: 'ダウンロードした ClaudeUsageTray-Mobile.apk を開きます。初回はAndroidが「この提供元を許可」を尋ねます。',
+      step2: 'インストールが終わったらこのページに戻ります。',
+      step3: '下の「アプリで開く」を押し、アプリで「接続」を押せば完了です。',
+      openApp: 'アプリで開く',
+      noPayload: 'QRなしで開かれたページです。アプリをインストール後、「PCを追加」でPCのQRをスキャンしてください。',
+      privacy: '接続コードはアドレスの # の後ろにだけあり、このブラウザの外へ送信されません。コードは5分間、1回だけ使えます。',
+      left: '残り時間 ', expired: 'このQRは期限切れです。PCで「新しいQR」を押して再度スキャンしてください。'
+    },
+    zh: {
+      title: '在手机上查看 AI 用量',
+      lead: '此二维码用于连接电脑上的 Claude Usage Tray 和手机应用。由于尚未安装应用，这里显示安装说明。',
+      notAndroid: '手机应用仅支持 Android。请用 Android 手机的相机扫描电脑上的二维码。',
+      getApp: '获取应用 (APK)',
+      step1: '打开下载的 ClaudeUsageTray-Mobile.apk。首次安装时 Android 会询问是否允许此来源。',
+      step2: '安装完成后返回此页面。',
+      step3: '点击下方"在应用中打开"，然后在应用中点击"连接"即可。',
+      openApp: '在应用中打开',
+      noPayload: '此页面未携带二维码。安装应用后，请在应用中用"添加电脑"扫描电脑上的二维码。',
+      privacy: '配对代码只在地址的 # 之后，不会离开此浏览器。代码 5 分钟内仅可使用一次。',
+      left: '剩余时间 ', expired: '此二维码已过期。请在电脑上点击"新二维码"后重新扫描。'
+    }
+  };
+  var lang = (navigator.language || 'en').slice(0, 2).toLowerCase();
+  var t = T[lang] || T.en;
+  document.documentElement.lang = T[lang] ? lang : 'en';
+  Array.prototype.forEach.call(document.querySelectorAll('[data-t]'), function (el) {
+    el.textContent = t[el.getAttribute('data-t')] || '';
+  });
+
+  var payload = location.hash.replace(/^#/, '').trim();
+  var isAndroid = /Android/i.test(navigator.userAgent);
+  if (!isAndroid) document.getElementById('notAndroid').hidden = false;
+
+  var open = document.getElementById('open');
+  if (!/^[A-Za-z0-9_-]+$/.test(payload)) {
+    open.hidden = true;
+    document.getElementById('noPayload').hidden = false;
+    return;
+  }
+
+  // Which PC this QR is for and how long it stays valid — decoded here, never sent.
+  try {
+    var b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    var bytes = Uint8Array.from(atob(b64), function (c) { return c.charCodeAt(0); });
+    var offer = JSON.parse(new TextDecoder().decode(bytes));
+    if (offer && offer.cu === 1 && offer.pcName) {
+      document.getElementById('pcBox').hidden = false;
+      document.getElementById('pcName').textContent = offer.pcName;
+      var expires = Date.parse(offer.expiresAt);
+      var tick = function () {
+        var left = Math.floor((expires - Date.now()) / 1000);
+        if (isNaN(left)) return;
+        if (left <= 0) {
+          document.getElementById('pcBox').classList.add('expired');
+          document.getElementById('expiry').textContent = t.expired;
+          return;
+        }
+        document.getElementById('expiry').textContent = t.left + Math.floor(left / 60) + ':' + ('0' + left % 60).slice(-2);
+        setTimeout(tick, 1000);
+      };
+      tick();
+    }
+  } catch (e) { /* the app validates the payload itself */ }
+
+  // Hand the payload to the app locally. Without the app, Chrome falls back to this same page.
+  open.href = 'intent://pair/' + payload +
+    '#Intent;scheme=claudeusage;package=io.github.jeiel85.claudeusage;S.browser_fallback_url=' +
+    encodeURIComponent(location.href) + ';end';
+  if (!isAndroid) open.href = 'claudeusage://pair/' + payload;
+})();
+</script>
+</body>
+</html>

@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Windows.Forms;
+using ClaudeUsageTray.Services.Mobile;
 
 namespace ClaudeUsageTray.Services;
 
@@ -17,6 +18,15 @@ public class NotificationService
         _getIcon = getNotifyIcon;
     }
 
+    /// <summary>
+    /// 휴대폰 앱 푸시 경로(#222). 앱이 QR 로 연결되면 구독을 자동 등록하므로 토픽을 입력할 필요가 없다.
+    /// 앱 시작 때 휴대폰 연동 서비스가 들어온다(그 전에는 null — 기존 토픽만 쓴다).
+    /// </summary>
+    public IAppPushSender? AppPush { get; set; }
+
+    /// <summary>"이 PC 에서 휴대폰 알림 보내기" — 끄면 앱 푸시도 기존 토픽도 보내지 않는다(여러 PC 중 하나만 보내게 할 때).</summary>
+    public Func<bool> SendsPhoneAlerts { get; set; } = () => true;
+
     // windowId/windowResetAt/accountId: 여러 PC 가 같은 토픽을 쓸 때 "같은 사건" 을 가르는 값이다(#175).
     // windowLabel 은 표시 언어에 따라 PC 마다 달라지므로 키에 쓰지 않고, 창의 리셋 시각은 서버 값이라 PC 간에 같다.
     // accountId 는 모니터링 중인 계정의 식별자 원문(해시는 키 쪽에서 한다) — 계정이 다른 PC 의 알림이 서로를 삼키지 않게 한다.
@@ -28,7 +38,7 @@ public class NotificationService
         var body  = Loc.NotificationBody(thresholdPercent, windowLabel, resetLabel, agent);
 
         ShowBalloon(title, body);
-        SendNtfy(ntfyTopic, title, body, priority,
+        SendNtfy(PushCategories.Usage, ntfyTopic, title, body, priority,
             key: NtfyEventKey.ForUsage(agent, windowId, thresholdPercent, windowResetAt, DateTimeOffset.Now, accountId));
     }
 
@@ -38,7 +48,7 @@ public class NotificationService
         var title = Loc.NotificationTitle;
         var body  = Loc.TestNotificationBody;
         ShowBalloon(title, body);
-        SendNtfy(ntfyTopic, title, body, priority);
+        SendNtfy(PushCategories.Test, ntfyTopic, title, body, priority);
     }
 
     public async Task<NotificationTestResult> ShowTestAlertAsync(string ntfyTopic, string agent = "Claude")
@@ -47,11 +57,16 @@ public class NotificationService
         var body  = Loc.TestNotificationBody;
         ShowBalloon(title, body);
 
+        // 테스트는 두 경로를 모두 확인한다 — 앱 푸시가 됐다고 토픽 경로가 되는지는 알 수 없으므로.
+        AppPushResult? push = null;
+        if (AppPush is { HasTargets: true } sender && SendsPhoneAlerts())
+            push = await sender.SendAsync(PushCategories.Test, title, body, 3, null, TimeSpan.Zero, null);
+
         if (string.IsNullOrWhiteSpace(ntfyTopic))
-            return new NotificationTestResult(true, false, true, null);
+            return new NotificationTestResult(true, false, true, null, push);
 
         var ntfyOk = await SendNtfyAsync(ntfyTopic, title, body);
-        return new NotificationTestResult(true, true, ntfyOk, ntfyOk ? null : Loc.NtfyTestSendFailed);
+        return new NotificationTestResult(true, true, ntfyOk, ntfyOk ? null : Loc.NtfyTestSendFailed, push);
     }
 
     // eventAt: 로그에 찍힌 레이트 리밋 기록의 시각. 재시작 뒤 같은 기록을 다시 읽어도 같은 사건으로 알아보게 하는 기준이다.
@@ -61,7 +76,7 @@ public class NotificationService
         var body  = Loc.RateLimited;
 
         ShowBalloon(title, body);
-        SendNtfy(ntfyTopic, title, body, priority,
+        SendNtfy(PushCategories.RateLimit, ntfyTopic, title, body, priority,
             key: NtfyEventKey.ForRateLimit(eventAt, DateTimeOffset.Now, accountId));
     }
 
@@ -73,7 +88,7 @@ public class NotificationService
         var body  = Loc.QuotaResetBody(agent);
 
         ShowBalloon(title, body);
-        SendNtfy(ntfyTopic, title, body, priority,
+        SendNtfy(PushCategories.Reset, ntfyTopic, title, body, priority,
             key: NtfyEventKey.ForReset(agent, endedWindowResetAt, DateTimeOffset.Now, accountId));
     }
 
@@ -85,7 +100,7 @@ public class NotificationService
         var body  = Loc.EarlyExhaustionBody(depletionTime, resetTime);
 
         ShowBalloon(title, body);
-        SendNtfy(ntfyTopic, title, body, priority, [],
+        SendNtfy(PushCategories.Exhaustion, ntfyTopic, title, body, priority, [],
             NtfyEventKey.ForEarlyExhaustion("Claude", depletionAt, DateTimeOffset.Now, accountId));
     }
 
@@ -95,7 +110,7 @@ public class NotificationService
         string? clickUrl = null, string? dedupeKey = null)
     {
         ShowBalloon(title, body);
-        SendNtfy(ntfyTopic, title, ntfyMessage ?? body, priority, tags ?? ["sunny"], clickUrl: clickUrl,
+        SendNtfy(PushCategories.Weather, ntfyTopic, title, ntfyMessage ?? body, priority, tags ?? ["sunny"], clickUrl: clickUrl,
             key: dedupeKey is null ? null : NtfyEventKey.ForExact("weather", dedupeKey));
     }
 
@@ -114,15 +129,41 @@ public class NotificationService
         }
     }
 
-    private static void SendNtfy(string topic, string title, string body, int priority = 3, string[]? tags = null,
+    /// <summary>
+    /// 휴대폰 알림 1건을 보낸다(#222). 기존 체계(평문 ntfy 토픽)를 앱 푸시로 옮긴 핵심 경로다.
+    ///
+    /// Input : 범주·토픽(이 PC 에서 보내지 않거나 토픽이 없으면 빈 문자열)·제목·본문·우선순위·사건 키
+    /// Output: 없음(백그라운드 전송)
+    /// 핵심 로직: 앱 푸시를 등록한 휴대폰이 있으면 그쪽(종단 암호화)으로만 보낸다 — 같은 알림이 앱과 ntfy 앱에 두 번 뜨지 않게.
+    ///           앱 푸시가 모두 실패했거나 등록된 휴대폰이 없을 때만 기존 토픽으로 보낸다(iOS·앱 미설치 사용자 호환).
+    ///           모든 휴대폰이 그 범주를 껐으면(AllMuted) 사용자의 선택이므로 토픽으로도 보내지 않는다.
+    /// </summary>
+    private void SendNtfy(string category, string topic, string title, string body, int priority = 3, string[]? tags = null,
         NtfyEventKey? key = null, string? clickUrl = null)
     {
-        if (string.IsNullOrWhiteSpace(topic)) return;
+        var push = SendsPhoneAlerts() ? AppPush : null;
+        if (string.IsNullOrWhiteSpace(topic) && push is not { HasTargets: true }) return;
 
         // Fire-and-forget — don't block the UI
         _ = Task.Run(async () =>
         {
-            await SendNtfyAsync(topic, title, body, priority, tags, key, clickUrl);
+            if (push is { HasTargets: true })
+            {
+                AppPushResult result;
+                try
+                {
+                    result = await push.SendAsync(category, title, body, priority, key?.SequenceId,
+                        key?.Tolerance ?? TimeSpan.Zero, clickUrl);
+                }
+                catch (Exception ex)
+                {
+                    GC.KeepAlive(ex);
+                    result = AppPushResult.Failed;
+                }
+                if (result is AppPushResult.Delivered or AppPushResult.AllMuted) return;
+            }
+            if (!string.IsNullOrWhiteSpace(topic))
+                await SendNtfyAsync(topic, title, body, priority, tags, key, clickUrl);
         });
     }
 
@@ -220,4 +261,5 @@ public record NotificationTestResult(
     bool WindowsToastAttempted,
     bool NtfyAttempted,
     bool NtfySucceeded,
-    string? ErrorMessage);
+    string? ErrorMessage,
+    AppPushResult? AppPush = null);

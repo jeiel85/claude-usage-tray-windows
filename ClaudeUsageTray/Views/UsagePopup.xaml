@@ -678,10 +678,10 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="{Binding LblFiveHour}" Foreground="#F1F5F9" FontSize="10.5"/>
+                                    <TextBlock Grid.Column="0" Text="{Binding LblFiveHour}" Foreground="#F1F5F9" FontSize="11.5" ToolTip="{Binding ClaudeVm.ShortSummary}"/>
                                     <StackPanel Grid.Column="1" Orientation="Horizontal">
                                         <TextBlock Text="{Binding ClaudeVm.ShortPercentLabel}" Foreground="#A78BFA" FontSize="11" FontWeight="Bold"/>
-                                        <TextBlock Text="{Binding ClaudeVm.ShortReset}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0"/>
+                                        <TextBlock Text="{Binding ClaudeVm.ShortReset}" Foreground="#8B92B3" FontSize="11" Margin="6,0,0,0"/>
                                     </StackPanel>
                                 </Grid>
                                 <TextBlock Grid.Row="1" Text="{Binding ClaudeVm.ShortDepletion}" Foreground="#F59E0B" FontSize="10" Margin="0,2,0,0" Visibility="{Binding ClaudeVm.ShortDepletion, Converter={StaticResource StringToVisibility}}"/>
@@ -700,7 +700,8 @@
                                     </Grid>
                                 </Grid>
                             </Grid>
-                            <TextBlock Text="{Binding ClaudeVm.ShortSummary}" Foreground="#8B92B3" FontSize="10" Margin="0,3,0,10"/>
+                            <!-- 요약("42% 사용 · 잔량 58%")은 바로 위 줄과 같은 정보라 라벨 툴팁으로 옮겼다(#224) -->
+                            <Border Height="10"/>
 
                             <Grid Margin="0,0,0,4">
                                 <Grid.RowDefinitions>
@@ -713,10 +714,10 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="{Binding LblSevenDay}" Foreground="#F1F5F9" FontSize="10.5"/>
+                                    <TextBlock Grid.Column="0" Text="{Binding LblSevenDay}" Foreground="#F1F5F9" FontSize="11.5" ToolTip="{Binding ClaudeVm.LongSummary}"/>
                                     <StackPanel Grid.Column="1" Orientation="Horizontal">
                                         <TextBlock Text="{Binding ClaudeVm.LongPercentLabel}" Foreground="#A78BFA" FontSize="11" FontWeight="Bold"/>
-                                        <TextBlock Text="{Binding ClaudeVm.LongReset}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0"/>
+                                        <TextBlock Text="{Binding ClaudeVm.LongReset}" Foreground="#8B92B3" FontSize="11" Margin="6,0,0,0"/>
                                     </StackPanel>
                                 </Grid>
                                 <!-- 페이스 마커 오버레이 (7일) — 5시간과 동일 구조 -->
@@ -734,7 +735,7 @@
                                     </Grid>
                                 </Grid>
                             </Grid>
-                            <TextBlock Text="{Binding ClaudeVm.LongSummary}" Foreground="#8B92B3" FontSize="10" Margin="0,3,0,0"/>
+                            
 
                             <!-- 모델 한정 한도 (Sonnet · Fable 등, #187) — 창마다 한 줄. 행 구조는 Codex 추가 한도 목록과 같고 색은 Claude.
                                  기본 게이지와 달리 페이스 오버레이(주황 초과분)는 두지 않는다 — 한 줄짜리 보조 게이지라 Codex·Antigravity 행과 맞춘다.
@@ -986,25 +987,25 @@
                                 <Border Style="{StaticResource StatBox}" Margin="0,0,4,4">
                                     <StackPanel>
                                         <TextBlock Text="{Binding LblInput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
-                                        <TextBlock Text="{Binding TodayInputTokens, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}" Foreground="#A78BFA"/>
+                                        <TextBlock Text="{Binding TodayInputTokens, Converter={StaticResource CompactNumber}}" ToolTip="{Binding TodayInputTokens, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}" Foreground="#A78BFA"/>
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource StatBox}" Margin="4,0,0,4">
                                     <StackPanel>
                                         <TextBlock Text="{Binding LblOutput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
-                                        <TextBlock Text="{Binding TodayOutputTokens, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}" Foreground="#60A5FA"/>
+                                        <TextBlock Text="{Binding TodayOutputTokens, Converter={StaticResource CompactNumber}}" ToolTip="{Binding TodayOutputTokens, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}" Foreground="#60A5FA"/>
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource StatBox}" Margin="0,4,4,0">
                                     <StackPanel>
                                         <TextBlock Text="{Binding LblCacheRead}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
-                                        <TextBlock Text="{Binding TodayCacheRead, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}" Foreground="#34D399" FontSize="13"/>
+                                        <TextBlock Text="{Binding TodayCacheRead, Converter={StaticResource CompactNumber}}" ToolTip="{Binding TodayCacheRead, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}" Foreground="#34D399"/>
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource StatBox}" Margin="4,4,0,0">
                                     <StackPanel>
                                         <TextBlock Text="{Binding LblCacheWrite}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
-                                        <TextBlock Text="{Binding TodayCacheWrite, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}" Foreground="#FBBF24" FontSize="13"/>
+                                        <TextBlock Text="{Binding TodayCacheWrite, Converter={StaticResource CompactNumber}}" ToolTip="{Binding TodayCacheWrite, StringFormat={}{0:N0}}" Style="{StaticResource StatValue}" Foreground="#FBBF24"/>
                                     </StackPanel>
                                 </Border>
                             </UniformGrid>
@@ -1045,10 +1046,10 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="{Binding CodexShortWindowLabel}" Foreground="#F1F5F9" FontSize="10.5"/>
+                            <TextBlock Grid.Column="0" Text="{Binding CodexShortWindowLabel}" Foreground="#F1F5F9" FontSize="11.5" ToolTip="{Binding CodexSummary}"/>
                             <StackPanel Grid.Column="1" Orientation="Horizontal">
                                 <TextBlock Text="{Binding CodexPercent, StringFormat={}{0:P0}}" Foreground="#6EE7B7" FontSize="11" FontWeight="Bold"/>
-                                <TextBlock Text="{Binding CodexReset}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0"/>
+                                <TextBlock Text="{Binding CodexReset}" Foreground="#8B92B3" FontSize="11" Margin="6,0,0,0"/>
                             </StackPanel>
                         </Grid>
                         <!-- 시간선 마커: 창 진행률 위치에 세로선. 창 길이는 응답의 window_minutes 기준. -->
@@ -1063,7 +1064,7 @@
                                         Visibility="{Binding HasCodexShortTimeline, Converter={StaticResource BoolToVisibility}}"/>
                             </Grid>
                         </Grid>
-                        <TextBlock Text="{Binding CodexSummary}" Foreground="#8B92B3" FontSize="10" Margin="0,4,0,10"/>
+                        <Border Height="10"/>
 
                         <!-- v1.26.0: 장기 윈도우 (secondary) — 응답에 데이터 있을 때만 노출 -->
                         <StackPanel Visibility="{Binding IsCodexLongVisible, Converter={StaticResource BoolToVisibility}}">
@@ -1072,7 +1073,7 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="{Binding CodexLongWindowLabel}" Foreground="#F1F5F9" FontSize="10.5"/>
+                                <TextBlock Grid.Column="0" Text="{Binding CodexLongWindowLabel}" Foreground="#F1F5F9" FontSize="11.5" ToolTip="{Binding CodexLongSummary}"/>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal">
                                     <TextBlock Text="{Binding CodexLongPercent, StringFormat={}{0:P0}}" Foreground="#6EE7B7" FontSize="11" FontWeight="Bold"/>
                                     <TextBlock Text="{Binding CodexLongReset}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0"/>
@@ -1089,7 +1090,6 @@
                                             Visibility="{Binding HasCodexLongTimeline, Converter={StaticResource BoolToVisibility}}"/>
                                 </Grid>
                             </Grid>
-                            <TextBlock Text="{Binding CodexLongSummary}" Foreground="#8B92B3" FontSize="10" Margin="0,4,0,0"/>
                         </StackPanel>
 
                         <!-- 추가 한도 (이미지 생성 등, #182) — 창마다 한 줄. 행 구조는 Antigravity 게이지 목록과 같고 색은 Codex.
@@ -1176,7 +1176,7 @@
                                     Visibility="{Binding CodexOutputLabel, Converter={StaticResource StringToVisibility}, ConverterParameter=dash}">
                                 <StackPanel>
                                     <TextBlock Text="{Binding LblOutput}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
-                                    <TextBlock Text="{Binding CodexOutputLabel}" Style="{StaticResource StatValue}" Foreground="#34D399" FontSize="13"/>
+                                    <TextBlock Text="{Binding CodexOutputLabel}" Style="{StaticResource StatValue}" Foreground="#34D399"/>
                                 </StackPanel>
                             </Border>
                             <Border Style="{StaticResource StatBox}" Margin="0,0,0,0"
@@ -1372,7 +1372,7 @@
                             <Border Style="{StaticResource StatBox}" Margin="4,4,0,0">
                                 <StackPanel>
                                     <TextBlock Text="{Binding LblCacheWrite}" Style="{StaticResource StatLabel}" Foreground="#8B92B3"/>
-                                    <TextBlock Text="{Binding OpenCodeCacheWriteLabel}" Style="{StaticResource StatValue}" Foreground="#FBBF24" FontSize="13"/>
+                                    <TextBlock Text="{Binding OpenCodeCacheWriteLabel}" Style="{StaticResource StatValue}" Foreground="#FBBF24"/>
                                 </StackPanel>
                             </Border>
                         </UniformGrid>
@@ -1501,30 +1501,9 @@
                         <TextBlock Grid.Column="1" Text="{Binding UpdateCheckLabel}" Foreground="#A78BFA" FontSize="9"
                                    Margin="6,0,8,0" VerticalAlignment="Center" TextWrapping="Wrap"
                                    Visibility="{Binding UpdateCheckLabel, Converter={StaticResource StringToVisibility}}"/>
-                        <!-- 우측: 설정 + 종료 -->
+                        <!-- 우측: 종료 -->
                         <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                            <Button Click="SettingsBtn_Click" Cursor="Hand" Margin="0,0,10,0">
-                                <Button.Style>
-                                    <Style TargetType="Button">
-                                        <Setter Property="Background" Value="Transparent"/>
-                                        <Setter Property="BorderThickness" Value="0"/>
-                                        <Setter Property="Template">
-                                            <Setter.Value>
-                                                <ControlTemplate TargetType="Button">
-                                                    <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="2">
-                                                        <TextBlock x:Name="Icon" Text="⚙" Foreground="#5A5F7A" FontSize="13" VerticalAlignment="Center"/>
-                                                    </Border>
-                                                    <ControlTemplate.Triggers>
-                                                        <Trigger Property="IsMouseOver" Value="True">
-                                                            <Setter TargetName="Icon" Property="Foreground" Value="#A78BFA"/>
-                                                        </Trigger>
-                                                    </ControlTemplate.Triggers>
-                                                </ControlTemplate>
-                                            </Setter.Value>
-                                        </Setter>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
+                            <!-- 설정은 머리글 톱니로만 연다 — 같은 버튼이 위아래 두 군데 있으면 화면이 산만했다(#224) -->
                             <Button Click="QuitBtn_Click" Cursor="Hand">
                                 <Button.Style>
                                     <Style TargetType="Button">

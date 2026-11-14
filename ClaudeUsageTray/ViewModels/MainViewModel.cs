@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ClaudeUsageTray.Models;
 using ClaudeUsageTray.Services;
+using ClaudeUsageTray.Services.Mobile;
 using ClaudeUsageTray.Services.Forecasts;
 using ClaudeUsageTray.Views;
 using Timer = System.Timers.Timer;
@@ -389,6 +390,14 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private int _usageSyncLocalSnapshotTtlHours = UsageSyncService.DefaultLocalSnapshotTtlHours;
     [ObservableProperty] private string _usageSyncStatusLabel = Loc.UsageSyncDisabled;
 
+    // 휴대폰 연동(#220)
+    [ObservableProperty] private bool _mobileEnabled;
+    [ObservableProperty] private bool _mobileLan = true;
+    [ObservableProperty] private bool _mobileTailscale = true;
+
+    /// <summary>휴대폰 연동(서버·페어링·사용량 피드). 설정 창의 "휴대폰 연결" 창이 이것을 쓴다.</summary>
+    public MobileLinkService Mobile { get; } = new();
+
     // v1.27.0 표시 옵션 토글 (v1.41.0: Codex 전용 → 전 공급자 공통)
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsCodexPlanBadgeVisible))]
@@ -667,6 +676,9 @@ namespace ClaudeUsageTray.ViewModels;
         UsageSyncApiSnapshotTtlMinutes = Math.Max(1, s.UsageSyncApiSnapshotTtlMinutes);
         UsageSyncLocalSnapshotTtlHours = Math.Max(1, s.UsageSyncLocalSnapshotTtlHours);
         RefreshUsageSyncStatus();
+        MobileEnabled = s.MobileEnabled;
+        MobileLan = s.MobileLan;
+        MobileTailscale = s.MobileTailscale;
         TrayDisplayMode = UsageProviderKind.IsValid(s.TrayDisplayMode) ? s.TrayDisplayMode : UsageProviderKind.Auto;
         HideInactiveProviders = s.HideInactiveProviders;
 
@@ -873,7 +885,7 @@ namespace ClaudeUsageTray.ViewModels;
         // Preserve SkippedVersion / AutoUpdateAttemptedVersion from disk
         var existing = _settingsService.Load();
 
-        _settingsService.Save(new NotificationSettings
+        var saved = new NotificationSettings
         {
             SelectedProvider = SelectedProvider,
             Language = SelectedLanguage,
@@ -927,7 +939,39 @@ namespace ClaudeUsageTray.ViewModels;
             WeatherOfficialAlertsEnabled      = WeatherOfficialAlertsEnabled,
             WeatherForecastSource             = WeatherForecastSource,
             WeatherForecastModel              = WeatherForecastModel,
-        });
+
+            MobileEnabled      = MobileEnabled,
+            MobileLan          = MobileLan,
+            MobileTailscale    = MobileTailscale,
+            // 파일에서만 바꾸는 값은 디스크 값을 보존한다.
+            MobilePort         = existing.MobilePort,
+            MobileBindLoopback = existing.MobileBindLoopback,
+        };
+        _settingsService.Save(saved);
+        ApplyMobileSettings(saved);
+    }
+
+    /// <summary>
+    /// Input : 방금 저장한 설정
+    /// Output: 없음
+    /// 핵심 로직: 서버 시작·중지와 함께, 화면에서 끈 provider 를 휴대폰 피드에서도 바로 뺀다 —
+    ///           끈 provider 는 더 갱신되지 않으므로 그냥 두면 휴대폰에 6시간 동안 옛 값이 남는다.
+    /// </summary>
+    private void ApplyMobileSettings(NotificationSettings settings)
+    {
+        try
+        {
+            Mobile.Feed.Retain(settings.VisibleProviders);
+            Mobile.Apply(settings);
+        }
+        catch (Exception ex)
+        {
+            // 휴대폰 연동 실패가 설정 저장·사용량 표시를 막지 않게 한다.
+#if DEBUG
+            Debug.WriteLine($"[MainViewModel] mobile apply failed: {ex}");
+#endif
+            GC.KeepAlive(ex);
+        }
     }
 
     public async Task StartAsync()
@@ -938,6 +982,8 @@ namespace ClaudeUsageTray.ViewModels;
         // 업데이트 확인은 사용량 갱신과 독립적으로 진행한다. RefreshAsync() 뒤에 붙여 두면 모든 공급자와
         // 날씨 조회가 끝날 때까지 확인이 시작조차 못 하고, 그 사이 실패하면 24시간 동안 재시도가 없었다.
         _ = RunStartupUpdateCheckAsync();
+
+        ApplyMobileSettings(_settingsService.Load());
 
         await RefreshAsync();
         _timer.Start();
@@ -1669,8 +1715,102 @@ namespace ClaudeUsageTray.ViewModels;
     internal static bool HasRecentAntigravityUsage(IReadOnlyList<QuotaGaugeRow> models) =>
         models.Any(m => m.Window is { } window && window <= TimeSpan.FromHours(5) && m.UsagePercent > 0);
 
+    /// <summary>화면에서 켠 provider 만 휴대폰에 보낸다 — 사용자가 숨긴 provider 를 휴대폰에서 다시 보지 않게.</summary>
+    private bool IsMobileProviderVisible(string provider) => provider switch
+    {
+        UsageProviderKind.Claude => IsClaudeEnabled,
+        UsageProviderKind.Codex => IsCodexEnabled,
+        UsageProviderKind.OpenCode => IsOpenCodeEnabled,
+        UsageProviderKind.Antigravity => IsAntigravityEnabled,
+        _ => false,
+    };
+
+    /// <summary>
+    /// Claude 의 휴대폰용 계정 키. 기존 동기화·기록은 orgUuid 를 계정으로 쓰지만, Team·Enterprise 조직은 여러 사람이
+    /// 같은 orgUuid 를 쓰고 할당량은 사람마다 따로다. 휴대폰은 "같은 계정이면 한 카드" 로 합치므로 다른 사람을
+    /// 합치지 않게 accountUuid 를 덧붙인다(읽지 못하면 orgUuid 만 — 기존 동기화와 같은 기준).
+    /// </summary>
+    internal static string? BuildClaudeMobileAccountKey(string? orgUuid, string? accountUuid)
+    {
+        if (string.IsNullOrWhiteSpace(orgUuid)) return null;
+        return string.IsNullOrWhiteSpace(accountUuid) ? orgUuid.Trim() : $"{orgUuid.Trim()}|{accountUuid.Trim()}";
+    }
+
+    /// <summary>
+    /// Input : provider, 계정 키, 표시 이름, 할당량 생성기, 오늘 합계, 오류 종류
+    /// Output: 없음(휴대폰 피드 갱신)
+    /// 핵심 로직: 동기화 폴더와 무관하게 늘 넣는다(휴대폰만 쓰는 사용자도 있다). 할당량은 동기화용과 따로 만든다 —
+    ///           동기화 쪽이 같은 객체의 관측 시각을 채워 넣으므로 공유하면 두 경로가 서로 영향을 준다.
+    ///           실패해도 사용량 갱신 흐름을 끊지 않는다.
+    /// </summary>
+    private void PublishMobile(
+        string provider,
+        string? accountKey,
+        string accountLabel,
+        Func<UsageSyncQuotaSnapshot?> quota,
+        UsageSyncLocalTotals? today,
+        string? errorKind)
+    {
+        try
+        {
+            Mobile.Publish(provider, accountKey, accountLabel, quota(), today, errorKind ?? "");
+        }
+        catch (Exception ex)
+        {
+#if DEBUG
+            Debug.WriteLine($"[MainViewModel] mobile publish failed for {provider}: {ex}");
+#endif
+            GC.KeepAlive(ex);
+        }
+    }
+
     private bool IsUsageSyncReady =>
         UsageSyncEnabled && !string.IsNullOrWhiteSpace(UsageSyncFolderPath);
+
+    /// <summary>공유 폴더 동기화든 PC 직접 동기화(#223)든 하나라도 켜져 있는가.</summary>
+    private bool IsAnySyncActive => IsUsageSyncReady || Mobile.IsPeerSyncActive;
+
+    /// <summary>공유 폴더가 없으면 빈 문자열 — SelectQuotaCandidates 가 어제 폴더를 읽지 않게.</summary>
+    private string SyncFolderOrEmpty => IsUsageSyncReady ? UsageSyncFolderPath : "";
+
+    /// <summary>
+    /// Input : 이 PC 가 방금 만든 스냅샷, provider·계정 키·오늘 날짜, 계정을 모를 때 그룹의 계정으로 대신할지
+    /// Output: (오늘 스냅샷들 — 토큰 합산용, 할당량 후보 풀 — 어제 것까지)
+    /// 핵심 로직: 두 동기화 경로를 한 목록으로 합친다. 공유 폴더 → 쓰고 읽는다(기존과 같음). PC 직접 동기화 → 이 PC 값을 그룹에
+    ///           내보내고(PublishLocal) 다른 PC 값을 받는다. 같은 PC 가 두 경로로 다 들어오면 더 새로운 것 하나만 남긴다 —
+    ///           그렇지 않으면 그 PC 의 토큰이 두 번 더해진다.
+    ///           계정 키가 없는 PC(Claude Code 미설치·로그아웃)는 그룹에서 가장 최근에 관측된 계정을 대신 보여 준다(#223) —
+    ///           공유 폴더는 계정 해시로 폴더가 나뉘어 이 경우 아무것도 못 읽었다.
+    /// </summary>
+    private (IReadOnlyList<UsageSyncSnapshot> Today, IReadOnlyList<UsageSyncSnapshot> QuotaPool) GatherSyncSnapshots(
+        UsageSyncSnapshot local, string provider, string? accountKey, DateOnly today, bool fallbackToAnyAccount)
+    {
+        var collected = new List<UsageSyncSnapshot>();
+        if (IsUsageSyncReady)
+        {
+            _usageSync.WriteSnapshot(UsageSyncFolderPath, local);
+            collected.AddRange(_usageSync.ReadSnapshots(UsageSyncFolderPath, provider, accountKey, today).Snapshots);
+            UsageSyncStatusLabel = Loc.UsageSyncReady;
+        }
+        else
+        {
+            collected.Add(local);
+        }
+
+        var peers = Mobile.PeerSync;
+        peers.PublishLocal(local);
+        var hash = local.AccountHash;
+        if (fallbackToAnyAccount && string.IsNullOrWhiteSpace(accountKey) && peers.MostRecentAccountHash(provider) is { } groupHash)
+            hash = groupHash;
+        collected.AddRange(peers.Read(provider, hash, today));
+
+        var todaySnapshots = collected
+            .GroupBy(s => s.DeviceId, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderByDescending(s => s.ObservedAtUtc).First())
+            .ToList();
+        IReadOnlyList<UsageSyncSnapshot> pool = [.. todaySnapshots, .. peers.Read(provider, hash, today.AddDays(-1))];
+        return (todaySnapshots, pool);
+    }
 
     private TimeSpan UsageSyncApiTtl =>
         TimeSpan.FromMinutes(Math.Clamp(UsageSyncApiSnapshotTtlMinutes, 1, 60));
@@ -1697,7 +1837,10 @@ namespace ClaudeUsageTray.ViewModels;
         out UsageSyncMergedLocalTotals? mergedTotals)
     {
         mergedTotals = null;
-        if (!IsUsageSyncReady)
+        if (IsMobileProviderVisible(UsageProviderKind.Claude))
+            PublishMobile(UsageProviderKind.Claude, BuildClaudeMobileAccountKey(accountKey, _claudeAccount.GetAccountUuid()),
+                _claudeAccount.GetLabel(), () => CreateClaudeQuotaSnapshot(usage, modelLimits), CreateLocalTotals(sessionStats), errorKind);
+        if (!IsAnySyncActive)
             return UsageSyncQuotaCandidates.None;
 
         try
@@ -1708,16 +1851,15 @@ namespace ClaudeUsageTray.ViewModels;
                 CreateClaudeQuotaSnapshot(usage, modelLimits),
                 CreateLocalTotals(sessionStats),
                 errorKind);
-            _usageSync.WriteSnapshot(UsageSyncFolderPath, snapshot);
-
             var today = DateOnly.FromDateTime(DateTime.Now);
-            var read = _usageSync.ReadSnapshots(UsageSyncFolderPath, UsageProviderKind.Claude, accountKey, today);
-            mergedTotals = _usageSync.MergeLocalTotals(read.Snapshots, UsageSyncLocalTtl);
-            UsageSyncStatusLabel = Loc.UsageSyncReady;
+            // Claude Code 에 로그인하지 않은 PC(계정 키 없음)도 그룹의 다른 PC 가 본 계정을 보여 준다(#223).
+            var (todaySnapshots, quotaPool) = GatherSyncSnapshots(snapshot, UsageProviderKind.Claude, accountKey, today,
+                fallbackToAnyAccount: true);
+            mergedTotals = _usageSync.MergeLocalTotals(todaySnapshots, UsageSyncLocalTtl);
             // 신선한 값과 최후 폴백(로컬 API 가 실패/쿨다운 중일 때만 쓴다)을 함께 고른다.
             // 선택 규칙은 모든 provider 가 UsageSyncService.SelectQuotaCandidates 하나를 공유한다.
             return _usageSync.SelectQuotaCandidates(
-                UsageSyncFolderPath, UsageProviderKind.Claude, accountKey, today, read.Snapshots, UsageSyncApiTtl);
+                SyncFolderOrEmpty, UsageProviderKind.Claude, accountKey, today, quotaPool, UsageSyncApiTtl);
         }
         catch (Exception ex)
         {
@@ -1737,7 +1879,12 @@ namespace ClaudeUsageTray.ViewModels;
         string provider,
         ProviderUsageSnapshot snapshot)
     {
-        if (!IsUsageSyncReady)
+        if (IsMobileProviderVisible(provider))
+            PublishMobile(provider,
+                provider == UsageProviderKind.Codex ? CodexUsageMonitor.GetCurrentAccountIdentity() : null,
+                "", () => CreateProviderQuotaSnapshot(provider, snapshot), CreateLocalTotals(snapshot),
+                ClassifyProviderError(snapshot.ErrorMessage));
+        if (!IsAnySyncActive)
             return UsageSyncProviderResult.Empty;
 
         try
@@ -1748,20 +1895,17 @@ namespace ClaudeUsageTray.ViewModels;
                 CreateProviderQuotaSnapshot(provider, snapshot),
                 CreateLocalTotals(snapshot),
                 ClassifyProviderError(snapshot.ErrorMessage));
-            _usageSync.WriteSnapshot(UsageSyncFolderPath, localSnapshot);
-
             var today = DateOnly.FromDateTime(DateTime.Now);
-            var read = _usageSync.ReadSnapshots(UsageSyncFolderPath, provider, null, today);
-            UsageSyncStatusLabel = Loc.UsageSyncReady;
+            var (todaySnapshots, quotaPool) = GatherSyncSnapshots(localSnapshot, provider, null, today, fallbackToAnyAccount: false);
             return new UsageSyncProviderResult(
-                _usageSync.MergeLocalTotals(read.Snapshots, UsageSyncLocalTtl),
+                _usageSync.MergeLocalTotals(todaySnapshots, UsageSyncLocalTtl),
                 // 할당량은 합산하지 않는다 — 계정 단위 값이라 가장 최근에 관측한 PC 것을 쓴다.
                 // OpenCode 는 공식 웹 할당량만 공유한다.
                 UsageSyncSharesAccountQuota(provider)
                     ? _usageSync.SelectQuotaCandidates(
-                        UsageSyncFolderPath, provider, null, today, read.Snapshots, UsageSyncQuotaTtl(provider))
+                        SyncFolderOrEmpty, provider, null, today, quotaPool, UsageSyncQuotaTtl(provider))
                     : UsageSyncQuotaCandidates.None,
-                read.Snapshots);
+                todaySnapshots);
         }
         catch (Exception ex)
         {
@@ -3317,6 +3461,7 @@ namespace ClaudeUsageTray.ViewModels;
         _timer.Dispose();
         _countdownTimer.Dispose();
         _updateTimer.Dispose();
+        Mobile.Dispose();
         CancelClaudeLoginWatch();
         GC.SuppressFinalize(this);
     }
@@ -3428,7 +3573,13 @@ namespace ClaudeUsageTray.ViewModels;
     /// </summary>
     private UsageSyncQuotaCandidates TrySyncAntigravityQuota()
     {
-        if (!IsUsageSyncReady)
+        if (IsMobileProviderVisible(UsageProviderKind.Antigravity))
+        {
+            var mobileLocal = AntigravityVm.LastSnapshot;
+            PublishMobile(UsageProviderKind.Antigravity, null, "", () => CreateAntigravityQuotaSnapshot(mobileLocal), null,
+                mobileLocal.HasData ? "" : ClassifyProviderError(mobileLocal.ErrorMessage));
+        }
+        if (!IsAnySyncActive)
             return UsageSyncQuotaCandidates.None;
 
         try
@@ -3440,13 +3591,10 @@ namespace ClaudeUsageTray.ViewModels;
                 CreateAntigravityQuotaSnapshot(local),
                 new UsageSyncLocalTotals(),
                 local.HasData ? "" : ClassifyProviderError(local.ErrorMessage));
-            _usageSync.WriteSnapshot(UsageSyncFolderPath, snapshot);
-
             var today = DateOnly.FromDateTime(DateTime.Now);
-            var read = _usageSync.ReadSnapshots(UsageSyncFolderPath, UsageProviderKind.Antigravity, null, today);
-            UsageSyncStatusLabel = Loc.UsageSyncReady;
+            var (_, quotaPool) = GatherSyncSnapshots(snapshot, UsageProviderKind.Antigravity, null, today, fallbackToAnyAccount: false);
             return _usageSync.SelectQuotaCandidates(
-                UsageSyncFolderPath, UsageProviderKind.Antigravity, null, today, read.Snapshots, UsageSyncApiTtl);
+                SyncFolderOrEmpty, UsageProviderKind.Antigravity, null, today, quotaPool, UsageSyncApiTtl);
         }
         catch (Exception ex)
         {

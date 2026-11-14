@@ -3,6 +3,60 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.53.0] - 2026-11-14
+
+<!-- ko -->
+### 추가
+- **휴대폰(Android) 앱에서 여러 PC의 사용량을 계정 단위로 실시간으로 봅니다 (#220)** — 설정 → **연결** → **이 PC에 연결 허용**을 켜고 **휴대폰 연결… (QR 표시)**를 누르면 QR이 나옵니다. 휴대폰 앱으로 스캔하면 그 PC가 등록되고, 앱이 화면에 보이는 동안 사용량이 바뀔 때마다 바로 반영됩니다. 연결 구조는 Homebase의 휴대폰 연동을 그대로 따릅니다.
+  - **계정 단위로 묶입니다**: 같은 계정을 쓰는 PC들은 한 카드로 합쳐집니다(PC 3대 중 2대가 계정 A, 1대가 계정 B면 카드 2개). 할당량은 가장 최근에 관측한 PC 값을 쓰고, 오늘 토큰은 PC마다 더합니다. Claude는 계정(조직+사용자), Codex는 로그인 계정으로 구분하며, 계정을 알 수 없는 Antigravity·OpenCode는 잘못 합치지 않도록 PC별로 따로 보입니다.
+  - **중계 서버 없이 직접 연결합니다**: 같은 Wi-Fi에서는 QR에 담긴 PC 인증서만 믿는 TLS로, 밖에서는 Tailscale로 붙습니다.
+  - **보안**: QR 코드는 5분·1회용이고 5분에 10번 틀리면 잠깁니다. PC는 토큰의 해시만 저장하고, 원시 계정 ID·이메일은 휴대폰에 보내지 않습니다.
+  - **방화벽**: 연결 창의 **방화벽 규칙 추가(관리자)**를 한 번 누르면 이 exe·포트로 한정한 규칙(LAN은 '개인' 네트워크에서만)을 넣습니다. 기본은 꺼져 있고, 켜야 포트(47830)를 엽니다.
+  - **휴대폰 앱 설치**: 이 릴리스의 `ClaudeUsageTray-Mobile.apk`를 휴대폰에서 받아 설치합니다(Android 8.0+). 앱이 없을 때 PC의 QR을 휴대폰 카메라로 찍으면 설치 안내 페이지가 열립니다.
+- **QR 연결만으로 휴대폰 알림까지 연결됩니다 (#222)** — 휴대폰에 ntfy 앱이 있으면 PC를 QR로 연결하는 순간 알림도 켜집니다. 토픽 이름을 정하거나 입력할 필요가 없습니다.
+  - 사용량 경고·조기 소진·레이트 리밋·초기화·날씨 알림이 휴대폰 앱으로 옵니다. 내용은 PC에서 종단 암호화(RFC 8291)되어 ntfy 서버는 암호문만 봅니다.
+  - 여러 PC가 같은 계정의 같은 사건을 보내도 휴대폰에는 한 번만 뜹니다.
+  - 앱의 **알림** 탭에서 받을 알림 종류를 고르면 PC가 보내기 전에 거릅니다.
+  - **기존 ntfy 토픽 이전**: 앱 알림을 받는 휴대폰이 있으면 PC는 평문 토픽으로 보내지 않습니다. 토픽은 앱 알림이 실패하거나 앱이 없을 때(iOS 등)의 대체 경로로만 쓰입니다. 설정 → 알림에 지금 어느 경로로 가는지 표시됩니다.
+- **공유 폴더 없이 '동기화 코드'로 PC끼리 사용량을 합칩니다 (#223)** — 한 PC의 설정 → 연결 → **이 PC의 동기화 코드 복사**를 누르고, 다른 PC의 같은 화면에 붙여 넣으면 두 PC가 직접 연결됩니다.
+  - 한 PC에만 연결해도 그룹 전체가 공유됩니다(B·C가 A에 연결하면 B와 C도 서로의 값을 받습니다).
+  - **Claude Code가 없는 PC도** 그룹의 다른 PC가 본 Claude 사용량을 보여 줍니다.
+  - 같은 Wi-Fi·LAN이나 Tailscale로 닿아야 합니다. 다른 네트워크의 PC는 기존 공유 폴더 동기화를 함께 쓸 수 있고, 두 경로의 값은 하나로 합쳐집니다.
+
+### 개선
+- **설정 창과 사용량 창을 정리했습니다 (#224)**
+  - 설정 창 제목을 "설정"으로 바꾸고 폭을 넓혀 탭이 잘리지 않게 했습니다. 설명 글자도 조금 키웠습니다.
+  - 휴대폰·PC 동기화·공유 폴더 동기화를 새 **연결** 탭에 모았습니다. 일반 탭이 짧아졌습니다.
+  - ntfy 탭을 **알림** 탭에 합쳤습니다.
+  - 사용량 창: 게이지 아래에 같은 숫자를 한 번 더 쓰던 요약 줄은 라벨에 마우스를 올리면 보이게 옮겼습니다. 토큰 수는 "2.5M"처럼 줄여 보이고 정확한 값은 툴팁에 남겼습니다. 위아래 두 군데 있던 설정 버튼은 위쪽 하나만 남겼습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **See every PC's usage per account, live, in the Android phone app (#220)** — Open Settings → **Connect**, turn on **Allow connections to this PC**, and click **Connect phone… (show QR)**. Scan the QR with the phone app to add the PC; while the app is on screen, usage changes show up right away. The design follows Homebase's phone link.
+  - **Grouped by account**: PCs that use the same account are merged into one card (three PCs, two on account A and one on account B → two cards). Quota uses the most recent observation; today's tokens are added up across PCs. Claude is identified by account (organization + user), Codex by its login; Antigravity and OpenCode can't be identified, so they appear per PC instead of being merged by mistake.
+  - **Direct, no relay server**: on the same Wi-Fi via TLS that trusts only the PC certificate from the QR; away from home via Tailscale.
+  - **Security**: QR codes work once for 5 minutes and lock after 10 wrong tries. The PC stores only token hashes and never sends raw account IDs or emails.
+  - **Firewall**: one click on **Add firewall rules (admin)** adds rules limited to this exe and port (LAN on Private networks only). Off by default; port 47830 opens only when it's on.
+  - **Install the phone app**: download `ClaudeUsageTray-Mobile.apk` from this release on the phone (Android 8.0+). Without the app, scanning the PC's QR with the phone camera opens an install guide.
+- **Pairing by QR also sets up phone alerts (#222)** — With the ntfy app on the phone, alerts turn on the moment a PC is paired. No topic to choose or type.
+  - Usage thresholds, early exhaustion, rate limits, resets and weather alerts arrive in the phone app, end-to-end encrypted on the PC (RFC 8291); the ntfy server only sees ciphertext.
+  - When several PCs report the same event for one account, the phone shows it once.
+  - Choose which alerts to receive in the app's **Alerts** tab; PCs filter before sending.
+  - **Old ntfy topic migrated**: when a phone receives app alerts, the PC stops posting to the plaintext topic. The topic remains only as a fallback when app delivery fails or there's no app (e.g. iOS). Settings → Alerts shows which path is in use.
+- **Sync PCs with a 'sync code' instead of a shared folder (#223)** — Click **Copy this PC's sync code** in Settings → Connect on one PC and paste it on another PC's same screen; the two PCs link directly.
+  - Linking to one PC shares with the whole group (if B and C link to A, B and C also get each other's values).
+  - **A PC without Claude Code** still shows the Claude usage the group observed.
+  - PCs must reach each other over the same Wi-Fi/LAN or Tailscale. For PCs on other networks, keep using shared-folder sync alongside; values from both paths are merged.
+
+### Improved
+- **Cleaner settings and usage windows (#224)**
+  - The settings window is titled "Settings" and is wider so tabs no longer clip; descriptions are slightly larger.
+  - Phone, PC sync and shared-folder sync now live in a new **Connect** tab, so the General tab is shorter.
+  - The ntfy tab is merged into **Alerts**.
+  - Usage window: the summary line that repeated the gauge's numbers moved into the label's tooltip; token counts show as "2.5M" with the exact value in a tooltip; the duplicate settings button at the bottom is gone (the one at the top remains).
+<!-- /en -->
+
 ## [1.52.0] - 2026-11-11
 
 <!-- ko -->

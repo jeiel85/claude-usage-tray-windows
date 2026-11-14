@@ -16,3 +16,14 @@ Thumbs.db
 publish/
 publish2/
 publish3/
+
+# Android (mobile/)
+mobile/.gradle/
+mobile/build/
+mobile/app/build/
+mobile/local.properties
+mobile/.kotlin/
+mobile/release-signing.properties
+.keystore/
+*.jks
+*.keystore

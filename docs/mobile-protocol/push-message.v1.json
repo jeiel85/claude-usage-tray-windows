@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "id": "5b0e1c2d3f4a49b8a1c2d3e4f5a6b7c8",
+  "pcId": "0123456789abcdef0123456789abcdef",
+  "pcName": "HOME-PC",
+  "category": "usage",
+  "priority": "warning",
+  "title": "Claude \uC0AC\uC6A9\uB7C9 \uACBD\uACE0",
+  "body": "5\uC2DC\uAC04 \uCC3D \uC0AC\uC6A9\uB7C9\uC774 90%\uC5D0 \uB3C4\uB2EC\uD588\uC2B5\uB2C8\uB2E4 \u00B7 1h 12m \uD6C4 \uCD08\uAE30\uD654",
+  "eventKey": "claude-usage-short-90-a1b2c3_1794620400",
+  "eventToleranceSec": 300,
+  "ts": "2026-11-14T03:00:00+00:00"
+}

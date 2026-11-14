@@ -26,6 +26,7 @@ public sealed class ClaudeAccountProfileReader
     private DateTime _cachedWriteTimeUtc;
     private long _cachedLength = -1;
     private string _cachedLabel = "";
+    private string? _cachedAccountUuid;
 
     /// <param name="path">프로필 파일 경로. null 이면 ~/.claude.json (테스트용 주입점).</param>
     public ClaudeAccountProfileReader(string? path = null) => _path = path ?? DefaultPath;
@@ -39,30 +40,51 @@ public sealed class ClaudeAccountProfileReader
     {
         lock (_gate)
         {
-            var file = new FileInfo(_path);
-            if (!file.Exists)
-            {
-                _cachedLength = -1;
-                _cachedLabel = "";
-                return "";
-            }
-
-            if (file.LastWriteTimeUtc == _cachedWriteTimeUtc && file.Length == _cachedLength)
-                return _cachedLabel;
-
-            if (!TryRead(out var label))
-                return _cachedLabel;
-
-            _cachedWriteTimeUtc = file.LastWriteTimeUtc;
-            _cachedLength = file.Length;
-            _cachedLabel = label;
-            return label;
+            RefreshLocked();
+            return _cachedLabel;
         }
     }
 
-    private bool TryRead(out string label)
+    /// <summary>
+    /// 이 PC 에 로그인한 Claude 계정의 accountUuid(휴대폰에서 같은 계정을 알아보는 데만 쓴다 — 해시로만 나간다, #220).
+    /// 읽지 못하면 null. 파일 캐시는 <see cref="GetLabel"/> 과 공유한다.
+    /// </summary>
+    public string? GetAccountUuid()
+    {
+        lock (_gate)
+        {
+            RefreshLocked();
+            return _cachedAccountUuid;
+        }
+    }
+
+    private void RefreshLocked()
+    {
+        var file = new FileInfo(_path);
+        if (!file.Exists)
+        {
+            _cachedLength = -1;
+            _cachedLabel = "";
+            _cachedAccountUuid = null;
+            return;
+        }
+
+        if (file.LastWriteTimeUtc == _cachedWriteTimeUtc && file.Length == _cachedLength)
+            return;
+
+        if (!TryRead(out var label, out var accountUuid))
+            return;
+
+        _cachedWriteTimeUtc = file.LastWriteTimeUtc;
+        _cachedLength = file.Length;
+        _cachedLabel = label;
+        _cachedAccountUuid = accountUuid;
+    }
+
+    private bool TryRead(out string label, out string? accountUuid)
     {
         label = "";
+        accountUuid = null;
         try
         {
             using var stream = new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
@@ -71,6 +93,7 @@ public sealed class ClaudeAccountProfileReader
                 && doc.RootElement.TryGetProperty("oauthAccount", out var account)
                 && account.ValueKind == JsonValueKind.Object)
             {
+                accountUuid = ReadString(account, "accountUuid")?.Trim() is { Length: > 0 } uuid ? uuid : null;
                 label = FormatLabel(
                     ReadString(account, "displayName") ?? ReadString(account, "fullName"),
                     ReadString(account, "organizationName"),

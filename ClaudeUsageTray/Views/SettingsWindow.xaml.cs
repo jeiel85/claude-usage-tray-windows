@@ -31,6 +31,7 @@ public partial class SettingsWindow : Window, IDisposable
 
         Loc.LanguageChanged += OnLanguageChanged;
         _vm.PropertyChanged += OnVmPropertyChanged;
+        _vm.Mobile.Changed += OnMobileChanged;
 
         // v1.27.0: 컨텐츠 크기 변경(탭 전환/언어 변경/표시 옵션 추가 등) 시 우하단 앵커 자동 유지
         // — popup 과 동일하게 작업표시줄 침범 방지 (UsagePopup 의 OnSizeChangedKeepAnchor 와 같은 패턴)
@@ -116,7 +117,7 @@ public partial class SettingsWindow : Window, IDisposable
 
     private void ApplyLocalization()
     {
-        TitleText.Text                      = Loc.Notifications;
+        TitleText.Text                      = Loc.Settings;
         LblGeneral.Text                     = Loc.NotificationsEnabled;
         ChkEnabled.Content                  = Loc.NotificationsEnabled;
         ChkRateLimit.Content                = Loc.NotifyRateLimit;
@@ -148,6 +149,13 @@ public partial class SettingsWindow : Window, IDisposable
         LblUsageSyncFolder.Text             = Loc.UsageSyncFolder;
         BtnUsageSyncBrowse.Content          = Loc.UsageSyncBrowse;
         UpdateUsageSyncStatusLabel();
+        LblMobileTitle.Text                 = Loc.MobileTitle;
+        ChkMobileEnabled.Content            = Loc.MobileEnabled;
+        LblMobileDescription.Text           = Loc.MobileDescription;
+        ChkMobileLan.Content                = Loc.MobilePathLan;
+        ChkMobileTailscale.Content          = Loc.MobilePathTailscale;
+        BtnMobileConnect.Content            = Loc.MobileConnectButton;
+        UpdateMobileStatusLabel();
         LangItemSystem.Content              = Loc.LanguageSystem;
         LblTrayDisplayMode.Text             = Loc.TrayDisplayMode;
         ChkHideInactive.Content             = Loc.HideInactiveProviders;
@@ -198,7 +206,15 @@ public partial class SettingsWindow : Window, IDisposable
             "ja" => "通知",
             _ => "Alerts"
         };
-        TabNtfy.Header = "ntfy";
+        TabConnect.Header = Loc.TabConnect;
+        LblPhoneAlertsTitle.Text   = Loc.PhoneAlertsTitle;
+        LblPeerSyncTitle.Text      = Loc.PeerSyncTitle;
+        LblPeerSyncDescription.Text = Loc.PeerSyncDescription;
+        BtnPeerSyncCopy.Content    = Loc.PeerSyncCopyCode;
+        LblPeerSyncPaste.Text      = Loc.PeerSyncPasteLabel;
+        BtnPeerSyncJoin.Content    = Loc.PeerSyncJoin;
+        UpdatePhoneAlertsStatus();
+        UpdatePeerSyncList();
 
         // 날씨 탭
         TabWeather.Header = Loc.WeatherTab;
@@ -278,6 +294,10 @@ public partial class SettingsWindow : Window, IDisposable
         ChkUsageSyncEnabled.IsChecked    = _vm.UsageSyncEnabled;
         TxtUsageSyncFolder.Text          = _vm.UsageSyncFolderPath;
         UpdateUsageSyncStatusLabel();
+        ChkMobileEnabled.IsChecked       = _vm.MobileEnabled;
+        ChkMobileLan.IsChecked           = _vm.MobileLan;
+        ChkMobileTailscale.IsChecked     = _vm.MobileTailscale;
+        UpdateMobileStatusLabel();
         SliderPolling.Value = _vm.PollingIntervalMinutes > 0 ? _vm.PollingIntervalMinutes : 2;
         UpdatePollingLabel((int)SliderPolling.Value);
         ChkAutoUpdateEnabled.IsChecked   = _vm.AutoUpdateEnabled;
@@ -371,6 +391,9 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.AutoUpdateEnabled     = ChkAutoUpdateEnabled.IsChecked == true;
         _vm.UsageSyncEnabled      = ChkUsageSyncEnabled.IsChecked == true;
         _vm.UsageSyncFolderPath   = TxtUsageSyncFolder.Text.Trim();
+        _vm.MobileEnabled         = ChkMobileEnabled.IsChecked == true;
+        _vm.MobileLan             = ChkMobileLan.IsChecked == true;
+        _vm.MobileTailscale       = ChkMobileTailscale.IsChecked == true;
 
         if (CmbTrayDisplayMode.SelectedItem is ComboBoxItem modeItem)
             _vm.TrayDisplayMode = modeItem.Tag?.ToString() ?? UsageProviderKind.Auto;
@@ -399,8 +422,153 @@ public partial class SettingsWindow : Window, IDisposable
 
         UpdateTrayModeAvailability();
         _vm.SaveSettingsCommand.Execute(null);
+        UpdateMobileStatusLabel();
         FlashSavedIndicator();
         _ = _vm.RefreshAsync();
+    }
+
+    /// <summary>
+    /// 휴대폰 연동 줄의 상태 문구와 하위 체크박스 활성 여부. 서버 바인딩은 백그라운드에서 끝나므로
+    /// 여기 문구는 "지금 아는 것" 만 보이고, 자세한 경로·QR 은 연결 창에서 실시간으로 보인다.
+    /// </summary>
+    private void UpdateMobileStatusLabel()
+    {
+        var enabled = ChkMobileEnabled.IsChecked == true;
+        ChkMobileLan.IsEnabled = enabled;
+        ChkMobileTailscale.IsEnabled = enabled;
+        BtnMobileConnect.IsEnabled = enabled;
+        var devices = _vm.Mobile.Devices?.List().Count ?? 0;
+        LblMobileStatus.Text = enabled ? Loc.MobileStatusPaired(devices) : Loc.MobileStatusOff;
+    }
+
+    /// <summary>서버 상태·기기 목록·PC 동기화 연결이 바뀌면(스레드풀에서 올 수 있다) 연결 탭과 알림 상태를 다시 그린다.</summary>
+    private void OnMobileChanged() => Dispatcher.BeginInvoke(() =>
+    {
+        if (_disposed) return;
+        UpdateMobileStatusLabel();
+        UpdatePeerSyncList();
+        UpdatePhoneAlertsStatus();
+    });
+
+    /// <summary>
+    /// 알림 탭의 "휴대폰 알림" 상태. 앱 푸시가 등록된 휴대폰이 있으면 그쪽이 기본 경로이고 ntfy 토픽은 대체 경로임을 알린다(#222).
+    /// </summary>
+    private void UpdatePhoneAlertsStatus()
+    {
+        var phones = _vm.Mobile.Devices?.List().Count(d => d.HasPush) ?? 0;
+        LblPhoneAlertsStatus.Text = _vm.Mobile.HasTargets ? Loc.PhoneAlertsViaApp(phones) : Loc.PhoneAlertsNoApp;
+    }
+
+    /// <summary>
+    /// 연결 탭의 PC 목록 — 이 PC 가 코드로 연결한 PC(해제 가능)와, 다른 PC 가 이 PC 에 연결해 둔 것(이 PC 에서 해제 가능).
+    /// </summary>
+    private void UpdatePeerSyncList()
+    {
+        var rows = new List<PeerRow>();
+        foreach (var p in _vm.Mobile.Peers.Status())
+        {
+            var detail = p.Connected
+                ? Loc.PeerSyncConnected(p.Via ?? "")
+                : p.LastError == "revoked" ? Loc.PeerSyncRevoked : Loc.PeerSyncNotConnected;
+            rows.Add(new PeerRow("out:" + p.Peer.PcId, p.Peer.PcName, detail,
+                p.Connected ? ConnectedDot : p.LastError == "revoked" ? ErrorDot : IdleDot, Loc.PeerSyncRemove));
+        }
+        foreach (var d in _vm.Mobile.Devices?.List().Where(d => d.Kind == Services.Mobile.MobileDeviceKind.Pc) ?? [])
+            rows.Add(new PeerRow("in:" + d.DeviceId, d.Name, Loc.PeerSyncIncoming, IdleDot, Loc.PeerSyncRemove));
+        PeerSyncList.ItemsSource = rows;
+    }
+
+    private static readonly System.Windows.Media.Brush ConnectedDot = Frozen(0x10, 0xB9, 0x81);
+    private static readonly System.Windows.Media.Brush IdleDot = Frozen(0x5A, 0x5F, 0x7A);
+    private static readonly System.Windows.Media.Brush ErrorDot = Frozen(0xEF, 0x44, 0x44);
+
+    private static System.Windows.Media.Brush Frozen(byte r, byte g, byte b)
+    {
+        var brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(r, g, b));
+        brush.Freeze();
+        return brush;
+    }
+
+    private sealed record PeerRow(string Key, string Title, string Detail, System.Windows.Media.Brush Dot, string RemoveLabel);
+
+    /// <summary>
+    /// 이 PC 의 동기화 코드를 클립보드에 복사한다. 휴대폰 QR 과 같은 일회용 코드라(5분·1회용) 받는 PC 가 바로 붙여 넣어야 한다.
+    /// 연결이 꺼져 있거나 열린 경로가 없으면 코드를 만들 수 없다 — 다른 PC 가 이 PC 에 닿아야 하기 때문이다.
+    /// </summary>
+    private void BtnPeerSyncCopy_Click(object sender, RoutedEventArgs e)
+    {
+        var code = _vm.Mobile.CreateSyncCode();
+        if (code is null)
+        {
+            ShowPeerResult(LblPeerSyncCopyResult, Loc.PeerSyncCodeUnavailable);
+            return;
+        }
+        try
+        {
+            System.Windows.Clipboard.SetText(code);
+            ShowPeerResult(LblPeerSyncCopyResult, Loc.PeerSyncCopied);
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            ShowPeerResult(LblPeerSyncCopyResult, Loc.PeerSyncCopyFailed);
+        }
+    }
+
+    private async void BtnPeerSyncJoin_Click(object sender, RoutedEventArgs e)
+    {
+        var code = TxtPeerSyncCode.Text;
+        if (string.IsNullOrWhiteSpace(code)) return;
+        BtnPeerSyncJoin.IsEnabled = false;
+        ShowPeerResult(LblPeerSyncJoinResult, Loc.PeerSyncJoining);
+        try
+        {
+            var name = await _vm.Mobile.Peers.JoinAsync(code);
+            TxtPeerSyncCode.Text = "";
+            ShowPeerResult(LblPeerSyncJoinResult, Loc.PeerSyncJoined(name));
+            _vm.Mobile.Peers.Reconcile();
+            _ = _vm.RefreshAsync();
+        }
+        catch (Services.Mobile.PeerJoinException ex)
+        {
+            ShowPeerResult(LblPeerSyncJoinResult, ex.Code switch
+            {
+                "not_a_code" => Loc.PeerSyncErrNotACode,
+                "self" => Loc.PeerSyncErrSelf,
+                "code_expired" => Loc.PeerSyncErrExpired,
+                "locked" => Loc.PeerSyncErrLocked,
+                _ => Loc.PeerSyncErrInvalid,
+            });
+        }
+        catch (Exception ex)
+        {
+            ShowPeerResult(LblPeerSyncJoinResult, Loc.PeerSyncErrUnreachable(ex.Message));
+        }
+        finally
+        {
+            BtnPeerSyncJoin.IsEnabled = true;
+            UpdatePeerSyncList();
+        }
+    }
+
+    private void BtnPeerSyncRemove_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: string key }) return;
+        if (key.StartsWith("out:", StringComparison.Ordinal)) _vm.Mobile.Peers.Remove(key[4..]);
+        else if (key.StartsWith("in:", StringComparison.Ordinal)) _vm.Mobile.Devices?.Revoke(key[3..]);
+        UpdatePeerSyncList();
+    }
+
+    private static void ShowPeerResult(TextBlock label, string text)
+    {
+        label.Text = text;
+        label.Visibility = string.IsNullOrEmpty(text) ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void BtnMobileConnect_Click(object sender, RoutedEventArgs e)
+    {
+        var window = new MobileConnectWindow(_vm.Mobile) { Owner = this };
+        window.ShowDialog();
+        UpdateMobileStatusLabel();
     }
 
     private void UpdateUsageSyncStatusLabel()
@@ -518,7 +686,9 @@ public partial class SettingsWindow : Window, IDisposable
         BtnTestNotification.IsEnabled = false;
 
         var result = await _vm.SendTestNotificationAsync();
-        BtnTestNotification.Content = result.NtfyAttempted
+        BtnTestNotification.Content = result.AppPush == Services.Mobile.AppPushResult.Delivered
+            ? Loc.TestNotificationSentApp
+            : result.NtfyAttempted
             ? result.NtfySucceeded ? Loc.TestNotificationSent : Loc.TestNotificationFailedNtfy
             : hasNtfy && !sendsNtfyFromThisPc
                 ? Loc.TestNotificationSentNtfyDisabled
@@ -734,6 +904,9 @@ public partial class SettingsWindow : Window, IDisposable
             _vm.NtfyTopic             = preservedNtfyTopic; // 사용자 토픽 보존
             _vm.UsageSyncEnabled      = false;
             _vm.UsageSyncFolderPath   = "";
+            _vm.MobileEnabled         = false;
+            _vm.MobileLan             = true;
+            _vm.MobileTailscale       = true;
             _vm.AutoUpdateEnabled     = true;
             _vm.AutoUpdateCountdownSeconds = AppConstants.DefaultAutoUpdateCountdownSeconds;
 
@@ -757,6 +930,10 @@ public partial class SettingsWindow : Window, IDisposable
             ChkNtfySendFromThisPc.IsChecked = _vm.NtfySendFromThisPc;
             ChkUsageSyncEnabled.IsChecked = _vm.UsageSyncEnabled;
             TxtUsageSyncFolder.Text       = _vm.UsageSyncFolderPath;
+            ChkMobileEnabled.IsChecked    = _vm.MobileEnabled;
+            ChkMobileLan.IsChecked        = _vm.MobileLan;
+            ChkMobileTailscale.IsChecked  = _vm.MobileTailscale;
+            UpdateMobileStatusLabel();
             ChkAutoUpdateEnabled.IsChecked  = _vm.AutoUpdateEnabled;
             SliderAutoUpdateCountdown.Value = _vm.AutoUpdateCountdownSeconds;
             UpdateAutoUpdateCountdownLabel(_vm.AutoUpdateCountdownSeconds);
@@ -1055,6 +1232,7 @@ public partial class SettingsWindow : Window, IDisposable
         {
             Loc.LanguageChanged -= OnLanguageChanged;
             _vm.PropertyChanged -= OnVmPropertyChanged;
+            _vm.Mobile.Changed -= OnMobileChanged;
         }
 
         _disposed = true;
