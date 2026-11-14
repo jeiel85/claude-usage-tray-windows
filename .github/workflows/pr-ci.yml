@@ -31,6 +31,29 @@ jobs:
       - name: Test
         run: dotnet test ClaudeUsageTray.Tests/ClaudeUsageTray.Tests.csproj -c Release --logger "console;verbosity=normal"
 
+      # 창을 이미지로 렌더링해(#224) 아티팩트로 올리고, 아티팩트를 받을 수 없는 리뷰 환경을 위해 로그에도 base64 로 남긴다.
+      - name: Render UI snapshots
+        env:
+          CUT_UI_SNAPSHOT_DIR: ${{ runner.temp }}\ui
+        run: dotnet test ClaudeUsageTray.Tests/ClaudeUsageTray.Tests.csproj -c Release --no-build --filter "Category=UiSnapshot"
+
+      - name: Print UI snapshots
+        shell: pwsh
+        run: |
+          Get-ChildItem "$env:RUNNER_TEMP\ui\*.jpg" | ForEach-Object {
+            "=====BEGIN $($_.Name)====="
+            $b = [Convert]::ToBase64String([IO.File]::ReadAllBytes($_.FullName))
+            for ($i = 0; $i -lt $b.Length; $i += 4000) { $b.Substring($i, [Math]::Min(4000, $b.Length - $i)) }
+            "=====END $($_.Name)====="
+          }
+
+      - name: Upload UI snapshots
+        uses: actions/upload-artifact@v6
+        with:
+          name: ui-snapshots
+          path: ${{ runner.temp }}\ui\*.jpg
+          if-no-files-found: ignore
+
   android:
     runs-on: ubuntu-latest
     steps:
