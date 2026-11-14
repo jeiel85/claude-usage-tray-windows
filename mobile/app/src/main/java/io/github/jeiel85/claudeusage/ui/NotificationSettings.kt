@@ -95,7 +95,7 @@ private fun enablePush(context: Context, distributor: String) {
 }
 
 /** Asked once per process, so declining doesn't bring the dialog back every two seconds. */
-private object NotificationAsk {
+internal object NotificationAsk {
     var asked = false
 }
 

@@ -191,14 +191,15 @@ private fun DisplaySettings() {
 
 /**
  * 앱 업데이트 카드(#228). 알림 권한이 없으면 확인은 돌아도 알림이 뜨지 않으므로, 그 사실과 고칠 길을 카드 안에서 준다 —
- * 처음엔 권한을 묻고, 이미 거부돼 다시 물을 수 없으면 앱 알림 설정을 연다.
+ * 처음엔 권한을 묻고, 이미 물었으면 앱 알림 설정을 연다. "이미 물었는가" 는 [NotificationAsk] 를 함께 쓴다(Codex 리뷰):
+ * 자동 설정·알림 설정이 이미 물었는데 이 카드가 또 물으면, 여러 번 거부한 사용자에게는 Android 가 창을 띄우지 않아 첫 탭이
+ * 아무 일도 하지 않는다.
  */
 @Composable
 private fun UpdateCard() {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     var canNotify by remember { mutableStateOf(PushNotifier.canNotify(context)) }
-    var asked by remember { mutableStateOf(false) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         canNotify = PushNotifier.canNotify(context)
     }
@@ -209,8 +210,8 @@ private fun UpdateCard() {
     UpdateSurface.SettingsCard(
         canNotify = canNotify,
         onAllowNotifications = {
-            if (Build.VERSION.SDK_INT >= 33 && !asked) {
-                asked = true
+            if (Build.VERSION.SDK_INT >= 33 && !NotificationAsk.asked) {
+                NotificationAsk.asked = true
                 permission.launch(Manifest.permission.POST_NOTIFICATIONS)
             } else {
                 openNotificationSettings(context)
