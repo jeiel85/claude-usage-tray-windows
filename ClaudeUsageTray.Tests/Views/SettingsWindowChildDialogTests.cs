@@ -32,24 +32,30 @@ public class SettingsWindowChildDialogTests : IDisposable
         await WpfTestHost.RunAsync(() =>
         {
             var vm = CreateViewModel();
+            SettingsWindow? settings = null;
+            Window? child = null;
+            var childClosed = false;
             try
             {
-                var settings = new SettingsWindow(vm) { Left = -10000, Top = -10000 };
+                settings = new SettingsWindow(vm) { Left = -10000, Top = -10000 };
                 settings.Show();
 
-                var child = new Window { Owner = settings, Left = -10000, Top = -10000, ShowActivated = false };
+                child = new Window { Owner = settings, Left = -10000, Top = -10000, ShowActivated = false };
                 child.Show();
                 RaiseDeactivated(settings);
                 Assert.True(settings.IsVisible, "자식 창으로 포커스가 넘어간 것은 바깥 클릭이 아니다 — 설정 창이 숨으면 안 된다.");
 
                 child.Close();
+                childClosed = true;
                 RaiseDeactivated(settings);
                 Assert.False(settings.IsVisible, "자식 창이 없을 때 비활성화되면 지금처럼 숨어야 한다.");
-
-                settings.Close();
             }
             finally
             {
+                // 단언이 실패해도 창을 닫고, SettingsWindow 가 정적 Loc.LanguageChanged 에 남지 않게 Dispose 한다.
+                if (!childClosed) child?.Close();
+                settings?.Close();
+                settings?.Dispose();
                 vm.Dispose();
             }
         });
