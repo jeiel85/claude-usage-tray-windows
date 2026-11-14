@@ -28,6 +28,9 @@ import io.github.jeiel85.claudeusage.ui.PushAutoSetup
 import io.github.jeiel85.claudeusage.ui.AppTheme
 import io.github.jeiel85.claudeusage.ui.HomeScreen
 import io.github.jeiel85.claudeusage.ui.PairScreen
+import io.github.jeiel85.claudeusage.update.UpdateCheckScheduler
+import io.github.jeiel85.claudeusage.update.UpdateNotifier
+import io.github.jeiel85.claudeusage.update.UpdateSurface
 import io.github.jeiel85.claudeusage.ui.Palette
 import kotlinx.coroutines.launch
 
@@ -43,6 +46,11 @@ class MainActivity : ComponentActivity() {
         )
         super.onCreate(savedInstanceState)
         pairingLink = if (savedInstanceState == null) intent.pairingLink() else savedInstanceState.getString(KEY_PAIRING_LINK)
+        // Opened from the "new version" notification (#228): the home banner opens the update dialog right away.
+        // Not on recreation (rotation) — the request was already consumed then.
+        if (savedInstanceState == null && intent.opensUpdate()) UpdateSurface.requestOpen()
+        // Keep the background update check scheduled (or cancelled) to match the user's choice.
+        UpdateCheckScheduler.sync(this)
 
         val store = PcStore(this)
         val api = UsageApi(networks = NetworkProbe(this)::current)
@@ -108,7 +116,10 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         intent.pairingLink()?.let { pairingLink = it }
+        if (intent.opensUpdate()) UpdateSurface.requestOpen()
     }
+
+    private fun Intent?.opensUpdate(): Boolean = this?.getBooleanExtra(UpdateNotifier.EXTRA_OPEN_UPDATE, false) == true
 
     private fun Intent?.pairingLink(): String? =
         this?.takeIf { it.action == Intent.ACTION_VIEW }?.dataString?.takeIf(PairingLink::isLink)

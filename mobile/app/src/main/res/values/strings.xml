@@ -74,4 +74,33 @@
     <string name="cat_weather_desc">Forecast and warnings, if enabled on the PC</string>
     <string name="cat_test">Test</string>
     <string name="cat_other">Other</string>
+
+    <!-- App updates (#228) -->
+    <string name="update_banner">New version %1$s — tap to update</string>
+    <string name="update_settings_title">App updates</string>
+    <string name="update_current_version">Installed: %1$s</string>
+    <string name="update_settings_description">Checks GitHub Releases for a new version once a day and notifies you once. Installing only happens when you tap it: the APK is checked against its SHA-256 and handed to the Android installer.</string>
+    <string name="update_check_now">Check now</string>
+    <string name="update_notifications_off">Notifications are off, so new versions only show inside the app — allow</string>
+    <string name="update_result_available">Version %1$s is available — see the banner on the Accounts tab</string>
+    <string name="update_result_latest">You have the latest version (%1$s)</string>
+    <string name="update_result_failed">Couldn\'t check for updates. Check the network, or no update is published for this build yet.</string>
+    <string name="update_notification_title">Claude Usage %1$s is available</string>
+    <string name="update_notification_text">Tap to see what changed and install.</string>
+    <string name="update_channel_name">App updates</string>
+    <string name="update_channel_description">Tells you once when a new version of this app is out</string>
+    <string name="update_dialog_title">Update</string>
+    <string name="update_dialog_offer">Download and install Claude Usage %1$s (%2$s)?</string>
+    <string name="update_dialog_notes">What\'s new</string>
+    <string name="update_dialog_skip">Skip this version</string>
+    <string name="update_dialog_permission">To install updates, allow this app to \"Install unknown apps\" in Settings, then come back.</string>
+    <string name="update_dialog_downloading">Downloading…</string>
+    <string name="update_dialog_failed">Download or verification failed. Try again, or download it in the browser.</string>
+    <string name="update_dialog_browser">Open in browser</string>
+    <string name="update_dialog_update">Update</string>
+    <string name="update_dialog_open_settings">Open settings</string>
+    <string name="update_dialog_retry">Try again</string>
+    <string name="update_dialog_close">Close</string>
+    <string name="update_dialog_reinstall">This copy was installed from a temporary (debug) build, so Android won\'t let it update in place. Uninstall it once and install the APK from the release page — after that, updates install from inside the app. Paired PCs need to be added again.</string>
+    <string name="update_dialog_release_page">Open release page</string>
 </resources>

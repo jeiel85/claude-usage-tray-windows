@@ -13,6 +13,14 @@ val cutVersion = providers.gradleProperty("cut.version").orElse("1.53.0").get()
 val cutVersionCode = cutVersion.split('.', '-').take(3).map { it.toIntOrNull() ?: 0 }
     .let { (maj, min, pat) -> maj * 10000 + min * 100 + pat }
 
+// --- Update manifest (#228) -----------------------------------------------------------------
+// The in-app updater reads releases/latest/download/update.json — a fixed URL that redirects to the newest
+// release, so it never changes between versions. Debug builds can point at a local server for an
+// end-to-end check: -Pcut.updateManifestUrl=http://10.0.2.2:8000/update.json -Pcut.updateAllowHttp=true
+val defaultManifestUrl = "https://github.com/jeiel85/claude-usage-tray-windows/releases/latest/download/update.json"
+val debugManifestUrl = providers.gradleProperty("cut.updateManifestUrl").orElse(defaultManifestUrl).get()
+val debugAllowHttp = providers.gradleProperty("cut.updateAllowHttp").orElse("false").get()
+
 // --- Release signing --------------------------------------------------------------------------
 // Values come from CI secrets (environment) or a git-ignored release-signing.properties. Without
 // them the release build is unsigned and the release workflow skips the APK.
@@ -41,6 +49,8 @@ android {
         targetSdk = 35
         versionCode = cutVersionCode
         versionName = cutVersion
+        buildConfigField("String", "UPDATE_MANIFEST_URL", "\"$defaultManifestUrl\"")
+        buildConfigField("boolean", "UPDATE_ALLOW_HTTP", "false")
     }
 
     signingConfigs {
@@ -55,6 +65,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "UPDATE_MANIFEST_URL", "\"$debugManifestUrl\"")
+            buildConfigField("boolean", "UPDATE_ALLOW_HTTP", debugAllowHttp)
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -70,6 +84,7 @@ android {
     kotlinOptions { jvmTarget = "17" }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     dependenciesInfo {
         includeInApk = false

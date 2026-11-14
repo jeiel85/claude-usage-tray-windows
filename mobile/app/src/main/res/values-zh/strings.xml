@@ -74,4 +74,33 @@
     <string name="cat_weather_desc">如在电脑上开启，则为预报和预警</string>
     <string name="cat_test">测试</string>
     <string name="cat_other">其他</string>
+
+    <!-- App updates (#228) -->
+    <string name="update_banner">新版本 %1$s — 点击更新</string>
+    <string name="update_settings_title">应用更新</string>
+    <string name="update_current_version">已安装: %1$s</string>
+    <string name="update_settings_description">每天在 GitHub Releases 检查一次新版本，有新版本时通过通知提醒一次。只有在你点击时才会安装：下载的 APK 会先核对 SHA-256，再交给 Android 安装界面。</string>
+    <string name="update_check_now">立即检查</string>
+    <string name="update_notifications_off">通知已关闭，新版本只会在应用内显示 — 允许通知</string>
+    <string name="update_result_available">有新版本 %1$s — 请点击账户标签上方的横幅</string>
+    <string name="update_result_latest">已是最新版本 (%1$s)</string>
+    <string name="update_result_failed">无法检查更新。请检查网络。(也可能这个版本的更新尚未发布)</string>
+    <string name="update_notification_title">Claude Usage %1$s 更新</string>
+    <string name="update_notification_text">点击查看更新内容并安装。</string>
+    <string name="update_channel_name">应用更新</string>
+    <string name="update_channel_description">本应用有新版本时提醒一次</string>
+    <string name="update_dialog_title">更新</string>
+    <string name="update_dialog_offer">下载并安装 Claude Usage %1$s (%2$s)?</string>
+    <string name="update_dialog_notes">查看更新内容</string>
+    <string name="update_dialog_skip">跳过此版本</string>
+    <string name="update_dialog_permission">要安装更新，需要允许本应用\"安装未知应用\"。请在设置中允许后返回。</string>
+    <string name="update_dialog_downloading">正在下载…</string>
+    <string name="update_dialog_failed">下载或校验失败。请重试，或在浏览器中直接下载。</string>
+    <string name="update_dialog_browser">在浏览器中打开</string>
+    <string name="update_dialog_update">更新</string>
+    <string name="update_dialog_open_settings">打开设置</string>
+    <string name="update_dialog_retry">重试</string>
+    <string name="update_dialog_close">关闭</string>
+    <string name="update_dialog_reinstall">当前安装的是临时(调试)签名版本，Android 不会在其上安装更新。请先卸载一次，再安装发布页面上的 APK — 之后即可在应用内更新。已连接的电脑需要重新添加。</string>
+    <string name="update_dialog_release_page">打开发布页面</string>
 </resources>

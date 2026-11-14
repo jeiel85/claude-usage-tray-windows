@@ -109,6 +109,7 @@ git fetch origin && git pull origin master && git status
 ## 📜 최근 변경 이력 요약
 *상세 내용은 [CHANGELOG.md](./CHANGELOG.md) 참조*
 
+- **v1.55.0**: 휴대폰 앱 자동 업데이트(#228) — Homebase `update/` 이식(하루 1회 `update.json`, 배너·알림 1회, SHA-256 대조 후 `ACTION_INSTALL_PACKAGE`). `update.json`은 정식 서명 릴리스에만 붙인다(디버그 키는 빌드마다 달라 업데이트 설치 불가). `docs/MOBILE_UPDATES.md`.
 - **v1.54.0**: Tailscale 없이 밖에서 연결(#225) — `cloudflared` 하위 프로세스(Quick Tunnel/이름 있는 터널), 루프백 평문 리스너, 서명된 경로 갱신 푸시(HMAC, 키 = 기기 토큰 해시). `CloudflareTunnel.cs`·`EndpointAnnouncer.cs`.
 - **v1.53.0**: 휴대폰(Android) 앱 연동(#220) — QR 페어링, LAN(TLS 핀)·Tailscale 직결, 계정 해시로 여러 PC를 계정 단위로 묶어 실시간 표시. 앱은 `mobile/`, 프로토콜은 `docs/MOBILE_PROTOCOL.md`.
 - **v1.21.8**: 일일 목표 설정 제거 및 자동화(7일 최대치 기반), 설정 화면 정리.
