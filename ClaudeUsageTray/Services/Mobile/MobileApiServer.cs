@@ -52,6 +52,7 @@ public sealed class MobileApiServer : IDisposable
     private readonly MobileUsageFeed _feed;
     private readonly MobileDeviceStore _devices;
     private readonly PairingService _pairing;
+    private readonly PeerSyncHub? _sync;
     private readonly string _pcName;
     private readonly SemaphoreSlim _connections = new(MaxConnections);
     private readonly object _gate = new();
@@ -67,11 +68,13 @@ public sealed class MobileApiServer : IDisposable
     /// <summary>상태가 바뀌면(바인딩 성공·실패·주소 변경) 알린다. 설정 창의 QR 을 새 경로로 다시 만들 때 쓴다.</summary>
     public event Action? StatusChanged;
 
-    public MobileApiServer(MobileUsageFeed feed, MobileDeviceStore devices, PairingService pairing, string? pcName = null)
+    public MobileApiServer(MobileUsageFeed feed, MobileDeviceStore devices, PairingService pairing, string? pcName = null,
+        PeerSyncHub? sync = null)
     {
         _feed = feed;
         _devices = devices;
         _pairing = pairing;
+        _sync = sync;
         _pcName = string.IsNullOrWhiteSpace(pcName) ? Environment.MachineName : pcName.Trim();
     }
 
@@ -391,6 +394,11 @@ public sealed class MobileApiServer : IDisposable
             await HandleLiveAsync(stream, r.Head, ct);
             return;
         }
+        if (r.Head.Path == "/api/v1/sync" && r.Head.Method == "GET" && _sync is not null)
+        {
+            await HandleSyncAsync(stream, r.Head, _sync, ct);
+            return;
+        }
 
         byte[]? body = null;
         if (r.Head.Method == "POST")
@@ -536,6 +544,79 @@ public sealed class MobileApiServer : IDisposable
                 await socket.SendAsync(bytes, WebSocketMessageType.Text, endOfMessage: true, linked.Token);
             }
             while (await sub.WaitAsync(LiveHeartbeat, linked.Token));
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) when (ex is WebSocketException or IOException) { }
+        finally
+        {
+            linked.Cancel();
+            if (socket.State == WebSocketState.Open)
+            {
+                try { await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "bye", CancellationToken.None); }
+                catch (Exception ex) when (ex is WebSocketException or IOException) { }
+            }
+            await receive;
+        }
+    }
+
+    /// <summary>
+    /// PC 동기화(#223). 연결한 PC(동기화 코드로 페어링한 기기)와 같은 소켓으로 양방향 가십을 주고받는다 —
+    /// 그쪽 PC 는 열려 있지 않아도(포트·방화벽) 이 PC 에만 닿으면 두 PC 가 서로의 사용량을 갖는다.
+    /// 해제된 기기는 다음 전송 전에 1008 "revoked" 로 끊는다(실시간 화면과 같은 규칙).
+    /// </summary>
+    private async Task HandleSyncAsync(Stream stream, HttpRequestHead head, PeerSyncHub sync, CancellationToken ct)
+    {
+        var device = _devices.Authenticate(head.BearerToken() ?? "");
+        if (device is null)
+        {
+            var (status, json) = Unauthorized();
+            await MiniHttp.WriteResponseAsync(stream, status, json, ct);
+            return;
+        }
+        if (!head.IsWebSocketUpgrade)
+        {
+            await MiniHttp.WriteResponseAsync(stream, 400, Error("bad_request", "WebSocket upgrade required."), ct);
+            return;
+        }
+
+        await MiniHttp.WriteUpgradeAsync(stream, head.Header("Sec-WebSocket-Key")!, ct);
+        using var socket = WebSocket.CreateFromStream(stream, new WebSocketCreationOptions
+        {
+            IsServer = true,
+            KeepAliveInterval = TimeSpan.FromSeconds(15),
+        });
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        using var signal = new SemaphoreSlim(0, 1);
+        using var subscription = sync.OnChanged(() => { if (signal.CurrentCount == 0) signal.Release(); });
+        var receive = Task.Run(async () =>
+        {
+            try
+            {
+                while (socket.State == WebSocketState.Open)
+                {
+                    var bytes = await PeerSyncClient.ReceiveMessageAsync(socket, linked.Token);
+                    if (bytes is null) break;
+                    PeerSyncClient.ApplyFrame(sync, bytes);
+                }
+            }
+            catch (Exception ex) when (ex is WebSocketException or OperationCanceledException or IOException) { }
+            finally { linked.Cancel(); }
+        }, CancellationToken.None);
+
+        try
+        {
+            while (!linked.IsCancellationRequested)
+            {
+                if (!_devices.IsPaired(device.DeviceId))
+                {
+                    await socket.CloseOutputAsync(WebSocketCloseStatus.PolicyViolation, RevokedCloseReason, CancellationToken.None);
+                    break;
+                }
+                var frame = new SyncFrame(MobileProtocol.Schema, SyncFrame.FrameKind, _devices.PcId, _pcName, sync.Snapshot());
+                await socket.SendAsync(JsonSerializer.SerializeToUtf8Bytes(frame, MobileProtocol.Json),
+                    WebSocketMessageType.Text, endOfMessage: true, linked.Token);
+                await signal.WaitAsync(LiveHeartbeat, linked.Token);
+            }
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) when (ex is WebSocketException or IOException) { }

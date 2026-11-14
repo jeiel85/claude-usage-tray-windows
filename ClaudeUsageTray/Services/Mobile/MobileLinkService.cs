@@ -20,11 +20,58 @@ public sealed class MobileLinkService : IDisposable, IAppPushSender
 
     public MobileUsageFeed Feed { get; } = new();
 
+    /// <summary>PC 직접 동기화(#223)의 공유 표 — 이 PC 가 아는 모든 PC 의 최신 스냅샷.</summary>
+    public PeerSyncHub PeerSync { get; } = new();
+
+    private readonly Lazy<SyncPeerStore> _peerStore;
+    private PeerSyncClient? _peerClient;
+
     /// <summary>서버 상태나 기기 목록이 바뀌면 알린다(설정 창·연결 창 갱신용, 스레드풀에서 올 수 있다).</summary>
     public event Action? Changed;
 
-    public MobileLinkService(Func<MobileDeviceStore>? storeFactory = null) =>
+    public MobileLinkService(Func<MobileDeviceStore>? storeFactory = null, Func<SyncPeerStore>? peerStoreFactory = null)
+    {
         _storeFactory = storeFactory ?? (() => new MobileDeviceStore());
+        _peerStore = new Lazy<SyncPeerStore>(peerStoreFactory ?? (() => new SyncPeerStore()));
+    }
+
+    /// <summary>
+    /// PC 직접 동기화가 쓰이고 있는가: 이 PC 가 연결해 둔 PC 가 있거나, 다른 PC 가 이 PC 에 연결해 두었거나,
+    /// 이미 다른 PC 의 값을 받았다. 아니면 MainViewModel 은 예전처럼 동기화를 건너뛴다.
+    /// </summary>
+    public bool IsPeerSyncActive =>
+        _peerStore.Value.All().Count > 0
+        || (Devices?.List().Any(d => d.Kind == MobileDeviceKind.Pc) ?? false)
+        || PeerSync.RemoteDeviceCount > 0;
+
+    /// <summary>동기화 코드로 연결한 PC 목록과 연결 상태.</summary>
+    public PeerSyncClient Peers
+    {
+        get
+        {
+            lock (_gate)
+            {
+                if (_peerClient is not null) return _peerClient;
+                _peerClient = new PeerSyncClient(PeerSync, _peerStore.Value, () => EnsureStore().PcId);
+                _peerClient.Changed += () => Changed?.Invoke();
+                return _peerClient;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 다른 PC 에 붙일 동기화 코드. 휴대폰 QR 과 같은 일회용 오퍼라, 서버가 꺼져 있거나 열린 경로가 없으면 null.
+    /// </summary>
+    public string? CreateSyncCode() => Server?.CreateOffer() is { } offer ? PairingLink.Build(offer) : null;
+
+    private MobileDeviceStore EnsureStore()
+    {
+        lock (_gate)
+        {
+            _store ??= _storeFactory();
+            return _store;
+        }
+    }
 
     public MobileApiServer? Server
     {
@@ -52,6 +99,8 @@ public sealed class MobileLinkService : IDisposable, IAppPushSender
     {
         var wanted = settings.MobileEnabled && (settings.MobileLan || settings.MobileTailscale || settings.MobileBindLoopback);
         lock (_gate) _enabled = wanted;
+        // 연결해 둔 PC 와의 동기화는 이 PC 의 포트를 열지 않아도 된다(이 PC 가 여는 쪽) — 기능 토글과 무관하게 이어 간다.
+        Peers.Reconcile();
         if (!wanted)
         {
             Server?.Stop();
@@ -83,9 +132,9 @@ public sealed class MobileLinkService : IDisposable, IAppPushSender
         lock (_gate)
         {
             if (_server is not null) return _server;
-            _store = _storeFactory();
+            _store ??= _storeFactory();
             _pairing = new PairingService(_store);
-            _server = new MobileApiServer(Feed, _store, _pairing);
+            _server = new MobileApiServer(Feed, _store, _pairing, sync: PeerSync);
             _push = new AppPushSender(_store, PushHttp, Environment.MachineName);
             _store.Changed += () => Changed?.Invoke();
             _server.StatusChanged += () => Changed?.Invoke();
@@ -142,6 +191,7 @@ public sealed class MobileLinkService : IDisposable, IAppPushSender
 
     public void Dispose()
     {
+        _peerClient?.Dispose();
         Server?.Dispose();
     }
 }
