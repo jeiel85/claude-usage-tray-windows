@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.58.2] - 2026-11-15
+
+<!-- ko -->
+### 수정
+- **휴대폰의 ntfy에 이 앱 구독이 두 개씩 남던 문제를 고쳤습니다 (#242)** — 앱을 지우고 다시 설치하거나 알림을 다시 등록하면, 예전 등록이 ntfy에 그대로 남아 '구독한 주제'에 같은 앱이 여러 번 보였습니다. 이제 다시 등록할 때 이전 등록을 먼저 해제하고, 예전 등록으로 알림이 오면 그 등록을 ntfy에서 지웁니다.
+  - 이미 남아 있는 예전 구독은 그쪽으로 알림이 한 번 오면 저절로 사라집니다. 바로 지우려면 ntfy에서 길게 눌러 구독을 취소해도 됩니다.
+  - PC 설정의 휴대폰 목록에 같은 휴대폰이 두 번 보이면, 예전 것(마지막 접속이 오래된 것)을 해제해 주세요.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The phone's ntfy no longer keeps two subscriptions for this app (#242)** — after reinstalling the app or turning alerts on again, the old registration stayed in ntfy, so the same app showed up more than once under subscribed topics. The app now unregisters the previous registration before registering again, and removes an old registration from ntfy when an alert arrives on it.
+  - An old subscription that is already there disappears the next time an alert reaches it. To remove it now, long-press it in ntfy and unsubscribe.
+  - If the phone list in the PC's settings shows the same phone twice, revoke the older one (the one last seen longer ago).
+<!-- /en -->
+
 ## [1.58.1] - 2026-11-14
 
 <!-- ko -->
