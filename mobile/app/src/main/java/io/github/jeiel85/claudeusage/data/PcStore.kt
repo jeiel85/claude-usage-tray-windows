@@ -38,7 +38,14 @@ class PcStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(NAME, Context.MODE_PRIVATE)
     private val cache = context.applicationContext.getSharedPreferences(CACHE_NAME, Context.MODE_PRIVATE)
     private val cipher = KeystoreCipher(KEY_ALIAS)
-    private val _pcs = MutableStateFlow(load())
+
+    /**
+     * One list per process, shared by every PcStore instance. The activity's store feeds the live hub,
+     * while a push receiver builds its own store to apply a path update (#225); with a list per instance
+     * the hub would never see the new paths and keep retrying the old Quick Tunnel address.
+     */
+    private val _pcs: MutableStateFlow<List<PcEntry>> =
+        shared ?: synchronized(LOCK) { shared ?: MutableStateFlow(load()).also { shared = it } }
 
     /** Every change (pair, remove, new path) is published here; the live hub watches it. */
     val pcs: StateFlow<List<PcEntry>> = _pcs.asStateFlow()
@@ -47,43 +54,50 @@ class PcStore(context: Context) {
 
     fun get(pcId: String): PcEntry? = all().firstOrNull { it.pcId == pcId }
 
-    /** Adds or replaces (re-pairing the same PC keeps one entry). */
-    @Synchronized
-    fun upsert(pc: PcEntry) = save(all().filterNot { it.pcId == pc.pcId } + pc)
+    // Writers lock the process-wide LOCK, not the instance: two stores (activity, push receiver) edit one list.
 
-    @Synchronized
-    fun remove(pcId: String) {
-        save(all().filterNot { it.pcId == pcId })
-        cache.edit().remove(pcId).remove("$pcId.at").apply()
+    /** Adds or replaces (re-pairing the same PC keeps one entry). */
+    fun upsert(pc: PcEntry) {
+        synchronized(LOCK) { save(all().filterNot { it.pcId == pc.pcId } + pc) }
     }
 
-    @Synchronized
+    fun remove(pcId: String) {
+        synchronized(LOCK) {
+            save(all().filterNot { it.pcId == pcId })
+            cache.edit().remove(pcId).remove("$pcId.at").apply()
+        }
+    }
+
     fun rememberGood(pcId: String, endpoint: Endpoint) {
-        val list = all()
-        if (list.none { it.pcId == pcId && it.lastGood != endpoint.key }) return
-        save(list.map { if (it.pcId == pcId) it.copy(lastGood = endpoint.key) else it })
+        synchronized(LOCK) {
+            val list = all()
+            if (list.none { it.pcId == pcId && it.lastGood != endpoint.key }) return
+            save(list.map { if (it.pcId == pcId) it.copy(lastGood = endpoint.key) else it })
+        }
     }
 
     /** The PC's current paths (DHCP change, Tailscale turned on). */
-    @Synchronized
     fun updateEndpoints(pcId: String, endpoints: List<Endpoint>) {
         if (endpoints.isEmpty()) return
-        val list = all()
-        if (list.none { it.pcId == pcId && it.endpoints != endpoints }) return
-        save(list.map { if (it.pcId == pcId) it.copy(endpoints = endpoints) else it })
+        synchronized(LOCK) {
+            val list = all()
+            if (list.none { it.pcId == pcId && it.endpoints != endpoints }) return
+            save(list.map { if (it.pcId == pcId) it.copy(endpoints = endpoints) else it })
+        }
     }
 
     /**
      * Paths the PC pushed (#225), already verified. Returns false when the PC isn't paired or the push is
      * not newer than the last one applied ([PushEndpointsUpdate.isNewerThan]).
      */
-    @Synchronized
     fun applyPushedEndpoints(update: PushEndpointsUpdate): Boolean {
-        val list = all()
-        val pc = list.firstOrNull { it.pcId == update.pcId } ?: return false
-        if (!update.isNewerThan(pc.endpointsPushTs)) return false
-        save(list.map { if (it.pcId == update.pcId) it.copy(endpoints = update.endpoints, endpointsPushTs = update.tsEpochMillis) else it })
-        return true
+        synchronized(LOCK) {
+            val list = all()
+            val pc = list.firstOrNull { it.pcId == update.pcId } ?: return false
+            if (!update.isNewerThan(pc.endpointsPushTs)) return false
+            save(list.map { if (it.pcId == update.pcId) it.copy(endpoints = update.endpoints, endpointsPushTs = update.tsEpochMillis) else it })
+            return true
+        }
     }
 
     fun cacheSnapshot(pcId: String, json: String, receivedAtMs: Long) {
@@ -137,6 +151,11 @@ class PcStore(context: Context) {
     }
 
     private companion object {
+        private val LOCK = Any()
+
+        @Volatile
+        private var shared: MutableStateFlow<List<PcEntry>>? = null
+
         private const val NAME = "cut_pcs"
         private const val CACHE_NAME = "cut_snapshots"
         private const val KEY_PCS = "pcs"
