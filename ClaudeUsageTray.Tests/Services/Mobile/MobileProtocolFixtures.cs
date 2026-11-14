@@ -64,7 +64,7 @@ public static class MobileProtocolFixtures
                             },
                         ],
                     },
-                    new MobileTodayTotals(120_000, 34_000, 2_500_000, 80_000, 3, 41)),
+                    new MobileTodayTotals("2026-11-14", 120_000, 34_000, 2_500_000, 80_000, 3, 41)),
                 new MobileProviderUsage("codex", codexHash, codexScope, "", Now.AddMinutes(-2), "",
                     new UsageSyncQuotaSnapshot
                     {

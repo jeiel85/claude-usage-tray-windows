@@ -18,6 +18,10 @@ import org.junit.Test
 class AccountAggregatorTest {
 
     private val now = 10_000_000L
+
+    private companion object {
+        const val TODAY = "2026-11-14"
+    }
     private val hashA = "a".repeat(64)
     private val hashB = "b".repeat(64)
 
@@ -37,9 +41,10 @@ class AccountAggregatorTest {
         scope: String = ProviderUsage.SCOPE_ACCOUNT,
         provider: String = "claude",
         label: String = "",
+        tokenDate: String = TODAY,
     ) = ProviderUsage(
         provider, hash, scope, label, observedAt, "", quota,
-        if (tokens > 0) TodayTotals(tokens, 0, 0, 0, 1, 1) else null,
+        if (tokens > 0) TodayTotals(tokenDate, tokens, 0, 0, 0, 1, 1) else null,
     )
 
     private fun pc(id: String, name: String, vararg providers: ProviderUsage, online: Boolean = true) =
@@ -47,13 +52,12 @@ class AccountAggregatorTest {
 
     @Test
     fun three_pcs_two_accounts_make_two_cards() {
-        val cards = AccountAggregator.aggregate(
+        val cards = AccountAggregator.aggregate(todayDate = TODAY, nowMs = now, pcs = 
             listOf(
                 pc("p1", "HOME", usage(hashA, now - 60_000, quota(0.30, now - 60_000), tokens = 100, label = "Me")),
                 pc("p2", "WORK", usage(hashA, now - 10_000, quota(0.35, now - 10_000), tokens = 50)),
                 pc("p3", "LAPTOP", usage(hashB, now - 5_000, quota(0.80, now - 5_000), tokens = 7)),
             ),
-            now,
         )
         assertEquals(2, cards.size)
         val a = cards.first { it.key.endsWith(hashA) }
@@ -70,12 +74,11 @@ class AccountAggregatorTest {
 
     @Test
     fun a_pc_without_data_does_not_blank_out_another_pcs_quota() {
-        val cards = AccountAggregator.aggregate(
+        val cards = AccountAggregator.aggregate(todayDate = TODAY, nowMs = now, pcs = 
             listOf(
                 pc("p1", "HOME", usage(hashA, now - 120_000, quota(0.5, now - 120_000))),
                 pc("p2", "WORK", usage(hashA, now - 1_000, quota(0.0, now - 1_000, hasData = false))),
             ),
-            now,
         )
         assertEquals(0.5, cards.single().gauges.single().usage, 1e-9)
         assertEquals("HOME", cards.single().quotaFromPcName)
@@ -83,12 +86,11 @@ class AccountAggregatorTest {
 
     @Test
     fun unknown_accounts_stay_separate_per_pc() {
-        val cards = AccountAggregator.aggregate(
+        val cards = AccountAggregator.aggregate(todayDate = TODAY, nowMs = now, pcs = 
             listOf(
                 pc("p1", "HOME", usage("c".repeat(64), now, null, scope = ProviderUsage.SCOPE_DEVICE, provider = "antigravity")),
                 pc("p2", "WORK", usage("d".repeat(64), now, null, scope = ProviderUsage.SCOPE_DEVICE, provider = "antigravity")),
             ),
-            now,
         )
         assertEquals(2, cards.size)
         assertTrue(cards.none { it.accountScoped })
@@ -97,7 +99,7 @@ class AccountAggregatorTest {
 
     @Test
     fun providers_are_ordered_claude_codex_opencode_antigravity() {
-        val cards = AccountAggregator.aggregate(
+        val cards = AccountAggregator.aggregate(todayDate = TODAY, nowMs = now, pcs = 
             listOf(
                 pc(
                     "p1", "HOME",
@@ -106,7 +108,6 @@ class AccountAggregatorTest {
                     usage("3".repeat(64), now, null, provider = "claude"),
                 ),
             ),
-            now,
         )
         assertEquals(listOf("claude", "codex", "antigravity"), cards.map { it.provider })
     }
@@ -114,7 +115,24 @@ class AccountAggregatorTest {
     @Test
     fun passed_reset_is_shown_as_zero() {
         val expired = Quota(true, now - 10, "", listOf(Gauge(GaugeKind.SHORT, "", 0.9, now - 1, 300)), "")
-        val card = AccountAggregator.aggregate(listOf(pc("p1", "HOME", usage(hashA, now, expired))), now).single()
+        val card = AccountAggregator.aggregate(todayDate = TODAY, nowMs = now, pcs = listOf(pc("p1", "HOME", usage(hashA, now, expired)))).single()
         assertEquals(0.0, card.gauges.single().usage, 0.0)
+    }
+}
+
+class AccountAggregatorDateTest {
+    @Test
+    fun yesterdays_tokens_from_an_offline_pc_are_not_added_to_today() {
+        val hash = "e".repeat(64)
+        fun usage(tokens: Long, date: String) = ProviderUsage(
+            "claude", hash, ProviderUsage.SCOPE_ACCOUNT, "", 1L, "", null, TodayTotals(date, tokens, 0, 0, 0, 1, 1),
+        )
+        val pcs = listOf(
+            PcView("p1", "HOME", true, UsageSnapshot("p1", "HOME", "", 1L, listOf(usage(100, "2026-11-14"))), 1L),
+            PcView("p2", "WORK", false, UsageSnapshot("p2", "WORK", "", 1L, listOf(usage(900, "2026-11-13"))), 1L),
+        )
+        val card = AccountAggregator.aggregate(pcs, nowMs = 2L, todayDate = "2026-11-14").single()
+        assertEquals(100L, card.today!!.inputTokens)
+        assertEquals(2, card.devices.size)
     }
 }

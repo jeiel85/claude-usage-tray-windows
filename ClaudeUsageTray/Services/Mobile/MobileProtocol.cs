@@ -81,8 +81,13 @@ public static class MobileAccountScope
     public const string Device = "device";
 }
 
-/// <summary>오늘 이 PC 에서 쓴 로컬 토큰 합계(기기 단위 값 — 계정 카드에서는 PC 별로 더한다).</summary>
+/// <summary>
+/// 오늘 이 PC 에서 쓴 로컬 토큰 합계(기기 단위 값 — 계정 카드에서는 PC 별로 더한다).
+/// <c>Date</c>(이 PC 의 현지 날짜 yyyy-MM-dd)를 함께 싣는다 — 밤새 꺼져 있던 PC 의 어제 합계가 휴대폰에서 "오늘" 에
+/// 더해지지 않게, 휴대폰이 날짜가 다른 합계를 빼고 더한다(Codex 리뷰 P2).
+/// </summary>
 public sealed record MobileTodayTotals(
+    string Date,
     long InputTokens,
     long OutputTokens,
     long CacheReadTokens,

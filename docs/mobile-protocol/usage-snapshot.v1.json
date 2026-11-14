@@ -41,6 +41,7 @@
         ]
       },
       "today": {
+        "date": "2026-11-14",
         "inputTokens": 120000,
         "outputTokens": 34000,
         "cacheReadTokens": 2500000,

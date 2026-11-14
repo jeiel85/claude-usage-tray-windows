@@ -403,7 +403,14 @@ public sealed class MobileApiServer : IDisposable
         byte[]? body = null;
         if (r.Head.Method == "POST")
         {
-            body = await MiniHttp.ReadBodyAsync(stream, r.Head, r.Leftover, ct);
+            // 인증 전 단계라 누구든 보낼 수 있다 — 본문을 끝까지 보내지 않고 버티는 연결이 연결 슬롯(32개)을 묶지 않게
+            // 머리와 같은 시간 제한을 둔다(Codex 리뷰 P2).
+            using (var bodyCts = CancellationTokenSource.CreateLinkedTokenSource(ct))
+            {
+                bodyCts.CancelAfter(HeadTimeout);
+                try { body = await MiniHttp.ReadBodyAsync(stream, r.Head, r.Leftover, bodyCts.Token); }
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested) { return; }
+            }
             if (body is null)
             {
                 await MiniHttp.WriteResponseAsync(stream, 400, Error("bad_request", "Missing or oversized body."), ct);

@@ -86,7 +86,7 @@ https://jeiel85.github.io/claude-usage-tray-windows/pair/#<base64url(UTF-8 JSON 
 | `providers[].accountLabel` | 표시 이름(Claude만, "이름 · 팀 조직"). 이메일·UUID는 넣지 않음 |
 | `providers[].observedAt`, `errorKind` | 이 PC가 마지막으로 조회한 시각, 실패 종류 |
 | `providers[].quota` | 다중 PC 동기화와 같은 `UsageSyncQuotaSnapshot`(사용률은 0~1 비율) |
-| `providers[].today` | 오늘 이 PC의 토큰·세션·요청 수(없으면 생략) |
+| `providers[].today` | 오늘 이 PC의 토큰·세션·요청 수와 그 PC의 현지 날짜 `date`(없으면 생략). 앱은 휴대폰의 오늘 날짜와 같은 것만 더함 — 밤새 꺼진 PC의 어제 합계가 섞이지 않게 |
 
 ## 앱 푸시 알림 (#222, Homebase M-19·M-21·M-25)
 

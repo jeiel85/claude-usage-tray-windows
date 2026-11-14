@@ -162,7 +162,9 @@ public sealed class MobileLinkService : IDisposable, IAppPushSender
             errorKind ?? "",
             quota,
             today is { HasData: true }
-                ? new MobileTodayTotals(today.InputTokens, today.OutputTokens, today.CacheReadTokens,
+                ? new MobileTodayTotals(
+                    DateOnly.FromDateTime(DateTime.Now).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+                    today.InputTokens, today.OutputTokens, today.CacheReadTokens,
                     today.CacheWriteTokens, today.SessionCount, today.RequestCount)
                 : null));
     }

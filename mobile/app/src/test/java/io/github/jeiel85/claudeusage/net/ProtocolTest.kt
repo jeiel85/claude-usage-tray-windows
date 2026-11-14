@@ -50,6 +50,7 @@ class ProtocolTest {
         assertEquals(0.05, extra.usage, 1e-9)
         assertEquals("$2.50 / $50.00", q.extraCreditsLabel)
         assertEquals(2_734_000L, claude.today!!.totalTokens)
+        assertEquals("2026-11-14", claude.today!!.date)
 
         val codex = s.providers[1]
         assertEquals(listOf(GaugeKind.SHORT, GaugeKind.LONG), codex.quota!!.gauges.map { it.kind })

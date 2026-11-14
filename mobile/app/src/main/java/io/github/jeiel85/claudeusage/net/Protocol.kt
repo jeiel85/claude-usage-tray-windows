@@ -146,8 +146,13 @@ data class Quota(
     }
 }
 
-/** Tokens used today on one PC (device-level; summed across PCs on an account card). */
+/**
+ * Tokens used today on one PC (device-level; summed across PCs on an account card). [date] is the PC's
+ * local date (yyyy-MM-dd): a PC that was off overnight still has yesterday's totals cached, and they
+ * must not be added to today's (Codex review P2).
+ */
 data class TodayTotals(
+    val date: String,
     val inputTokens: Long,
     val outputTokens: Long,
     val cacheReadTokens: Long,
@@ -158,6 +163,7 @@ data class TodayTotals(
     val totalTokens: Long get() = inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens
 
     operator fun plus(o: TodayTotals) = TodayTotals(
+        maxOf(date, o.date),
         inputTokens + o.inputTokens, outputTokens + o.outputTokens, cacheReadTokens + o.cacheReadTokens,
         cacheWriteTokens + o.cacheWriteTokens, sessionCount + o.sessionCount, requestCount + o.requestCount,
     )
@@ -165,6 +171,7 @@ data class TodayTotals(
     companion object {
         fun parse(o: JSONObject?): TodayTotals? = o?.let {
             TodayTotals(
+                it.optString("date"),
                 it.optLong("inputTokens"), it.optLong("outputTokens"), it.optLong("cacheReadTokens"),
                 it.optLong("cacheWriteTokens"), it.optInt("sessionCount"), it.optInt("requestCount"),
             )

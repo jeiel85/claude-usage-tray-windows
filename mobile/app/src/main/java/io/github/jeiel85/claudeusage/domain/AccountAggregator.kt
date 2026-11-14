@@ -62,7 +62,7 @@ object AccountAggregator {
      *   offline) still sends an entry without data; it must not blank out a good value from another PC.
      * - Gauges are evaluated at [nowMs]: a window whose reset time passed shows 0 (see [Gauge.effective]).
      */
-    fun aggregate(pcs: List<PcView>, nowMs: Long): List<AccountCard> {
+    fun aggregate(pcs: List<PcView>, nowMs: Long, todayDate: String = localDate(nowMs)): List<AccountCard> {
         data class Seen(val pc: PcView, val usage: ProviderUsage)
 
         val groups = LinkedHashMap<String, MutableList<Seen>>()
@@ -87,7 +87,8 @@ object AccountAggregator {
                 .map {
                     AccountDevice(it.pc.pcId, it.pc.pcName, it.pc.online, it.usage.observedAtMs, it.usage.today, it.usage.errorKind)
                 }
-            val today = devices.mapNotNull { it.today }.reduceOrNull { a, b -> a + b }
+            // Only today's totals: an offline PC's cached snapshot can still carry yesterday's (PC-local date).
+            val today = devices.mapNotNull { it.today }.filter { it.date == todayDate }.reduceOrNull { a, b -> a + b }
             AccountCard(
                 key = key,
                 provider = provider,
@@ -110,6 +111,10 @@ object AccountAggregator {
                 .thenBy { it.key },
         )
     }
+
+    /** The phone's local date as yyyy-MM-dd — PCs report theirs the same way. */
+    fun localDate(nowMs: Long): String =
+        java.time.Instant.ofEpochMilli(nowMs).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()
 
     /** The bar the summary chip shows: the most used window of the card (what will run out first). */
     fun headline(card: AccountCard): Gauge? = card.gauges.maxByOrNull { it.usage }
