@@ -25,16 +25,21 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -46,8 +51,6 @@ import io.github.jeiel85.claudeusage.ui.Palette
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * 앱 화면에 붙는 업데이트 UI(Homebase `UpdateSurface` 이식, #228). 홈 화면은 [Banner] 만, 알림 탭은 [SettingsCard] 만 부르면 된다 —
@@ -68,11 +71,6 @@ internal object UpdateSurface {
     /** "지금 확인" 이 끝날 때마다 올라간다. [Banner] 가 이 값으로 판단을 다시 한다. */
     private var refreshEpoch by mutableIntStateOf(0)
 
-    /** 프로세스 전체에서 다운로드·설치 흐름 하나만 돌게 하는 가드(같은 캐시 파일을 두 흐름이 쓰지 않게). */
-    private val downloadInProgress = AtomicBoolean(false)
-
-    private const val DOWNLOAD_DIR = "updates"
-    private const val DOWNLOAD_FILE_NAME = "update.apk"
 
     /**
      * Input : 없음
@@ -85,7 +83,8 @@ internal object UpdateSurface {
         val context = LocalContext.current
         val preferences = remember(context) { UpdatePreferences(context) }
         var offered by remember { mutableStateOf<UpdateManifest?>(null) }
-        var dialogOpen by remember { mutableStateOf(false) }
+        // 화면을 돌려 액티비티가 다시 만들어져도 창이 다시 뜨게 저장한다 — 다운로드는 UpdateDownloads 가 이어서 들고 있다.
+        var dialogOpen by rememberSaveable { mutableStateOf(false) }
         val openRequested = openRequest
         val epoch = refreshEpoch
 
@@ -93,7 +92,7 @@ internal object UpdateSurface {
             offered = withContext(Dispatchers.IO) {
                 // 지난번 설치 앱에 넘긴 APK 를 치운다. 설치 앱은 뜨자마자 파일을 복사하므로 이 화면에 돌아올 무렵엔 다 읽은 뒤다.
                 // 내려받는 중이면 그 파일이라 건드리지 않는다.
-                if (!downloadInProgress.get()) UpdateInstaller.deleteLeftovers(File(context.cacheDir, DOWNLOAD_DIR))
+                if (!UpdateDownloads.holdsFile) UpdateInstaller.deleteLeftovers(UpdateDownloads.directory(context))
                 UpdateRefresh.run(preferences)
             }
             if (offered == null) UpdateNotifier.cancel(context) // 설치·건너뛰기·끄기 뒤 남은 알림도 치운다.
@@ -219,53 +218,63 @@ internal object UpdateSurface {
     private val needsReinstall: Boolean get() = BuildConfig.DEBUG && !BuildConfig.UPDATE_ALLOW_HTTP
 
     /**
-     * 업데이트 창의 상태 기계: 제안 → (권한 필요) → 내려받는 중 → 설치 앱으로 넘김(창 닫힘) / 실패(다시 시도·브라우저).
-     * 내려받는 동안은 닫을 방법을 주지 않는다 — 블로킹 다운로드는 창을 닫아도 멈추지 않아, "닫았는데 잠시 뒤 설치 화면이 뜨는"
-     * 혼란과 재시도가 같은 파일을 다시 쓰는 경합을 만든다.
+     * 업데이트 창: 제안 → (권한 필요) → 내려받는 중 → 설치 앱으로 넘김(창 닫힘) / 실패(다시 시도·브라우저).
+     * 다운로드 자체는 [UpdateDownloads] 가 프로세스 전체에서 들고 있고, 이 창은 그 상태를 보여 줄 뿐이다 — 화면을 돌려 창이 다시
+     * 만들어져도 진행이 끊기지 않고, 끝난 파일은 다시 만들어진 창이 설치 화면으로 넘긴다.
+     * 내려받는 동안은 닫을 방법을 주지 않는다 — 닫아도 다운로드는 멈추지 않아 "닫았는데 잠시 뒤 설치 화면이 뜨는" 혼란을 만든다.
      */
     @Composable
     private fun UpdateDialog(manifest: UpdateManifest, onDismiss: () -> Unit, onSkip: () -> Unit) {
         val context = LocalContext.current
+        val lifecycle = LocalLifecycleOwner.current.lifecycle
         val size = remember(manifest) { Formatter.formatShortFileSize(context, manifest.apkSizeBytes) }
-        var flow by remember(manifest) { mutableStateOf(FlowState.Offer) }
-        // LaunchedEffect 재실행 열쇠: 0 은 "아직 안 함", 시도할 때마다 하나씩 올린다("다시 시도" 도 새 값이어야 다시 돈다).
-        var downloadEpoch by remember(manifest) { mutableIntStateOf(0) }
+        val download by UpdateDownloads.state.collectAsState()
+        var needsPermission by rememberSaveable(manifest.versionCode) { mutableStateOf(false) }
+        val mine = { vc: Int -> vc == manifest.versionCode }
+        val flow = when (val d = download) {
+            is UpdateDownloads.State.Running -> if (mine(d.versionCode)) FlowState.Downloading else FlowState.Offer
+            is UpdateDownloads.State.Ready -> if (mine(d.versionCode)) FlowState.Downloading else FlowState.Offer
+            is UpdateDownloads.State.Failed -> if (mine(d.versionCode)) FlowState.Failed else FlowState.Offer
+            UpdateDownloads.State.Idle -> if (needsPermission) FlowState.NeedsInstallPermission else FlowState.Offer
+        }
 
         fun startDownload() {
-            if (!downloadInProgress.compareAndSet(false, true)) return
             // 매번 다시 묻는다 — 사용자가 설정에서 권한을 바꿨을 수 있다.
-            flow = if (context.packageManager.canRequestPackageInstalls()) {
-                downloadEpoch++
-                FlowState.Downloading
+            if (context.packageManager.canRequestPackageInstalls()) {
+                needsPermission = false
+                UpdateDownloads.reset() // 지난 실패를 지우고
+                UpdateDownloads.start(context, manifest)
             } else {
-                downloadInProgress.set(false)
-                FlowState.NeedsInstallPermission
+                needsPermission = true
             }
         }
 
         // 설정 화면은 결과 코드로 승인 여부를 알려 주지 않는다 — 돌아온 뒤 PackageManager 에 다시 묻는다.
         val installPermission = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { startDownload() }
 
-        LaunchedEffect(downloadEpoch) {
-            if (downloadEpoch == 0) return@LaunchedEffect
-            try {
-                val destination = File(File(context.cacheDir, DOWNLOAD_DIR).apply { mkdirs() }, DOWNLOAD_FILE_NAME)
-                val downloaded = withContext(Dispatchers.IO) {
-                    UpdateDownloader().download(manifest.apkUrl, destination, manifest.sha256)
+        // 받은 파일은 이 창이 화면에 보일 때(STARTED) 설치 화면으로 넘긴다 — 백그라운드에서 다른 앱 화면을 띄우는 것은 Android 가
+        // 막으므로, 사용자가 돌아오면 그때 넘긴다.
+        LaunchedEffect(download) {
+            val ready = download as? UpdateDownloads.State.Ready ?: return@LaunchedEffect
+            if (!mine(ready.versionCode)) return@LaunchedEffect
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                if (UpdateInstaller.install(context, ready.file)) {
+                    UpdateDownloads.reset()
+                    onDismiss()
+                } else {
+                    UpdateDownloads.fail(ready.versionCode)
                 }
-                val installed = when (downloaded) {
-                    is UpdateDownloader.Result.Success -> UpdateInstaller.install(context, downloaded.file)
-                    UpdateDownloader.Result.Failed -> false
-                }
-                if (installed) onDismiss() else flow = FlowState.Failed
-            } finally {
-                downloadInProgress.set(false)
             }
         }
 
+        // 실패를 보고 닫으면 다음에 열 때 처음부터 고를 수 있게 상태를 지운다.
+        val dismiss = {
+            if (flow == FlowState.Failed) UpdateDownloads.reset()
+            onDismiss()
+        }
         val canDismiss = flow != FlowState.Downloading
         AlertDialog(
-            onDismissRequest = onDismiss,
+            onDismissRequest = dismiss,
             properties = DialogProperties(dismissOnBackPress = canDismiss, dismissOnClickOutside = canDismiss),
             title = { Text(stringResource(R.string.update_dialog_title)) },
             text = {
@@ -291,7 +300,7 @@ internal object UpdateSurface {
                         // 최종 수단: 앱이 직접 받는 길이 막혀도 막다른 길이 아니게 브라우저에 맡긴다.
                         TextButton(onClick = {
                             context.open(manifest.apkUrl)
-                            onDismiss()
+                            dismiss()
                         }) { Text(stringResource(R.string.update_dialog_browser)) }
                     }
                 }
@@ -317,7 +326,7 @@ internal object UpdateSurface {
                 }
             },
             dismissButton = {
-                if (canDismiss) TextButton(onClick = onDismiss) { Text(stringResource(R.string.update_dialog_close)) }
+                if (canDismiss) TextButton(onClick = dismiss) { Text(stringResource(R.string.update_dialog_close)) }
             },
         )
     }
