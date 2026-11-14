@@ -129,4 +129,14 @@
     <string name="about_licenses_intro">本应用包含以下库:</string>
     <string name="about_apache_text">Apache License 2.0 全文</string>
     <string name="about_privacy">本应用只连接你配对的电脑 — 直接连接，或经由该电脑开启的 Cloudflare Tunnel。没有广告、分析或使用记录收集。其他外发流量只有每天一次的更新检查(GitHub)和经由推送应用中继服务器的端到端加密通知。</string>
+    <!-- Notification center (#235) -->
+    <string name="history_title">通知</string>
+    <plurals name="history_unread"><item quantity="other">%1$d 条新通知</item></plurals>
+    <string name="history_new">新</string>
+    <string name="history_clear">全部清除</string>
+    <string name="history_clear_confirm">清除全部通知记录？此操作无法撤销。</string>
+    <string name="history_empty_title">还没有通知</string>
+    <string name="history_empty_body">电脑发送到这部手机的提醒会保存在这里，在通知栏中划掉的通知也能再次查看。</string>
+    <string name="history_retention">仅在这部手机上保存最近 30 天（最多 200 条）的通知。</string>
+    <string name="history_open_link">打开预报 ›</string>
 </resources>

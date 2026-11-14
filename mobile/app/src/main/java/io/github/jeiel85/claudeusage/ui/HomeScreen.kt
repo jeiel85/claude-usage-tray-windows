@@ -25,7 +25,10 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -47,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,6 +64,9 @@ import io.github.jeiel85.claudeusage.domain.PcConnection
 import io.github.jeiel85.claudeusage.domain.PcStatus
 import io.github.jeiel85.claudeusage.net.Gauge
 import io.github.jeiel85.claudeusage.net.GaugeKind
+import io.github.jeiel85.claudeusage.push.NotificationHistory
+import io.github.jeiel85.claudeusage.push.NotificationHistoryLog
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.jeiel85.claudeusage.update.UpdateSurface
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -79,6 +86,7 @@ fun HomeScreen(
     onAdd: () -> Unit,
     onRemove: (String) -> Unit,
     onSettings: () -> Unit,
+    onHistory: () -> Unit,
 ) {
     // rememberPagerState is saveable: the open tab survives rotation and process death like before.
     val pager = rememberPagerState(pageCount = { TAB_COUNT })
@@ -98,6 +106,7 @@ fun HomeScreen(
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.app_name), color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             TextButton(onClick = onAdd) { Text("+ " + stringResource(R.string.add_pc), color = Palette.AccentLight) }
+            NotificationBell(onHistory)
             // Settings (#230): notifications, display, updates, about — the gear is where people look for them.
             IconButton(onClick = onSettings) {
                 Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.settings_title), tint = Palette.TextSoft)
@@ -133,6 +142,22 @@ fun HomeScreen(
                     else -> items(pcs, key = { it.pc.pcId }) { PcRow(it, now, onRemove) }
                 }
             }
+        }
+    }
+}
+
+/** Notification center (#235) with the number of alerts that arrived since it was last opened. */
+@Composable
+private fun NotificationBell(onClick: () -> Unit) {
+    val entries by NotificationHistory.entries.collectAsStateWithLifecycle()
+    val lastSeen by NotificationHistory.lastSeenMs.collectAsStateWithLifecycle()
+    val unread = NotificationHistoryLog.unreadCount(entries, lastSeen)
+    val description = if (unread > 0) pluralStringResource(R.plurals.history_unread, unread, unread) else stringResource(R.string.history_title)
+    IconButton(onClick = onClick) {
+        BadgedBox(badge = {
+            if (unread > 0) Badge(containerColor = Palette.Accent) { Text(if (unread > 99) "99+" else unread.toString()) }
+        }) {
+            Icon(Icons.Filled.Notifications, contentDescription = description, tint = Palette.TextSoft)
         }
     }
 }

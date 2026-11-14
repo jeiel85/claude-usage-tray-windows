@@ -24,11 +24,13 @@ import io.github.jeiel85.claudeusage.domain.LiveHub
 import io.github.jeiel85.claudeusage.net.NetworkProbe
 import io.github.jeiel85.claudeusage.net.PairingLink
 import io.github.jeiel85.claudeusage.net.UsageApi
+import io.github.jeiel85.claudeusage.push.NotificationHistory
 import io.github.jeiel85.claudeusage.push.PushRegistrar
 import io.github.jeiel85.claudeusage.push.PushState
 import io.github.jeiel85.claudeusage.ui.PushAutoSetup
 import io.github.jeiel85.claudeusage.ui.AppTheme
 import io.github.jeiel85.claudeusage.ui.HomeScreen
+import io.github.jeiel85.claudeusage.ui.NotificationCenterScreen
 import io.github.jeiel85.claudeusage.ui.PairScreen
 import io.github.jeiel85.claudeusage.ui.SettingsScreen
 import io.github.jeiel85.claudeusage.update.UpdateCheckScheduler
@@ -37,7 +39,7 @@ import io.github.jeiel85.claudeusage.update.UpdateSurface
 import io.github.jeiel85.claudeusage.ui.Palette
 import kotlinx.coroutines.launch
 
-/** Two screens — home (accounts / PCs) and pairing — so plain state instead of a navigation library. */
+/** A few screens — home (accounts / PCs), pairing, settings, notification center — so plain state instead of a navigation library. */
 class MainActivity : ComponentActivity() {
     /** A pairing link the app was opened with (camera → link, or the install page's button). */
     private var pairingLink by mutableStateOf<String?>(null)
@@ -49,6 +51,9 @@ class MainActivity : ComponentActivity() {
      */
     private var settingsOpen by mutableStateOf(false)
 
+    /** Notification center open (#235); on the activity for the same reason as [settingsOpen]. */
+    private var historyOpen by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(Palette.Bg.toArgb()),
@@ -56,8 +61,10 @@ class MainActivity : ComponentActivity() {
         )
         super.onCreate(savedInstanceState)
         AppPrefs.load(this)
+        NotificationHistory.load(this)
         pairingLink = if (savedInstanceState == null) intent.pairingLink() else savedInstanceState.getString(KEY_PAIRING_LINK)
         settingsOpen = savedInstanceState?.getBoolean(KEY_SETTINGS_OPEN) ?: false
+        historyOpen = savedInstanceState?.getBoolean(KEY_HISTORY_OPEN) ?: false
         // Opened from the "new version" notification (#228): the home banner opens the update dialog right away.
         // Not on recreation (rotation) — the request was already consumed then.
         if (savedInstanceState == null && intent.opensUpdate()) UpdateSurface.requestOpen()
@@ -88,6 +95,7 @@ class MainActivity : ComponentActivity() {
                     else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 }
                 BackHandler(enabled = settingsOpen && !pairing) { settingsOpen = false }
+                BackHandler(enabled = historyOpen && !pairing) { historyOpen = false }
                 LaunchedEffect(pairingLink) { if (pairingLink != null) pairing = true }
                 BackHandler(enabled = pairing) {
                     pairing = false
@@ -108,6 +116,8 @@ class MainActivity : ComponentActivity() {
                         },
                         link = pairingLink,
                     )
+                } else if (historyOpen) {
+                    NotificationCenterScreen(onBack = { historyOpen = false })
                 } else if (settingsOpen) {
                     SettingsScreen(store, api, onBack = { settingsOpen = false })
                 } else {
@@ -116,6 +126,7 @@ class MainActivity : ComponentActivity() {
                         onAdd = { pairing = true },
                         onRemove = { pcId -> removePc(store, api, pcId) },
                         onSettings = { settingsOpen = true },
+                        onHistory = { historyOpen = true },
                     )
                 }
             }
@@ -135,6 +146,7 @@ class MainActivity : ComponentActivity() {
         super.onSaveInstanceState(outState)
         pairingLink?.let { outState.putString(KEY_PAIRING_LINK, it) }
         outState.putBoolean(KEY_SETTINGS_OPEN, settingsOpen)
+        outState.putBoolean(KEY_HISTORY_OPEN, historyOpen)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -142,6 +154,7 @@ class MainActivity : ComponentActivity() {
         intent.pairingLink()?.let { pairingLink = it }
         if (intent.opensUpdate()) {
             settingsOpen = false // the update dialog opens from the home banner
+            historyOpen = false
             UpdateSurface.requestOpen()
         }
     }
@@ -154,5 +167,6 @@ class MainActivity : ComponentActivity() {
     private companion object {
         const val KEY_PAIRING_LINK = "pairingLink"
         const val KEY_SETTINGS_OPEN = "settingsOpen"
+        const val KEY_HISTORY_OPEN = "historyOpen"
     }
 }

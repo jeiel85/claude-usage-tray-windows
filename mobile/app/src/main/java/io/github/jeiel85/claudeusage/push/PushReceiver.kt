@@ -94,7 +94,14 @@ class PushReceiver : BroadcastReceiver() {
             state.recentEvents = json
             fresh
         }
-        if (show) PushNotifier.show(context, message) else Log.i(TAG, "duplicate event ${message.eventKey} from ${message.pcName}")
+        if (show) {
+            // Kept for the notification center (#235) even when Android notifications are off — that is when
+            // the history is the only place the alert can be seen.
+            NotificationHistory.record(context, message)
+            PushNotifier.show(context, message)
+        } else {
+            Log.i(TAG, "duplicate event ${message.eventKey} from ${message.pcName}")
+        }
     }
 
     /**

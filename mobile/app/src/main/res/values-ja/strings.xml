@@ -129,4 +129,14 @@
     <string name="about_licenses_intro">このアプリには次のライブラリが含まれています:</string>
     <string name="about_apache_text">Apache License 2.0 全文</string>
     <string name="about_privacy">このアプリは接続した PC にだけ接続します — 直接、またはその PC でオンにした Cloudflare Tunnel 経由で。広告・分析・利用履歴の収集はありません。ほかに外へ出るのは 1日1回の更新確認(GitHub)と、プッシュアプリの中継サーバーを通るエンドツーエンド暗号化された通知だけです。</string>
+    <!-- Notification center (#235) -->
+    <string name="history_title">通知</string>
+    <plurals name="history_unread"><item quantity="other">新しい通知 %1$d 件</item></plurals>
+    <string name="history_new">新着</string>
+    <string name="history_clear">すべて消去</string>
+    <string name="history_clear_confirm">通知履歴をすべて消去しますか？元に戻せません。</string>
+    <string name="history_empty_title">まだ通知はありません</string>
+    <string name="history_empty_body">PC からこのスマートフォンに届いた通知がここに残ります。通知領域から消した通知もあとで確認できます。</string>
+    <string name="history_retention">直近 30 日分（最大 200 件）をこのスマートフォンにのみ保存します。</string>
+    <string name="history_open_link">予報を開く ›</string>
 </resources>
