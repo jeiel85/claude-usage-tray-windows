@@ -64,7 +64,9 @@ public static class UsageCalculator
         if (diff.TotalSeconds <= 0) return "";
         var time = FormatRemaining(diff);
         var rel = isEstimated ? Loc.ResetsInEstimated(time) : Loc.ResetsIn(time);
-        return showAbsolute ? $"{rel} ({FormatClockStamp(resetAt.Value, now)})" : rel;
+        // 팝업 폭이 모자라 줄바꿈될 때 "(11-21" / "22:04)" 처럼 시각이 둘로 갈리지 않게,
+        // 괄호 안 날짜·시각 사이는 줄바꿈 없는 공백으로 묶는다(#234). 줄은 "(" 앞에서 넘어간다.
+        return showAbsolute ? $"{rel} ({FormatClockStamp(resetAt.Value, now).Replace(' ', ' ')})" : rel;
     }
 
     /// <summary>남은 시간 "9m 05s"·"42m"·"3h 12m"·"2d 4h" — 초기화 라벨과 같은 표기.</summary>
