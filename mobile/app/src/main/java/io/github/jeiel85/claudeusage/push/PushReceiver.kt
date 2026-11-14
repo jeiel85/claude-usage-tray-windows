@@ -16,7 +16,8 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Broadcasts from the distributor (UnifiedPush AND_3), ported from Homebase. Anything whose token
- * isn't our current one is ignored; a MESSAGE must also decrypt with this phone's key and auth secret
+ * isn't our current one is ignored — and a NEW_ENDPOINT or MESSAGE for such a token gets that old
+ * registration unregistered, so a reinstall doesn't leave a second subscription in ntfy (#242). A MESSAGE must also decrypt with this phone's key and auth secret
  * (AES-GCM tag), so a forged broadcast from another app shows nothing. Messages from a PC that isn't
  * paired are dropped, and the same event sent by several PCs is shown once ([EventDedupe]).
  */
@@ -25,6 +26,11 @@ class PushReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val state = PushState(context)
         val token = intent.getStringExtra(UnifiedPush.EXTRA_TOKEN)
+        UnifiedPush.staleToken(intent.action, token, state.token)?.let {
+            Log.i(TAG, "dropping a stale registration at the distributor")
+            UnifiedPush.unregisterStale(context, it)
+            return
+        }
         if (token == null || token != state.token) return
         val distributor = state.distributor ?: return
         val id = intent.getStringExtra(UnifiedPush.EXTRA_ID)

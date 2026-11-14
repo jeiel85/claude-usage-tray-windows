@@ -109,6 +109,7 @@ git fetch origin && git pull origin master && git status
 ## 📜 최근 변경 이력 요약
 *상세 내용은 [CHANGELOG.md](./CHANGELOG.md) 참조*
 
+- **v1.58.2**: ntfy 중복 구독 수정(#242) — `UnifiedPush.register()`는 이전 토큰을 먼저 UNREGISTER, `PushReceiver`는 현재가 아닌 토큰의 NEW_ENDPOINT/MESSAGE를 받으면 설치된 배포자 모두에 그 토큰 UNREGISTER(`UnifiedPush.staleToken`). 재설치로 앱 데이터가 지워져도 ntfy 구독은 남기 때문.
 - **v1.58.1**: 휴대폰 앱 정식 서명(#240) — Actions 시크릿 `CUT_RELEASE_*` 4개 등록, 이 릴리스부터 정식 서명 APK + `update.json`(앱 내 자동 업데이트 활성). 로컬 서명 빌드는 `mobile/release-signing.properties`(git 제외)를 그대로 읽는다. 인증서 SHA-256은 `docs/MOBILE_UPDATES.md`.
 - **v1.58.0**: 휴대폰 앱 알림센터(#235) — `PushReceiver`가 뮤트·중복 검사를 통과한 푸시를 `NotificationHistory`(SharedPreferences `cut_push_history`, 30일·200건, 알림 권한 꺼져도 기록)에 남기고, 홈 종 아이콘(안 읽은 개수 = `receivedAtMs > lastSeen`) → `NotificationCenterScreen`.
 - **v1.57.1**: 팝업 창 라벨·퍼센트 겹침 수정(#234) — 라벨 Auto 열, 초기화 문구는 10pt·폭 부족 시 오른쪽 정렬 줄바꿈(말줄임 금지), 절대 시각은 NBSP로 묶음. 회귀 테스트 `WindowRowLayoutTests`(실제 팝업 배치, 4개 언어).

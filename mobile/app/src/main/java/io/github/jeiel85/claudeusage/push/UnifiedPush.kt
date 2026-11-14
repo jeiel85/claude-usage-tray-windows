@@ -70,12 +70,18 @@ object UnifiedPush {
 
     /**
      * Asks [distributor] for an endpoint. A fresh high-entropy token every time (required after
-     * REGISTRATION_FAILED, harmless otherwise); the answer arrives as NEW_ENDPOINT.
+     * REGISTRATION_FAILED, harmless otherwise); the answer arrives as NEW_ENDPOINT. The previous token,
+     * if any, is unregistered first — otherwise the distributor keeps it as a second subscription (#242).
      */
     fun register(context: Context, distributor: String) {
         val state = PushState(context)
+        val previousToken = state.token
+        val previousDistributor = state.distributor
         val token = UUID.randomUUID().toString()
         state.startRegistration(token, distributor)
+        if (previousToken != null && previousDistributor != null) {
+            sendUnregister(context, previousDistributor, previousToken)
+        }
         val intent = Intent(ACTION_REGISTER)
             .setPackage(distributor)
             .putExtra(EXTRA_TOKEN, token)
@@ -92,6 +98,28 @@ object UnifiedPush {
         val distributor = state.distributor
         state.clear()
         if (token == null || distributor == null) return
+        sendUnregister(context, distributor, token)
+    }
+
+    /**
+     * A token this app no longer holds (#242): an earlier registration lost on reinstall — app data is
+     * wiped, the distributor's subscription is not — or one replaced before its endpoint arrived. The
+     * broadcast doesn't say which distributor sent it, so every installed one is told; each drops only a
+     * token our package registered, and ignores one it doesn't know.
+     */
+    fun unregisterStale(context: Context, token: String) {
+        distributors(context).forEach { sendUnregister(context, it, token) }
+    }
+
+    /**
+     * The token a distributor broadcast shows to be stale, or null. Only NEW_ENDPOINT and MESSAGE prove the
+     * distributor still holds that registration (UNREGISTERED / REGISTRATION_FAILED mean it is already
+     * gone), and the token this app currently holds is never dropped.
+     */
+    fun staleToken(action: String?, token: String?, current: String?): String? =
+        token?.takeIf { it.isNotBlank() && it != current && (action == ACTION_NEW_ENDPOINT || action == ACTION_MESSAGE) }
+
+    private fun sendUnregister(context: Context, distributor: String, token: String) {
         val intent = Intent(ACTION_UNREGISTER)
             .setPackage(distributor)
             .putExtra(EXTRA_TOKEN, token)
