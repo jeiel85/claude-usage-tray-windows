@@ -1,5 +1,6 @@
 package io.github.jeiel85.claudeusage.ui
 
+import android.text.format.DateUtils
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,8 +24,12 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -48,8 +53,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.jeiel85.claudeusage.R
-import io.github.jeiel85.claudeusage.data.PcStore
-import io.github.jeiel85.claudeusage.net.UsageApi
+import io.github.jeiel85.claudeusage.data.AppPrefs
 import io.github.jeiel85.claudeusage.domain.AccountAggregator
 import io.github.jeiel85.claudeusage.domain.AccountCard
 import io.github.jeiel85.claudeusage.domain.PcConnection
@@ -61,8 +65,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Three tabs over the same live data: Accounts (what the user asked for — usage per account, merged
- * across PCs), PCs (connection health and removal) and Alerts.
+ * Two tabs over the same live data: Accounts (what the user asked for — usage per account, merged
+ * across PCs) and PCs (connection health and removal). Settings — notifications, display, updates,
+ * about — open from the gear in the top bar (#230).
  *
  * Tabs are pages of a [HorizontalPager], so a sideways swipe moves between them as well as a tap on
  * the tab row. Each page keeps its own list (and scroll position): swiping back to Accounts after
@@ -71,10 +76,9 @@ import kotlinx.coroutines.launch
 @Composable
 fun HomeScreen(
     status: Map<String, PcStatus>,
-    store: PcStore,
-    api: UsageApi,
     onAdd: () -> Unit,
     onRemove: (String) -> Unit,
+    onSettings: () -> Unit,
 ) {
     // rememberPagerState is saveable: the open tab survives rotation and process death like before.
     val pager = rememberPagerState(pageCount = { TAB_COUNT })
@@ -94,8 +98,12 @@ fun HomeScreen(
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.app_name), color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             TextButton(onClick = onAdd) { Text("+ " + stringResource(R.string.add_pc), color = Palette.AccentLight) }
+            // Settings (#230): notifications, display, updates, about — the gear is where people look for them.
+            IconButton(onClick = onSettings) {
+                Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.settings_title), tint = Palette.TextSoft)
+            }
         }
-        val titles = listOf(R.string.tab_accounts, R.string.tab_pcs, R.string.tab_alerts)
+        val titles = listOf(R.string.tab_accounts, R.string.tab_pcs)
         // New app version (#228): one line above the tabs, only when there is something to install.
         UpdateSurface.Banner(Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
         TabRow(selectedTabIndex = pager.currentPage, containerColor = Palette.Bg, contentColor = Palette.AccentLight) {
@@ -108,8 +116,7 @@ fun HomeScreen(
             }
         }
         HorizontalPager(state = pager, modifier = Modifier.fillMaxSize(), key = { it }) { page ->
-            // The Alerts tab works without a paired PC (setting up push first is fine); the others need one.
-            if (pcs.isEmpty() && page != TAB_ALERTS) {
+            if (pcs.isEmpty()) {
                 EmptyState(onAdd)
                 return@HorizontalPager
             }
@@ -123,8 +130,7 @@ fun HomeScreen(
                         if (cards.isEmpty()) item { Hint(stringResource(R.string.no_usage_yet)) }
                         items(cards, key = { it.key }) { AccountCardView(it, now) }
                     }
-                    TAB_PCS -> items(pcs, key = { it.pc.pcId }) { PcRow(it, now, onRemove) }
-                    else -> item { NotificationsTab(store, api) }
+                    else -> items(pcs, key = { it.pc.pcId }) { PcRow(it, now, onRemove) }
                 }
             }
         }
@@ -132,9 +138,26 @@ fun HomeScreen(
 }
 
 private const val TAB_ACCOUNTS = 0
-private const val TAB_PCS = 1
-private const val TAB_ALERTS = 2
-private const val TAB_COUNT = 3
+private const val TAB_COUNT = 2
+
+/**
+ * Input : 초기화 시각, 지금(epoch ms)
+ * Output: "2h 13m 후 초기화" 또는 (설정 → 화면) "오후 3:20 초기화"·"11월 16일 (일) 오전 9:00 초기화"
+ * 핵심 로직: 시각 표시는 기기의 12/24시간 설정과 언어를 따른다(DateUtils). 오늘이 아니면 날짜를 붙인다 — 7일 창의 초기화는
+ *           며칠 뒤라 시각만으로는 언제인지 알 수 없다.
+ */
+@Composable
+private fun resetText(resetAtMs: Long, now: Long): String {
+    if (!AppPrefs.absoluteResetTime) return stringResource(R.string.reset_in, compactDuration(resetAtMs - now))
+    val context = LocalContext.current
+    val flags = if (DateUtils.isToday(resetAtMs)) {
+        DateUtils.FORMAT_SHOW_TIME
+    } else {
+        DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH or
+            DateUtils.FORMAT_SHOW_WEEKDAY or DateUtils.FORMAT_ABBREV_WEEKDAY
+    }
+    return stringResource(R.string.reset_at, DateUtils.formatDateTime(context, resetAtMs, flags))
+}
 
 @Composable
 private fun EmptyState(onAdd: () -> Unit) {
@@ -237,7 +260,7 @@ private fun GaugeRow(g: Gauge, now: Long) {
             drawStopIndicator = {},
             gapSize = 0.dp,
         )
-        g.resetAtMs?.let { Text(stringResource(R.string.reset_in, compactDuration(it - now)), color = Palette.TextDim, fontSize = 10.sp) }
+        g.resetAtMs?.let { Text(resetText(it, now), color = Palette.TextDim, fontSize = 10.sp) }
     }
 }
 

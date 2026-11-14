@@ -3,6 +3,26 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.56.0] - 2026-11-14
+
+<!-- ko -->
+### 추가
+- **휴대폰 앱에 설정 화면이 생겼습니다 (#230)** — 홈 위쪽 톱니바퀴를 누르면 열립니다. Homebase 앱과 같은 구성입니다.
+  - **알림**: 휴대폰 알림 켜기와 받을 알림 종류. '알림' 탭에 있던 것을 옮겨서, 홈 탭은 **계정·PC** 두 개가 됩니다(좌우로 밀어 넘기기는 그대로).
+  - **화면**: 초기화 시각을 "2h 13m 후" 대신 "오후 3:20"처럼 시각으로 보기(오늘이 아니면 날짜도), 앱을 보는 동안 화면 켜 두기(남는 휴대폰을 사용량 화면으로 세워 둘 때), 앱 언어(Android 13 이상 — Android 설정의 앱 언어 화면을 엽니다).
+  - **업데이트**: 앱 업데이트 켜기/끄기·지금 확인·설치된 버전(#228).
+  - **정보**: 이 버전의 변경 내용, PC 프로그램 받기, GitHub 저장소, 문제 신고(앱·Android 버전을 미리 채움), 오픈소스 라이선스, 데이터 처리 안내.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **The phone app has a Settings screen (#230)** — tap the gear at the top of the home screen. Same layout as the Homebase app.
+  - **Notifications**: turn phone alerts on and pick which kinds to receive. Moved from the Alerts tab, so the home screen now has two tabs, **Accounts** and **PCs** (swiping still works).
+  - **Display**: show reset times as clock times ("resets 3:20 PM", with the date when it isn't today) instead of "resets in 2h 13m"; keep the screen on while the app is open (for a spare phone standing as a usage display); app language (Android 13+, opens Android's per-app language screen).
+  - **Updates**: app updates on/off, check now, installed version (#228).
+  - **About**: what's new in this version, get the PC app, GitHub repository, report a problem (app and Android versions filled in), open-source licenses, how data is handled.
+<!-- /en -->
+
 ## [1.55.0] - 2026-11-14
 
 <!-- ko -->

@@ -2,6 +2,7 @@ package io.github.jeiel85.claudeusage
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
@@ -17,6 +18,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import io.github.jeiel85.claudeusage.data.AppPrefs
 import io.github.jeiel85.claudeusage.data.PcStore
 import io.github.jeiel85.claudeusage.domain.LiveHub
 import io.github.jeiel85.claudeusage.net.NetworkProbe
@@ -28,6 +30,7 @@ import io.github.jeiel85.claudeusage.ui.PushAutoSetup
 import io.github.jeiel85.claudeusage.ui.AppTheme
 import io.github.jeiel85.claudeusage.ui.HomeScreen
 import io.github.jeiel85.claudeusage.ui.PairScreen
+import io.github.jeiel85.claudeusage.ui.SettingsScreen
 import io.github.jeiel85.claudeusage.update.UpdateCheckScheduler
 import io.github.jeiel85.claudeusage.update.UpdateNotifier
 import io.github.jeiel85.claudeusage.update.UpdateSurface
@@ -45,6 +48,7 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(Palette.Bg.toArgb()),
         )
         super.onCreate(savedInstanceState)
+        AppPrefs.load(this)
         pairingLink = if (savedInstanceState == null) intent.pairingLink() else savedInstanceState.getString(KEY_PAIRING_LINK)
         // Opened from the "new version" notification (#228): the home banner opens the update dialog right away.
         // Not on recreation (rotation) — the request was already consumed then.
@@ -68,6 +72,15 @@ class MainActivity : ComponentActivity() {
             AppTheme {
                 val status by hub.status.collectAsStateWithLifecycle()
                 var pairing by rememberSaveable { mutableStateOf(false) }
+                var settings by rememberSaveable { mutableStateOf(false) }
+                // Settings → Display → keep the screen on while the app is visible (#230). The window flag only
+                // applies while this activity is in front, so it never keeps the phone awake in the background.
+                val keepOn = AppPrefs.keepScreenOn
+                LaunchedEffect(keepOn) {
+                    if (keepOn) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+                BackHandler(enabled = settings && !pairing) { settings = false }
                 LaunchedEffect(pairingLink) { if (pairingLink != null) pairing = true }
                 BackHandler(enabled = pairing) {
                     pairing = false
@@ -88,11 +101,14 @@ class MainActivity : ComponentActivity() {
                         },
                         link = pairingLink,
                     )
+                } else if (settings) {
+                    SettingsScreen(store, api, onBack = { settings = false })
                 } else {
                     HomeScreen(
-                        status, store, api,
+                        status,
                         onAdd = { pairing = true },
                         onRemove = { pcId -> removePc(store, api, pcId) },
+                        onSettings = { settings = true },
                     )
                 }
             }

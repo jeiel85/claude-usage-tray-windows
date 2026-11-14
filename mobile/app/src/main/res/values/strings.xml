@@ -44,7 +44,6 @@
     <string name="pair_err_locked">Too many wrong codes. Try again in a few minutes.</string>
     <string name="pair_err_unreachable">Can\'t reach the PC. Check the same Wi-Fi (Private network on Windows), Tailscale, or \"Connect from anywhere (Cloudflare)\" on the PC, and the firewall rules on the PC.
 %1$s</string>
-    <string name="tab_alerts">Alerts</string>
     <string name="push_distributor_label">AI usage alerts from your PCs</string>
     <string name="push_title">Push notifications</string>
     <string name="push_need_ntfy">Alerts from your PCs need a UnifiedPush app. Install ntfy (free, no account), then come back — it turns on by itself.</string>
@@ -103,4 +102,31 @@
     <string name="update_dialog_close">Close</string>
     <string name="update_dialog_reinstall">This copy was installed from a temporary (debug) build, so Android won\'t let it update in place. Uninstall it once and install the APK from the release page — after that, updates install from inside the app. Paired PCs need to be added again.</string>
     <string name="update_dialog_release_page">Open release page</string>
+
+    <!-- Settings screen (#230) -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_notifications">Notifications</string>
+    <string name="settings_section_display">Display</string>
+    <string name="settings_section_updates">Updates</string>
+    <string name="settings_section_about">About</string>
+    <string name="settings_reset_absolute">Show reset times as clock times</string>
+    <string name="settings_reset_absolute_desc">Off: \"resets in 2h 13m\". On: \"resets 3:20 PM\" (with the date when it isn\'t today).</string>
+    <string name="settings_keep_screen_on">Keep the screen on while open</string>
+    <string name="settings_keep_screen_on_desc">For a spare phone standing as a usage display. Uses more battery; only while this app is on screen.</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_desc">Choose this app\'s language in Android settings</string>
+    <string name="reset_at">resets %1$s</string>
+    <string name="about_release_notes">What\'s new in this version</string>
+    <string name="about_release_notes_desc">Release notes for v%1$s</string>
+    <string name="about_pc_app">Get the PC app</string>
+    <string name="about_pc_app_desc">Windows tray app for another PC (latest release)</string>
+    <string name="about_repo">GitHub repository</string>
+    <string name="about_repo_desc">Source code and documentation</string>
+    <string name="about_report">Report a problem or suggest something</string>
+    <string name="about_report_desc">Opens a GitHub issue with the app and Android versions filled in</string>
+    <string name="about_licenses">Open-source licenses</string>
+    <string name="about_licenses_desc">Libraries included in this app</string>
+    <string name="about_licenses_intro">This app includes these libraries:</string>
+    <string name="about_apache_text">Apache License 2.0 full text</string>
+    <string name="about_privacy">This app connects only to the PCs you paired — directly, or through a PC\'s Cloudflare Tunnel if you turned it on. No ads, analytics or usage tracking. Other outgoing traffic: the daily update check (GitHub) and end-to-end-encrypted alerts through your push app\'s relay.</string>
 </resources>
