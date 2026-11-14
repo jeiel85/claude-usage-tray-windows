@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.58.0] - 2026-11-14
+
+<!-- ko -->
+### 추가
+- **휴대폰 앱에 알림센터가 생겼습니다 (#235)** — 홈 위쪽 종 아이콘을 누르면 PC가 보낸 휴대폰 알림을 최신순으로 다시 볼 수 있습니다. 알림창에서 지운 알림이나, 앱 알림 권한이 꺼져 있어 뜨지 않았던 알림도 여기에 남습니다.
+  - 마지막으로 열어 본 뒤 새로 온 알림은 종 아이콘에 개수로 표시되고, 목록에서 **새 알림**으로 구분됩니다.
+  - 알림마다 종류·보낸 PC·시각·내용이 보이고, 링크가 있는 알림(날씨)은 눌러서 예보를 엽니다. **모두 지우기**로 비울 수 있습니다.
+  - 최근 30일·최대 200건을 이 휴대폰에만 보관합니다(PC나 다른 곳으로 보내지 않습니다). 설정에서 끈 종류와, 여러 PC가 보낸 같은 경고의 중복은 남기지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **The phone app has a notification center (#235)** — tap the bell at the top of the home screen to see the alerts your PCs sent, newest first. Alerts you swiped away, or that never showed because the app's notifications were off, are still there.
+  - Alerts that arrived since you last opened it are counted on the bell and marked **New** in the list.
+  - Each alert shows its kind, the PC that sent it, the time and the text; alerts with a link (weather) open the forecast when tapped. **Clear all** empties the list.
+  - The last 30 days (up to 200 alerts) are kept on this phone only — nothing is sent anywhere. Kinds you turned off in Settings, and the same alert sent by several PCs, are not kept twice.
+<!-- /en -->
+
 ## [1.57.1] - 2026-11-14
 
 <!-- ko -->

@@ -109,6 +109,7 @@ git fetch origin && git pull origin master && git status
 ## 📜 최근 변경 이력 요약
 *상세 내용은 [CHANGELOG.md](./CHANGELOG.md) 참조*
 
+- **v1.58.0**: 휴대폰 앱 알림센터(#235) — `PushReceiver`가 뮤트·중복 검사를 통과한 푸시를 `NotificationHistory`(SharedPreferences `cut_push_history`, 30일·200건, 알림 권한 꺼져도 기록)에 남기고, 홈 종 아이콘(안 읽은 개수 = `receivedAtMs > lastSeen`) → `NotificationCenterScreen`.
 - **v1.57.1**: 팝업 창 라벨·퍼센트 겹침 수정(#234) — 라벨 Auto 열, 초기화 문구는 10pt·폭 부족 시 오른쪽 정렬 줄바꿈(말줄임 금지), 절대 시각은 NBSP로 묶음. 회귀 테스트 `WindowRowLayoutTests`(실제 팝업 배치, 4개 언어).
 - **v1.56.0**: 휴대폰 앱 설정 화면(#230) — 홈 톱니바퀴 → 알림('알림' 탭에서 옮김, 홈은 계정·PC 2탭)·화면(`AppPrefs`: 초기화 시각 표시, 화면 켜 두기, Android 13+ 앱 언어 `locales_config`)·업데이트·정보.
 - **v1.55.0**: 휴대폰 앱 자동 업데이트(#228) — Homebase `update/` 이식(하루 1회 `update.json`, 배너·알림 1회, SHA-256 대조 후 `ACTION_INSTALL_PACKAGE`). `update.json`은 정식 서명 릴리스에만 붙인다(디버그 키는 빌드마다 달라 업데이트 설치 불가). `docs/MOBILE_UPDATES.md`.

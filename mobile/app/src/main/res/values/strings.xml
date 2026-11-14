@@ -129,4 +129,14 @@
     <string name="about_licenses_intro">This app includes these libraries:</string>
     <string name="about_apache_text">Apache License 2.0 full text</string>
     <string name="about_privacy">This app connects only to the PCs you paired — directly, or through a PC\'s Cloudflare Tunnel if you turned it on. No ads, analytics or usage tracking. Other outgoing traffic: the daily update check (GitHub) and end-to-end-encrypted alerts through your push app\'s relay.</string>
+    <!-- Notification center (#235) -->
+    <string name="history_title">Notifications</string>
+    <plurals name="history_unread"><item quantity="one">%1$d new notification</item><item quantity="other">%1$d new notifications</item></plurals>
+    <string name="history_new">NEW</string>
+    <string name="history_clear">Clear all</string>
+    <string name="history_clear_confirm">Clear the notification history? This can\'t be undone.</string>
+    <string name="history_empty_title">No notifications yet</string>
+    <string name="history_empty_body">Alerts your PCs send to this phone show up here, even after you swipe them away.</string>
+    <string name="history_retention">The last 30 days (up to 200 alerts) are kept on this phone only.</string>
+    <string name="history_open_link">Open forecast ›</string>
 </resources>
