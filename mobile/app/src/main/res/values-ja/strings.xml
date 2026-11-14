@@ -31,7 +31,7 @@
     <string name="remove_confirm">このスマホから %1$s を削除しますか？再び見るにはPCで新しいQRをスキャンしてください。</string>
     <string name="pair_title">PCを追加</string>
     <string name="pair_step1">PCで: トレイアイコン → 設定 → スマホアプリ連携 → 「スマホを接続… (QR表示)」。</string>
-    <string name="pair_step2">QRをスキャンしてください。スマホが同じWi-Fiにあるか、Tailscaleがオンである必要があります。</string>
+    <string name="pair_step2">QRをスキャンしてください。スマホが同じWi-Fiにあるか、Tailscaleがオンか、PCで「外出先からも接続(Cloudflare)」がオンである必要があります。</string>
     <string name="pair_scan">QRをスキャン</string>
     <string name="pair_scan_prompt">PC画面のQRを映してください</string>
     <string name="pair_paste_hint">または接続リンクを貼り付け</string>
@@ -42,7 +42,7 @@
     <string name="pair_err_invalid">コードが正しくありません。PCで新しいQRを表示してください。</string>
     <string name="pair_err_expired">QRの期限が切れました。PCで新しいQRを表示してください。</string>
     <string name="pair_err_locked">誤ったコードが多すぎます。数分後に再試行してください。</string>
-    <string name="pair_err_unreachable">PCに届きません。同じWi-Fi(Windowsで「プライベート」ネットワーク)か、Tailscaleがオンか、PCのファイアウォール規則を確認してください。
+    <string name="pair_err_unreachable">PCに届きません。同じWi-Fi(Windowsで「プライベート」ネットワーク)か、Tailscaleがオンか、PCの「外出先からも接続(Cloudflare)」がオンか、PCのファイアウォール規則を確認してください。
 %1$s</string>
     <string name="tab_alerts">通知</string>
     <string name="push_distributor_label">PCからのAI使用量通知</string>

@@ -20,7 +20,11 @@ public static class MobileProtocolFixtures
         new(MobileTransport.Lan, "192.168.0.10", MobileProtocol.DefaultPort, true, Pin),
         new(MobileTransport.Tailscale, "home-pc.tail1234.ts.net", MobileProtocol.DefaultPort, false),
         new(MobileTransport.Tailscale, "100.101.102.103", MobileProtocol.DefaultPort, false),
+        new(MobileTransport.Cloudflare, "bright-fox-quiet-river.trycloudflare.com", 443, true),
     ];
+
+    /// <summary>경로 갱신 푸시(#225)를 서명할 기기 토큰과 그 SHA-256 — 앱 테스트가 같은 토큰으로 서명을 확인한다.</summary>
+    public const string DeviceToken = "token-for-push-endpoints-fixture-0123456789abcdef";
 
     public static PairingOffer Offer() =>
         new(MobileProtocol.OfferMarker, PcId, "HOME-PC", "q1w2e3r4t5y6u7i8o9p0aA", Now.AddMinutes(5), Endpoints());

@@ -394,6 +394,10 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private bool _mobileEnabled;
     [ObservableProperty] private bool _mobileLan = true;
     [ObservableProperty] private bool _mobileTailscale = true;
+    [ObservableProperty] private bool _mobileCloudflare;
+    [ObservableProperty] private string _mobileCloudflareHostname = "";
+    /// <summary>DPAPI 로 감싼 터널 토큰(<see cref="Services.Mobile.MobileSecret"/>). 원문은 메모리에도 들고 있지 않는다.</summary>
+    [ObservableProperty] private string _mobileCloudflareTokenProtected = "";
 
     /// <summary>휴대폰 연동(서버·페어링·사용량 피드). 설정 창의 "휴대폰 연결" 창이 이것을 쓴다.</summary>
     public MobileLinkService Mobile { get; } = new();
@@ -679,6 +683,9 @@ namespace ClaudeUsageTray.ViewModels;
         MobileEnabled = s.MobileEnabled;
         MobileLan = s.MobileLan;
         MobileTailscale = s.MobileTailscale;
+        MobileCloudflare = s.MobileCloudflare;
+        MobileCloudflareHostname = s.MobileCloudflareHostname ?? "";
+        MobileCloudflareTokenProtected = s.MobileCloudflareTokenProtected ?? "";
         TrayDisplayMode = UsageProviderKind.IsValid(s.TrayDisplayMode) ? s.TrayDisplayMode : UsageProviderKind.Auto;
         HideInactiveProviders = s.HideInactiveProviders;
 
@@ -943,9 +950,13 @@ namespace ClaudeUsageTray.ViewModels;
             MobileEnabled      = MobileEnabled,
             MobileLan          = MobileLan,
             MobileTailscale    = MobileTailscale,
+            MobileCloudflare   = MobileCloudflare,
+            MobileCloudflareHostname       = MobileCloudflareHostname,
+            MobileCloudflareTokenProtected = MobileCloudflareTokenProtected,
             // 파일에서만 바꾸는 값은 디스크 값을 보존한다.
             MobilePort         = existing.MobilePort,
             MobileBindLoopback = existing.MobileBindLoopback,
+            MobileCloudflaredPath = existing.MobileCloudflaredPath,
         };
         _settingsService.Save(saved);
         ApplyMobileSettings(saved);

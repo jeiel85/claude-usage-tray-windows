@@ -19,6 +19,12 @@
       "host": "100.101.102.103",
       "port": 47830,
       "tls": false
+    },
+    {
+      "transport": "cloudflare",
+      "host": "bright-fox-quiet-river.trycloudflare.com",
+      "port": 443,
+      "tls": true
     }
   ]
 }

@@ -21,8 +21,11 @@ public sealed record PushSubscription(
         category != PushCategories.Test && MutedCategories is { Count: > 0 } muted && muted.Contains(category, StringComparer.Ordinal);
 }
 
-/// <summary>푸시를 받을 기기 하나.</summary>
-public sealed record PushTarget(string DeviceId, string DeviceName, PushSubscription Subscription);
+/// <summary>
+/// 푸시를 받을 기기 하나. <c>TokenSha256</c> 은 그 기기 토큰의 SHA-256(hex) — 경로 갱신 푸시(<see cref="PushEndpoints"/>)의
+/// 서명 키로 쓴다(PC 는 토큰 원문을 갖고 있지 않다).
+/// </summary>
+public sealed record PushTarget(string DeviceId, string DeviceName, PushSubscription Subscription, string? TokenSha256 = null);
 
 /// <summary>이 앱이 보내는 알림 범주. 휴대폰 앱의 "받을 알림" 그룹과 같은 이름을 쓴다.</summary>
 public static class PushCategories
@@ -85,6 +88,41 @@ public sealed record PushMessage(
     int EventToleranceSec,
     string? ClickUrl,
     DateTimeOffset Ts);
+
+/// <summary>경로 갱신 푸시의 서명된 본문(<c>data</c> 의 base64url 을 풀면 이 JSON).</summary>
+public sealed record PushEndpointsData(int Schema, string PcId, DateTimeOffset Ts, IReadOnlyList<MobileEndpoint> Endpoints);
+
+/// <summary>경로 갱신 푸시의 평문(픽스처 <c>push-endpoints.v1.json</c>). 알림이 아니라 <c>kind</c> 로 구분한다.</summary>
+public sealed record PushEndpointsEnvelope(int Schema, string Kind, string PcId, string Data, string Mac);
+
+/// <summary>
+/// 이 PC 의 현재 경로를 휴대폰에 조용히 알리는 푸시(#225, Homebase DECISIONS M-23).
+/// 휴대폰은 연결에 성공해야 <c>/api/v1/endpoints</c> 로 새 경로를 받는데, Quick Tunnel 주소는 앱을 다시 시작할 때마다 바뀌어
+/// 밖에 있는 휴대폰은 새 주소를 알 길이 없다 — 그래서 바뀐 경로를 푸시로 보낸다.
+/// </summary>
+public static class PushEndpoints
+{
+    public const string Kind = "endpoints";
+
+    /// <summary>
+    /// Input : PC ID, 경로 목록, 시각, 받는 기기의 토큰 SHA-256(hex)
+    /// Output: 암호화 전 평문(UTF-8 JSON)
+    /// 핵심 로직: 휴대폰의 푸시 키는 모든 PC 가 함께 쓴다 — 복호화됐다는 것만으로는 어느 PC 가 보냈는지 알 수 없으므로,
+    ///           한 PC 가 다른 PC 의 경로를 자기 주소로 바꿔 그 PC 토큰을 받아 낼 수 없게 그 기기 토큰 해시로 HMAC 서명한다.
+    ///           토큰 해시는 그 PC 와 그 휴대폰만 안다(PC 는 해시를 저장, 휴대폰은 토큰을 저장하고 해시를 계산).
+    /// </summary>
+    public static byte[] Serialize(string pcId, IReadOnlyList<MobileEndpoint> endpoints, DateTimeOffset ts, string tokenSha256Hex)
+    {
+        var data = JsonSerializer.SerializeToUtf8Bytes(new PushEndpointsData(MobileProtocol.Schema, pcId, ts, endpoints), MobileProtocol.Json);
+        var mac = System.Security.Cryptography.HMACSHA256.HashData(Convert.FromHexString(tokenSha256Hex), data);
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(
+            new PushEndpointsEnvelope(MobileProtocol.Schema, Kind, pcId, Base64Url.Encode(data), Base64Url.Encode(mac)),
+            MobileProtocol.Json);
+        if (bytes.Length > WebPushEncryption.MaxPlaintextBytes)
+            throw new ArgumentException($"Endpoint list is too long for one push ({bytes.Length} bytes).", nameof(endpoints));
+        return bytes;
+    }
+}
 
 public static class PushPayload
 {

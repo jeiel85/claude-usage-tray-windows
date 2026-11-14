@@ -2686,10 +2686,10 @@ public static class Loc
 
     public static string MobileNoPath => Lang switch
     {
-        "ko" => "휴대폰이 닿을 주소가 없습니다. Wi-Fi·LAN에 연결되어 있는지, 또는 Tailscale이 켜져 있는지 확인하세요.",
-        "zh" => "没有手机可访问的地址。请确认已连接 Wi-Fi/局域网，或 Tailscale 已开启。",
-        "ja" => "スマホが届くアドレスがありません。Wi-Fi・LANに接続しているか、Tailscaleがオンか確認してください。",
-        _ => "No address a phone can reach. Check that this PC is on Wi-Fi/LAN or that Tailscale is on."
+        "ko" => "휴대폰이 닿을 주소가 없습니다. Wi-Fi·LAN에 연결되어 있는지, Tailscale이 켜져 있는지, 또는 '밖에서도 연결(Cloudflare)'을 켰는지 확인하세요.",
+        "zh" => "没有手机可访问的地址。请确认已连接 Wi-Fi/局域网、Tailscale 已开启，或已开启\"外网也可连接(Cloudflare)\"。",
+        "ja" => "スマホが届くアドレスがありません。Wi-Fi・LANに接続しているか、Tailscaleがオンか、「外出先からも接続(Cloudflare)」をオンにしたか確認してください。",
+        _ => "No address a phone can reach. Check that this PC is on Wi-Fi/LAN, that Tailscale is on, or turn on \"Connect from anywhere (Cloudflare)\"."
     };
 
     public static string MobileServerError(string message) => Lang switch
@@ -2796,6 +2796,151 @@ public static class Loc
         _ => "not seen yet"
     };
 
+    // ===== Cloudflare Tunnel (#225) — Tailscale 없이 밖에서 연결 =====
+    public static string MobilePathCloudflare => Lang switch
+    {
+        "ko" => "밖에서도 연결 (Cloudflare Tunnel — Tailscale 불필요)",
+        "zh" => "外网也可连接 (Cloudflare Tunnel — 无需 Tailscale)",
+        "ja" => "外出先からも接続 (Cloudflare Tunnel — Tailscale不要)",
+        _ => "Connect from anywhere (Cloudflare Tunnel — no Tailscale needed)"
+    };
+
+    public static string MobileCloudflareHint => Lang switch
+    {
+        "ko" => "이 PC가 Cloudflare로 바깥 연결만 열어 포트·방화벽 설정이 필요 없습니다. 기본은 계정 없는 임시 주소이며, 이 앱을 다시 시작할 때마다 바뀝니다(휴대폰 알림이 켜져 있으면 새 주소가 자동으로 전달됩니다).",
+        "zh" => "这台电脑只向 Cloudflare 建立外向连接，无需端口或防火墙设置。默认使用无需账户的临时地址，每次重启本应用都会改变(手机通知开启时会自动发送新地址)。",
+        "ja" => "このPCはCloudflareへの外向き接続だけを開くため、ポート・ファイアウォール設定は不要です。既定はアカウント不要の一時アドレスで、このアプリを再起動するたびに変わります(スマホ通知がオンなら新しいアドレスが自動で届きます)。",
+        _ => "This PC only dials out to Cloudflare, so no port or firewall setup is needed. By default it uses an account-free temporary address that changes each time this app restarts (with phone alerts on, the new address reaches the phone automatically)."
+    };
+
+    public static string CloudflareStarting => Lang switch
+    {
+        "ko" => "Cloudflare 터널을 여는 중…",
+        "zh" => "正在打开 Cloudflare 隧道…",
+        "ja" => "Cloudflareトンネルを開いています…",
+        _ => "Opening the Cloudflare tunnel…"
+    };
+
+    public static string CloudflareRunning(string host, bool quick) => Lang switch
+    {
+        "ko" => quick ? $"열림: {host} (임시 주소)" : $"열림: {host}",
+        "zh" => quick ? $"已打开: {host} (临时地址)" : $"已打开: {host}",
+        "ja" => quick ? $"接続中: {host} (一時アドレス)" : $"接続中: {host}",
+        _ => quick ? $"Open: {host} (temporary address)" : $"Open: {host}"
+    };
+
+    public static string CloudflareNotInstalled => Lang switch
+    {
+        "ko" => "cloudflared가 설치되어 있지 않습니다.",
+        "zh" => "未安装 cloudflared。",
+        "ja" => "cloudflaredがインストールされていません。",
+        _ => "cloudflared is not installed."
+    };
+
+    public static string CloudflareInstall => Lang switch
+    {
+        "ko" => "설치 (winget)",
+        "zh" => "安装 (winget)",
+        "ja" => "インストール (winget)",
+        _ => "Install (winget)"
+    };
+
+    public static string CloudflareInstalling => Lang switch
+    {
+        "ko" => "설치하는 중… Windows가 관리자 승인을 물을 수 있습니다.",
+        "zh" => "正在安装… Windows 可能会请求管理员批准。",
+        "ja" => "インストール中… Windowsが管理者の承認を求めることがあります。",
+        _ => "Installing… Windows may ask for administrator approval."
+    };
+
+    public static string CloudflareInstalled => Lang switch
+    {
+        "ko" => "설치했습니다. 1분 안에 터널이 열립니다.",
+        "zh" => "已安装。隧道将在 1 分钟内打开。",
+        "ja" => "インストールしました。1分以内にトンネルが開きます。",
+        _ => "Installed. The tunnel opens within a minute."
+    };
+
+    public static string CloudflareInstallFailed(string reason) => Lang switch
+    {
+        "ko" => reason == "winget_missing"
+            ? "winget(앱 설치 관리자)이 없습니다. Microsoft Store의 '앱 설치 관리자'를 설치하거나 cloudflared를 직접 설치하세요."
+            : $"설치하지 못했습니다: {reason}",
+        "zh" => reason == "winget_missing"
+            ? "没有 winget(应用安装程序)。请从 Microsoft Store 安装\"应用安装程序\"，或手动安装 cloudflared。"
+            : $"安装失败: {reason}",
+        "ja" => reason == "winget_missing"
+            ? "winget(アプリ インストーラー)がありません。Microsoft Storeの「アプリ インストーラー」を入れるか、cloudflaredを手動でインストールしてください。"
+            : $"インストールできませんでした: {reason}",
+        _ => reason == "winget_missing"
+            ? "winget (App Installer) is missing. Install \"App Installer\" from the Microsoft Store or install cloudflared manually."
+            : $"Install failed: {reason}"
+    };
+
+    public static string CloudflareError(string? detail) => Lang switch
+    {
+        "ko" => detail == "hostname_required" ? "터널 토큰을 쓰려면 그 터널에 연결한 공개 호스트명도 넣으세요." : $"터널 오류: {detail} — 잠시 뒤 다시 시도합니다.",
+        "zh" => detail == "hostname_required" ? "使用隧道令牌时，还需填写该隧道绑定的公共主机名。" : $"隧道错误: {detail} — 稍后重试。",
+        "ja" => detail == "hostname_required" ? "トンネルトークンを使うには、そのトンネルに接続した公開ホスト名も入力してください。" : $"トンネルエラー: {detail} — しばらくして再試行します。",
+        _ => detail == "hostname_required" ? "With a tunnel token, also enter the public hostname routed to that tunnel." : $"Tunnel error: {detail} — retrying shortly."
+    };
+
+    public static string CloudflareAdvanced => Lang switch
+    {
+        "ko" => "고정 주소 사용 (Cloudflare 계정·도메인)…",
+        "zh" => "使用固定地址 (Cloudflare 账户·域名)…",
+        "ja" => "固定アドレスを使う (Cloudflareアカウント・ドメイン)…",
+        _ => "Use a fixed address (Cloudflare account and domain)…"
+    };
+
+    public static string CloudflareNamedHint(int port) => Lang switch
+    {
+        "ko" => $"Cloudflare 대시보드(Zero Trust → Networks → Tunnels)에서 만든 터널의 토큰과, 그 터널을 http://127.0.0.1:{port} 으로 보내도록 연결한 공개 호스트명을 넣으세요. 비워 두면 임시 주소를 씁니다.",
+        "zh" => $"请填写在 Cloudflare 控制台(Zero Trust → Networks → Tunnels)中创建的隧道令牌，以及将该隧道指向 http://127.0.0.1:{port} 的公共主机名。留空则使用临时地址。",
+        "ja" => $"Cloudflareダッシュボード(Zero Trust → Networks → Tunnels)で作ったトンネルのトークンと、そのトンネルを http://127.0.0.1:{port} に向けた公開ホスト名を入力してください。空欄なら一時アドレスを使います。",
+        _ => $"Enter the token of a tunnel created in the Cloudflare dashboard (Zero Trust → Networks → Tunnels) and the public hostname that routes that tunnel to http://127.0.0.1:{port}. Leave empty to use a temporary address."
+    };
+
+    public static string CloudflareHostname => Lang switch
+    {
+        "ko" => "공개 호스트명 (예: pc.example.com)",
+        "zh" => "公共主机名 (例: pc.example.com)",
+        "ja" => "公開ホスト名 (例: pc.example.com)",
+        _ => "Public hostname (e.g. pc.example.com)"
+    };
+
+    public static string CloudflareToken => Lang switch
+    {
+        "ko" => "터널 토큰",
+        "zh" => "隧道令牌",
+        "ja" => "トンネルトークン",
+        _ => "Tunnel token"
+    };
+
+    public static string CloudflareTokenSaved => Lang switch
+    {
+        "ko" => "저장된 토큰이 있습니다(암호화됨). 새로 넣으면 바뀝니다.",
+        "zh" => "已保存令牌(已加密)。输入新令牌即可替换。",
+        "ja" => "保存済みのトークンがあります(暗号化)。新しく入力すると置き換わります。",
+        _ => "A token is saved (encrypted). Enter a new one to replace it."
+    };
+
+    public static string CloudflareTokenClear => Lang switch
+    {
+        "ko" => "토큰 지우기",
+        "zh" => "清除令牌",
+        "ja" => "トークンを消去",
+        _ => "Clear token"
+    };
+
+    public static string CloudflareQuickSuffix => Lang switch
+    {
+        "ko" => "임시 주소",
+        "zh" => "临时地址",
+        "ja" => "一時アドレス",
+        _ => "temporary address"
+    };
+
     public static string MobileWatching(int count) => Lang switch
     {
         "ko" => count == 0 ? "" : $"지금 휴대폰 {count}대가 보는 중",
@@ -2870,10 +3015,10 @@ public static class Loc
 
     public static string PeerSyncDescription => Lang switch
     {
-        "ko" => "다른 PC의 동기화 코드를 붙여 넣으면 두 PC가 사용량을 직접 주고받습니다. 한 PC에만 연결해도 그룹 전체가 공유되고, Claude Code가 없는 PC도 그룹의 사용량을 보여 줍니다. 같은 Wi-Fi·LAN이나 Tailscale로 닿아야 합니다.",
-        "zh" => "粘贴另一台电脑的同步代码后，两台电脑直接交换用量。只需连接其中一台即可在整个组内共享，没有 Claude Code 的电脑也能显示组内用量。需要通过同一 Wi-Fi/局域网或 Tailscale 互通。",
-        "ja" => "別のPCの同期コードを貼り付けると、2台のPCが使用量を直接やり取りします。1台に接続するだけでグループ全体で共有され、Claude CodeのないPCでもグループの使用量を表示します。同じWi-Fi・LANまたはTailscaleで届く必要があります。",
-        _ => "Paste another PC's sync code and the two PCs exchange usage directly. Linking to one PC shares with the whole group, and a PC without Claude Code still shows the group's usage. The PCs must reach each other over the same Wi-Fi/LAN or Tailscale."
+        "ko" => "다른 PC의 동기화 코드를 붙여 넣으면 두 PC가 사용량을 직접 주고받습니다. 한 PC에만 연결해도 그룹 전체가 공유되고, Claude Code가 없는 PC도 그룹의 사용량을 보여 줍니다. 같은 Wi-Fi·LAN, Tailscale, 또는 상대 PC의 '밖에서도 연결(Cloudflare)'로 닿아야 합니다.",
+        "zh" => "粘贴另一台电脑的同步代码后，两台电脑直接交换用量。只需连接其中一台即可在整个组内共享，没有 Claude Code 的电脑也能显示组内用量。需要通过同一 Wi-Fi/局域网、Tailscale，或对方电脑的\"外网也可连接(Cloudflare)\"互通。",
+        "ja" => "別のPCの同期コードを貼り付けると、2台のPCが使用量を直接やり取りします。1台に接続するだけでグループ全体で共有され、Claude CodeのないPCでもグループの使用量を表示します。同じWi-Fi・LAN、Tailscale、または相手PCの「外出先からも接続(Cloudflare)」で届く必要があります。",
+        _ => "Paste another PC's sync code and the two PCs exchange usage directly. Linking to one PC shares with the whole group, and a PC without Claude Code still shows the group's usage. The PCs must reach each other over the same Wi-Fi/LAN, Tailscale, or the other PC's \"Connect from anywhere (Cloudflare)\"."
     };
 
     public static string PeerSyncCopyCode => Lang switch
@@ -2982,10 +3127,10 @@ public static class Loc
 
     public static string PeerSyncErrUnreachable(string reason) => Lang switch
     {
-        "ko" => $"그 PC에 닿지 않습니다. 같은 Wi-Fi·LAN(Windows '개인' 네트워크)인지, 또는 Tailscale이 켜져 있는지, 그 PC의 방화벽 규칙을 확인하세요. ({reason})",
-        "zh" => $"无法连接到该电脑。请确认在同一 Wi-Fi/局域网(Windows\"专用\"网络)或已开启 Tailscale，并检查该电脑的防火墙规则。({reason})",
-        "ja" => $"そのPCに届きません。同じWi-Fi・LAN(Windowsの「プライベート」ネットワーク)か、Tailscaleがオンか、そのPCのファイアウォール規則を確認してください。({reason})",
-        _ => $"Can't reach that PC. Check the same Wi-Fi/LAN (a Private network in Windows) or Tailscale, and that PC's firewall rules. ({reason})"
+        "ko" => $"그 PC에 닿지 않습니다. 같은 Wi-Fi·LAN(Windows '개인' 네트워크)인지, 또는 Tailscale이 켜져 있는지, 그 PC의 방화벽 규칙을 확인하세요. 그 PC가 Cloudflare 임시 주소만 쓰고 다시 시작했다면 새 코드가 필요합니다. ({reason})",
+        "zh" => $"无法连接到该电脑。请确认在同一 Wi-Fi/局域网(Windows\"专用\"网络)或已开启 Tailscale，并检查该电脑的防火墙规则。如果该电脑只用 Cloudflare 临时地址且已重启，需要新的代码。({reason})",
+        "ja" => $"そのPCに届きません。同じWi-Fi・LAN(Windowsの「プライベート」ネットワーク)か、Tailscaleがオンか、そのPCのファイアウォール規則を確認してください。そのPCがCloudflareの一時アドレスだけで再起動した場合は新しいコードが必要です。({reason})",
+        _ => $"Can't reach that PC. Check the same Wi-Fi/LAN (a Private network in Windows) or Tailscale, and that PC's firewall rules. If that PC only uses a temporary Cloudflare address and has restarted, you need a new code. ({reason})"
     };
 
     public static string PeerSyncConnected(string via) => Lang switch

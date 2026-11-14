@@ -154,6 +154,14 @@ public partial class SettingsWindow : Window, IDisposable
         LblMobileDescription.Text           = Loc.MobileDescription;
         ChkMobileLan.Content                = Loc.MobilePathLan;
         ChkMobileTailscale.Content          = Loc.MobilePathTailscale;
+        ChkMobileCloudflare.Content         = Loc.MobilePathCloudflare;
+        LblMobileCloudflareHint.Text        = Loc.MobileCloudflareHint;
+        BtnCloudflareInstall.Content        = Loc.CloudflareInstall;
+        BtnCloudflareAdvanced.Content       = Loc.CloudflareAdvanced;
+        LblCloudflareNamedHint.Text         = Loc.CloudflareNamedHint(Services.Mobile.MobileLinkService.NormalizePort(_vm.Mobile.Server?.Options.Port ?? Services.Mobile.MobileProtocol.DefaultPort));
+        LblCloudflareHostname.Text          = Loc.CloudflareHostname;
+        LblCloudflareToken.Text             = Loc.CloudflareToken;
+        BtnCloudflareTokenClear.Content     = Loc.CloudflareTokenClear;
         BtnMobileConnect.Content            = Loc.MobileConnectButton;
         UpdateMobileStatusLabel();
         LangItemSystem.Content              = Loc.LanguageSystem;
@@ -297,6 +305,10 @@ public partial class SettingsWindow : Window, IDisposable
         ChkMobileEnabled.IsChecked       = _vm.MobileEnabled;
         ChkMobileLan.IsChecked           = _vm.MobileLan;
         ChkMobileTailscale.IsChecked     = _vm.MobileTailscale;
+        ChkMobileCloudflare.IsChecked    = _vm.MobileCloudflare;
+        TxtCloudflareHostname.Text       = _vm.MobileCloudflareHostname;
+        // 고정 주소를 이미 쓰고 있으면 펼쳐 둔다 — 넣어 둔 값이 숨어 있으면 "왜 임시 주소가 아니지?" 를 찾기 어렵다.
+        PanelCloudflareNamed.Visibility  = HasNamedTunnelSettings() ? Visibility.Visible : Visibility.Collapsed;
         UpdateMobileStatusLabel();
         SliderPolling.Value = _vm.PollingIntervalMinutes > 0 ? _vm.PollingIntervalMinutes : 2;
         UpdatePollingLabel((int)SliderPolling.Value);
@@ -394,6 +406,14 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.MobileEnabled         = ChkMobileEnabled.IsChecked == true;
         _vm.MobileLan             = ChkMobileLan.IsChecked == true;
         _vm.MobileTailscale       = ChkMobileTailscale.IsChecked == true;
+        _vm.MobileCloudflare      = ChkMobileCloudflare.IsChecked == true;
+        _vm.MobileCloudflareHostname = TxtCloudflareHostname.Text.Trim();
+        // 토큰 칸이 비어 있으면 저장된 토큰을 그대로 둔다(칸은 보안상 저장값을 다시 보여 주지 않는다). 지우기는 전용 버튼으로.
+        if (PwdCloudflareToken.Password.Trim() is { Length: > 0 } newToken)
+        {
+            _vm.MobileCloudflareTokenProtected = Services.Mobile.MobileSecret.Protect(newToken);
+            PwdCloudflareToken.Clear();
+        }
 
         if (CmbTrayDisplayMode.SelectedItem is ComboBoxItem modeItem)
             _vm.TrayDisplayMode = modeItem.Tag?.ToString() ?? UsageProviderKind.Auto;
@@ -436,15 +456,93 @@ public partial class SettingsWindow : Window, IDisposable
         var enabled = ChkMobileEnabled.IsChecked == true;
         ChkMobileLan.IsEnabled = enabled;
         ChkMobileTailscale.IsEnabled = enabled;
+        ChkMobileCloudflare.IsEnabled = enabled;
         BtnMobileConnect.IsEnabled = enabled;
         var devices = _vm.Mobile.Devices?.List().Count ?? 0;
         LblMobileStatus.Text = enabled ? Loc.MobileStatusPaired(devices) : Loc.MobileStatusOff;
+        UpdateCloudflareStatus();
+    }
+
+    private bool HasNamedTunnelSettings() =>
+        !string.IsNullOrWhiteSpace(_vm.MobileCloudflareHostname) || !string.IsNullOrEmpty(_vm.MobileCloudflareTokenProtected);
+
+    /// <summary>
+    /// Cloudflare 줄(#225): 켜졌을 때만 설명·상태·고정 주소 칸을 보인다. 상태는 터널 커넥터가 실제로 보고한 것
+    /// (여는 중·열림 주소·미설치·오류)을 그대로 보여 준다 — "켰는데 왜 안 되지?" 를 이 줄에서 바로 알 수 있게.
+    /// </summary>
+    private void UpdateCloudflareStatus()
+    {
+        var on = ChkMobileEnabled.IsChecked == true && ChkMobileCloudflare.IsChecked == true;
+        PanelCloudflare.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+        LblCloudflareTokenSaved.Text = string.IsNullOrEmpty(_vm.MobileCloudflareTokenProtected) ? "" : Loc.CloudflareTokenSaved;
+        BtnCloudflareTokenClear.Visibility = string.IsNullOrEmpty(_vm.MobileCloudflareTokenProtected) ? Visibility.Collapsed : Visibility.Visible;
+        if (!on) return;
+
+        var status = _vm.Mobile.Tunnel.Status();
+        if (_cloudflareInstallMessage is { } message)
+        {
+            LblCloudflareStatus.Text = message;
+        }
+        else
+        {
+            LblCloudflareStatus.Text = status?.State switch
+            {
+                Services.Mobile.CloudflareStatus.Running => Loc.CloudflareRunning(status.Hostname ?? "", status.Mode == Services.Mobile.CloudflareStatus.Quick),
+                Services.Mobile.CloudflareStatus.NotInstalled => Loc.CloudflareNotInstalled,
+                Services.Mobile.CloudflareStatus.Error => Loc.CloudflareError(status.Detail),
+                _ => Loc.CloudflareStarting,
+            };
+        }
+        BtnCloudflareInstall.Visibility = status?.State == Services.Mobile.CloudflareStatus.NotInstalled && !_cloudflareInstalling
+            ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private bool _cloudflareInstalling;
+    private string? _cloudflareInstallMessage;
+
+    /// <summary>winget 으로 cloudflared 를 설치한다. 설치되면 터널 루프가 1분 안에 스스로 찾아 연다(다시 켤 필요 없음).</summary>
+    private async void BtnCloudflareInstall_Click(object sender, RoutedEventArgs e)
+    {
+        if (_cloudflareInstalling) return;
+        _cloudflareInstalling = true;
+        _cloudflareInstallMessage = Loc.CloudflareInstalling;
+        UpdateCloudflareStatus();
+        try
+        {
+            var error = await Services.Mobile.CloudflareTunnel.InstallWithWingetAsync();
+            _cloudflareInstallMessage = error is null ? Loc.CloudflareInstalled : Loc.CloudflareInstallFailed(error);
+        }
+        finally
+        {
+            _cloudflareInstalling = false;
+            if (!_disposed) UpdateCloudflareStatus();
+        }
+    }
+
+    private void BtnCloudflareAdvanced_Click(object sender, RoutedEventArgs e) =>
+        PanelCloudflareNamed.Visibility = PanelCloudflareNamed.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
+
+    private void CloudflareField_LostFocus(object sender, RoutedEventArgs e)
+    {
+        // 값이 그대로면 저장하지 않는다 — 칸을 지나가기만 해도 터널이 다시 시작되면 Quick Tunnel 주소가 바뀐다.
+        var hostnameChanged = TxtCloudflareHostname.Text.Trim() != _vm.MobileCloudflareHostname;
+        if (hostnameChanged || PwdCloudflareToken.Password.Trim().Length > 0) Setting_Changed(sender, e);
+    }
+
+    private void BtnCloudflareTokenClear_Click(object sender, RoutedEventArgs e)
+    {
+        _vm.MobileCloudflareTokenProtected = "";
+        PwdCloudflareToken.Clear();
+        Setting_Changed(sender, e);
     }
 
     /// <summary>서버 상태·기기 목록·PC 동기화 연결이 바뀌면(스레드풀에서 올 수 있다) 연결 탭과 알림 상태를 다시 그린다.</summary>
     private void OnMobileChanged() => Dispatcher.BeginInvoke(() =>
     {
         if (_disposed) return;
+        // 터널 주소가 열리면 설치 진행 문구 대신 실제 상태를 보인다.
+        if (!_cloudflareInstalling && _vm.Mobile.Tunnel.Status()?.State == Services.Mobile.CloudflareStatus.Running)
+            _cloudflareInstallMessage = null;
         UpdateMobileStatusLabel();
         UpdatePeerSyncList();
         UpdatePhoneAlertsStatus();
@@ -907,6 +1005,7 @@ public partial class SettingsWindow : Window, IDisposable
             _vm.MobileEnabled         = false;
             _vm.MobileLan             = true;
             _vm.MobileTailscale       = true;
+            _vm.MobileCloudflare      = false;
             _vm.AutoUpdateEnabled     = true;
             _vm.AutoUpdateCountdownSeconds = AppConstants.DefaultAutoUpdateCountdownSeconds;
 
@@ -933,6 +1032,7 @@ public partial class SettingsWindow : Window, IDisposable
             ChkMobileEnabled.IsChecked    = _vm.MobileEnabled;
             ChkMobileLan.IsChecked        = _vm.MobileLan;
             ChkMobileTailscale.IsChecked  = _vm.MobileTailscale;
+            ChkMobileCloudflare.IsChecked = _vm.MobileCloudflare;
             UpdateMobileStatusLabel();
             ChkAutoUpdateEnabled.IsChecked  = _vm.AutoUpdateEnabled;
             SliderAutoUpdateCountdown.Value = _vm.AutoUpdateCountdownSeconds;

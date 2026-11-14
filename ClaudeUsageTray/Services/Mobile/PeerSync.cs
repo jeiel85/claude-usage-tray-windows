@@ -314,24 +314,9 @@ public sealed class SyncPeerStore
         }
     }
 
-    private static string Protect(string token) =>
-        OperatingSystem.IsWindows()
-            ? Convert.ToBase64String(ProtectedData.Protect(Encoding.UTF8.GetBytes(token), null, DataProtectionScope.CurrentUser))
-            : "plain:" + token; // 테스트(리눅스) 전용 — 앱은 Windows 에서만 돈다.
+    private static string Protect(string token) => MobileSecret.Protect(token);
 
-    private static string? Unprotect(string stored)
-    {
-        try
-        {
-            if (stored.StartsWith("plain:", StringComparison.Ordinal)) return stored["plain:".Length..];
-            if (!OperatingSystem.IsWindows()) return null;
-            return Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(stored), null, DataProtectionScope.CurrentUser));
-        }
-        catch (Exception ex) when (ex is CryptographicException or FormatException)
-        {
-            return null; // 다른 사용자·PC 에서 옮겨 온 파일 — 다시 연결해야 한다.
-        }
-    }
+    private static string? Unprotect(string stored) => MobileSecret.Unprotect(stored);
 }
 
 /// <summary>연결해 둔 PC 하나의 지금 상태(설정 창 표시용).</summary>
@@ -619,9 +604,19 @@ public sealed class PeerSyncClient : IDisposable
         Changed?.Invoke();
     }
 
-    /// <summary>LAN 을 먼저(같은 집·사무실이면 가장 빠름), 그다음 Tailscale. 이 PC 에서 PC 로 가므로 네트워크 힌트 없이 둘 다 시도한다.</summary>
+    /// <summary>
+    /// LAN 을 먼저(같은 집·사무실이면 가장 빠름), 그다음 Tailscale, 그다음 Cloudflare Tunnel(#225 — 다른 네트워크라도 인터넷만 되면
+    /// 닿지만 Cloudflare 를 거쳐 가장 느리다). 이 PC 에서 PC 로 가므로 네트워크 힌트 없이 모두 차례로 시도한다.
+    /// Cloudflare 경로는 공인 인증서라 핀 없이 시스템 CA 로 검증한다(<see cref="CreateHttp"/>).
+    /// </summary>
     internal static IEnumerable<MobileEndpoint> Order(IReadOnlyList<MobileEndpoint> endpoints) =>
-        endpoints.OrderBy(e => e.Transport switch { MobileTransport.Lan => 0, MobileTransport.Tailscale => 1, _ => 2 });
+        endpoints.OrderBy(e => e.Transport switch
+        {
+            MobileTransport.Lan => 0,
+            MobileTransport.Tailscale => 1,
+            MobileTransport.Cloudflare => 2,
+            _ => 3,
+        });
 
     internal static string Url(MobileEndpoint e, string path)
     {

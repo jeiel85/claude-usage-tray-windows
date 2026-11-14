@@ -31,7 +31,7 @@
     <string name="remove_confirm">要从此手机删除 %1$s 吗？如需再次查看，请在电脑上扫描新的二维码。</string>
     <string name="pair_title">添加电脑</string>
     <string name="pair_step1">在电脑上: 托盘图标 → 设置 → 手机应用连接 → \"连接手机… (显示二维码)\"。</string>
-    <string name="pair_step2">扫描二维码。手机需要在同一 Wi-Fi 下，或已开启 Tailscale。</string>
+    <string name="pair_step2">扫描二维码。手机需要在同一 Wi-Fi 下、已开启 Tailscale，或电脑已开启\"外网也可连接(Cloudflare)\"。</string>
     <string name="pair_scan">扫描二维码</string>
     <string name="pair_scan_prompt">将相机对准电脑上的二维码</string>
     <string name="pair_paste_hint">或粘贴配对链接</string>
@@ -42,7 +42,7 @@
     <string name="pair_err_invalid">代码无效。请在电脑上显示新的二维码。</string>
     <string name="pair_err_expired">二维码已过期。请在电脑上显示新的二维码。</string>
     <string name="pair_err_locked">错误代码过多。请几分钟后再试。</string>
-    <string name="pair_err_unreachable">无法连接电脑。请确认在同一 Wi-Fi (Windows 中为\"专用\"网络) 或已开启 Tailscale，并检查电脑的防火墙规则。
+    <string name="pair_err_unreachable">无法连接电脑。请确认在同一 Wi-Fi (Windows 中为\"专用\"网络) 、已开启 Tailscale 或电脑已开启\"外网也可连接(Cloudflare)\"，并检查电脑的防火墙规则。
 %1$s</string>
     <string name="tab_alerts">通知</string>
     <string name="push_distributor_label">来自电脑的 AI 用量通知</string>

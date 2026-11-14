@@ -169,7 +169,7 @@ public sealed class MobileDeviceStore
         {
             return _state.Devices
                 .Where(d => d.Push is { } p && !string.IsNullOrEmpty(p.Endpoint))
-                .Select(d => new PushTarget(d.DeviceId ?? "", d.Name ?? "", d.Push!.ToSubscription()))
+                .Select(d => new PushTarget(d.DeviceId ?? "", d.Name ?? "", d.Push!.ToSubscription(), d.TokenSha256))
                 .ToList();
         }
     }

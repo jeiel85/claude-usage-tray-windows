@@ -263,6 +263,40 @@
             </Setter>
         </Style>
 
+        <!-- 비밀 입력(Cloudflare 터널 토큰, #225) — DarkTextBox 와 같은 모양 -->
+        <Style x:Key="DarkPasswordBox" TargetType="PasswordBox">
+            <Setter Property="Background"      Value="#1A1D2E"/>
+            <Setter Property="Foreground"      Value="#F1F5F9"/>
+            <Setter Property="BorderBrush"     Value="#2D2F45"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding"         Value="10,7"/>
+            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="CaretBrush"      Value="#A78BFA"/>
+            <Setter Property="SelectionBrush"  Value="#8B5CF6"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="PasswordBox">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#5A5F7A"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#8B5CF6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="LinkBtn" TargetType="Button">
             <Setter Property="Background"       Value="Transparent"/>
             <Setter Property="BorderThickness"  Value="0"/>
@@ -613,7 +647,28 @@
                                 <CheckBox x:Name="ChkMobileEnabled" Style="{StaticResource CheckStyle}" Margin="0,0,0,4" Click="Setting_Changed"/>
                                 <TextBlock x:Name="LblMobileDescription" Foreground="#5A5F7A" FontSize="11" TextWrapping="Wrap" Margin="2,0,0,6"/>
                                 <CheckBox x:Name="ChkMobileLan" Style="{StaticResource CheckStyle}" Margin="18,0,0,4" Click="Setting_Changed"/>
-                                <CheckBox x:Name="ChkMobileTailscale" Style="{StaticResource CheckStyle}" Margin="18,0,0,6" Click="Setting_Changed"/>
+                                <CheckBox x:Name="ChkMobileTailscale" Style="{StaticResource CheckStyle}" Margin="18,0,0,4" Click="Setting_Changed"/>
+                                <!-- Cloudflare Tunnel (#225) — Tailscale 없이 밖에서 연결 -->
+                                <CheckBox x:Name="ChkMobileCloudflare" Style="{StaticResource CheckStyle}" Margin="18,0,0,2" Click="Setting_Changed"/>
+                                <StackPanel x:Name="PanelCloudflare" Margin="40,0,0,6">
+                                    <TextBlock x:Name="LblMobileCloudflareHint" Foreground="#5A5F7A" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                                    <WrapPanel>
+                                        <TextBlock x:Name="LblCloudflareStatus" Foreground="#7C83A4" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <Button x:Name="BtnCloudflareInstall" Style="{StaticResource LinkBtn}" VerticalAlignment="Center" Visibility="Collapsed" Click="BtnCloudflareInstall_Click"/>
+                                    </WrapPanel>
+                                    <Button x:Name="BtnCloudflareAdvanced" Style="{StaticResource LinkBtn}" HorizontalAlignment="Left" Margin="0,4,0,0" Click="BtnCloudflareAdvanced_Click"/>
+                                    <StackPanel x:Name="PanelCloudflareNamed" Visibility="Collapsed" Margin="0,6,0,0">
+                                        <TextBlock x:Name="LblCloudflareNamedHint" Foreground="#5A5F7A" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                                        <TextBlock x:Name="LblCloudflareHostname" Foreground="#C4C9E0" FontSize="12" Margin="0,0,0,3"/>
+                                        <TextBox x:Name="TxtCloudflareHostname" Style="{StaticResource DarkTextBox}" Padding="10,7" LostFocus="CloudflareField_LostFocus"/>
+                                        <TextBlock x:Name="LblCloudflareToken" Foreground="#C4C9E0" FontSize="12" Margin="0,8,0,3"/>
+                                        <PasswordBox x:Name="PwdCloudflareToken" Style="{StaticResource DarkPasswordBox}" LostFocus="CloudflareField_LostFocus"/>
+                                        <WrapPanel Margin="0,3,0,0">
+                                            <TextBlock x:Name="LblCloudflareTokenSaved" Foreground="#7C83A4" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <Button x:Name="BtnCloudflareTokenClear" Style="{StaticResource LinkBtn}" VerticalAlignment="Center" Click="BtnCloudflareTokenClear_Click"/>
+                                        </WrapPanel>
+                                    </StackPanel>
+                                </StackPanel>
                                 <Button x:Name="BtnMobileConnect" Style="{StaticResource LinkBtn}" HorizontalAlignment="Left" Margin="2,0,0,4" Click="BtnMobileConnect_Click"/>
                                 <TextBlock x:Name="LblMobileStatus" Foreground="#7C83A4" FontSize="11" TextWrapping="Wrap" Margin="2,0,0,0"/>
 

@@ -48,6 +48,12 @@ public static class MobileTransport
 
     /// <summary>127.0.0.1 — 개발·에뮬레이터(adb reverse) 전용.</summary>
     public const string Loopback = "loopback";
+
+    /// <summary>
+    /// Cloudflare Tunnel(#225, Homebase M-17) — 어디서든 인터넷만 되면 닿는다. 443 공인 인증서 TLS(핀 없음, 시스템 CA).
+    /// 호스트가 <c>*.trycloudflare.com</c> 이면 Quick Tunnel(앱 재시작마다 주소가 바뀜), 아니면 이름 있는 터널(고정 주소).
+    /// </summary>
+    public const string Cloudflare = "cloudflare";
 }
 
 /// <summary>이 PC 로 가는 길 하나. LAN 은 <c>CertSha256</c>(DER 의 SHA-256, 소문자 hex)이 있어야 한다.</summary>

@@ -16,7 +16,11 @@ public sealed class MobileLinkService : IDisposable, IAppPushSender
     private PairingService? _pairing;
     private MobileApiServer? _server;
     private AppPushSender? _push;
+    private EndpointAnnouncer? _announcer;
     private bool _enabled;
+
+    /// <summary>Cloudflare Tunnel 커넥터(#225). 설정에서 켰을 때만 cloudflared 를 띄운다.</summary>
+    public CloudflareTunnel Tunnel { get; }
 
     public MobileUsageFeed Feed { get; } = new();
 
@@ -29,10 +33,18 @@ public sealed class MobileLinkService : IDisposable, IAppPushSender
     /// <summary>서버 상태나 기기 목록이 바뀌면 알린다(설정 창·연결 창 갱신용, 스레드풀에서 올 수 있다).</summary>
     public event Action? Changed;
 
-    public MobileLinkService(Func<MobileDeviceStore>? storeFactory = null, Func<SyncPeerStore>? peerStoreFactory = null)
+    public MobileLinkService(Func<MobileDeviceStore>? storeFactory = null, Func<SyncPeerStore>? peerStoreFactory = null,
+        CloudflareTunnel? tunnel = null)
     {
         _storeFactory = storeFactory ?? (() => new MobileDeviceStore());
         _peerStore = new Lazy<SyncPeerStore>(peerStoreFactory ?? (() => new SyncPeerStore()));
+        Tunnel = tunnel ?? new CloudflareTunnel();
+        // 터널 주소가 바뀌면(열림·Quick Tunnel 새 주소·닫힘) 서버의 경로 목록이 바뀐 것이다 — 연결 창이 QR 을 새로 만들게.
+        Tunnel.Changed += () =>
+        {
+            Server?.NotifyEndpointsChanged();
+            Changed?.Invoke();
+        };
     }
 
     /// <summary>
@@ -93,28 +105,48 @@ public sealed class MobileLinkService : IDisposable, IAppPushSender
     /// Input : 저장된 설정
     /// Output: 없음
     /// 핵심 로직: 꺼져 있으면 서버만 멈추고 기기 목록은 지우지 않는다 — 잠깐 껐다 켜도 휴대폰을 다시 페어링하지 않게.
-    ///           LAN·Tailscale 둘 다 꺼져 있으면 열 경로가 없으므로 꺼진 것으로 본다.
+    ///           LAN·Tailscale·Cloudflare 모두 꺼져 있으면 열 경로가 없으므로 꺼진 것으로 본다.
+    ///           Cloudflare 는 휴대폰 연동이 켜져 있을 때만 띄운다 — 끈 기능이 뒤에서 인터넷 경로를 열어 두지 않게.
     /// </summary>
     public void Apply(NotificationSettings settings)
     {
-        var wanted = settings.MobileEnabled && (settings.MobileLan || settings.MobileTailscale || settings.MobileBindLoopback);
+        var wanted = settings.MobileEnabled
+            && (settings.MobileLan || settings.MobileTailscale || settings.MobileBindLoopback || settings.MobileCloudflare);
         lock (_gate) _enabled = wanted;
         // 연결해 둔 PC 와의 동기화는 이 PC 의 포트를 열지 않아도 된다(이 PC 가 여는 쪽) — 기능 토글과 무관하게 이어 간다.
         Peers.Reconcile();
         if (!wanted)
         {
+            Tunnel.Stop();
+            Announcer()?.Stop();
             Server?.Stop();
             Changed?.Invoke();
             return;
         }
 
+        var port = NormalizePort(settings.MobilePort);
         var server = EnsureServer();
         server.Start(new MobileServerOptions(
-            NormalizePort(settings.MobilePort),
+            port,
             settings.MobileLan,
             settings.MobileTailscale,
-            settings.MobileBindLoopback));
+            settings.MobileBindLoopback,
+            settings.MobileCloudflare));
+        if (settings.MobileCloudflare)
+            Tunnel.Start(new CloudflareTunnelOptions(
+                port,
+                MobileSecret.Unprotect(settings.MobileCloudflareTokenProtected),
+                settings.MobileCloudflareHostname,
+                string.IsNullOrWhiteSpace(settings.MobileCloudflaredPath) ? null : settings.MobileCloudflaredPath.Trim()));
+        else
+            Tunnel.Stop();
+        Announcer()?.Start();
         Changed?.Invoke();
+    }
+
+    private EndpointAnnouncer? Announcer()
+    {
+        lock (_gate) return _announcer;
     }
 
     /// <summary>표시 중인 페어링 코드를 버린다(연결 창을 닫을 때).</summary>
@@ -136,6 +168,10 @@ public sealed class MobileLinkService : IDisposable, IAppPushSender
             _pairing = new PairingService(_store);
             _server = new MobileApiServer(Feed, _store, _pairing, sync: PeerSync);
             _push = new AppPushSender(_store, PushHttp, Environment.MachineName);
+            _server.TunnelEndpoint = Tunnel.Endpoint;
+            var server = _server;
+            var push = _push;
+            _announcer = new EndpointAnnouncer(server.Endpoints, push.EndpointTargetIds, push.SendEndpointsAsync);
             _store.Changed += () => Changed?.Invoke();
             _server.StatusChanged += () => Changed?.Invoke();
             return _server;
@@ -194,6 +230,8 @@ public sealed class MobileLinkService : IDisposable, IAppPushSender
     public void Dispose()
     {
         _peerClient?.Dispose();
+        Announcer()?.Dispose();
+        Tunnel.Dispose();
         Server?.Dispose();
     }
 }

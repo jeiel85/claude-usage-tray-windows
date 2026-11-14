@@ -73,6 +73,10 @@ class PushReceiver : BroadcastReceiver() {
             Log.w(TAG, "dropped an undecryptable push: ${e.javaClass.simpleName}")
             return
         }
+        if (PushEndpointsUpdate.kindOf(plain) == PushEndpointsUpdate.KIND) {
+            handleEndpoints(context, plain)
+            return
+        }
         val message = try {
             PushMessage.parse(plain)
         } catch (e: Exception) {
@@ -91,6 +95,26 @@ class PushReceiver : BroadcastReceiver() {
             fresh
         }
         if (show) PushNotifier.show(context, message) else Log.i(TAG, "duplicate event ${message.eventKey} from ${message.pcName}")
+    }
+
+    /**
+     * A PC's new paths (#225): verified with that PC's token, stored silently (no notification). The live
+     * hub re-reads the stored entry on every retry, so a PC that was unreachable is tried on its new path next.
+     */
+    private fun handleEndpoints(context: Context, plain: String) {
+        val store = PcStore(context)
+        val pc = store.get(PushEndpointsUpdate.pcIdOf(plain)) ?: run {
+            Log.i(TAG, "dropped a path update from an unpaired PC")
+            return
+        }
+        val update = try {
+            PushEndpointsUpdate.verify(plain, pc.token)
+        } catch (e: Exception) {
+            Log.w(TAG, "dropped a path update: ${e.message}")
+            return
+        }
+        val applied = store.applyPushedEndpoints(update)
+        Log.i(TAG, "path update from ${pc.name}: ${if (applied) "applied" else "older than the last one, ignored"}")
     }
 
     /** A broadcast may only run ~10 s; PCs not reached by then catch up on their next live connection. */

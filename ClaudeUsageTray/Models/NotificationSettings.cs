@@ -134,6 +134,19 @@ public class NotificationSettings
     public int MobilePort { get; set; } = Services.Mobile.MobileProtocol.DefaultPort;
     /// <summary>127.0.0.1 에도 연다 — 개발·에뮬레이터(adb reverse) 전용, 파일에서만 켠다.</summary>
     public bool MobileBindLoopback { get; set; } = false;
+    /// <summary>
+    /// 밖에서도 연결: Cloudflare Tunnel(#225). 켜면 cloudflared 를 하위 프로세스로 띄운다. 인터넷에 경로가 생기므로 기본은 꺼짐.
+    /// </summary>
+    public bool MobileCloudflare { get; set; } = false;
+    /// <summary>이름 있는 터널의 공인 호스트명(예: <c>pc.example.com</c>). 토큰과 함께 쓴다.</summary>
+    public string MobileCloudflareHostname { get; set; } = "";
+    /// <summary>
+    /// 이름 있는 터널 토큰(Cloudflare 대시보드). DPAPI(현재 사용자)로 암호화한 base64 로만 저장한다 —
+    /// 설정 파일이 동기화·백업되어도 다른 PC·사용자는 풀 수 없다. 비어 있으면 Quick Tunnel.
+    /// </summary>
+    public string MobileCloudflareTokenProtected { get; set; } = "";
+    /// <summary>cloudflared.exe 경로. 비우면 설치 폴더·PATH 에서 찾는다(파일에서만 바꾼다).</summary>
+    public string MobileCloudflaredPath { get; set; } = "";
 
     // Backward compatibility with old schema used by ViewModel.
     [JsonIgnore]

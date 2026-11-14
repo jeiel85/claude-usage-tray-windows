@@ -23,9 +23,13 @@ data class Endpoint(
         get() = when (transport) {
             LAN -> "LAN"
             TAILSCALE -> "Tailscale"
+            CLOUDFLARE -> "Cloudflare"
             LOOPBACK -> "loopback"
             else -> transport
         }
+
+    /** Cloudflare's account-free tunnel: the address changes whenever the PC app restarts (#225). */
+    val isQuickTunnel: Boolean get() = transport == CLOUDFLARE && host.endsWith(".trycloudflare.com", ignoreCase = true)
 
     fun url(path: String): String {
         val scheme = if (tls) "https" else "http"
@@ -45,6 +49,9 @@ data class Endpoint(
         const val TAILSCALE = "tailscale"
         const val LAN = "lan"
         const val LOOPBACK = "loopback"
+
+        /** Cloudflare Tunnel (#225): 443 with a public certificate, verified by the system CAs (no pin). */
+        const val CLOUDFLARE = "cloudflare"
 
         /**
          * null for malformed entries, and for a LAN endpoint without a valid pin — a LAN path is
