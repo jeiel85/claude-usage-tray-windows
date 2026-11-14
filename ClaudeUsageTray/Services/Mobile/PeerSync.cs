@@ -128,13 +128,27 @@ public sealed class PeerSyncHub
         }
     }
 
+    /// <summary>
+    /// Input : 스냅샷, 이 PC 가 만든 것인지
+    /// Output: 표가 바뀌었는가
+    /// 핵심 로직: 이 PC 의 새 스냅샷에 할당량이 없으면(API 실패·쿨다운) 같은 계정·같은 날의 직전 할당량을 원래 관측 시각째
+    ///           이어 붙인다 — 공유 폴더의 PreservePreviousQuotaIfNeeded 와 같은 규칙(Codex 리뷰 P2). 그렇지 않으면 마지막
+    ///           성공 값이 그룹 전체에서 사라져, 그 사이 들어온 PC·로그인 없는 PC 가 아무 값도 못 받는다.
+    /// </summary>
     private bool Upsert(UsageSyncSnapshot s, bool local)
     {
         var key = (s.DeviceId.ToLowerInvariant(), s.Provider);
         lock (_gate)
         {
-            if (_table.TryGetValue(key, out var existing) && !local && existing.ObservedAtUtc >= s.ObservedAtUtc)
+            _table.TryGetValue(key, out var existing);
+            if (existing is not null && !local && existing.ObservedAtUtc >= s.ObservedAtUtc)
                 return false;
+            if (local && s.Quota is not { HasData: true } && existing?.Quota is { HasData: true } previousQuota
+                && string.Equals(existing.AccountHash, s.AccountHash, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(existing.LocalDate, s.LocalDate, StringComparison.Ordinal))
+            {
+                s.Quota = previousQuota;
+            }
             _table[key] = s;
             return true;
         }
@@ -338,7 +352,7 @@ public sealed class PeerSyncClient : IDisposable
     private readonly Func<string> _pcId;
     private readonly string _pcName;
     private readonly object _gate = new();
-    private readonly Dictionary<string, (CancellationTokenSource Cts, SyncPeerStatus Status)> _links = [];
+    private readonly Dictionary<string, (CancellationTokenSource Cts, SyncPeerStatus Status, string Token, Task Worker)> _links = [];
 
     public event Action? Changed;
 
@@ -355,28 +369,33 @@ public sealed class PeerSyncClient : IDisposable
     {
         lock (_gate)
         {
-            return _peers.All().Select(p => _links.TryGetValue(p.PcId, out var l) ? l.Status with { Peer = p }
+            return _peers.All().Select(p => _links.TryGetValue(p.PcId, out var l) && l.Token == p.Token ? l.Status with { Peer = p }
                 : new SyncPeerStatus(p, false, null, null)).ToList();
         }
     }
 
-    /// <summary>저장된 PC 목록과 실행 중인 연결을 맞춘다(추가된 PC 는 연결, 지운 PC 는 끊기).</summary>
+    /// <summary>
+    /// 저장된 PC 목록과 실행 중인 연결을 맞춘다(추가된 PC 는 연결, 지운 PC 는 끊기).
+    /// 같은 PC 라도 다시 연결해 토큰이 바뀌었거나, 연결 작업이 이미 끝났으면(해제됨 등) 새로 시작한다 —
+    /// 해제된 PC 에 새 코드로 다시 연결했는데 동기화가 살아나지 않던 문제(Codex 리뷰 P2).
+    /// </summary>
     public void Reconcile()
     {
         var wanted = _peers.All().ToDictionary(p => p.PcId);
         lock (_gate)
         {
-            foreach (var gone in _links.Keys.Where(k => !wanted.ContainsKey(k)).ToList())
+            foreach (var stale in _links.Where(l => !wanted.TryGetValue(l.Key, out var p) || p.Token != l.Value.Token
+                         || l.Value.Worker.IsCompleted).Select(l => l.Key).ToList())
             {
-                _links[gone].Cts.Cancel();
-                _links.Remove(gone);
+                _links[stale].Cts.Cancel();
+                _links.Remove(stale);
             }
             foreach (var peer in wanted.Values.Where(p => !_links.ContainsKey(p.PcId)))
             {
                 var cts = new CancellationTokenSource();
-                _links[peer.PcId] = (cts, new SyncPeerStatus(peer, false, null, null));
                 var pcId = peer.PcId;
-                _ = Task.Run(() => RunAsync(pcId, cts.Token));
+                var worker = Task.Run(() => RunAsync(pcId, cts.Token));
+                _links[peer.PcId] = (cts, new SyncPeerStatus(peer, false, null, null), peer.Token, worker);
             }
         }
         Changed?.Invoke();
@@ -450,7 +469,7 @@ public sealed class PeerSyncClient : IDisposable
                 }
                 catch (UnauthorizedAccessException)
                 {
-                    SetStatus(pcId, false, null, "revoked");
+                    SetStatus(pcId, ct, false, null, "revoked");
                     return; // 상대 PC 에서 해제됨 — 다시 연결해야 한다.
                 }
                 catch (Exception ex) when (ex is WebSocketException or IOException or HttpRequestException or System.Security.Authentication.AuthenticationException)
@@ -462,7 +481,7 @@ public sealed class PeerSyncClient : IDisposable
                     error = ex.Message;
                 }
             }
-            SetStatus(pcId, false, null, error);
+            SetStatus(pcId, ct, false, null, error);
             var wait = BackoffSeconds[Math.Min(attempt++, BackoffSeconds.Length - 1)];
             try { await Task.Delay(TimeSpan.FromSeconds(wait), ct); } catch (OperationCanceledException) { return; }
         }
@@ -489,13 +508,13 @@ public sealed class PeerSyncClient : IDisposable
             throw new UnauthorizedAccessException("revoked", ex);
         }
         onConnected();
-        SetStatus(peer.PcId, true, e.Transport, null);
+        SetStatus(peer.PcId, ct, true, e.Transport, null);
         _ = RefreshEndpointsAsync(peer, e);
 
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
         using var signal = new SemaphoreSlim(0, 1);
         using var subscription = _hub.OnChanged(() => { if (signal.CurrentCount == 0) signal.Release(); });
-        var receive = ReceiveLoopAsync(ws, peer, linked.Token);
+        var receive = ReceiveLoopAsync(ws, peer, ct, linked.Token);
         try
         {
             while (!linked.IsCancellationRequested && ws.State == WebSocketState.Open)
@@ -525,14 +544,14 @@ public sealed class PeerSyncClient : IDisposable
         await ws.SendAsync(JsonSerializer.SerializeToUtf8Bytes(frame, MobileProtocol.Json), WebSocketMessageType.Text, true, ct);
     }
 
-    private async Task ReceiveLoopAsync(WebSocket ws, SyncPeer peer, CancellationToken ct)
+    private async Task ReceiveLoopAsync(WebSocket ws, SyncPeer peer, CancellationToken owner, CancellationToken ct)
     {
         while (ws.State == WebSocketState.Open && !ct.IsCancellationRequested)
         {
             var bytes = await ReceiveMessageAsync(ws, ct);
             if (bytes is null) return;
             ApplyFrame(_hub, bytes);
-            SetStatus(peer.PcId, true, null, null);
+            SetStatus(peer.PcId, owner, true, null, null);
         }
     }
 
@@ -584,14 +603,18 @@ public sealed class PeerSyncClient : IDisposable
         }
     }
 
-    private void SetStatus(string pcId, bool connected, string? via, string? error)
+    /// <summary>
+    /// 연결 상태를 바꾼다. <paramref name="owner"/> 는 이 상태를 보고하는 연결 작업의 취소 토큰 — 다시 연결로 바뀐
+    /// 링크의 상태를 이전 작업이 늦게 덮어쓰지 않게, 지금 링크의 작업일 때만 반영한다.
+    /// </summary>
+    private void SetStatus(string pcId, CancellationToken owner, bool connected, string? via, string? error)
     {
         lock (_gate)
         {
-            if (!_links.TryGetValue(pcId, out var link)) return;
+            if (!_links.TryGetValue(pcId, out var link) || link.Cts.Token != owner) return;
             var next = link.Status with { Connected = connected, Via = via ?? (connected ? link.Status.Via : null), LastError = error };
             if (next == link.Status) return;
-            _links[pcId] = (link.Cts, next);
+            _links[pcId] = (link.Cts, next, link.Token, link.Worker);
         }
         Changed?.Invoke();
     }

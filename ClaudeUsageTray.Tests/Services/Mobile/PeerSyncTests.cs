@@ -143,10 +143,36 @@ public class PeerSyncTests : IDisposable
         await WaitUntil(() => a.Hub.RemoteDeviceCount == 2);
 
         // A 에서 B 를 해제하면 B 의 연결이 끊기고 다시 붙지 않는다.
-        var bOnA = a.Store.List().First(d => d.Kind == MobileDeviceKind.Pc && d.Name == "B");
-        a.Store.Revoke(bOnA.DeviceId);
+        // B 는 위에서 두 번 연결해(재사용 코드 확인) A 에 B 항목이 둘이다 — 지금 쓰는 것은 나중 토큰이므로 둘 다 해제한다.
+        foreach (var bOnA in a.Store.List().Where(d => d.Kind == MobileDeviceKind.Pc && d.Name == "B"))
+            a.Store.Revoke(bOnA.DeviceId);
         a.Hub.PublishLocal(Snapshot("dev-a", "A", "claude", "org", 0.15)); // 다음 전송을 일으킨다
         await WaitUntil(() => b.Client.Status().Any(s => s.LastError == "revoked"));
+
+        // 새 코드로 다시 연결하면(토큰 교체) 끝난 연결 작업을 버리고 새로 붙는다(Codex 리뷰 P2).
+        Assert.Equal("A", await b.Client.JoinAsync(PairingLink.Build(a.Server.CreateOffer()!)));
+        await WaitUntil(() => b.Client.Status().Single().Connected);
+    }
+
+    [Fact]
+    public void LocalSnapshotWithoutQuotaKeepsTheLastGoodOne()
+    {
+        var hub = new PeerSyncHub();
+        var good = Snapshot("me", "ME", "claude", "org", 0.4, DateTimeOffset.Now.AddMinutes(-3));
+        hub.PublishLocal(good);
+        var failed = Snapshot("me", "ME", "claude", "org", 0, DateTimeOffset.Now);
+        failed.Quota = null; // API 실패·쿨다운
+        hub.PublishLocal(failed);
+
+        var kept = hub.Snapshot().Single();
+        Assert.Equal(0.4, kept.Quota!.ShortUsagePercent);
+        Assert.Equal(good.Quota!.ObservedAtUtc, kept.Quota.ObservedAtUtc); // 원래 관측 시각 유지
+
+        // 다른 계정이면 이어 붙이지 않는다.
+        var other = Snapshot("me", "ME", "claude", "org-2", 0, DateTimeOffset.Now);
+        other.Quota = null;
+        hub.PublishLocal(other);
+        Assert.Null(hub.Snapshot().Single().Quota);
     }
 
     private static int FreePort()
