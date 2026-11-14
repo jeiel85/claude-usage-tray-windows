@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.57.1] - 2026-11-14
+
+<!-- ko -->
+### 수정
+- **사용량 팝업에서 창 이름이 퍼센트와 겹치던 문제를 고쳤습니다 (#234)** — v1.56.0에서 글씨를 키운 뒤, 초기화 시각이 길게 붙으면 "7일 윈도우25%"처럼 창 이름이 퍼센트 위로 겹쳐 보였습니다(Claude 5시간·7일, Codex 단기·장기).
+  - 창 이름은 이제 줄어들지 않고 항상 온전히 보입니다.
+  - 초기화 문구는 다른 줄들과 같은 크기로 맞췄고, 그래도 자리가 모자라면(일본어·영어 이름, "(예상)" 표기 등) 시각을 자르지 않고 오른쪽 아래 줄로 넘깁니다. 이때 "(11-21 22:04)" 같은 날짜·시각은 둘로 갈리지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Window names no longer overlap the percentage in the usage popup (#234)** — after v1.56.0 enlarged the text, a long reset time could push the window name on top of the percentage ("7-Day Window25%") on the Claude 5-hour/7-day and Codex short/long rows.
+  - The window name now always shows in full.
+  - The reset text is back to the same size as the other rows; if it still doesn't fit (Japanese/English names, the "(estimated)" note), it wraps to a right-aligned second line instead of being cut off, and a date-time like "(11-21 22:04)" stays together.
+<!-- /en -->
+
 ## [1.57.0] - 2026-11-14
 
 <!-- ko -->

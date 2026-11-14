@@ -675,14 +675,15 @@
                                 </Grid.RowDefinitions>
                                 <Grid Grid.Row="0">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="{Binding LblFiveHour}" Foreground="#F1F5F9" FontSize="11.5" ToolTip="{Binding ClaudeVm.ShortSummary}"/>
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                        <TextBlock Text="{Binding ClaudeVm.ShortPercentLabel}" Foreground="#A78BFA" FontSize="11" FontWeight="Bold"/>
-                                        <TextBlock Text="{Binding ClaudeVm.ShortReset}" Foreground="#8B92B3" FontSize="11" Margin="6,0,0,0"/>
-                                    </StackPanel>
+                                    <TextBlock x:Name="ClaudeShortLabel" Grid.Column="0" Text="{Binding LblFiveHour}" Foreground="#F1F5F9" FontSize="11.5" ToolTip="{Binding ClaudeVm.ShortSummary}"/>
+                                    <!-- 라벨은 Auto 열이라 눌리지 않는다. 남는 폭이 모자라면 초기화 문구만 오른쪽 정렬로 줄바꿈 — 겹치거나 시각이 잘리지 않게(#234) -->
+                                    <DockPanel Grid.Column="1" HorizontalAlignment="Right" Margin="8,0,0,0">
+                                        <TextBlock x:Name="ClaudeShortPercent" DockPanel.Dock="Left" Text="{Binding ClaudeVm.ShortPercentLabel}" Foreground="#A78BFA" FontSize="11" FontWeight="Bold"/>
+                                        <TextBlock x:Name="ClaudeShortReset" Text="{Binding ClaudeVm.ShortReset}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0" TextWrapping="Wrap" TextAlignment="Right"/>
+                                    </DockPanel>
                                 </Grid>
                                 <TextBlock Grid.Row="1" Text="{Binding ClaudeVm.ShortDepletion}" Foreground="#F59E0B" FontSize="10" Margin="0,2,0,0" Visibility="{Binding ClaudeVm.ShortDepletion, Converter={StaticResource StringToVisibility}}"/>
                                 <!-- 페이스 마커 오버레이: 주황(사용 전체) → 보라(시간 이내) → 시간 마커 세로선 순으로 겹친다 -->
@@ -711,14 +712,15 @@
                                 </Grid.RowDefinitions>
                                 <Grid Grid.Row="0">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="{Binding LblSevenDay}" Foreground="#F1F5F9" FontSize="11.5" ToolTip="{Binding ClaudeVm.LongSummary}"/>
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                        <TextBlock Text="{Binding ClaudeVm.LongPercentLabel}" Foreground="#A78BFA" FontSize="11" FontWeight="Bold"/>
-                                        <TextBlock Text="{Binding ClaudeVm.LongReset}" Foreground="#8B92B3" FontSize="11" Margin="6,0,0,0"/>
-                                    </StackPanel>
+                                    <TextBlock x:Name="ClaudeLongLabel" Grid.Column="0" Text="{Binding LblSevenDay}" Foreground="#F1F5F9" FontSize="11.5" ToolTip="{Binding ClaudeVm.LongSummary}"/>
+                                    <!-- 라벨은 Auto 열이라 눌리지 않는다. 남는 폭이 모자라면 초기화 문구만 오른쪽 정렬로 줄바꿈 — 겹치거나 시각이 잘리지 않게(#234) -->
+                                    <DockPanel Grid.Column="1" HorizontalAlignment="Right" Margin="8,0,0,0">
+                                        <TextBlock x:Name="ClaudeLongPercent" DockPanel.Dock="Left" Text="{Binding ClaudeVm.LongPercentLabel}" Foreground="#A78BFA" FontSize="11" FontWeight="Bold"/>
+                                        <TextBlock x:Name="ClaudeLongReset" Text="{Binding ClaudeVm.LongReset}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0" TextWrapping="Wrap" TextAlignment="Right"/>
+                                    </DockPanel>
                                 </Grid>
                                 <!-- 페이스 마커 오버레이 (7일) — 5시간과 동일 구조 -->
                                 <Grid Grid.Row="2" Height="8" Margin="0,4,0,0"
@@ -1043,14 +1045,15 @@
                         <!-- 단기 윈도우 (primary) -->
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="{Binding CodexShortWindowLabel}" Foreground="#F1F5F9" FontSize="11.5" ToolTip="{Binding CodexSummary}"/>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                <TextBlock Text="{Binding CodexPercent, StringFormat={}{0:P0}}" Foreground="#6EE7B7" FontSize="11" FontWeight="Bold"/>
-                                <TextBlock Text="{Binding CodexReset}" Foreground="#8B92B3" FontSize="11" Margin="6,0,0,0"/>
-                            </StackPanel>
+                            <TextBlock x:Name="CodexShortLabel" Grid.Column="0" Text="{Binding CodexShortWindowLabel}" Foreground="#F1F5F9" FontSize="11.5" ToolTip="{Binding CodexSummary}"/>
+                            <!-- 라벨은 Auto 열이라 눌리지 않는다. 남는 폭이 모자라면 초기화 문구만 오른쪽 정렬로 줄바꿈 — 겹치거나 시각이 잘리지 않게(#234) -->
+                            <DockPanel Grid.Column="1" HorizontalAlignment="Right" Margin="8,0,0,0">
+                                <TextBlock x:Name="CodexShortPercent" DockPanel.Dock="Left" Text="{Binding CodexPercent, StringFormat={}{0:P0}}" Foreground="#6EE7B7" FontSize="11" FontWeight="Bold"/>
+                                <TextBlock x:Name="CodexShortReset" Text="{Binding CodexReset}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0" TextWrapping="Wrap" TextAlignment="Right"/>
+                            </DockPanel>
                         </Grid>
                         <!-- 시간선 마커: 창 진행률 위치에 세로선. 창 길이는 응답의 window_minutes 기준. -->
                         <Grid Height="8" Margin="0,4,0,0" ToolTip="{Binding CodexShortPaceTip}">
@@ -1070,14 +1073,15 @@
                         <StackPanel Visibility="{Binding IsCodexLongVisible, Converter={StaticResource BoolToVisibility}}">
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="{Binding CodexLongWindowLabel}" Foreground="#F1F5F9" FontSize="11.5" ToolTip="{Binding CodexLongSummary}"/>
-                                <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                    <TextBlock Text="{Binding CodexLongPercent, StringFormat={}{0:P0}}" Foreground="#6EE7B7" FontSize="11" FontWeight="Bold"/>
-                                    <TextBlock Text="{Binding CodexLongReset}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0"/>
-                                </StackPanel>
+                                <TextBlock x:Name="CodexLongLabel" Grid.Column="0" Text="{Binding CodexLongWindowLabel}" Foreground="#F1F5F9" FontSize="11.5" ToolTip="{Binding CodexLongSummary}"/>
+                                <!-- 라벨은 Auto 열이라 눌리지 않는다. 남는 폭이 모자라면 초기화 문구만 오른쪽 정렬로 줄바꿈 — 겹치거나 시각이 잘리지 않게(#234) -->
+                                <DockPanel Grid.Column="1" HorizontalAlignment="Right" Margin="8,0,0,0">
+                                    <TextBlock x:Name="CodexLongPercent" DockPanel.Dock="Left" Text="{Binding CodexLongPercent, StringFormat={}{0:P0}}" Foreground="#6EE7B7" FontSize="11" FontWeight="Bold"/>
+                                    <TextBlock x:Name="CodexLongReset" Text="{Binding CodexLongReset}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0" TextWrapping="Wrap" TextAlignment="Right"/>
+                                </DockPanel>
                             </Grid>
                             <Grid Height="8" Margin="0,4,0,0" ToolTip="{Binding CodexLongPaceTip}">
                                 <ProgressBar Value="{Binding CodexLongPercent}" Maximum="1" Style="{StaticResource CodexBarStyle}" VerticalAlignment="Center"/>
