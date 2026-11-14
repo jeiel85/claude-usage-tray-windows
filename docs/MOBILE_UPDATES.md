@@ -61,6 +61,15 @@ GitHub 저장소 → Settings → Secrets and variables → Actions → **New re
 - 시크릿을 넣은 뒤 첫 릴리스부터 정식 서명 APK와 `update.json`이 붙습니다.
 - 지금 디버그 서명 APK(v1.53·v1.54)를 쓰는 휴대폰은 **한 번만** 지우고 정식 서명 APK를 설치하세요(연결한 PC는 다시 추가). 앱도 업데이트 창에서 이렇게 안내합니다. 그다음부터는 앱 안에서 업데이트됩니다.
 
+### 등록 상태 (2026-11-14, #240)
+
+정식 서명 키를 만들어 위 시크릿 네 개를 등록했습니다. v1.58.1부터 정식 서명 APK와 `update.json`이 붙습니다.
+
+- 인증서: `CN=Claude Usage Tray, OU=Mobile, O=jeiel85`, RSA 4096, 유효 기간 100년, 별칭 `cut`
+- 인증서 SHA-256: `24:98:EE:9E:2D:1C:E2:28:F6:38:1E:E2:89:A0:71:F1:5C:E4:59:D9:F2:CC:06:FD:9F:E3:3D:07:0A:09:6C:C7`
+  (`apksigner verify --print-certs ClaudeUsageTray-Mobile.apk`로 받은 APK가 이 키로 서명됐는지 확인할 수 있습니다)
+- 키 파일과 비밀번호는 저장소 밖(관리자 PC의 `mobile/.keystore/`·`mobile/release-signing.properties`, git 제외)과 별도 백업에만 있습니다.
+
 ## 로컬에서 흐름 검증 (선택)
 
 같은 키로 서명한 두 APK를 만들어, 디버그 빌드를 로컬 서버로 향하게 할 수 있습니다.

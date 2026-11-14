@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.58.1] - 2026-11-14
+
+<!-- ko -->
+### 개선
+- **휴대폰 앱이 이제 정식 서명으로 배포되고, 앱 안에서 자동 업데이트됩니다 (#240)** — 지금까지 릴리스의 휴대폰 앱(APK)은 빌드할 때마다 서명 키가 바뀌는 임시(디버그) 서명이라, 새 버전이 나와도 앱 안에서 업데이트할 수 없었습니다. 이번 버전부터 고정된 정식 키로 서명하고, 앱이 하루 한 번 확인하는 `update.json`도 함께 올라갑니다.
+  - **한 번만 직접 다시 설치해 주세요**: 지금 쓰는 앱(디버그 서명)은 Android가 서명이 다른 APK를 업데이트로 받아 주지 않습니다. 앱을 지우고 이 릴리스의 `ClaudeUsageTray-Mobile.apk`를 설치한 뒤 PC를 다시 추가하면, 그다음 버전부터는 앱 안에서 **업데이트**를 눌러 설치됩니다. 앱의 업데이트 창도 이 방법을 안내합니다.
+  - 정식 빌드는 크기를 줄이는 최적화(R8)를 거쳐 APK가 더 작습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **The phone app is now properly signed and updates itself from inside the app (#240)** — until now the phone app (APK) in each release was signed with a temporary (debug) key that changed with every build, so new versions could not be installed as in-app updates. From this version on it is signed with a fixed release key, and the `update.json` the app checks once a day is published with it.
+  - **Reinstall once by hand**: Android won't accept an update signed with a different key than the installed (debug-signed) app. Uninstall the app, install this release's `ClaudeUsageTray-Mobile.apk` and add your PCs again; from the next version on, tap **Update** inside the app. The app's update dialog explains this too.
+  - The release build is optimized (R8), so the APK is smaller.
+<!-- /en -->
+
 ## [1.58.0] - 2026-11-14
 
 <!-- ko -->
