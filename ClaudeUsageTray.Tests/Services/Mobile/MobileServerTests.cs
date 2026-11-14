@@ -125,6 +125,20 @@ public class MobileServerTests : IDisposable
         feed.Publish(new MobileFeedEntry("claude", "org|other", "Other", time.Now, "", null, null));
         Assert.Null(feed.Current("pc-a").Single().Quota);
 
+        // Claude·Codex 쿼터처럼 관측 시각 없이 와도, 처음 받은 시각을 지키고 실패가 이어져도 늘리지 않는다.
+        var unstamped = new UsageSyncQuotaSnapshot { HasData = true, ShortUsagePercent = 0.3 };
+        var firstSeen = time.Now;
+        feed.Publish(new MobileFeedEntry("claude", "org|acct", "Me", firstSeen, "", unstamped, null));
+        for (var i = 0; i < 3; i++)
+        {
+            time.Now += TimeSpan.FromHours(1);
+            feed.Publish(new MobileFeedEntry("claude", "org|acct", "Me", time.Now, "rate_limited", null, null));
+            Assert.Equal(firstSeen, feed.Current("pc-a").Single().Quota!.ObservedAtUtc);
+        }
+        time.Now = firstSeen + MobileUsageFeed.MaxAge + TimeSpan.FromMinutes(1);
+        feed.Publish(new MobileFeedEntry("claude", "org|acct", "Me", time.Now, "rate_limited", null, null));
+        Assert.Null(feed.Current("pc-a").Single().Quota); // 실패를 이어 가도 6시간을 넘기면 끊긴다
+
         // 너무 오래된 쿼터도 잇지 않는다.
         feed.Publish(new MobileFeedEntry("claude", "org|acct", "Me", time.Now, "", good, null));
         time.Now = good.ObservedAtUtc!.Value + MobileUsageFeed.MaxAge + TimeSpan.FromMinutes(1);

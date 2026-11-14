@@ -47,16 +47,23 @@ public sealed class MobileUsageFeed
     ///           단, 이번 조회가 실패·쿨다운으로 쿼터 없이 왔으면 같은 계정의 직전 성공 쿼터를 원래 관측 시각 그대로
     ///           이어 붙인다(Codex 리뷰 P2) — 휴대폰은 이 PC 의 스냅샷을 통째로 교체하므로, 그대로 두면 API 한 번
     ///           실패에 게이지가 사라진다. 오류 종류·오늘 토큰은 새 값을 쓴다. 너무 오래된(MaxAge 초과) 쿼터는 잇지 않는다.
+    ///           이어 붙이려면 쿼터 자체에 관측 시각이 있어야 한다 — Claude·Codex 쿼터는 관측 시각 없이 오므로(공유 폴더 경로는
+    ///           UsageSyncService.CreateSnapshot 이 채운다) 여기서 새로 받은 쿼터에 이번 관측 시각을 찍는다. 찍지 않으면
+    ///           이어 붙인 쿼터가 실패할 때마다 "방금 관측" 으로 보이고, MaxAge 판정도 매번 연장되며, 휴대폰은 다른 PC 의
+    ///           더 새로운 성공 값보다 이 낡은 값을 고른다(Codex 리뷰 P2).
     /// </summary>
     public void Publish(MobileFeedEntry entry)
     {
         lock (_gate)
         {
+            if (entry.Quota is { HasData: true, ObservedAtUtc: null } fresh)
+                fresh.ObservedAtUtc = entry.ObservedAt.ToUniversalTime();
+
             if (entry.Quota is not { HasData: true }
                 && _entries.TryGetValue(entry.Provider, out var previous)
-                && previous.Quota is { HasData: true } previousQuota
+                && previous.Quota is { HasData: true, ObservedAtUtc: { } previousObservedAt } previousQuota
                 && string.Equals(previous.AccountKey, entry.AccountKey, StringComparison.Ordinal)
-                && _time.GetUtcNow() - (previousQuota.ObservedAtUtc ?? previous.ObservedAt) <= MaxAge)
+                && _time.GetUtcNow() - previousObservedAt <= MaxAge)
             {
                 entry = entry with { Quota = previousQuota };
             }

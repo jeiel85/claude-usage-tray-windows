@@ -47,8 +47,9 @@ class MainActivity : ComponentActivity() {
         val store = PcStore(this)
         val api = UsageApi(networks = NetworkProbe(this)::current)
         // Every (re)connection re-registers this phone's push endpoint with that PC (#222): pairing by QR is
-        // all it takes, and a PC that lost the subscription (404/410, reinstall) gets it back on next contact.
-        val hub = LiveHub(store, api, onConnected = { pc -> PushRegistrar.ensureAsync(this, api, pc) })
+        // all it takes, and a PC that lost the subscription (404/410, reinstall) gets it back on next contact —
+        // hence force: the process-local "already sent" cache can't know the PC dropped it.
+        val hub = LiveHub(store, api, onConnected = { pc -> PushRegistrar.ensureAsync(this, api, pc, force = true) })
 
         // Sockets only while the app is on screen: the PC would otherwise push to a phone nobody looks at.
         lifecycleScope.launch {

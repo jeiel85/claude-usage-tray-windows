@@ -36,18 +36,26 @@ object PushRegistrar {
     private fun syncKey(pc: PcEntry, s: PushSubscription) =
         "${pc.deviceId}|${s.endpoint}|${s.p256dh}|${s.auth}|${s.mutedCategories.joinToString(",")}"
 
-    fun ensureAsync(context: Context, api: UsageApi, pc: PcEntry) {
+    fun ensureAsync(context: Context, api: UsageApi, pc: PcEntry, force: Boolean = false) {
         val app = context.applicationContext
-        scope.launch { ensure(app, api, pc) }
+        scope.launch { ensure(app, api, pc, force) }
     }
 
-    /** One registration at a time per PC; the subscription is read inside the lock so the latest choice wins. */
-    suspend fun ensure(context: Context, api: UsageApi, pc: PcEntry) {
+    /**
+     * Input : a paired PC, and whether to skip the "already sent this exact subscription" shortcut
+     * Output: none (the PC holds this phone's subscription, or the next contact tries again)
+     * Key logic: one registration at a time per PC; the subscription is read inside the lock so the latest
+     *   choice wins. [synced] only remembers what THIS process sent — the PC can still drop it later (it
+     *   deletes a subscription on 404/410 from the push server, or it was reinstalled). So a new live
+     *   connection passes [force] and re-sends anyway: one small idempotent POST per connection is what makes
+     *   "reconnect restores notifications" true (Codex review on #221).
+     */
+    suspend fun ensure(context: Context, api: UsageApi, pc: PcEntry, force: Boolean = false) {
         val state = PushState(context)
         locks.getOrPut(pc.pcId) { Mutex() }.withLock {
             val subscription = state.subscription() ?: return
             val key = syncKey(pc, subscription)
-            if (synced[pc.pcId] == key) return
+            if (!force && synced[pc.pcId] == key) return
             try {
                 api.registerPush(pc, subscription)
                 synced[pc.pcId] = key
