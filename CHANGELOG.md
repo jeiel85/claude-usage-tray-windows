@@ -3,7 +3,7 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
-## [1.56.1] - 2026-11-14
+## [1.57.1] - 2026-11-14
 
 <!-- ko -->
 ### 수정
@@ -17,6 +17,24 @@
 - **Window names no longer overlap the percentage in the usage popup (#234)** — after v1.56.0 enlarged the text, a long reset time could push the window name on top of the percentage ("7-Day Window25%") on the Claude 5-hour/7-day and Codex short/long rows.
   - The window name now always shows in full.
   - The reset text is back to the same size as the other rows; if it still doesn't fit (Japanese/English names, the "(estimated)" note), it wraps to a right-aligned second line instead of being cut off, and a date-time like "(11-21 22:04)" stays together.
+<!-- /en -->
+
+## [1.57.0] - 2026-11-14
+
+<!-- ko -->
+### 수정
+- **QR 연결 창이 메인 팝업 뒤에 숨던 문제 (#232)** — 설정 → 연결 → **휴대폰 연결… (QR 표시)**를 누르면 QR 창이 맨 앞에 뜹니다. 지금까지는 QR 창이 열리는 순간 설정 창이 스스로 숨고, 그 바람에 사용량 팝업이 다시 앞으로 올라와 QR 창을 가렸습니다. 이제 설정 창은 QR 창 같은 자기 창이 열려 있는 동안 숨지 않고, QR 창을 닫으면 설정 창으로 돌아옵니다.
+
+### 참고
+- 1.54.0·1.55.0·1.56.0은 따로 배포되지 않았습니다. 아래 세 버전의 변경 내용(Cloudflare Tunnel 연결, 휴대폰 앱 자동 업데이트·설정 화면 등)이 이번 릴리스에 함께 들어 있습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The QR pairing window opened behind the main popup (#232)** — Settings → Connect → **Connect phone… (show QR)** now opens the QR window in front. Before, the Settings window hid itself the moment the QR window opened, and the usage popup came back to the front and covered it. Settings now stays open while one of its own windows (like the QR window) is open, and you return to Settings when you close it.
+
+### Note
+- 1.54.0, 1.55.0 and 1.56.0 were not released on their own. Their changes (Cloudflare Tunnel connections, phone app self-update and Settings screen, and more — see below) ship in this release.
 <!-- /en -->
 
 ## [1.56.0] - 2026-11-14

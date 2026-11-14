@@ -26,7 +26,9 @@ public partial class SettingsWindow : Window, IDisposable
         InitializeComponent();
 
         MouseLeftButtonDown += (_, e) => DragMove();
-        Deactivated += (_, _) => Hide();
+        // 자기 소유의 자식 창(QR 연결 창 등)으로 포커스가 넘어간 것은 "바깥 클릭"이 아니다. 여기서 숨으면
+        // UsagePopup 이 IsVisibleChanged 로 팝업을 다시 Activate 해, Topmost 팝업이 그 자식 창을 덮는다 (#232).
+        Deactivated += (_, _) => { if (OwnedWindows.Count == 0) Hide(); };
         PreviewKeyDown += OnPreviewKeyDown;
 
         Loc.LanguageChanged += OnLanguageChanged;
