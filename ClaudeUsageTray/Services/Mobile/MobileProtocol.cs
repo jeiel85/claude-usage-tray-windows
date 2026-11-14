@@ -64,7 +64,8 @@ public sealed record PairingOffer(
 
 public sealed record EndpointsResponse(int Schema, IReadOnlyList<MobileEndpoint> Endpoints);
 
-public sealed record PairRequest(string Code, string DeviceName, string? DeviceModel);
+/// <summary><c>Kind</c>: "phone"(기본, 옛 앱은 보내지 않음) 또는 "pc"(PC 동기화, #223).</summary>
+public sealed record PairRequest(string Code, string DeviceName, string? DeviceModel, string? Kind = null);
 
 public sealed record PairResponse(int Schema, string DeviceId, string Token, string PcId, string PcName);
 

@@ -415,7 +415,7 @@
                 </Border>
 
                 <!-- Content — 4탭 구조 (스크롤 없음) -->
-                <TabControl Grid.Row="1" Style="{StaticResource DarkTabControl}" Margin="16,14,16,8">
+                <TabControl x:Name="SettingsTabs" Grid.Row="1" Style="{StaticResource DarkTabControl}" Margin="16,14,16,8">
                     <!-- ===== TAB 1: 일반 ===== -->
                     <TabItem x:Name="TabGeneral" Style="{StaticResource DarkTabItem}">
                         <Border Style="{StaticResource TabCard}">

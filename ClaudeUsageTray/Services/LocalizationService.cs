@@ -2819,4 +2819,12 @@ public static class Loc
         "ja" => "閉じる",
         _ => "Close"
     };
+
+    public static string TestNotificationSentApp => Lang switch
+    {
+        "ko" => "✓ 전송됨 (Windows + 휴대폰 앱)",
+        "zh" => "✓ 已发送（Windows + 手机应用）",
+        "ja" => "✓ 送信済み（Windows + スマホアプリ）",
+        _ => "✓ Sent (Windows + phone app)"
+    };
 }

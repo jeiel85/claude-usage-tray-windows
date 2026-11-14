@@ -105,6 +105,9 @@ public partial class App : Application
         _vm = new MainViewModel(apiService, credService, sessionMonitor, codexMonitor,
             openCodeMonitor, antigravityMonitor, notifier, settingsService, updater, history, usageSync, weather, weatherAlert,
             _openCodeWebUsage);
+        // 휴대폰 앱 푸시(#222): 앱이 QR 로 연결되면 알림이 토픽 없이 휴대폰 앱으로 간다.
+        notifier.AppPush = _vm.Mobile;
+        notifier.SendsPhoneAlerts = () => _vm?.NtfySendFromThisPc ?? true;
         _popup = new UsagePopup(_vm);
 
         _trayIcon = new NotifyIcon

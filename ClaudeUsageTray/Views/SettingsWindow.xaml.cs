@@ -554,7 +554,9 @@ public partial class SettingsWindow : Window, IDisposable
         BtnTestNotification.IsEnabled = false;
 
         var result = await _vm.SendTestNotificationAsync();
-        BtnTestNotification.Content = result.NtfyAttempted
+        BtnTestNotification.Content = result.AppPush == Services.Mobile.AppPushResult.Delivered
+            ? Loc.TestNotificationSentApp
+            : result.NtfyAttempted
             ? result.NtfySucceeded ? Loc.TestNotificationSent : Loc.TestNotificationFailedNtfy
             : hasNtfy && !sendsNtfyFromThisPc
                 ? Loc.TestNotificationSentNtfyDisabled

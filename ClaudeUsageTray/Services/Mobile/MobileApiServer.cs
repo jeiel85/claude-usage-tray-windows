@@ -428,7 +428,7 @@ public sealed class MobileApiServer : IDisposable
                 catch (JsonException) { req = null; }
                 if (req is null) return (400, Error("bad_request", "Invalid pairing request."));
 
-                var result = _pairing.TryPair(req.Code, req.DeviceName, req.DeviceModel);
+                var result = _pairing.TryPair(req.Code, req.DeviceName, req.DeviceModel, req.Kind);
                 return result.Outcome switch
                 {
                     PairOutcome.Paired => (200, Json(new PairResponse(MobileProtocol.Schema, result.DeviceId!, result.Token!,
@@ -447,7 +447,28 @@ public sealed class MobileApiServer : IDisposable
                 if (_devices.Authenticate(head.BearerToken() ?? "") is null) return Unauthorized();
                 return (200, Json(BuildSnapshot()));
 
-            case (_, "/api/v1/info" or "/api/v1/pair" or "/api/v1/endpoints" or "/api/v1/usage" or "/api/v1/live"):
+            case ("POST", "/api/v1/push"):
+            {
+                var device = _devices.Authenticate(head.BearerToken() ?? "");
+                if (device is null) return Unauthorized();
+                PushSubscriptionRequest? req;
+                try { req = JsonSerializer.Deserialize<PushSubscriptionRequest>(body!, MobileProtocol.Json); }
+                catch (JsonException) { req = null; }
+                if (PushPayload.Validate(req) is { } invalid) return (400, Error("invalid_subscription", invalid));
+                _devices.SetPushSubscription(device.DeviceId, new PushSubscription(
+                    req!.Endpoint, req.P256dh, req.Auth, DateTimeOffset.UtcNow, PushCategories.Normalize(req.MutedCategories)));
+                return (200, Json(new PushSubscriptionResponse(MobileProtocol.Schema, device.DeviceId, true)));
+            }
+
+            case ("DELETE", "/api/v1/push"):
+            {
+                var device = _devices.Authenticate(head.BearerToken() ?? "");
+                if (device is null) return Unauthorized();
+                _devices.SetPushSubscription(device.DeviceId, null);
+                return (200, Json(new PushSubscriptionResponse(MobileProtocol.Schema, device.DeviceId, false)));
+            }
+
+            case (_, "/api/v1/info" or "/api/v1/pair" or "/api/v1/endpoints" or "/api/v1/usage" or "/api/v1/live" or "/api/v1/push" or "/api/v1/sync"):
                 return (405, Error("method_not_allowed", "Method not allowed."));
 
             default:

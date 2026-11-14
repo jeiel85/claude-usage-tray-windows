@@ -6,13 +6,17 @@ namespace ClaudeUsageTray.Services.Mobile;
 /// 휴대폰 연동 한 덩어리(사용량 피드 + 기기 저장소 + 페어링 + 서버). MainViewModel 은 이것 하나만 알면 된다.
 /// 기기 저장소는 처음 켤 때 만든다 — 기능을 쓰지 않는 PC 에 <c>mobile\state.json</c> 이 생기지 않게.
 /// </summary>
-public sealed class MobileLinkService : IDisposable
+public sealed class MobileLinkService : IDisposable, IAppPushSender
 {
+    private static readonly System.Net.Http.HttpClient PushHttp = new() { Timeout = TimeSpan.FromSeconds(15) };
+
     private readonly object _gate = new();
     private readonly Func<MobileDeviceStore> _storeFactory;
     private MobileDeviceStore? _store;
     private PairingService? _pairing;
     private MobileApiServer? _server;
+    private AppPushSender? _push;
+    private bool _enabled;
 
     public MobileUsageFeed Feed { get; } = new();
 
@@ -47,6 +51,7 @@ public sealed class MobileLinkService : IDisposable
     public void Apply(NotificationSettings settings)
     {
         var wanted = settings.MobileEnabled && (settings.MobileLan || settings.MobileTailscale || settings.MobileBindLoopback);
+        lock (_gate) _enabled = wanted;
         if (!wanted)
         {
             Server?.Stop();
@@ -81,6 +86,7 @@ public sealed class MobileLinkService : IDisposable
             _store = _storeFactory();
             _pairing = new PairingService(_store);
             _server = new MobileApiServer(Feed, _store, _pairing);
+            _push = new AppPushSender(_store, PushHttp, Environment.MachineName);
             _store.Changed += () => Changed?.Invoke();
             _server.StatusChanged += () => Changed?.Invoke();
             return _server;
@@ -110,6 +116,28 @@ public sealed class MobileLinkService : IDisposable
                 ? new MobileTodayTotals(today.InputTokens, today.OutputTokens, today.CacheReadTokens,
                     today.CacheWriteTokens, today.SessionCount, today.RequestCount)
                 : null));
+    }
+
+    /// <summary>
+    /// 앱 푸시를 받을 휴대폰이 있는가. 휴대폰 연동을 끈 PC 는 구독이 남아 있어도 보내지 않는다 —
+    /// 사용자가 끈 기능이 뒤에서 계속 휴대폰으로 데이터를 내보내지 않게.
+    /// </summary>
+    public bool HasTargets
+    {
+        get
+        {
+            lock (_gate) return _enabled && _push?.HasTargets == true;
+        }
+    }
+
+    public async Task<AppPushResult> SendAsync(
+        string category, string title, string? body, int ntfyPriority, string? eventKey, TimeSpan eventTolerance,
+        string? clickUrl, CancellationToken ct = default)
+    {
+        AppPushSender? push;
+        lock (_gate) push = _enabled ? _push : null;
+        if (push is null) return AppPushResult.NoTargets;
+        return await push.SendAsync(push.Build(category, title, body, ntfyPriority, eventKey, eventTolerance, clickUrl), ct);
     }
 
     public void Dispose()

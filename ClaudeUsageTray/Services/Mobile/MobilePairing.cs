@@ -58,7 +58,7 @@ public sealed class PairingService
     /// 핵심 로직: 실패를 먼저 세고(잠금 확인) 그 뒤 고정시간 비교 — 비교 시간으로 코드를 한 글자씩 맞혀 가지 못하게.
     ///           만료는 맞는 코드일 때만 알려 준다(틀린 코드에 "만료" 를 답하면 코드가 있었다는 사실이 새어 나간다).
     /// </summary>
-    public PairResult TryPair(string? code, string? deviceName, string? deviceModel)
+    public PairResult TryPair(string? code, string? deviceName, string? deviceModel, string? kind = null)
     {
         lock (_gate)
         {
@@ -81,7 +81,7 @@ public sealed class PairingService
 
             _code = null;
             var token = Base64Url(RandomNumberGenerator.GetBytes(32));
-            var device = _store.Add(CleanName(deviceName), CleanModel(deviceModel), HashToken(token));
+            var device = _store.Add(CleanName(deviceName), CleanModel(deviceModel), HashToken(token), MobileDeviceKind.Normalize(kind));
             return new PairResult(PairOutcome.Paired, device.DeviceId, token);
         }
     }

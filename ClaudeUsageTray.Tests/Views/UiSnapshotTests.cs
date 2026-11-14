@@ -40,10 +40,12 @@ public class UiSnapshotTests : IDisposable
         await WpfTestHost.RunAsync(() =>
         {
             var lang = Environment.GetEnvironmentVariable("CUT_UI_SNAPSHOT_LANG") ?? "ko";
-            Loc.SetLanguage(lang);
             var vm = CreateViewModel();
             try
             {
+                // 설정을 읽으며 언어가 "시스템"(CI 는 영어)으로 돌아가므로 뷰모델을 만든 뒤에 정한다.
+                vm.SelectedLanguage = lang;
+                Loc.SetLanguage(lang);
                 FillSampleData(vm);
 
                 var popup = new UsagePopup(vm);
@@ -51,7 +53,10 @@ public class UiSnapshotTests : IDisposable
                 popup.Close();
 
                 var settings = new SettingsWindow(vm);
-                var tabs = FindChild<System.Windows.Controls.TabControl>(settings);
+                settings.Show();
+                settings.UpdateLayout();
+                var tabs = settings.FindName("SettingsTabs") as System.Windows.Controls.TabControl
+                    ?? FindChild<System.Windows.Controls.TabControl>(settings);
                 if (tabs is null)
                 {
                     Render(settings, "settings");
@@ -89,12 +94,16 @@ public class UiSnapshotTests : IDisposable
         window.Top = 0;
         window.Show();
         window.UpdateLayout();
-        DoEvents();
+        // 늦게 붙는 바인딩·레이아웃(Loaded 뒤 처리)을 끝내려고 잠깐 디스패처를 돌린다.
+        var until = DateTime.UtcNow.AddMilliseconds(400);
+        while (DateTime.UtcNow < until) DoEvents();
 
         if (window.Content is not FrameworkElement root) return;
+        // 1.5배(144 DPI)로 그려 작은 글씨도 읽히게 한다.
+        const double scale = 1.5;
         var width = Math.Max(1, (int)Math.Ceiling(root.ActualWidth));
         var height = Math.Max(1, (int)Math.Ceiling(root.ActualHeight));
-        var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        var bitmap = new RenderTargetBitmap((int)(width * scale), (int)(height * scale), 96 * scale, 96 * scale, PixelFormats.Pbgra32);
         var visual = new DrawingVisual();
         using (var dc = visual.RenderOpen())
         {
@@ -144,6 +153,8 @@ public class UiSnapshotTests : IDisposable
         c.LongTimePercent = 0.6;
         c.HasLongTimeline = true;
         c.LongUsageCapped = 0.18;
+        vm.HideInactiveProviders = false;
+        vm.CodexPercent = 0.37;
     }
 
     private MainViewModel CreateViewModel()

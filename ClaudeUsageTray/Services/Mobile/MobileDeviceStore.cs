@@ -11,7 +11,18 @@ public sealed record MobileDeviceInfo(
     string Name,
     string? Model,
     DateTimeOffset PairedAt,
-    DateTimeOffset? LastSeen);
+    DateTimeOffset? LastSeen,
+    string Kind = MobileDeviceKind.Phone,
+    bool HasPush = false);
+
+/// <summary>페어링한 상대의 종류. PC 동기화(#223)는 휴대폰과 같은 페어링을 쓰고 이 값으로만 구분한다.</summary>
+public static class MobileDeviceKind
+{
+    public const string Phone = "phone";
+    public const string Pc = "pc";
+
+    public static string Normalize(string? kind) => kind == Pc ? Pc : Phone;
+}
 
 /// <summary>
 /// 페어링된 휴대폰 목록과 이 PC 의 pcId 를 <c>%APPDATA%\ClaudeUsageTray\mobile\state.json</c> 에 둔다.
@@ -59,7 +70,7 @@ public sealed class MobileDeviceStore
         lock (_gate) return _state.Devices.Select(ToInfo).OrderBy(d => d.PairedAt).ToList();
     }
 
-    public MobileDeviceInfo Add(string name, string? model, string tokenSha256Hex)
+    public MobileDeviceInfo Add(string name, string? model, string tokenSha256Hex, string kind = MobileDeviceKind.Phone)
     {
         MobileDeviceInfo info;
         lock (_gate)
@@ -71,6 +82,7 @@ public sealed class MobileDeviceStore
                 Model = model,
                 TokenSha256 = tokenSha256Hex,
                 PairedAt = _time.GetUtcNow(),
+                Kind = MobileDeviceKind.Normalize(kind),
             };
             _state.Devices.Add(record);
             Save();
@@ -125,8 +137,45 @@ public sealed class MobileDeviceStore
         lock (_gate) return _state.Devices.Any(d => d.DeviceId == deviceId);
     }
 
+    /// <summary>
+    /// Input : 기기 ID, 새 구독(null 이면 해제)
+    /// Output: 페어링된 기기였으면 true
+    /// 핵심 로직: 같은 엔드포인트를 가진 <b>다른</b> 기기 항목은 같은 휴대폰의 예전 페어링이므로 철회한다(Homebase M-24).
+    ///           엔드포인트는 앱 설치 하나에 하나라서, 그대로 두면 다시 페어링한 휴대폰에 알림이 두 번씩 간다.
+    ///           같은 값으로 다시 등록하면 파일을 다시 쓰지 않는다(앱은 연결할 때마다 재등록한다).
+    /// </summary>
+    public bool SetPushSubscription(string deviceId, PushSubscription? subscription)
+    {
+        bool changed;
+        lock (_gate)
+        {
+            var device = _state.Devices.FirstOrDefault(d => d.DeviceId == deviceId);
+            if (device is null) return false;
+            var next = subscription is null ? null : PushRecord.From(subscription);
+            changed = !Equals(device.Push?.Key, next?.Key);
+            device.Push = next;
+            if (subscription is not null)
+                changed |= _state.Devices.RemoveAll(d => d.DeviceId != deviceId && d.Push?.Endpoint == subscription.Endpoint) > 0;
+            if (changed) Save();
+        }
+        if (changed) Changed?.Invoke();
+        return true;
+    }
+
+    /// <summary>푸시 구독이 있는 모든 기기.</summary>
+    public IReadOnlyList<PushTarget> PushTargets()
+    {
+        lock (_gate)
+        {
+            return _state.Devices
+                .Where(d => d.Push is { } p && !string.IsNullOrEmpty(p.Endpoint))
+                .Select(d => new PushTarget(d.DeviceId ?? "", d.Name ?? "", d.Push!.ToSubscription()))
+                .ToList();
+        }
+    }
+
     private static MobileDeviceInfo ToInfo(DeviceRecord d) =>
-        new(d.DeviceId ?? "", d.Name ?? "", d.Model, d.PairedAt, d.LastSeen);
+        new(d.DeviceId ?? "", d.Name ?? "", d.Model, d.PairedAt, d.LastSeen, MobileDeviceKind.Normalize(d.Kind), d.Push is not null);
 
     private State Load()
     {
@@ -140,6 +189,11 @@ public sealed class MobileDeviceStore
                 {
                     loaded.Devices = (loaded.Devices ?? [])
                         .Where(d => !string.IsNullOrEmpty(d.DeviceId) && d.TokenSha256 is { Length: 64 })
+                        .ToList();
+                    // 같은 엔드포인트가 여럿이면 가장 최근 페어링만 남긴다(SetPushSubscription 과 같은 규칙).
+                    loaded.Devices = loaded.Devices
+                        .GroupBy(d => d.Push?.Endpoint is { Length: > 0 } e ? e : "\0" + d.DeviceId)
+                        .Select(g => g.OrderByDescending(d => d.PairedAt).First())
                         .ToList();
                     return loaded;
                 }
@@ -213,5 +267,30 @@ public sealed class MobileDeviceStore
         public string? TokenSha256 { get; set; }
         public DateTimeOffset PairedAt { get; set; }
         public DateTimeOffset? LastSeen { get; set; }
+        public string? Kind { get; set; }
+        public PushRecord? Push { get; set; }
+    }
+
+    private sealed class PushRecord
+    {
+        public string Endpoint { get; set; } = "";
+        public string P256dh { get; set; } = "";
+        public string Auth { get; set; } = "";
+        public DateTimeOffset UpdatedAt { get; set; }
+        public List<string>? MutedCategories { get; set; }
+
+        /// <summary>변경 판단용 — 갱신 시각은 빼고 비교한다.</summary>
+        public string Key => $"{Endpoint}|{P256dh}|{Auth}|{string.Join(",", MutedCategories ?? [])}";
+
+        public static PushRecord From(PushSubscription s) => new()
+        {
+            Endpoint = s.Endpoint,
+            P256dh = s.P256dh,
+            Auth = s.Auth,
+            UpdatedAt = s.UpdatedAt,
+            MutedCategories = PushCategories.Normalize(s.MutedCategories)?.ToList(),
+        };
+
+        public PushSubscription ToSubscription() => new(Endpoint, P256dh, Auth, UpdatedAt, MutedCategories);
     }
 }
