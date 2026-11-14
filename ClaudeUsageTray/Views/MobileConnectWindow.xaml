@@ -102,6 +102,9 @@
                             <TextBlock x:Name="CountdownText" Foreground="{StaticResource TextDim}" FontSize="10" VerticalAlignment="Center"/>
                             <Button x:Name="NewQrButton" Style="{StaticResource LinkBtn}" HorizontalAlignment="Right" Click="NewQrButton_Click"/>
                         </Grid>
+                        <!-- 같은 일회용 코드를 다른 PC 에 붙여 넣으면 PC 동기화가 된다(#223) -->
+                        <Button x:Name="CopyCodeButton" Style="{StaticResource LinkBtn}" HorizontalAlignment="Left" Margin="0,0,0,4" Click="CopyCodeButton_Click"/>
+                        <TextBlock x:Name="CopyCodeResult" Foreground="#7C83A4" FontSize="10" TextWrapping="Wrap" Visibility="Collapsed"/>
                         <TextBlock x:Name="StatusText" Foreground="#F59E0B" FontSize="11" TextWrapping="Wrap" Visibility="Collapsed"/>
                         <TextBlock x:Name="WatchingText" Foreground="#10B981" FontSize="11" TextWrapping="Wrap" Visibility="Collapsed"/>
 

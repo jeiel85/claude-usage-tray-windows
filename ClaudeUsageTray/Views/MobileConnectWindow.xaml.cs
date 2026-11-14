@@ -34,6 +34,7 @@ public partial class MobileConnectWindow : Window
         TitleText.Text = Loc.MobileConnectTitle;
         HintText.Text = Loc.MobileScanHint;
         NewQrButton.Content = Loc.MobileNewQr;
+        CopyCodeButton.Content = Loc.PeerSyncCopyCode;
         PathsHeader.Text = Loc.MobilePathsHeader;
         FirewallButton.Content = Loc.MobileFirewallAdd;
         DevicesHeader.Text = Loc.MobileDevicesHeader;
@@ -174,7 +175,8 @@ public partial class MobileConnectWindow : Window
         DevicesList.ItemsSource = devices.Select(d => new DeviceRow(
             d.DeviceId,
             string.IsNullOrEmpty(d.Model) || d.Model == d.Name ? d.Name : $"{d.Name} · {d.Model}",
-            d.LastSeen is { } seen ? Loc.MobileDeviceSeen(UsageCalculator.FormatObservedAt(seen, now)) : Loc.MobileDeviceNeverSeen,
+            (d.Kind == MobileDeviceKind.Pc ? Loc.MobileDevicesPcSuffix + " · " : "")
+                + (d.LastSeen is { } seen ? Loc.MobileDeviceSeen(UsageCalculator.FormatObservedAt(seen, now)) : Loc.MobileDeviceNeverSeen),
             Loc.MobileRevoke)).ToList();
         NoDevicesText.Visibility = devices.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -225,6 +227,36 @@ public partial class MobileConnectWindow : Window
             _firewallBusy = false;
             UpdateFirewallText();
         }
+    }
+
+    /// <summary>지금 보이는 QR 의 내용(일회용 링크)을 다른 PC 에 붙여 넣을 동기화 코드로 복사한다.</summary>
+    private void CopyCodeButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_offer is null || _offer.ExpiresAt <= DateTimeOffset.UtcNow)
+        {
+            _offer = null;
+            RefreshView();
+        }
+        if (_offer is null)
+        {
+            ShowCopyResult(Loc.PeerSyncCodeUnavailable);
+            return;
+        }
+        try
+        {
+            System.Windows.Clipboard.SetText(PairingLink.Build(_offer));
+            ShowCopyResult(Loc.PeerSyncCopied);
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            ShowCopyResult(Loc.PeerSyncCopyFailed);
+        }
+    }
+
+    private void ShowCopyResult(string text)
+    {
+        CopyCodeResult.Text = text;
+        CopyCodeResult.Visibility = Visibility.Visible;
     }
 
     private void NewQrButton_Click(object sender, RoutedEventArgs e)
