@@ -148,6 +148,13 @@ public partial class SettingsWindow : Window, IDisposable
         LblUsageSyncFolder.Text             = Loc.UsageSyncFolder;
         BtnUsageSyncBrowse.Content          = Loc.UsageSyncBrowse;
         UpdateUsageSyncStatusLabel();
+        LblMobileTitle.Text                 = Loc.MobileTitle;
+        ChkMobileEnabled.Content            = Loc.MobileEnabled;
+        LblMobileDescription.Text           = Loc.MobileDescription;
+        ChkMobileLan.Content                = Loc.MobilePathLan;
+        ChkMobileTailscale.Content          = Loc.MobilePathTailscale;
+        BtnMobileConnect.Content            = Loc.MobileConnectButton;
+        UpdateMobileStatusLabel();
         LangItemSystem.Content              = Loc.LanguageSystem;
         LblTrayDisplayMode.Text             = Loc.TrayDisplayMode;
         ChkHideInactive.Content             = Loc.HideInactiveProviders;
@@ -278,6 +285,10 @@ public partial class SettingsWindow : Window, IDisposable
         ChkUsageSyncEnabled.IsChecked    = _vm.UsageSyncEnabled;
         TxtUsageSyncFolder.Text          = _vm.UsageSyncFolderPath;
         UpdateUsageSyncStatusLabel();
+        ChkMobileEnabled.IsChecked       = _vm.MobileEnabled;
+        ChkMobileLan.IsChecked           = _vm.MobileLan;
+        ChkMobileTailscale.IsChecked     = _vm.MobileTailscale;
+        UpdateMobileStatusLabel();
         SliderPolling.Value = _vm.PollingIntervalMinutes > 0 ? _vm.PollingIntervalMinutes : 2;
         UpdatePollingLabel((int)SliderPolling.Value);
         ChkAutoUpdateEnabled.IsChecked   = _vm.AutoUpdateEnabled;
@@ -371,6 +382,9 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.AutoUpdateEnabled     = ChkAutoUpdateEnabled.IsChecked == true;
         _vm.UsageSyncEnabled      = ChkUsageSyncEnabled.IsChecked == true;
         _vm.UsageSyncFolderPath   = TxtUsageSyncFolder.Text.Trim();
+        _vm.MobileEnabled         = ChkMobileEnabled.IsChecked == true;
+        _vm.MobileLan             = ChkMobileLan.IsChecked == true;
+        _vm.MobileTailscale       = ChkMobileTailscale.IsChecked == true;
 
         if (CmbTrayDisplayMode.SelectedItem is ComboBoxItem modeItem)
             _vm.TrayDisplayMode = modeItem.Tag?.ToString() ?? UsageProviderKind.Auto;
@@ -399,8 +413,30 @@ public partial class SettingsWindow : Window, IDisposable
 
         UpdateTrayModeAvailability();
         _vm.SaveSettingsCommand.Execute(null);
+        UpdateMobileStatusLabel();
         FlashSavedIndicator();
         _ = _vm.RefreshAsync();
+    }
+
+    /// <summary>
+    /// 휴대폰 연동 줄의 상태 문구와 하위 체크박스 활성 여부. 서버 바인딩은 백그라운드에서 끝나므로
+    /// 여기 문구는 "지금 아는 것" 만 보이고, 자세한 경로·QR 은 연결 창에서 실시간으로 보인다.
+    /// </summary>
+    private void UpdateMobileStatusLabel()
+    {
+        var enabled = ChkMobileEnabled.IsChecked == true;
+        ChkMobileLan.IsEnabled = enabled;
+        ChkMobileTailscale.IsEnabled = enabled;
+        BtnMobileConnect.IsEnabled = enabled;
+        var devices = _vm.Mobile.Devices?.List().Count ?? 0;
+        LblMobileStatus.Text = enabled ? Loc.MobileStatusPaired(devices) : Loc.MobileStatusOff;
+    }
+
+    private void BtnMobileConnect_Click(object sender, RoutedEventArgs e)
+    {
+        var window = new MobileConnectWindow(_vm.Mobile) { Owner = this };
+        window.ShowDialog();
+        UpdateMobileStatusLabel();
     }
 
     private void UpdateUsageSyncStatusLabel()
@@ -734,6 +770,9 @@ public partial class SettingsWindow : Window, IDisposable
             _vm.NtfyTopic             = preservedNtfyTopic; // 사용자 토픽 보존
             _vm.UsageSyncEnabled      = false;
             _vm.UsageSyncFolderPath   = "";
+            _vm.MobileEnabled         = false;
+            _vm.MobileLan             = true;
+            _vm.MobileTailscale       = true;
             _vm.AutoUpdateEnabled     = true;
             _vm.AutoUpdateCountdownSeconds = AppConstants.DefaultAutoUpdateCountdownSeconds;
 
@@ -757,6 +796,10 @@ public partial class SettingsWindow : Window, IDisposable
             ChkNtfySendFromThisPc.IsChecked = _vm.NtfySendFromThisPc;
             ChkUsageSyncEnabled.IsChecked = _vm.UsageSyncEnabled;
             TxtUsageSyncFolder.Text       = _vm.UsageSyncFolderPath;
+            ChkMobileEnabled.IsChecked    = _vm.MobileEnabled;
+            ChkMobileLan.IsChecked        = _vm.MobileLan;
+            ChkMobileTailscale.IsChecked  = _vm.MobileTailscale;
+            UpdateMobileStatusLabel();
             ChkAutoUpdateEnabled.IsChecked  = _vm.AutoUpdateEnabled;
             SliderAutoUpdateCountdown.Value = _vm.AutoUpdateCountdownSeconds;
             UpdateAutoUpdateCountdownLabel(_vm.AutoUpdateCountdownSeconds);

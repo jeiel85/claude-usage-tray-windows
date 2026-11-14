@@ -124,6 +124,17 @@ public class NotificationSettings
     public int UsageSyncApiSnapshotTtlMinutes { get; set; } = 5;
     public int UsageSyncLocalSnapshotTtlHours { get; set; } = 24;
 
+    // 휴대폰 앱 연동(#220). 기본은 꺼짐 — 켜야 이 PC 가 휴대폰용 포트를 연다.
+    public bool MobileEnabled { get; set; } = false;
+    /// <summary>같은 Wi-Fi·유선 LAN 경로(TLS 핀 고정).</summary>
+    public bool MobileLan { get; set; } = true;
+    /// <summary>Tailscale 경로(100.64.0.0/10). Tailscale 이 없으면 바인딩할 주소가 없어 저절로 빠진다.</summary>
+    public bool MobileTailscale { get; set; } = true;
+    /// <summary>수신 포트. 설정 창에는 없고 파일에서만 바꾼다(다른 프로그램과 겹칠 때).</summary>
+    public int MobilePort { get; set; } = Services.Mobile.MobileProtocol.DefaultPort;
+    /// <summary>127.0.0.1 에도 연다 — 개발·에뮬레이터(adb reverse) 전용, 파일에서만 켠다.</summary>
+    public bool MobileBindLoopback { get; set; } = false;
+
     // Backward compatibility with old schema used by ViewModel.
     [JsonIgnore]
     public bool NotifyOnRateLimit

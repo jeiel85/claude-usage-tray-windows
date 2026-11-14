@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ClaudeUsageTray.Models;
 using ClaudeUsageTray.Services;
+using ClaudeUsageTray.Services.Mobile;
 using ClaudeUsageTray.Services.Forecasts;
 using ClaudeUsageTray.Views;
 using Timer = System.Timers.Timer;
@@ -389,6 +390,14 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private int _usageSyncLocalSnapshotTtlHours = UsageSyncService.DefaultLocalSnapshotTtlHours;
     [ObservableProperty] private string _usageSyncStatusLabel = Loc.UsageSyncDisabled;
 
+    // 휴대폰 연동(#220)
+    [ObservableProperty] private bool _mobileEnabled;
+    [ObservableProperty] private bool _mobileLan = true;
+    [ObservableProperty] private bool _mobileTailscale = true;
+
+    /// <summary>휴대폰 연동(서버·페어링·사용량 피드). 설정 창의 "휴대폰 연결" 창이 이것을 쓴다.</summary>
+    public MobileLinkService Mobile { get; } = new();
+
     // v1.27.0 표시 옵션 토글 (v1.41.0: Codex 전용 → 전 공급자 공통)
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsCodexPlanBadgeVisible))]
@@ -667,6 +676,9 @@ namespace ClaudeUsageTray.ViewModels;
         UsageSyncApiSnapshotTtlMinutes = Math.Max(1, s.UsageSyncApiSnapshotTtlMinutes);
         UsageSyncLocalSnapshotTtlHours = Math.Max(1, s.UsageSyncLocalSnapshotTtlHours);
         RefreshUsageSyncStatus();
+        MobileEnabled = s.MobileEnabled;
+        MobileLan = s.MobileLan;
+        MobileTailscale = s.MobileTailscale;
         TrayDisplayMode = UsageProviderKind.IsValid(s.TrayDisplayMode) ? s.TrayDisplayMode : UsageProviderKind.Auto;
         HideInactiveProviders = s.HideInactiveProviders;
 
@@ -873,7 +885,7 @@ namespace ClaudeUsageTray.ViewModels;
         // Preserve SkippedVersion / AutoUpdateAttemptedVersion from disk
         var existing = _settingsService.Load();
 
-        _settingsService.Save(new NotificationSettings
+        var saved = new NotificationSettings
         {
             SelectedProvider = SelectedProvider,
             Language = SelectedLanguage,
@@ -927,7 +939,39 @@ namespace ClaudeUsageTray.ViewModels;
             WeatherOfficialAlertsEnabled      = WeatherOfficialAlertsEnabled,
             WeatherForecastSource             = WeatherForecastSource,
             WeatherForecastModel              = WeatherForecastModel,
-        });
+
+            MobileEnabled      = MobileEnabled,
+            MobileLan          = MobileLan,
+            MobileTailscale    = MobileTailscale,
+            // 파일에서만 바꾸는 값은 디스크 값을 보존한다.
+            MobilePort         = existing.MobilePort,
+            MobileBindLoopback = existing.MobileBindLoopback,
+        };
+        _settingsService.Save(saved);
+        ApplyMobileSettings(saved);
+    }
+
+    /// <summary>
+    /// Input : 방금 저장한 설정
+    /// Output: 없음
+    /// 핵심 로직: 서버 시작·중지와 함께, 화면에서 끈 provider 를 휴대폰 피드에서도 바로 뺀다 —
+    ///           끈 provider 는 더 갱신되지 않으므로 그냥 두면 휴대폰에 6시간 동안 옛 값이 남는다.
+    /// </summary>
+    private void ApplyMobileSettings(NotificationSettings settings)
+    {
+        try
+        {
+            Mobile.Feed.Retain(settings.VisibleProviders);
+            Mobile.Apply(settings);
+        }
+        catch (Exception ex)
+        {
+            // 휴대폰 연동 실패가 설정 저장·사용량 표시를 막지 않게 한다.
+#if DEBUG
+            Debug.WriteLine($"[MainViewModel] mobile apply failed: {ex}");
+#endif
+            GC.KeepAlive(ex);
+        }
     }
 
     public async Task StartAsync()
@@ -938,6 +982,8 @@ namespace ClaudeUsageTray.ViewModels;
         // 업데이트 확인은 사용량 갱신과 독립적으로 진행한다. RefreshAsync() 뒤에 붙여 두면 모든 공급자와
         // 날씨 조회가 끝날 때까지 확인이 시작조차 못 하고, 그 사이 실패하면 24시간 동안 재시도가 없었다.
         _ = RunStartupUpdateCheckAsync();
+
+        ApplyMobileSettings(_settingsService.Load());
 
         await RefreshAsync();
         _timer.Start();
@@ -1669,6 +1715,55 @@ namespace ClaudeUsageTray.ViewModels;
     internal static bool HasRecentAntigravityUsage(IReadOnlyList<QuotaGaugeRow> models) =>
         models.Any(m => m.Window is { } window && window <= TimeSpan.FromHours(5) && m.UsagePercent > 0);
 
+    /// <summary>화면에서 켠 provider 만 휴대폰에 보낸다 — 사용자가 숨긴 provider 를 휴대폰에서 다시 보지 않게.</summary>
+    private bool IsMobileProviderVisible(string provider) => provider switch
+    {
+        UsageProviderKind.Claude => IsClaudeEnabled,
+        UsageProviderKind.Codex => IsCodexEnabled,
+        UsageProviderKind.OpenCode => IsOpenCodeEnabled,
+        UsageProviderKind.Antigravity => IsAntigravityEnabled,
+        _ => false,
+    };
+
+    /// <summary>
+    /// Claude 의 휴대폰용 계정 키. 기존 동기화·기록은 orgUuid 를 계정으로 쓰지만, Team·Enterprise 조직은 여러 사람이
+    /// 같은 orgUuid 를 쓰고 할당량은 사람마다 따로다. 휴대폰은 "같은 계정이면 한 카드" 로 합치므로 다른 사람을
+    /// 합치지 않게 accountUuid 를 덧붙인다(읽지 못하면 orgUuid 만 — 기존 동기화와 같은 기준).
+    /// </summary>
+    internal static string? BuildClaudeMobileAccountKey(string? orgUuid, string? accountUuid)
+    {
+        if (string.IsNullOrWhiteSpace(orgUuid)) return null;
+        return string.IsNullOrWhiteSpace(accountUuid) ? orgUuid.Trim() : $"{orgUuid.Trim()}|{accountUuid.Trim()}";
+    }
+
+    /// <summary>
+    /// Input : provider, 계정 키, 표시 이름, 할당량 생성기, 오늘 합계, 오류 종류
+    /// Output: 없음(휴대폰 피드 갱신)
+    /// 핵심 로직: 동기화 폴더와 무관하게 늘 넣는다(휴대폰만 쓰는 사용자도 있다). 할당량은 동기화용과 따로 만든다 —
+    ///           동기화 쪽이 같은 객체의 관측 시각을 채워 넣으므로 공유하면 두 경로가 서로 영향을 준다.
+    ///           실패해도 사용량 갱신 흐름을 끊지 않는다.
+    /// </summary>
+    private void PublishMobile(
+        string provider,
+        string? accountKey,
+        string accountLabel,
+        Func<UsageSyncQuotaSnapshot?> quota,
+        UsageSyncLocalTotals? today,
+        string? errorKind)
+    {
+        try
+        {
+            Mobile.Publish(provider, accountKey, accountLabel, quota(), today, errorKind ?? "");
+        }
+        catch (Exception ex)
+        {
+#if DEBUG
+            Debug.WriteLine($"[MainViewModel] mobile publish failed for {provider}: {ex}");
+#endif
+            GC.KeepAlive(ex);
+        }
+    }
+
     private bool IsUsageSyncReady =>
         UsageSyncEnabled && !string.IsNullOrWhiteSpace(UsageSyncFolderPath);
 
@@ -1697,6 +1792,9 @@ namespace ClaudeUsageTray.ViewModels;
         out UsageSyncMergedLocalTotals? mergedTotals)
     {
         mergedTotals = null;
+        if (IsMobileProviderVisible(UsageProviderKind.Claude))
+            PublishMobile(UsageProviderKind.Claude, BuildClaudeMobileAccountKey(accountKey, _claudeAccount.GetAccountUuid()),
+                _claudeAccount.GetLabel(), () => CreateClaudeQuotaSnapshot(usage, modelLimits), CreateLocalTotals(sessionStats), errorKind);
         if (!IsUsageSyncReady)
             return UsageSyncQuotaCandidates.None;
 
@@ -1737,6 +1835,11 @@ namespace ClaudeUsageTray.ViewModels;
         string provider,
         ProviderUsageSnapshot snapshot)
     {
+        if (IsMobileProviderVisible(provider))
+            PublishMobile(provider,
+                provider == UsageProviderKind.Codex ? CodexUsageMonitor.GetCurrentAccountIdentity() : null,
+                "", () => CreateProviderQuotaSnapshot(provider, snapshot), CreateLocalTotals(snapshot),
+                ClassifyProviderError(snapshot.ErrorMessage));
         if (!IsUsageSyncReady)
             return UsageSyncProviderResult.Empty;
 
@@ -3317,6 +3420,7 @@ namespace ClaudeUsageTray.ViewModels;
         _timer.Dispose();
         _countdownTimer.Dispose();
         _updateTimer.Dispose();
+        Mobile.Dispose();
         CancelClaudeLoginWatch();
         GC.SuppressFinalize(this);
     }
@@ -3428,6 +3532,12 @@ namespace ClaudeUsageTray.ViewModels;
     /// </summary>
     private UsageSyncQuotaCandidates TrySyncAntigravityQuota()
     {
+        if (IsMobileProviderVisible(UsageProviderKind.Antigravity))
+        {
+            var mobileLocal = AntigravityVm.LastSnapshot;
+            PublishMobile(UsageProviderKind.Antigravity, null, "", () => CreateAntigravityQuotaSnapshot(mobileLocal), null,
+                mobileLocal.HasData ? "" : ClassifyProviderError(mobileLocal.ErrorMessage));
+        }
         if (!IsUsageSyncReady)
             return UsageSyncQuotaCandidates.None;
 

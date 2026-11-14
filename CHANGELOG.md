@@ -3,6 +3,30 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.53.0] - 2026-11-14
+
+<!-- ko -->
+### 추가
+- **휴대폰(Android) 앱에서 여러 PC의 사용량을 계정 단위로 실시간으로 봅니다 (#220)** — 설정 → 일반 → **휴대폰 앱 연동**을 켜고 **휴대폰 연결… (QR 표시)**를 누르면 QR이 나옵니다. 휴대폰 앱으로 스캔하면 그 PC가 등록되고, 앱이 화면에 보이는 동안 사용량이 바뀔 때마다 바로 반영됩니다. 연결 구조는 Homebase의 휴대폰 연동을 그대로 따릅니다.
+  - **계정 단위로 묶입니다**: 같은 계정을 쓰는 PC들은 한 카드로 합쳐집니다. 예를 들어 PC 3대 중 2대가 계정 A, 1대가 계정 B면 카드가 2개입니다. 할당량은 계정 값이라 가장 최근에 관측한 PC 값을 쓰고, 오늘 토큰은 PC마다 더합니다. Claude는 계정(조직+사용자), Codex는 로그인 계정으로 구분하며, 계정을 알 수 없는 Antigravity·OpenCode는 잘못 합치지 않도록 PC별로 따로 보입니다.
+  - **중계 서버 없이 직접 연결합니다**: 같은 Wi-Fi에서는 PC의 자체 서명 인증서를 QR로 받아 그 인증서만 믿는 TLS로, 밖에서는 Tailscale로 붙습니다. 앱이 휴대폰의 네트워크를 보고 경로를 고릅니다.
+  - **보안**: QR 코드는 5분·1회용이고 5분에 10번 틀리면 잠깁니다. PC는 토큰의 해시만 저장하고, 휴대폰에는 원시 계정 ID 대신 해시만 보냅니다. 이메일은 보내지 않습니다. 연결 창에서 휴대폰별로 연결을 해제할 수 있습니다.
+  - **방화벽**: 연결 창의 **방화벽 규칙 추가(관리자)**를 한 번 누르면, 이 exe·포트로 한정한 규칙(LAN은 '개인' 네트워크에서만)을 넣습니다.
+  - **부담 없음**: 새로 조회하지 않고 원래 갱신 주기의 결과만 보내므로 API 호출 수가 늘지 않습니다. 기본은 꺼져 있고, 켜야 포트(47830)를 엽니다.
+  - 휴대폰 앱은 저장소의 `mobile/`(Kotlin/Compose)에 있습니다. 서명 키가 설정된 릴리스에는 `ClaudeUsageTray-Mobile.apk`가 함께 올라갑니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **See every PC's usage per account, live, in the Android phone app (#220)** — Turn on Settings → General → **Phone App** and click **Connect phone… (show QR)**. Scan the QR with the phone app to add the PC; while the app is on screen, usage changes show up right away. The connection design follows Homebase's phone link.
+  - **Grouped by account**: PCs that use the same account are merged into one card. With three PCs where two use account A and one uses account B, you get two cards. Quota is an account-level value, so the most recent observation from any PC is used; today's tokens are added up across PCs. Claude is identified by account (organization + user), Codex by its login; Antigravity and OpenCode can't be identified, so they appear per PC instead of being merged by mistake.
+  - **Direct, no relay server**: on the same Wi-Fi the phone uses TLS that trusts only the PC's self-signed certificate from the QR; away from home it uses Tailscale. The app picks the path from the phone's network.
+  - **Security**: QR codes work once for 5 minutes and lock after 10 wrong tries in 5 minutes. The PC stores only token hashes and sends the phone account hashes, never raw account IDs or emails. Each phone can be disconnected from the connect window.
+  - **Firewall**: one click on **Add firewall rules (admin)** adds rules limited to this exe and port (LAN on Private networks only).
+  - **No extra load**: nothing new is fetched; the phone gets the results of the existing refresh cycle, so API calls don't increase. Off by default; port 47830 opens only when it's on.
+  - The phone app lives in `mobile/` (Kotlin/Compose). Releases built with a signing key also include `ClaudeUsageTray-Mobile.apk`.
+<!-- /en -->
+
 ## [1.52.0] - 2026-11-11
 
 <!-- ko -->

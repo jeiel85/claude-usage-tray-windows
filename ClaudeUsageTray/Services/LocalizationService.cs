@@ -2569,4 +2569,254 @@ public static class Loc
         "ja" => $"体感 {temp:F0}°C",
         _ => $"feels like {temp:F0}°C"
     };
+
+    // ── 휴대폰 앱 연동 (#220) ──────────────────────────────────────────────
+
+    public static string MobileTitle => Lang switch
+    {
+        "ko" => "휴대폰 앱 연동",
+        "zh" => "手机应用连接",
+        "ja" => "スマホアプリ連携",
+        _ => "Phone App"
+    };
+
+    public static string MobileEnabled => Lang switch
+    {
+        "ko" => "휴대폰 앱에서 이 PC 사용량 보기",
+        "zh" => "在手机应用中查看此电脑的用量",
+        "ja" => "スマホアプリでこのPCの使用量を見る",
+        _ => "Show this PC's usage in the phone app"
+    };
+
+    public static string MobileDescription => Lang switch
+    {
+        "ko" => "휴대폰 앱이 QR 한 번으로 이 PC에 직접 연결해 실시간 사용량을 받습니다. 중계 서버는 없고, 같은 계정을 쓰는 PC들은 앱에서 한 계정으로 묶여 보입니다.",
+        "zh" => "手机应用扫描一次二维码即可直接连接此电脑并实时接收用量。没有中转服务器，使用同一账号的电脑在应用中会合并为一个账号显示。",
+        "ja" => "スマホアプリがQRコード1回でこのPCに直接つながり、使用量をリアルタイムで受け取ります。中継サーバーはなく、同じアカウントのPCはアプリで1つのアカウントにまとまって表示されます。",
+        _ => "The phone app connects straight to this PC with one QR scan and gets live usage. There is no relay server, and PCs that share an account appear as one account in the app."
+    };
+
+    public static string MobilePathLan => Lang switch
+    {
+        "ko" => "같은 Wi-Fi·LAN (암호화)",
+        "zh" => "同一 Wi-Fi/局域网 (加密)",
+        "ja" => "同じWi-Fi・LAN (暗号化)",
+        _ => "Same Wi-Fi / LAN (encrypted)"
+    };
+
+    public static string MobilePathTailscale => Lang switch
+    {
+        "ko" => "Tailscale (밖에서도 연결)",
+        "zh" => "Tailscale (外网也可连接)",
+        "ja" => "Tailscale (外出先からも接続)",
+        _ => "Tailscale (works away from home)"
+    };
+
+    public static string MobileConnectButton => Lang switch
+    {
+        "ko" => "휴대폰 연결… (QR 표시)",
+        "zh" => "连接手机… (显示二维码)",
+        "ja" => "スマホを接続… (QR表示)",
+        _ => "Connect phone… (show QR)"
+    };
+
+    public static string MobileStatusOff => Lang switch
+    {
+        "ko" => "꺼짐 — 휴대폰용 포트를 열지 않습니다",
+        "zh" => "已关闭 — 不开放手机端口",
+        "ja" => "オフ — スマホ用ポートを開きません",
+        _ => "Off — no port is opened for phones"
+    };
+
+    public static string MobileStatusPaired(int count) => Lang switch
+    {
+        "ko" => count == 0 ? "켜짐 · 연결된 휴대폰 없음" : $"켜짐 · 연결된 휴대폰 {count}대",
+        "zh" => count == 0 ? "已开启 · 没有已连接的手机" : $"已开启 · 已连接 {count} 部手机",
+        "ja" => count == 0 ? "オン · 接続済みのスマホなし" : $"オン · 接続済みのスマホ {count}台",
+        _ => count == 0 ? "On · no phone paired" : $"On · {count} phone(s) paired"
+    };
+
+    public static string MobileConnectTitle => Lang switch
+    {
+        "ko" => "휴대폰 연결",
+        "zh" => "连接手机",
+        "ja" => "スマホを接続",
+        _ => "Connect Phone"
+    };
+
+    public static string MobileScanHint => Lang switch
+    {
+        "ko" => "휴대폰 앱에서 'PC 추가'를 누르고 이 QR을 스캔하세요. 앱이 없으면 휴대폰 기본 카메라로 찍으면 설치 안내 페이지가 열립니다.",
+        "zh" => "在手机应用中点击\"添加电脑\"并扫描此二维码。如果还没有安装应用，用手机自带相机扫描会打开安装说明页面。",
+        "ja" => "スマホアプリで「PCを追加」を押してこのQRをスキャンしてください。アプリがなければスマホの標準カメラで撮ると、インストール案内ページが開きます。",
+        _ => "In the phone app, tap \"Add PC\" and scan this QR. Without the app, scan it with the phone's camera to open the install guide."
+    };
+
+    public static string MobileQrExpiresIn(int seconds) => Lang switch
+    {
+        "ko" => $"{seconds / 60}:{seconds % 60:00} 후 만료 · 한 번만 쓸 수 있습니다",
+        "zh" => $"{seconds / 60}:{seconds % 60:00} 后过期 · 只能使用一次",
+        "ja" => $"{seconds / 60}:{seconds % 60:00} 後に期限切れ · 1回のみ使用可",
+        _ => $"Expires in {seconds / 60}:{seconds % 60:00} · single use"
+    };
+
+    public static string MobileQrExpired => Lang switch
+    {
+        "ko" => "QR이 만료되었습니다. '새 QR'을 누르세요.",
+        "zh" => "二维码已过期，请点击\"新二维码\"。",
+        "ja" => "QRの期限が切れました。「新しいQR」を押してください。",
+        _ => "The QR expired. Click \"New QR\"."
+    };
+
+    public static string MobileNewQr => Lang switch
+    {
+        "ko" => "새 QR",
+        "zh" => "新二维码",
+        "ja" => "新しいQR",
+        _ => "New QR"
+    };
+
+    public static string MobileStarting => Lang switch
+    {
+        "ko" => "연결 경로를 여는 중입니다…",
+        "zh" => "正在打开连接路径…",
+        "ja" => "接続経路を開いています…",
+        _ => "Opening connection paths…"
+    };
+
+    public static string MobileNoPath => Lang switch
+    {
+        "ko" => "휴대폰이 닿을 주소가 없습니다. Wi-Fi·LAN에 연결되어 있는지, 또는 Tailscale이 켜져 있는지 확인하세요.",
+        "zh" => "没有手机可访问的地址。请确认已连接 Wi-Fi/局域网，或 Tailscale 已开启。",
+        "ja" => "スマホが届くアドレスがありません。Wi-Fi・LANに接続しているか、Tailscaleがオンか確認してください。",
+        _ => "No address a phone can reach. Check that this PC is on Wi-Fi/LAN or that Tailscale is on."
+    };
+
+    public static string MobileServerError(string message) => Lang switch
+    {
+        "ko" => $"서버 오류: {message}",
+        "zh" => $"服务器错误: {message}",
+        "ja" => $"サーバーエラー: {message}",
+        _ => $"Server error: {message}"
+    };
+
+    public static string MobilePathsHeader => Lang switch
+    {
+        "ko" => "연결 경로",
+        "zh" => "连接路径",
+        "ja" => "接続経路",
+        _ => "Connection paths"
+    };
+
+    public static string MobileFirewallOk => Lang switch
+    {
+        "ko" => "방화벽 규칙: 설치됨 (LAN은 '개인' 네트워크에서만 열림)",
+        "zh" => "防火墙规则: 已安装 (局域网仅在\"专用\"网络开放)",
+        "ja" => "ファイアウォール規則: 設定済み (LANは「プライベート」ネットワークのみ)",
+        _ => "Firewall rules: installed (LAN opens on Private networks only)"
+    };
+
+    public static string MobileFirewallMissing => Lang switch
+    {
+        "ko" => "방화벽 규칙이 없습니다. 추가하지 않으면 Windows가 연결을 막거나 허용 여부를 묻습니다.",
+        "zh" => "没有防火墙规则。如果不添加，Windows 会阻止连接或询问是否允许。",
+        "ja" => "ファイアウォール規則がありません。追加しないとWindowsが接続をブロックするか許可を尋ねます。",
+        _ => "No firewall rules. Without them Windows blocks the connection or asks whether to allow it."
+    };
+
+    public static string MobileFirewallAdd => Lang switch
+    {
+        "ko" => "방화벽 규칙 추가 (관리자)",
+        "zh" => "添加防火墙规则 (管理员)",
+        "ja" => "ファイアウォール規則を追加 (管理者)",
+        _ => "Add firewall rules (admin)"
+    };
+
+    public static string MobileFirewallCancelled => Lang switch
+    {
+        "ko" => "관리자 승인이 취소되어 규칙을 추가하지 않았습니다.",
+        "zh" => "管理员授权已取消，未添加规则。",
+        "ja" => "管理者の承認がキャンセルされたため、規則を追加しませんでした。",
+        _ => "Admin approval was cancelled; no rules were added."
+    };
+
+    public static string MobileFirewallFailed => Lang switch
+    {
+        "ko" => "방화벽 규칙을 추가하지 못했습니다.",
+        "zh" => "未能添加防火墙规则。",
+        "ja" => "ファイアウォール規則を追加できませんでした。",
+        _ => "Could not add the firewall rules."
+    };
+
+    public static string MobileDevicesHeader => Lang switch
+    {
+        "ko" => "연결된 휴대폰",
+        "zh" => "已连接的手机",
+        "ja" => "接続済みのスマホ",
+        _ => "Paired phones"
+    };
+
+    public static string MobileNoDevices => Lang switch
+    {
+        "ko" => "아직 연결된 휴대폰이 없습니다.",
+        "zh" => "还没有已连接的手机。",
+        "ja" => "まだ接続済みのスマホはありません。",
+        _ => "No phone is paired yet."
+    };
+
+    public static string MobileRevoke => Lang switch
+    {
+        "ko" => "연결 해제",
+        "zh" => "解除连接",
+        "ja" => "接続解除",
+        _ => "Revoke"
+    };
+
+    public static string MobileRevokeConfirm(string name) => Lang switch
+    {
+        "ko" => $"'{name}'의 연결을 해제할까요? 다시 쓰려면 QR로 다시 연결해야 합니다.",
+        "zh" => $"要解除\"{name}\"的连接吗？之后需要重新扫描二维码。",
+        "ja" => $"「{name}」の接続を解除しますか？再び使うにはQRで再接続が必要です。",
+        _ => $"Revoke '{name}'? It will need to scan a new QR to connect again."
+    };
+
+    public static string MobileDeviceSeen(string when) => Lang switch
+    {
+        "ko" => $"마지막 접속 {when}",
+        "zh" => $"最后连接 {when}",
+        "ja" => $"最終接続 {when}",
+        _ => $"last seen {when}"
+    };
+
+    public static string MobileDeviceNeverSeen => Lang switch
+    {
+        "ko" => "아직 접속 기록 없음",
+        "zh" => "尚无连接记录",
+        "ja" => "まだ接続記録なし",
+        _ => "not seen yet"
+    };
+
+    public static string MobileWatching(int count) => Lang switch
+    {
+        "ko" => count == 0 ? "" : $"지금 휴대폰 {count}대가 보는 중",
+        "zh" => count == 0 ? "" : $"现在有 {count} 部手机正在查看",
+        "ja" => count == 0 ? "" : $"いまスマホ {count}台が表示中",
+        _ => count == 0 ? "" : $"{count} phone(s) watching now"
+    };
+
+    public static string MobileGetApp => Lang switch
+    {
+        "ko" => "휴대폰 앱 받기 (Android)",
+        "zh" => "获取手机应用 (Android)",
+        "ja" => "スマホアプリを入手 (Android)",
+        _ => "Get the phone app (Android)"
+    };
+
+    public static string MobileClose => Lang switch
+    {
+        "ko" => "닫기",
+        "zh" => "关闭",
+        "ja" => "閉じる",
+        _ => "Close"
+    };
 }

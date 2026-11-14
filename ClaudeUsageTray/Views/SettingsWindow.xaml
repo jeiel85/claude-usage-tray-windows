@@ -493,6 +493,17 @@
                                     <Button x:Name="BtnUsageSyncBrowse" Grid.Column="1" Style="{StaticResource LinkBtn}" Margin="8,0,0,0" Click="BtnUsageSyncBrowse_Click"/>
                                 </Grid>
                                 <TextBlock x:Name="LblUsageSyncStatus" Foreground="#7C83A4" FontSize="10" TextWrapping="Wrap" Margin="2,0,0,0"/>
+
+                                <Border Height="1" Background="#2D2F45" Margin="0,10,0,8"/>
+
+                                <!-- 휴대폰 앱 연동 (#220) -->
+                                <TextBlock x:Name="LblMobileTitle" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
+                                <CheckBox x:Name="ChkMobileEnabled" Style="{StaticResource CheckStyle}" Margin="0,0,0,4" Click="Setting_Changed"/>
+                                <TextBlock x:Name="LblMobileDescription" Foreground="#5A5F7A" FontSize="10" TextWrapping="Wrap" Margin="2,0,0,6"/>
+                                <CheckBox x:Name="ChkMobileLan" Style="{StaticResource CheckStyle}" Margin="18,0,0,4" Click="Setting_Changed"/>
+                                <CheckBox x:Name="ChkMobileTailscale" Style="{StaticResource CheckStyle}" Margin="18,0,0,6" Click="Setting_Changed"/>
+                                <Button x:Name="BtnMobileConnect" Style="{StaticResource LinkBtn}" HorizontalAlignment="Left" Margin="2,0,0,4" Click="BtnMobileConnect_Click"/>
+                                <TextBlock x:Name="LblMobileStatus" Foreground="#7C83A4" FontSize="10" TextWrapping="Wrap" Margin="2,0,0,0"/>
                             </StackPanel>
                             </ScrollViewer>
                         </Border>

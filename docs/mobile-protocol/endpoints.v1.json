@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "endpoints": [
+    {
+      "transport": "lan",
+      "host": "192.168.0.10",
+      "port": 47830,
+      "tls": true,
+      "certSha256": "4f9a8a7d1c2b3e4f5a6b7c8d9e0f11223344556677889900aabbccddeeff0011"
+    },
+    {
+      "transport": "tailscale",
+      "host": "home-pc.tail1234.ts.net",
+      "port": 47830,
+      "tls": false
+    },
+    {
+      "transport": "tailscale",
+      "host": "100.101.102.103",
+      "port": 47830,
+      "tls": false
+    }
+  ]
+}

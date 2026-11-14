@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AI Usage</string>
+    <string name="tab_accounts">Accounts</string>
+    <string name="tab_pcs">PCs</string>
+    <string name="add_pc">Add PC</string>
+    <string name="back">Back</string>
+    <string name="cancel">Cancel</string>
+    <string name="empty_title">No PC yet</string>
+    <string name="empty_body">On the PC, open the tray icon → Settings → Phone App, turn it on, click \"Connect phone… (show QR)\", then tap Add PC here.</string>
+    <string name="no_usage_yet">Waiting for usage from your PCs…</string>
+    <string name="device_scope_note">Account not identified — shown per PC</string>
+    <string name="no_quota">No quota data from the server yet</string>
+    <string name="gauge_extra">Extra usage</string>
+    <string name="reset_in">resets in %1$s</string>
+    <string name="today_tokens">Today %1$s tokens · %2$d sessions</string>
+    <string name="quota_from">from %1$s · %2$s</string>
+    <string name="just_now">just now</string>
+    <string name="minutes_ago">%1$d min ago</string>
+    <string name="hours_ago">%1$d h ago</string>
+    <string name="days_ago">%1$d d ago</string>
+    <string name="pc_live">Live via %1$s</string>
+    <string name="pc_connecting">Connecting…</string>
+    <string name="pc_retrying">Can\'t reach the PC · retry in %1$d s</string>
+    <string name="pc_unauthorized">This phone was disconnected on the PC. Remove it and pair again.</string>
+    <string name="pc_incompatible">Version mismatch — update the PC app and this app</string>
+    <string name="pc_offline">Not connected</string>
+    <string name="pc_last_received">last update %1$s</string>
+    <string name="pc_providers">%1$d services</string>
+    <string name="remove_pc">Remove</string>
+    <string name="remove_confirm">Remove %1$s from this phone? To see it again, scan a new QR on the PC.</string>
+    <string name="pair_title">Add PC</string>
+    <string name="pair_step1">On the PC: tray icon → Settings → Phone App → \"Connect phone… (show QR)\".</string>
+    <string name="pair_step2">Scan the QR. The phone must be on the same Wi-Fi, or have Tailscale on.</string>
+    <string name="pair_scan">Scan QR</string>
+    <string name="pair_scan_prompt">Point the camera at the QR on the PC</string>
+    <string name="pair_paste_hint">Or paste the pairing link</string>
+    <string name="pair_connect">Connect</string>
+    <string name="pair_connecting">Connecting to %1$s…</string>
+    <string name="pair_link_opened">Opened the link for %1$s. Tap Connect to pair.</string>
+    <string name="pair_not_ours">This isn\'t a pairing QR from the PC app.</string>
+    <string name="pair_err_invalid">The code is not valid. Show a new QR on the PC.</string>
+    <string name="pair_err_expired">The QR expired. Show a new QR on the PC.</string>
+    <string name="pair_err_locked">Too many wrong codes. Try again in a few minutes.</string>
+    <string name="pair_err_unreachable">Can\'t reach the PC. Check the same Wi-Fi (Private network on Windows) or Tailscale, and the firewall rules on the PC.
+%1$s</string>
+</resources>
