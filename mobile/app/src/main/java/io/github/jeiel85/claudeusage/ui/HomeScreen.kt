@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -31,11 +33,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,10 +57,15 @@ import io.github.jeiel85.claudeusage.domain.PcStatus
 import io.github.jeiel85.claudeusage.net.Gauge
 import io.github.jeiel85.claudeusage.net.GaugeKind
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
- * Two tabs over the same live data: Accounts (what the user asked for — usage per account, merged
- * across PCs) and PCs (connection health and removal).
+ * Three tabs over the same live data: Accounts (what the user asked for — usage per account, merged
+ * across PCs), PCs (connection health and removal) and Alerts.
+ *
+ * Tabs are pages of a [HorizontalPager], so a sideways swipe moves between them as well as a tap on
+ * the tab row. Each page keeps its own list (and scroll position): swiping back to Accounts after
+ * checking a PC returns to the same card instead of the top.
  */
 @Composable
 fun HomeScreen(
@@ -69,7 +75,9 @@ fun HomeScreen(
     onAdd: () -> Unit,
     onRemove: (String) -> Unit,
 ) {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    // rememberPagerState is saveable: the open tab survives rotation and process death like before.
+    val pager = rememberPagerState(pageCount = { TAB_COUNT })
+    val scope = rememberCoroutineScope()
     // Re-evaluate "resets in" / "x min ago" without waiting for the next frame from a PC.
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
@@ -86,31 +94,44 @@ fun HomeScreen(
             Text(stringResource(R.string.app_name), color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             TextButton(onClick = onAdd) { Text("+ " + stringResource(R.string.add_pc), color = Palette.AccentLight) }
         }
-        TabRow(selectedTabIndex = tab, containerColor = Palette.Bg, contentColor = Palette.AccentLight) {
-            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.tab_accounts)) })
-            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.tab_pcs)) })
-            Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text(stringResource(R.string.tab_alerts)) })
+        val titles = listOf(R.string.tab_accounts, R.string.tab_pcs, R.string.tab_alerts)
+        TabRow(selectedTabIndex = pager.currentPage, containerColor = Palette.Bg, contentColor = Palette.AccentLight) {
+            titles.forEachIndexed { index, title ->
+                Tab(
+                    selected = pager.currentPage == index,
+                    onClick = { scope.launch { pager.animateScrollToPage(index) } },
+                    text = { Text(stringResource(title)) },
+                )
+            }
         }
-        if (pcs.isEmpty() && tab != 2) {
-            EmptyState(onAdd)
-            return@Column
-        }
-        LazyColumn(
-            Modifier.fillMaxSize().navigationBarsPadding(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            when (tab) {
-                0 -> {
-                    if (cards.isEmpty()) item { Hint(stringResource(R.string.no_usage_yet)) }
-                    items(cards, key = { it.key }) { AccountCardView(it, now) }
+        HorizontalPager(state = pager, modifier = Modifier.fillMaxSize(), key = { it }) { page ->
+            // The Alerts tab works without a paired PC (setting up push first is fine); the others need one.
+            if (pcs.isEmpty() && page != TAB_ALERTS) {
+                EmptyState(onAdd)
+                return@HorizontalPager
+            }
+            LazyColumn(
+                Modifier.fillMaxSize().navigationBarsPadding(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                when (page) {
+                    TAB_ACCOUNTS -> {
+                        if (cards.isEmpty()) item { Hint(stringResource(R.string.no_usage_yet)) }
+                        items(cards, key = { it.key }) { AccountCardView(it, now) }
+                    }
+                    TAB_PCS -> items(pcs, key = { it.pc.pcId }) { PcRow(it, now, onRemove) }
+                    else -> item { NotificationsTab(store, api) }
                 }
-                1 -> items(pcs, key = { it.pc.pcId }) { PcRow(it, now, onRemove) }
-                else -> item { NotificationsTab(store, api) }
             }
         }
     }
 }
+
+private const val TAB_ACCOUNTS = 0
+private const val TAB_PCS = 1
+private const val TAB_ALERTS = 2
+private const val TAB_COUNT = 3
 
 @Composable
 private fun EmptyState(onAdd: () -> Unit) {

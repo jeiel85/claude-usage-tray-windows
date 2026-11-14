@@ -14,6 +14,9 @@
   - `cloudflared`가 없으면 같은 줄의 **설치 (winget)** 버튼으로 설치합니다(Windows가 관리자 승인을 물을 수 있습니다).
   - 휴대폰 앱은 같은 Wi-Fi → Tailscale(켜져 있을 때) → Cloudflare 순으로 되는 경로를 자동으로 고릅니다. PC 동기화 코드도 Cloudflare 경로로 연결됩니다.
   - 주의: 터널 주소를 아는 사람은 PC 이름·앱 버전을 볼 수 있습니다. 사용량을 보려면 QR의 1회용 코드(5분)로 받은 토큰이 있어야 합니다.
+
+### 개선
+- **휴대폰 앱의 계정·PC·알림 탭을 좌우로 밀어 넘길 수 있습니다 (#227)** — 탭을 눌러도 되고, 화면을 옆으로 밀어도 됩니다. 탭마다 스크롤 위치가 따로 유지됩니다.
 <!-- /ko -->
 
 <!-- en -->
@@ -25,6 +28,9 @@
   - If `cloudflared` is missing, the **Install (winget)** button on the same line installs it (Windows may ask for administrator approval).
   - The phone app picks the path that works: same Wi-Fi → Tailscale (when on) → Cloudflare. PC sync codes also connect over Cloudflare.
   - Note: anyone who knows the tunnel address can see the PC name and app version. Seeing usage needs the token issued for the QR's one-time code (5 minutes).
+
+### Improved
+- **Swipe between the phone app's Accounts, PCs and Alerts tabs (#227)** — tap a tab or swipe sideways. Each tab keeps its own scroll position.
 <!-- /en -->
 
 ## [1.53.0] - 2026-11-14
