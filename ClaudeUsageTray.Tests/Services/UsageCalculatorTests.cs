@@ -112,6 +112,17 @@ public class UsageCalculatorTests
     }
 
     [Fact]
+    public void FormatResetLabel_KeepsDateAndTimeTogether_WhenAbsoluteStampHasADate()
+    {
+        // 다음 날 초기화 → "MM/dd HH:mm" 날짜가 붙는 경우. 팝업에서 줄바꿈돼도 날짜·시각이 갈리지 않아야 한다(#234).
+        var now = new DateTimeOffset(DateTime.Today.AddHours(23).AddMinutes(50));
+        var result = UsageCalculator.FormatResetLabel(now.AddDays(3), false, true, now);
+        var stamp = result[(result.LastIndexOf('(') + 1)..^1];
+        Assert.Equal(UsageCalculator.FormatClockStamp(now.AddDays(3), now).Replace(' ', ' '), stamp);
+        Assert.DoesNotContain(' ', stamp);
+    }
+
+    [Fact]
     public void FormatResetLabel_UsesEstimatedFormat_WhenIsEstimatedIsTrue()
     {
         var resetAt = DateTimeOffset.Now.AddHours(2);
