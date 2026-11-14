@@ -705,10 +705,10 @@ public static class Loc
 
     public static string NtfyTitle => Lang switch
     {
-        "ko" => "스마트폰 알림 (ntfy)",
-        "zh" => "手机推送通知 (ntfy)",
-        "ja" => "スマホ通知 (ntfy)",
-        _ => "Phone Push Notifications (ntfy)"
+        "ko" => "ntfy 토픽 (앱 없이 받을 때)",
+        "zh" => "ntfy 主题 (无应用时使用)",
+        "ja" => "ntfy トピック (アプリなしで受け取る場合)",
+        _ => "ntfy topic (without the app)"
     };
 
     public static string NtfyDesc => Lang switch
@@ -785,18 +785,18 @@ public static class Loc
 
     public static string NtfySendFromThisPc => Lang switch
     {
-        "ko" => "이 PC에서 ntfy 알림 발송",
-        "zh" => "从此电脑发送 ntfy 通知",
-        "ja" => "このPCからntfy通知を送信",
-        _ => "Send ntfy notifications from this PC"
+        "ko" => "이 PC에서 휴대폰 알림 보내기",
+        "zh" => "从此电脑发送手机通知",
+        "ja" => "このPCからスマホ通知を送る",
+        _ => "Send phone alerts from this PC"
     };
 
     public static string NtfySendFromThisPcHint => Lang switch
     {
-        "ko" => "여러 PC에서 같은 토픽 사용 시, 한 PC에서만 활성화하세요",
-        "zh" => "多台电脑使用相同主题时，只在一台上启用",
-        "ja" => "複数のPCで同じトピックを使う場合、1台のみ有効にしてください",
-        _ => "If multiple PCs share the same topic, enable only on one"
+        "ko" => "휴대폰 앱 알림은 여러 PC가 보내도 한 번만 뜹니다. ntfy 토픽만 쓸 때는 같은 토픽을 쓰는 PC 중 한 대에서만 켜세요",
+        "zh" => "手机应用通知即使多台电脑发送也只显示一次。仅使用 ntfy 主题时，请只在使用相同主题的一台电脑上开启",
+        "ja" => "スマホアプリの通知は複数のPCが送っても1回だけ表示されます。ntfy トピックだけを使う場合は、同じトピックのPCのうち1台だけオンにしてください",
+        _ => "Phone-app alerts show once even when several PCs send them. If you only use an ntfy topic, enable this on just one PC sharing it"
     };
 
     // v1.27.0 표시 옵션 토글
@@ -1148,10 +1148,10 @@ public static class Loc
 
     public static string TestNotificationHint => Lang switch
     {
-        "ko" => "Windows 토스트 + 스마트폰 알림(ntfy 설정 시) 동시 테스트",
-        "zh" => "同时测试 Windows 通知 + 手机推送（已设置 ntfy 时）",
-        "ja" => "Windows トースト + スマホ通知（ntfy 設定済みの場合）を同時テスト",
-        _ => "Tests Windows toast + phone push (if ntfy topic is set)"
+        "ko" => "Windows 토스트 + 휴대폰 앱(연결 시)·ntfy 토픽(설정 시) 동시 테스트",
+        "zh" => "同时测试 Windows 通知 + 手机应用(已连接时)·ntfy 主题(已设置时)",
+        "ja" => "Windows トースト + スマホアプリ(接続時)・ntfy トピック(設定時)を同時テスト",
+        _ => "Tests Windows toast + phone app (if paired) + ntfy topic (if set)"
     };
 
     public static string TestNotificationSent => Lang switch
