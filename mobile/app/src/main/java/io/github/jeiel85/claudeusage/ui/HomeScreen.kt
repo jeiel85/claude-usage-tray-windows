@@ -56,6 +56,7 @@ import io.github.jeiel85.claudeusage.domain.PcConnection
 import io.github.jeiel85.claudeusage.domain.PcStatus
 import io.github.jeiel85.claudeusage.net.Gauge
 import io.github.jeiel85.claudeusage.net.GaugeKind
+import io.github.jeiel85.claudeusage.update.UpdateSurface
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -95,6 +96,8 @@ fun HomeScreen(
             TextButton(onClick = onAdd) { Text("+ " + stringResource(R.string.add_pc), color = Palette.AccentLight) }
         }
         val titles = listOf(R.string.tab_accounts, R.string.tab_pcs, R.string.tab_alerts)
+        // New app version (#228): one line above the tabs, only when there is something to install.
+        UpdateSurface.Banner(Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
         TabRow(selectedTabIndex = pager.currentPage, containerColor = Palette.Bg, contentColor = Palette.AccentLight) {
             titles.forEachIndexed { index, title ->
                 Tab(

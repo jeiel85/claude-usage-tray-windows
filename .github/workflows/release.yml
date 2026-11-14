@@ -98,6 +98,41 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk ../ClaudeUsageTray-Mobile.apk
           rm -f release.jks
 
+      # 앱 내 업데이트(#228)가 읽는 update.json. 값은 빌드 스크립트가 아니라 방금 만든 APK 자체에서 뽑는다(버전·minSdk 는
+      # badging, 크기·해시는 파일). 정식 서명일 때만 만든다 — Android 는 같은 키로 서명된 APK 만 업데이트로 설치하므로,
+      # 실행마다 키가 다른 디버그 서명 APK 를 앱에 제안하면 설치 단계에서 반드시 거부된다. update.json 이 없는 릴리스에서는
+      # 앱이 404 를 "새 버전 없음" 으로 보고 조용히 넘어간다.
+      - name: Verify signature and write update.json
+        if: steps.signing.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/$(ls -1 "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
+          "$BUILD_TOOLS/apksigner" verify --print-certs ClaudeUsageTray-Mobile.apk
+          BADGING="$("$BUILD_TOOLS/aapt2" dump badging ClaudeUsageTray-Mobile.apk)"
+          export VERSION_CODE="$(echo "$BADGING" | grep -o "[[:space:]]versionCode='[0-9]*'" | head -n 1 | tr -dc '0-9')"
+          export VERSION_NAME="$(echo "$BADGING" | grep -o "[[:space:]]versionName='[^']*'" | head -n 1 | sed "s/.*='//; s/'$//")"
+          export MIN_SDK="$(echo "$BADGING" | grep -o "^minSdkVersion:'[0-9]*'" | head -n 1 | tr -dc '0-9')"
+          export APK_SIZE="$(stat -c %s ClaudeUsageTray-Mobile.apk)"
+          export APK_SHA256="$(sha256sum ClaudeUsageTray-Mobile.apk | awk '{ print $1 }')"
+          test "$VERSION_NAME" = "${GITHUB_REF_NAME#v}"
+          python3 - > update.json <<'PY'
+          import json, os
+          tag = os.environ["GITHUB_REF_NAME"]
+          repo = os.environ["GITHUB_REPOSITORY"]
+          print(json.dumps({
+              "versionCode": int(os.environ["VERSION_CODE"]),
+              "versionName": os.environ["VERSION_NAME"],
+              "apkUrl": f"https://github.com/{repo}/releases/download/{tag}/ClaudeUsageTray-Mobile.apk",
+              "apkSizeBytes": int(os.environ["APK_SIZE"]),
+              "sha256": os.environ["APK_SHA256"],
+              "minSdk": int(os.environ["MIN_SDK"]),
+              "releaseNotesUrl": f"https://github.com/{repo}/releases/tag/{tag}",
+          }, indent=2))
+          PY
+          python3 -c "import json; d=json.load(open('update.json')); assert d['versionCode']>0 and len(d['sha256'])==64 and d['apkUrl'].startswith('https://'), d"
+          cat update.json
+
       # 서명 키가 아직 없을 때의 대체: 디버그 서명 APK. 설치는 되지만 실행마다 다른 디버그 키라, 나중에 정식 서명으로
       # 바꾸면 한 번 지우고 다시 설치해야 한다. 휴대폰 앱 배포가 서명 키 준비를 기다리지 않게 한다(#220).
       - name: Build debug-signed APK (no signing secrets)
@@ -113,7 +148,9 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: apk-release
-          path: ClaudeUsageTray-Mobile.apk
+          path: |
+            ClaudeUsageTray-Mobile.apk
+            update.json
 
   release:
     needs: [build-fd, build-apk]
@@ -159,3 +196,4 @@ jobs:
             artifacts/ClaudeUsageTray.exe
             artifacts/SHA256.txt
             artifacts/ClaudeUsageTray-Mobile.apk
+            artifacts/update.json

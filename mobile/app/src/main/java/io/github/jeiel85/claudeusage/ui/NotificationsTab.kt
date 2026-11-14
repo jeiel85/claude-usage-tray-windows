@@ -42,6 +42,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import io.github.jeiel85.claudeusage.R
+import io.github.jeiel85.claudeusage.update.UpdateSurface
 import io.github.jeiel85.claudeusage.data.PcStore
 import io.github.jeiel85.claudeusage.net.UsageApi
 import io.github.jeiel85.claudeusage.push.NotificationGroups
@@ -207,6 +208,19 @@ fun NotificationsTab(store: PcStore, api: UsageApi) {
             }
         }
         Text(stringResource(R.string.push_privacy), color = Palette.TextDim, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 4.dp))
+
+        // App updates (#228) live here because this tab is the app's settings: what the phone receives, and from where.
+        UpdateSurface.SettingsCard(
+            canNotify = view.canNotify,
+            onAllowNotifications = {
+                if (Build.VERSION.SDK_INT >= 33 && !NotificationAsk.asked) {
+                    NotificationAsk.asked = true
+                    permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    openNotificationSettings(context)
+                }
+            },
+        )
     }
 
     if (picking) {

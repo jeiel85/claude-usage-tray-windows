@@ -74,4 +74,33 @@
     <string name="cat_weather_desc">PCで有効なら予報・警報</string>
     <string name="cat_test">テスト</string>
     <string name="cat_other">その他</string>
+
+    <!-- App updates (#228) -->
+    <string name="update_banner">新しいバージョン %1$s — タップして更新</string>
+    <string name="update_settings_title">アプリの更新</string>
+    <string name="update_current_version">インストール済み: %1$s</string>
+    <string name="update_settings_description">1日1回 GitHub Releases で新しいバージョンを確認し、出たら通知で1回お知らせします。インストールは自分でタップしたときだけ行い、受け取った APK は SHA-256 を照合してから Android のインストール画面に渡します。</string>
+    <string name="update_check_now">今すぐ確認</string>
+    <string name="update_notifications_off">通知がオフのため、新しいバージョンはアプリ内でのみ表示されます — 許可する</string>
+    <string name="update_result_available">新しいバージョン %1$s があります — アカウントタブ上のバナーをタップしてください</string>
+    <string name="update_result_latest">最新バージョンです (%1$s)</string>
+    <string name="update_result_failed">更新を確認できませんでした。ネットワークを確認してください。(このビルド向けの更新がまだ公開されていない可能性もあります)</string>
+    <string name="update_notification_title">Claude Usage %1$s の更新</string>
+    <string name="update_notification_text">タップして変更内容を確認し、インストールしてください。</string>
+    <string name="update_channel_name">アプリの更新</string>
+    <string name="update_channel_description">このアプリの新しいバージョンが出たら1回お知らせします</string>
+    <string name="update_dialog_title">更新</string>
+    <string name="update_dialog_offer">Claude Usage %1$s (%2$s) をダウンロードしてインストールしますか?</string>
+    <string name="update_dialog_notes">変更内容を見る</string>
+    <string name="update_dialog_skip">このバージョンをスキップ</string>
+    <string name="update_dialog_permission">更新をインストールするには、このアプリに「不明なアプリのインストール」を許可する必要があります。設定で許可してから戻ってください。</string>
+    <string name="update_dialog_downloading">ダウンロード中…</string>
+    <string name="update_dialog_failed">ダウンロードまたは検証に失敗しました。再試行するか、ブラウザから直接ダウンロードしてください。</string>
+    <string name="update_dialog_browser">ブラウザで開く</string>
+    <string name="update_dialog_update">更新</string>
+    <string name="update_dialog_open_settings">設定を開く</string>
+    <string name="update_dialog_retry">再試行</string>
+    <string name="update_dialog_close">閉じる</string>
+    <string name="update_dialog_reinstall">現在のアプリは一時的な(デバッグ)署名版のため、Android はこの上に更新をインストールしません。一度アプリを削除してリリースページの APK をインストールしてください — 以降はアプリ内で更新できます。接続した PC は追加し直す必要があります。</string>
+    <string name="update_dialog_release_page">リリースページを開く</string>
 </resources>

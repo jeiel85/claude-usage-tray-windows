@@ -8,6 +8,10 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- PC alerts arrive by UnifiedPush (#222). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Sideload-only app: the in-app updater hands the SHA-256-checked APK to the system installer (#228). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Keeps the background update check scheduled across reboots (JobInfo.setPersisted). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
@@ -79,5 +83,21 @@
                 <action android:name="org.unifiedpush.android.connector.RAISE_TO_FOREGROUND" />
             </intent-filter>
         </service>
+        <!-- Background update check → one "new version" notification (#228). -->
+        <service
+            android:name=".update.UpdateCheckJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <!-- Shares only the downloaded update APK (cache/updates) with the system installer. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>

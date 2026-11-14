@@ -3,6 +3,26 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.55.0] - 2026-11-14
+
+<!-- ko -->
+### 추가
+- **휴대폰 앱이 스스로 새 버전을 확인하고 업데이트합니다 (#228)** — Homebase·Markleaf 앱과 같은 방식입니다.
+  - 하루 한 번 GitHub Releases에서 새 버전을 확인하고, 새 버전이 나오면 계정 탭 위 배너와 Android 알림(버전당 한 번)으로 알립니다.
+  - 배너나 알림을 누르면 변경 내용을 보고 **업데이트**를 누를 수 있습니다. 앱이 APK를 받아 SHA-256을 대조한 뒤 Android 설치 화면으로 넘깁니다. 설치는 내가 누를 때만 진행됩니다.
+  - 알림 탭 → **앱 업데이트**에서 끄거나 **지금 확인**할 수 있습니다.
+  - **처음 한 번은 직접 설치해야 합니다**: Android는 같은 서명 키로 만든 APK만 업데이트로 설치합니다. 앱 서명 키를 등록한 뒤 나오는 첫 정식 서명 APK를 한 번 지우고 다시 설치하면(연결한 PC는 다시 추가), 그다음부터 앱 안에서 업데이트됩니다. 지금의 임시(디버그) 서명 앱에서는 업데이트 창이 이 방법을 안내합니다. 서명 키 준비 방법은 `docs/MOBILE_UPDATES.md`에 있습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **The phone app checks for new versions and updates itself (#228)** — the same way the Homebase and Markleaf apps do.
+  - Once a day it checks GitHub Releases. When a new version is out, it shows a banner above the Accounts tab and an Android notification (once per version).
+  - Tap the banner or notification to see what changed and tap **Update**. The app downloads the APK, checks its SHA-256 and hands it to the Android installer. Nothing installs until you tap.
+  - Turn it off or **Check now** under Alerts → **App updates**.
+  - **Install manually once**: Android only installs an update signed with the same key. After the app signing key is set up, uninstall once and install the first properly signed APK (paired PCs need to be added again); from then on updates install from inside the app. On the current temporary (debug-signed) app, the update dialog explains this. Setting up the signing key is described in `docs/MOBILE_UPDATES.md`.
+<!-- /en -->
+
 ## [1.54.0] - 2026-11-14
 
 <!-- ko -->
