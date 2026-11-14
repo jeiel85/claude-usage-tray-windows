@@ -50,6 +50,9 @@ public class UiSnapshotTests : IDisposable
 
                 var popup = new UsagePopup(vm);
                 Render(popup, "popup");
+                vm.FocusedProvider = UsageProviderKind.Codex;
+                Render(popup, "popup-codex");
+                vm.FocusedProvider = UsageProviderKind.Claude;
                 popup.Close();
 
                 var settings = new SettingsWindow(vm);
@@ -153,8 +156,23 @@ public class UiSnapshotTests : IDisposable
         c.LongTimePercent = 0.6;
         c.HasLongTimeline = true;
         c.LongUsageCapped = 0.18;
+        c.IsActive = true;
+        c.ShortSummary = "42% · 2h 13m";
+        c.LongSummary = "18% · 3d 4h";
         vm.HideInactiveProviders = false;
+        vm.FocusedProvider = UsageProviderKind.Claude;
+        vm.TodayInputTokens = 120_000;
+        vm.TodayOutputTokens = 34_000;
+        vm.TodayCacheRead = 2_500_000;
+        vm.TodayCacheWrite = 80_000;
+        vm.SessionsLabel = "3";
+        vm.TodayCostLabel = "$4.21";
+        vm.IsCodexActive = true;
         vm.CodexPercent = 0.37;
+        vm.CodexReset = "4h 2m";
+        vm.CodexLongPercent = 0.6;
+        vm.CodexLongReset = "5d";
+        vm.IsCodexLongVisible = true;
     }
 
     private MainViewModel CreateViewModel()
