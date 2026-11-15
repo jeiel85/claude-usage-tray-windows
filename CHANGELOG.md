@@ -3,6 +3,28 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.59.0] - 2026-11-15
+
+<!-- ko -->
+### 개선
+- **휴대폰 앱 화면을 더 가볍고 읽기 쉽게 다듬었습니다 (#244)**
+  - **계정 카드**: 사용량 막대 하나가 세 줄에서 두 줄로 줄었습니다. 창 이름과 초기화 시각이 한 줄에, 퍼센트는 오른쪽에 크게 표시됩니다. 퍼센트는 70%부터 막대와 같은 색(주황·빨강)으로 바뀌어 급한 항목이 바로 보입니다.
+  - 서비스마다 색이 다른 머리글자 아이콘이 붙어 카드를 한눈에 구분할 수 있습니다. 오늘 사용량과 PC 목록은 구분선 아래로 옮겼습니다.
+  - **위쪽**: 탭이 알약 모양 전환 버튼으로 바뀌었고, 제목 아래에 "PC 3대 중 1대 연결됨" 같은 연결 요약이 보입니다. PC 추가는 + 아이콘으로 옮겼습니다.
+  - **PC 탭**: 연결 상태가 색 배지(연결됨·다시 시도 중·연결 안 됨)로 보입니다. '삭제'는 실수로 누르지 않도록 ⋮ 메뉴 안으로 넣었고, 목록 끝에 'PC 추가' 버튼이 생겼습니다.
+  - 설정과 알림센터도 같은 카드·배지·스위치 모양으로 맞췄습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **The phone app looks lighter and reads faster (#244)**
+  - **Account cards**: each usage bar now takes two lines instead of three — the window name and reset time on one line with the percentage large at the right, the bar below. From 70% the percentage takes the bar's colour (amber, red), so the urgent one stands out.
+  - Each service has a coloured initial, so cards are told apart at a glance. Today's totals and the PC list sit below a divider.
+  - **Top bar**: the tabs are now a pill-shaped switch, and a line under the title sums up the connections ("1 of 3 PCs live"). Adding a PC moved to a + icon.
+  - **PCs tab**: the connection state is a coloured badge (live, retrying, not connected). Remove moved into the ⋮ menu so it isn't tapped by accident, and the list ends with an Add PC button.
+  - Settings and the notification center use the same cards, badges and switches.
+<!-- /en -->
+
 ## [1.58.2] - 2026-11-15
 
 <!-- ko -->

@@ -8,6 +8,7 @@ import android.text.format.Formatter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,8 +20,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -47,6 +46,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import io.github.jeiel85.claudeusage.BuildConfig
 import io.github.jeiel85.claudeusage.R
+import io.github.jeiel85.claudeusage.ui.AppSwitch
+import io.github.jeiel85.claudeusage.ui.CardShape
 import io.github.jeiel85.claudeusage.ui.Palette
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -145,14 +146,14 @@ internal object UpdateSurface {
         var result by remember { mutableStateOf<String?>(null) }
 
         Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Palette.Card).padding(16.dp),
+            Modifier.fillMaxWidth().clip(CardShape).background(Palette.Card).border(1.dp, Palette.CardBorder, CardShape).padding(16.dp),
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.update_settings_title), color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                     Text(stringResource(R.string.update_current_version, BuildConfig.VERSION_NAME), color = Palette.TextDim, fontSize = 11.sp)
                 }
-                Switch(
+                AppSwitch(
                     checked = enabled,
                     onCheckedChange = { checked ->
                         preferences.setEnabled(checked)
@@ -163,7 +164,6 @@ internal object UpdateSurface {
                         // 규칙대로 다시 판단한다. 배너는 refreshEpoch 가 바뀔 때만 다시 판단하므로 여기서 올린다(Codex 리뷰).
                         refreshEpoch++
                     },
-                    colors = SwitchDefaults.colors(checkedTrackColor = Palette.Accent),
                 )
             }
             Text(stringResource(R.string.update_settings_description), color = Palette.TextSoft, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))

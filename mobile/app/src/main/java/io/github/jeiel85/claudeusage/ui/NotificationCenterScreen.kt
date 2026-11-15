@@ -5,7 +5,6 @@ import android.content.Intent
 import android.net.Uri
 import android.text.format.DateUtils
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,7 +22,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
@@ -78,8 +76,8 @@ fun NotificationCenterScreen(onBack: () -> Unit) {
             Text(
                 stringResource(R.string.history_title),
                 color = Palette.Text,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
             )
             if (entries.isNotEmpty()) {
@@ -141,13 +139,7 @@ private fun HistoryRow(entry: HistoryEntry, unread: Boolean) {
         else -> Palette.AccentLight
     }
     val url = entry.clickUrl
-    Box(
-        Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(Palette.Card)
-            .then(if (url != null) Modifier.clickable { context.openLink(url) } else Modifier)
-            .padding(16.dp),
-    ) {
+    Card(onClick = url?.let { { context.openLink(it) } }) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(8.dp).clip(CircleShape).background(dot))
@@ -155,20 +147,15 @@ private fun HistoryRow(entry: HistoryEntry, unread: Boolean) {
                 val meta = listOf(stringResource(NotificationGroups.label(entry.category)), entry.pcName).filter { it.isNotBlank() }
                 Text(meta.joinToString(" · "), color = Palette.TextSoft, fontSize = 11.sp, modifier = Modifier.weight(1f), maxLines = 1)
                 if (unread) {
-                    Text(
-                        stringResource(R.string.history_new),
-                        color = Palette.AccentLight,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Palette.Line).padding(horizontal = 6.dp, vertical = 2.dp),
-                    )
+                    Chip(stringResource(R.string.history_new), Palette.AccentLight)
                     Spacer(Modifier.width(6.dp))
                 }
                 Text(eventTime(context, entry.atMs), color = Palette.TextDim, fontSize = 11.sp)
             }
-            Text(entry.title, color = Palette.Text, fontSize = 14.sp, fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Medium)
-            entry.body?.let { Text(it, color = Palette.TextSoft, fontSize = 12.sp) }
-            if (url != null) Text(stringResource(R.string.history_open_link), color = Palette.AccentLight, fontSize = 12.sp)
+            Spacer(Modifier.height(2.dp))
+            Text(entry.title, color = Palette.Text, fontSize = 15.sp, fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Medium)
+            entry.body?.let { Text(it, color = Palette.TextSoft, fontSize = 13.sp, lineHeight = 18.sp) }
+            if (url != null) Text(stringResource(R.string.history_open_link), color = Palette.AccentLight, fontSize = 13.sp, fontWeight = FontWeight.Medium)
         }
     }
 }

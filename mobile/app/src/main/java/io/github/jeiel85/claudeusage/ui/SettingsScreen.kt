@@ -92,23 +92,23 @@ fun SettingsScreen(store: PcStore, api: UsageApi, onBack: () -> Unit) {
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), tint = Palette.Text)
             }
-            Text(stringResource(R.string.settings_title), color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.settings_title), color = Palette.Text, fontSize = 22.sp, fontWeight = FontWeight.Bold)
         }
         LazyColumn(
             Modifier.fillMaxSize().navigationBarsPadding(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item { SectionLabel(stringResource(R.string.settings_section_notifications)) }
+            item { SectionHeader(stringResource(R.string.settings_section_notifications)) }
             item { NotificationSettings(store, api) }
 
-            item { SectionLabel(stringResource(R.string.settings_section_display)) }
+            item { SectionHeader(stringResource(R.string.settings_section_display)) }
             item { DisplaySettings() }
 
-            item { SectionLabel(stringResource(R.string.settings_section_updates)) }
+            item { SectionHeader(stringResource(R.string.settings_section_updates)) }
             item { UpdateCard() }
 
-            item { SectionLabel(stringResource(R.string.settings_section_about), trailing = "v${BuildConfig.VERSION_NAME}") }
+            item { SectionHeader(stringResource(R.string.settings_section_about), trailing = "v${BuildConfig.VERSION_NAME}") }
             item {
                 Card {
                     Column {
@@ -140,14 +140,6 @@ fun SettingsScreen(store: PcStore, api: UsageApi, onBack: () -> Unit) {
     }
 
     if (showLicenses) LicensesDialog(onDismiss = { showLicenses = false })
-}
-
-@Composable
-private fun SectionLabel(text: String, trailing: String? = null) {
-    Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(text, color = Palette.TextSoft, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-        trailing?.let { Text(it, color = Palette.TextDim, fontSize = 12.sp) }
-    }
 }
 
 /**
@@ -235,8 +227,8 @@ private fun LinkRow(title: String, description: String, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(title, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-            Text(description, color = Palette.TextDim, fontSize = 11.sp)
+            Text(title, color = Palette.Text, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            Text(description, color = Palette.TextSoft, fontSize = 12.sp, lineHeight = 16.sp)
         }
         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Palette.TextSoft)
     }

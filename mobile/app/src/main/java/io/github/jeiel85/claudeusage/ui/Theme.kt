@@ -10,8 +10,13 @@ import io.github.jeiel85.claudeusage.R
 /** Same palette as the PC tray popup, so the phone reads as the same product. */
 object Palette {
     val Bg = Color(0xFF0F1117)
-    val Card = Color(0xFF1A1D2E)
+    val Card = Color(0xFF181B29)
+    /** Hairline around cards and between rows — lifts a card off the background without a heavy fill. */
+    val CardBorder = Color(0xFF242839)
+    /** Raised elements inside a card (chips, the selected tab pill). */
+    val Raised = Color(0xFF242839)
     val Line = Color(0xFF2D2F45)
+    val Track = Color(0xFF262A3C)
     val Text = Color(0xFFF1F5F9)
     val TextSoft = Color(0xFF8B92B3)
     val TextDim = Color(0xFF5A5F7A)
@@ -26,6 +31,18 @@ object Palette {
         usage >= 0.9 -> Danger
         usage >= 0.7 -> Warn
         else -> Accent
+    }
+
+    /** The number next to a bar: plain until the bar turns amber or red, then the bar's colour. */
+    fun usageText(usage: Double): Color = if (usage >= 0.7) forUsage(usage) else Text
+
+    /** One colour per service for its monogram, so cards are told apart at a glance. */
+    fun forProvider(provider: String): Color = when (provider) {
+        "claude" -> Color(0xFFE08A6A)
+        "codex" -> Color(0xFF34D399)
+        "opencode" -> Color(0xFFF472B6)
+        "antigravity" -> Color(0xFF60A5FA)
+        else -> AccentLight
     }
 }
 
@@ -42,6 +59,11 @@ fun AppTheme(content: @Composable () -> Unit) {
             surfaceVariant = Palette.Card,
             onSurfaceVariant = Palette.TextSoft,
             outline = Palette.Line,
+            outlineVariant = Palette.CardBorder,
+            // Dialogs and menus: the card colour instead of Material's default grey-violet.
+            surfaceContainer = Palette.Card,
+            surfaceContainerHigh = Palette.Card,
+            surfaceContainerHighest = Palette.Raised,
         ),
         content = content,
     )
