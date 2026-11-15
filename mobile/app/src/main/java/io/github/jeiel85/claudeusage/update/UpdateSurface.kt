@@ -242,7 +242,7 @@ internal object UpdateSurface {
         // 건너뛰기·끄기로 권할 버전이 사라지면 열려 있던 창 표시도 접는다(나중에 새 버전이 생겼을 때 저절로 뜨지 않게).
         val current = offered
         LaunchedEffect(current) { if (current == null) dialogOpen = false }
-        if (dialogOpen && current != null) OfferDialog(current, preferences, onClose = { dialogOpen = false })
+        if (dialogOpen && enabled && current != null) OfferDialog(current, preferences, onClose = { dialogOpen = false })
     }
 
     /** "지금 확인" 의 결과: 카드에 남길 한 줄(새 버전이면 카드의 설치 줄이 대신 말하므로 null)과 창을 열지 여부. */
@@ -255,7 +255,11 @@ internal object UpdateSurface {
      *           같은 값을 보므로 어느 쪽에서든 이어서 설치할 수 있다.
      */
     private suspend fun checkNow(context: Context): CheckOutcome {
-        val result = withContext(Dispatchers.IO) { UpdateRefresh.runNow(UpdatePreferences(context)) }
+        val preferences = UpdatePreferences(context)
+        val result = withContext(Dispatchers.IO) { UpdateRefresh.runNow(preferences) }
+        // 확인하는 동안 업데이트를 껐으면 늦게 온 결과로 권할 버전을 되살리지 않는다(Codex 리뷰) — 끄기가 이미 비운 상태를 덮어
+        // 홈 배너와 창이 꺼진 설정을 거스르게 된다.
+        if (!preferences.isEnabled()) return CheckOutcome(null, offer = false)
         return when (result) {
             is UpdateRefresh.ManualResult.Offer -> {
                 offered = result.manifest
