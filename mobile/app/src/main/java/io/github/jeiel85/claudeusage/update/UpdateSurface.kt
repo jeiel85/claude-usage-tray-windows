@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -69,34 +70,63 @@ internal object UpdateSurface {
         openRequest = true
     }
 
-    /** "지금 확인" 이 끝날 때마다 올라간다. [Banner] 가 이 값으로 판단을 다시 한다. */
+    /** "지금 확인"·켜기/끄기 뒤에 올라간다. 홈 배너와 설정 카드가 이 값으로 판단을 다시 한다. */
     private var refreshEpoch by mutableIntStateOf(0)
 
+    /**
+     * 지금 설치를 권할 새 버전(없으면 null). 홈 배너와 설정 카드가 함께 본다(#247) — 한쪽에서 확인·건너뛰기·설치한 결과가 다른 쪽에도
+     * 그대로 보여, 설정에서 확인한 업데이트를 홈으로 나가 배너에서 다시 찾지 않아도 된다.
+     */
+    private var offered by mutableStateOf<UpdateManifest?>(null)
+
+    /**
+     * Input : 컨텍스트, [UpdatePreferences]
+     * Output: 없음([offered] 갱신)
+     * 핵심 로직: 판단은 캐시된 원문으로 재현되고 네트워크는 하루 1회 규칙을 따른다([UpdateRefresh.run]). 지난번 설치 앱에 넘긴 APK 를
+     *           치운다 — 설치 앱은 뜨자마자 파일을 복사하므로 화면에 돌아올 무렵엔 다 읽은 뒤다. 내려받는 중이면 그 파일이라 건드리지
+     *           않는다. 권할 버전이 없으면 설치·건너뛰기·끄기 뒤 남은 알림도 치운다.
+     */
+    private suspend fun refreshOffer(context: Context, preferences: UpdatePreferences) {
+        offered = withContext(Dispatchers.IO) {
+            if (!UpdateDownloads.holdsFile) UpdateInstaller.deleteLeftovers(UpdateDownloads.directory(context))
+            UpdateRefresh.run(preferences)
+        }
+        if (offered == null) UpdateNotifier.cancel(context)
+    }
+
+    /** 업데이트 창. 배너와 설정 카드가 같은 창·같은 건너뛰기 처리를 쓴다. */
+    @Composable
+    private fun OfferDialog(manifest: UpdateManifest, preferences: UpdatePreferences, onClose: () -> Unit) {
+        val context = LocalContext.current
+        UpdateDialog(
+            manifest = manifest,
+            onDismiss = onClose,
+            onSkip = {
+                preferences.setSkippedVersionCode(manifest.versionCode)
+                UpdateNotifier.cancel(context)
+                offered = null
+                onClose()
+            },
+        )
+    }
 
     /**
      * Input : 없음
      * Output: 새 버전이 있을 때만 눌러서 업데이트 창을 여는 한 줄 배너, 없으면 아무것도 그리지 않음
-     * 핵심 로직: 확인은 배경에서, 표시는 홈에서만. 앱 시작을 모달로 막지 않는다 — 업데이트는 사용자가 지금 하려던 일이 아니다.
-     *           판단은 캐시된 원문으로 네트워크 없이 재현된다([UpdateRefresh.run]). 알림을 눌러 들어왔으면 창을 바로 연다.
+     * 핵심 로직: 확인은 배경에서. 앱 시작을 모달로 막지 않는다 — 업데이트는 사용자가 지금 하려던 일이 아니다. 알림을 눌러
+     *           들어왔으면 창을 바로 연다.
      */
     @Composable
     fun Banner(modifier: Modifier = Modifier) {
         val context = LocalContext.current
         val preferences = remember(context) { UpdatePreferences(context) }
-        var offered by remember { mutableStateOf<UpdateManifest?>(null) }
         // 화면을 돌려 액티비티가 다시 만들어져도 창이 다시 뜨게 저장한다 — 다운로드는 UpdateDownloads 가 이어서 들고 있다.
         var dialogOpen by rememberSaveable { mutableStateOf(false) }
         val openRequested = openRequest
         val epoch = refreshEpoch
 
         LaunchedEffect(openRequested, epoch) {
-            offered = withContext(Dispatchers.IO) {
-                // 지난번 설치 앱에 넘긴 APK 를 치운다. 설치 앱은 뜨자마자 파일을 복사하므로 이 화면에 돌아올 무렵엔 다 읽은 뒤다.
-                // 내려받는 중이면 그 파일이라 건드리지 않는다.
-                if (!UpdateDownloads.holdsFile) UpdateInstaller.deleteLeftovers(UpdateDownloads.directory(context))
-                UpdateRefresh.run(preferences)
-            }
-            if (offered == null) UpdateNotifier.cancel(context) // 설치·건너뛰기·끄기 뒤 남은 알림도 치운다.
+            refreshOffer(context, preferences)
             if (openRequested) {
                 if (offered != null) dialogOpen = true
                 openRequest = false
@@ -117,24 +147,15 @@ internal object UpdateSurface {
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         )
 
-        if (dialogOpen) {
-            UpdateDialog(
-                manifest = manifest,
-                onDismiss = { dialogOpen = false },
-                onSkip = {
-                    preferences.setSkippedVersionCode(manifest.versionCode)
-                    UpdateNotifier.cancel(context)
-                    offered = null
-                    dialogOpen = false
-                },
-            )
-        }
+        if (dialogOpen) OfferDialog(manifest, preferences, onClose = { dialogOpen = false })
     }
 
     /**
      * Input : 없음
-     * Output: 알림 탭의 "앱 업데이트" 카드 — 켜기/끄기, 무엇을 하는지 설명, 현재 버전, 지금 확인, (권한이 없으면) 알림 허용 안내
+     * Output: 설정의 "앱 업데이트" 카드 — 켜기/끄기, 무엇을 하는지 설명, 현재 버전, (새 버전이 있으면) 바로 설치 버튼, 지금 확인,
+     *         (권한이 없으면) 알림 허용 안내
      * 핵심 로직: 켜는 순간 무엇이 달라지는지(하루 1회 GitHub 요청, 설치는 내가 누를 때만, SHA-256 대조)를 같은 자리에서 말한다.
+     *           새 버전은 홈 배너와 같은 창으로 **이 카드에서 바로** 설치한다(#247) — "지금 확인" 으로 찾았으면 창을 곧바로 연다.
      */
     @Composable
     fun SettingsCard(canNotify: Boolean, onAllowNotifications: () -> Unit) {
@@ -144,6 +165,11 @@ internal object UpdateSurface {
         var enabled by remember { mutableStateOf(preferences.isEnabled()) }
         var checking by remember { mutableStateOf(false) }
         var result by remember { mutableStateOf<String?>(null) }
+        var dialogOpen by rememberSaveable { mutableStateOf(false) }
+        val epoch = refreshEpoch
+
+        // 홈을 거치지 않고 설정부터 열었어도(알림 → 앱 → 설정 등) 이미 받아 둔 새 버전을 보여 준다.
+        LaunchedEffect(epoch) { refreshOffer(context, preferences) }
 
         Column(
             Modifier.fillMaxWidth().clip(CardShape).background(Palette.Card).border(1.dp, Palette.CardBorder, CardShape).padding(16.dp),
@@ -167,6 +193,27 @@ internal object UpdateSurface {
                 )
             }
             Text(stringResource(R.string.update_settings_description), color = Palette.TextSoft, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
+            val manifest = offered
+            if (enabled && manifest != null) {
+                Row(
+                    Modifier
+                        .padding(top = 12.dp)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Palette.Accent.copy(alpha = 0.18f))
+                        .padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        stringResource(R.string.update_result_available, manifest.versionName),
+                        color = Palette.Text,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Button(onClick = { dialogOpen = true }) { Text(stringResource(R.string.update_dialog_update)) }
+                }
+            }
             if (enabled) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TextButton(
@@ -174,8 +221,10 @@ internal object UpdateSurface {
                         onClick = {
                             checking = true
                             scope.launch {
-                                result = checkNow(context)
+                                val outcome = checkNow(context)
+                                result = outcome.message
                                 checking = false
+                                if (outcome.offer) dialogOpen = true
                             }
                         },
                     ) { Text(stringResource(R.string.update_check_now), color = Palette.AccentLight) }
@@ -189,21 +238,35 @@ internal object UpdateSurface {
                 }
             }
         }
+
+        // 건너뛰기·끄기로 권할 버전이 사라지면 열려 있던 창 표시도 접는다(나중에 새 버전이 생겼을 때 저절로 뜨지 않게).
+        val current = offered
+        LaunchedEffect(current) { if (current == null) dialogOpen = false }
+        if (dialogOpen && current != null) OfferDialog(current, preferences, onClose = { dialogOpen = false })
     }
+
+    /** "지금 확인" 의 결과: 카드에 남길 한 줄(새 버전이면 카드의 설치 줄이 대신 말하므로 null)과 창을 열지 여부. */
+    private class CheckOutcome(val message: String?, val offer: Boolean)
 
     /**
      * Input : 컨텍스트
-     * Output: 한 줄 결과 문구(꺼져 있으면 null)
-     * 핵심 로직: 하루 1회 규칙 없이 지금 확인하고([UpdateRefresh.runNow]), 새 버전이면 홈 배너가 뜨도록 [Banner] 를 다시 돌린다.
+     * Output: [CheckOutcome]
+     * 핵심 로직: 하루 1회 규칙 없이 지금 확인하고([UpdateRefresh.runNow]), 결과를 [offered] 에 바로 반영한다 — 설정 카드와 홈 배너가
+     *           같은 값을 보므로 어느 쪽에서든 이어서 설치할 수 있다.
      */
-    private suspend fun checkNow(context: Context): String? {
+    private suspend fun checkNow(context: Context): CheckOutcome {
         val result = withContext(Dispatchers.IO) { UpdateRefresh.runNow(UpdatePreferences(context)) }
-        refreshEpoch++
         return when (result) {
-            is UpdateRefresh.ManualResult.Offer -> context.getString(R.string.update_result_available, result.manifest.versionName)
-            UpdateRefresh.ManualResult.UpToDate -> context.getString(R.string.update_result_latest, BuildConfig.VERSION_NAME)
-            UpdateRefresh.ManualResult.Failed -> context.getString(R.string.update_result_failed)
-            UpdateRefresh.ManualResult.Disabled -> null
+            is UpdateRefresh.ManualResult.Offer -> {
+                offered = result.manifest
+                CheckOutcome(null, offer = true)
+            }
+            UpdateRefresh.ManualResult.UpToDate -> {
+                refreshEpoch++
+                CheckOutcome(context.getString(R.string.update_result_latest, BuildConfig.VERSION_NAME), offer = false)
+            }
+            UpdateRefresh.ManualResult.Failed -> CheckOutcome(context.getString(R.string.update_result_failed), offer = false)
+            UpdateRefresh.ManualResult.Disabled -> CheckOutcome(null, offer = false)
         }
     }
 

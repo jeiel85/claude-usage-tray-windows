@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.59.1] - 2026-11-15
+
+<!-- ko -->
+### 개선
+- **휴대폰 앱 업데이트를 설정에서 바로 설치합니다 (#247)** — 지금까지는 설정에서 '지금 확인'으로 새 버전을 찾아도, 설정에서 나와 홈 위쪽 배너를 다시 눌러야 설치할 수 있었습니다. 이제 '지금 확인'으로 새 버전을 찾으면 업데이트 창이 그 자리에서 바로 열립니다. 새 버전이 있으면 설정의 업데이트 카드에 **새 버전 — 업데이트** 버튼도 보입니다. 홈 배너와 같은 창이라 어느 쪽에서 눌러도 똑같이 설치됩니다.
+
+### 수정
+- **PC 탭의 ⋮ 메뉴가 카드 글자를 가리는 것처럼 보이던 문제를 고쳤습니다 (#248)** — 메뉴가 카드와 같은 색이라 카드에 구멍이 뚫린 것처럼 보였습니다. 이제 메뉴가 테두리와 그림자가 있는 밝은 창으로 뜨고, 삭제 아이콘이 붙습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Phone app updates install straight from Settings (#247)** — until now, finding a new version with Check now in Settings still meant leaving Settings and tapping the banner at the top of the home screen. Check now now opens the update dialog right away when it finds a new version, and the update card in Settings shows a **new version — Update** button whenever one is available. It is the same dialog as the home banner, so either way installs the same.
+
+### Fixed
+- **The ⋮ menu on the PCs tab no longer looks like it covers the card's text (#248)** — the menu had the card's own colour, so it looked like a hole cut into the card. It now opens as a lighter popup with a border and shadow, with a delete icon.
+<!-- /en -->
+
 ## [1.59.0] - 2026-11-15
 
 <!-- ko -->

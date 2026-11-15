@@ -1,6 +1,7 @@
 package io.github.jeiel85.claudeusage.ui
 
 import android.text.format.DateUtils
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,6 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
@@ -395,9 +397,19 @@ private fun PcRow(s: PcStatus, now: Long, onRemove: (String) -> Unit) {
                 IconButton(onClick = { menu = true }, modifier = Modifier.offset(x = 8.dp, y = (-8).dp)) {
                     Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.more_options), tint = Palette.TextSoft)
                 }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                // A raised surface with a border and shadow: in the card's own colour the menu read as a hole cut into the
+                // card, clipping the line under it.
+                DropdownMenu(
+                    expanded = menu,
+                    onDismissRequest = { menu = false },
+                    shape = RoundedCornerShape(12.dp),
+                    containerColor = Palette.Raised,
+                    border = BorderStroke(1.dp, Palette.Line),
+                    shadowElevation = 8.dp,
+                ) {
                     DropdownMenuItem(
-                        text = { Text(stringResource(R.string.remove_pc), color = Palette.Danger) },
+                        text = { Text(stringResource(R.string.remove_pc), color = Palette.Danger, fontSize = 15.sp) },
+                        leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null, tint = Palette.Danger) },
                         onClick = {
                             menu = false
                             confirm = true

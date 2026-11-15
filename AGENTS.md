@@ -109,6 +109,7 @@ git fetch origin && git pull origin master && git status
 ## 📜 최근 변경 이력 요약
 *상세 내용은 [CHANGELOG.md](./CHANGELOG.md) 참조*
 
+- **v1.59.1**: 업데이트 확인·설치 일관화(#247) — `UpdateSurface.offered` 를 홈 배너와 설정 카드가 공유, 설정 '지금 확인'이 새 버전을 찾으면 창을 바로 연다. PC ⋮ 메뉴는 `Palette.Raised`·테두리·그림자(#248, 메뉴 바탕이 카드와 같아 묻히던 회귀).
 - **v1.59.0**: 휴대폰 앱 디자인 개선(#244) — 공용 컴포넌트 `ui/Components.kt`(`Card`·`Chip`·`Monogram`·`SegmentedTabs`·`SectionHeader`·`AppSwitch`), 게이지 2줄, PC 삭제는 ⋮ 메뉴. 디버그 전용 `DesignPreviewActivity`(src/debug)로 페어링 없이 샘플 화면 캡처: `adb shell am start -n io.github.jeiel85.claudeusage/.DesignPreviewActivity -e screen accounts|pcs|history|settings|pair|empty`.
 - **v1.58.2**: ntfy 중복 구독 수정(#242) — `UnifiedPush.register()`는 이전 토큰을 먼저 UNREGISTER, `PushReceiver`는 현재가 아닌 토큰의 NEW_ENDPOINT/MESSAGE를 받으면 설치된 배포자 모두에 그 토큰 UNREGISTER(`UnifiedPush.staleToken`). 재설치로 앱 데이터가 지워져도 ntfy 구독은 남기 때문.
 - **v1.58.1**: 휴대폰 앱 정식 서명(#240) — Actions 시크릿 `CUT_RELEASE_*` 4개 등록, 이 릴리스부터 정식 서명 APK + `update.json`(앱 내 자동 업데이트 활성). 로컬 서명 빌드는 `mobile/release-signing.properties`(git 제외)를 그대로 읽는다. 인증서 SHA-256은 `docs/MOBILE_UPDATES.md`.
