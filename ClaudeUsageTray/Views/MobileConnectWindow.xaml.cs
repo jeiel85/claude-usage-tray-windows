@@ -1,12 +1,10 @@
 using System.Diagnostics;
-using System.IO;
 using System.Windows;
 using System.Windows.Input;
-using System.Windows.Media.Imaging;
+using System.Windows.Media;
 using System.Windows.Threading;
 using ClaudeUsageTray.Services;
 using ClaudeUsageTray.Services.Mobile;
-using QRCoder;
 
 namespace ClaudeUsageTray.Views;
 
@@ -22,6 +20,7 @@ public partial class MobileConnectWindow : Window
     private readonly DispatcherTimer _tick;
     private PairingOffer? _offer;
     private string _offerPathsKey = "";
+    private string? _offerLink;
     private bool _firewallBusy;
     private bool? _firewallInstalled;
     private string? _firewallMessage;
@@ -30,6 +29,8 @@ public partial class MobileConnectWindow : Window
     {
         InitializeComponent();
         _mobile = mobile;
+        // QR 을 키운 만큼(#251) 창이 길어졌다 — 낮은 화면에서는 작업 영역 안에 두고 나머지는 스크롤로 본다.
+        MaxHeight = Math.Min(MaxHeight, SystemParameters.WorkArea.Height);
 
         TitleText.Text = Loc.MobileConnectTitle;
         HintText.Text = Loc.MobileScanHint;
@@ -113,14 +114,27 @@ public partial class MobileConnectWindow : Window
     {
         _offer = _mobile.Server?.CreateOffer();
         _offerPathsKey = _offer is null ? "" : pathsKey;
-        QrImage.Source = _offer is null ? null : RenderQr(PairingLink.Build(_offer));
+        _offerLink = _offer is null ? null : PairingLink.Build(_offer);
+        RenderOfferQr();
         QrImage.Opacity = 1;
+    }
+
+    /// <summary>지금 오퍼의 QR 을 이 창이 놓인 화면의 배율로 그린다(칸 = 물리 픽셀 정수배, #251).</summary>
+    private void RenderOfferQr() =>
+        QrImage.Source = _offerLink is null ? null : PairingQr.Render(_offerLink, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+
+    /// <summary>배율이 다른 모니터로 옮기면 같은 오퍼를 새 배율로 다시 그린다 — 코드는 그대로 둔다.</summary>
+    protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
+    {
+        base.OnDpiChanged(oldDpi, newDpi);
+        RenderOfferQr();
     }
 
     private void ClearOffer()
     {
         _offer = null;
         _offerPathsKey = "";
+        _offerLink = null;
         QrImage.Source = null;
         _mobile.CancelPairing();
     }
@@ -153,25 +167,6 @@ public partial class MobileConnectWindow : Window
             : $"Cloudflare · {e.Host}",
         _ => $"{e.Transport} · {e.Host}:{e.Port}",
     };
-
-    /// <summary>
-    /// QR 은 화면 표시용이라 오류 정정 수준을 L 로 둔다(Homebase M-20) — 링크(수백 자)가 들어가도 모듈 수가 작아
-    /// 휴대폰 카메라가 빨리 읽는다. 화면 QR 은 인쇄물처럼 훼손될 일이 없다.
-    /// </summary>
-    private static BitmapImage RenderQr(string text)
-    {
-        using var generator = new QRCodeGenerator();
-        using var data = generator.CreateQrCode(text, QRCodeGenerator.ECCLevel.L);
-        var png = new PngByteQRCode(data).GetGraphic(6);
-        var image = new BitmapImage();
-        using var stream = new MemoryStream(png);
-        image.BeginInit();
-        image.CacheOption = BitmapCacheOption.OnLoad;
-        image.StreamSource = stream;
-        image.EndInit();
-        image.Freeze();
-        return image;
-    }
 
     private void RefreshDevices()
     {

@@ -129,7 +129,8 @@ fun PairScreen(store: PcStore, api: UsageApi, onDone: (PcEntry) -> Unit, onBack:
                         .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
                         .setPrompt(prompt)
                         .setBeepEnabled(false)
-                        .setOrientationLocked(true),
+                        .setOrientationLocked(true)
+                        .setCaptureActivity(PairScanActivity::class.java),
                 )
             },
             enabled = !busy,

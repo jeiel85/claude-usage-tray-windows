@@ -2,9 +2,10 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Connect Phone"
-        Width="400"
+        Width="470"
         SizeToContent="Height"
-        MaxHeight="760"
+        MaxHeight="860"
+        UseLayoutRounding="True"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
@@ -94,9 +95,13 @@
                     <StackPanel Margin="20,14,20,6">
                         <TextBlock x:Name="HintText" Foreground="{StaticResource TextSecondary}" FontSize="11" TextWrapping="Wrap"/>
 
-                        <Border x:Name="QrFrame" Background="White" CornerRadius="10" Padding="10" Margin="0,12,0,6"
-                                HorizontalAlignment="Center" Width="236" Height="236">
-                            <Image x:Name="QrImage" RenderOptions.BitmapScalingMode="NearestNeighbor" Stretch="Uniform"/>
+                        <!-- QR 은 칸이 물리 픽셀 정수배가 되게 그려 1:1(Stretch=None)로 둔다 — 줄이면 칸 폭이 들쭉날쭉해져
+                             휴대폰이 못 읽는다(#251). 칸 크기는 PairingQr.MaxSideDip(360) + 여백, 창 폭(470)은 스크롤바가
+                             생겨도 이 칸이 들어가게 정했다. 흰 여백 4칸은 비트맵에 들어 있다. -->
+                        <Border x:Name="QrFrame" Background="White" CornerRadius="10" Padding="4" Margin="0,12,0,6"
+                                HorizontalAlignment="Center" Width="368" Height="368">
+                            <Image x:Name="QrImage" Stretch="None" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   RenderOptions.BitmapScalingMode="NearestNeighbor" SnapsToDevicePixels="True"/>
                         </Border>
                         <Grid Margin="0,0,0,4">
                             <TextBlock x:Name="CountdownText" Foreground="{StaticResource TextDim}" FontSize="10" VerticalAlignment="Center"/>
