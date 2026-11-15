@@ -4,6 +4,8 @@
     <string name="tab_accounts">Accounts</string>
     <string name="tab_pcs">PCs</string>
     <string name="add_pc">Add PC</string>
+    <string name="home_live_summary">%1$d of %2$d PCs live</string>
+    <string name="more_options">More options</string>
     <string name="back">Back</string>
     <string name="cancel">Cancel</string>
     <string name="empty_title">No PC yet</string>

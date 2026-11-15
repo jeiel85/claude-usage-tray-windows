@@ -4,6 +4,8 @@
     <string name="tab_accounts">アカウント</string>
     <string name="tab_pcs">PC</string>
     <string name="add_pc">PCを追加</string>
+    <string name="home_live_summary">PC %2$d台中 %1$d台が接続中</string>
+    <string name="more_options">その他のオプション</string>
     <string name="back">戻る</string>
     <string name="cancel">キャンセル</string>
     <string name="empty_title">まだPCがありません</string>

@@ -4,6 +4,8 @@
     <string name="tab_accounts">账号</string>
     <string name="tab_pcs">电脑</string>
     <string name="add_pc">添加电脑</string>
+    <string name="home_live_summary">%2$d 台电脑中 %1$d 台已连接</string>
+    <string name="more_options">更多选项</string>
     <string name="back">返回</string>
     <string name="cancel">取消</string>
     <string name="empty_title">还没有电脑</string>

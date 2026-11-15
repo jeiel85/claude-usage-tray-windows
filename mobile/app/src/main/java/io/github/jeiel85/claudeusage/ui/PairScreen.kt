@@ -118,7 +118,7 @@ fun PairScreen(store: PcStore, api: UsageApi, onDone: (PcEntry) -> Unit, onBack:
             TextButton(onClick = onBack) { Text("← " + stringResource(R.string.back), color = Palette.AccentLight) }
             Spacer(Modifier.weight(1f))
         }
-        Text(stringResource(R.string.pair_title), color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.pair_title), color = Palette.Text, fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Text("1. " + stringResource(R.string.pair_step1), color = Palette.TextSoft, fontSize = 13.sp)
         Text("2. " + stringResource(R.string.pair_step2), color = Palette.TextSoft, fontSize = 13.sp)
 
