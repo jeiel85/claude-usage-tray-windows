@@ -109,6 +109,7 @@ git fetch origin && git pull origin master && git status
 ## 📜 최근 변경 이력 요약
 *상세 내용은 [CHANGELOG.md](./CHANGELOG.md) 참조*
 
+- **v1.59.2**: 페어링 QR 인식 개선(#251) — `Views/PairingQr.cs` 가 칸을 물리 픽셀 정수배로 그리고 비트맵 DPI = 96×배율로 1:1 표시(창 폭 470, QR 최대 360 DIP), 폰은 `ui/PairScanActivity`(zxing CaptureActivity 상속, 연속 초점·중앙 측광 — 설정은 `super.onCreate` 뒤에 바꿔야 인텐트가 덮어쓰지 않는다). TRY_HARDER 는 시뮬레이션에서 효과가 없어 넣지 않았다.
 - **v1.59.1**: 업데이트 확인·설치 일관화(#247) — `UpdateSurface.offered` 를 홈 배너와 설정 카드가 공유, 설정 '지금 확인'이 새 버전을 찾으면 창을 바로 연다. PC ⋮ 메뉴는 `Palette.Raised`·테두리·그림자(#248, 메뉴 바탕이 카드와 같아 묻히던 회귀).
 - **v1.59.0**: 휴대폰 앱 디자인 개선(#244) — 공용 컴포넌트 `ui/Components.kt`(`Card`·`Chip`·`Monogram`·`SegmentedTabs`·`SectionHeader`·`AppSwitch`), 게이지 2줄, PC 삭제는 ⋮ 메뉴. 디버그 전용 `DesignPreviewActivity`(src/debug)로 페어링 없이 샘플 화면 캡처: `adb shell am start -n io.github.jeiel85.claudeusage/.DesignPreviewActivity -e screen accounts|pcs|history|settings|pair|empty`.
 - **v1.58.2**: ntfy 중복 구독 수정(#242) — `UnifiedPush.register()`는 이전 토큰을 먼저 UNREGISTER, `PushReceiver`는 현재가 아닌 토큰의 NEW_ENDPOINT/MESSAGE를 받으면 설치된 배포자 모두에 그 토큰 UNREGISTER(`UnifiedPush.staleToken`). 재설치로 앱 데이터가 지워져도 ntfy 구독은 남기 때문.

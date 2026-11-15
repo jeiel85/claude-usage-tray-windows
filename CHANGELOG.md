@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.59.2] - 2026-11-15
+
+<!-- ko -->
+### 개선
+- **휴대폰 연결 QR이 훨씬 잘 찍힙니다 (#251)** — 연결 QR에는 PC로 가는 경로가 모두 들어가 칸이 77~109개로 촘촘합니다. 지금까지는 이 QR을 작은 칸에 줄여 그려서 칸 하나가 2픽셀 안팎이었고, 그마저 굵기가 들쭉날쭉해 휴대폰을 아주 가까이 대야 겨우 읽혔습니다.
+  - **PC**: QR을 더 크게(최대 360) 그리고, 칸 하나가 화면 픽셀 정수배가 되도록 1:1로 표시합니다. 화면 배율(125%·150% 등)이 바뀌면 다시 그립니다. 같은 조건의 인식 시뮬레이션에서 예전 QR은 휴대폰을 아주 가까이 대야 읽혔지만, 새 QR은 그 절반쯤 떨어진 거리에서도 읽힙니다.
+  - **휴대폰 앱**: 'QR 스캔' 화면이 초점을 계속 맞추고(연속 초점), 밝기를 화면 가운데 QR 기준으로 맞춥니다. 어두운 창 속 흰 QR이 하얗게 날아가지 않습니다.
+  - 휴대폰 기본 카메라로 찍어도 앱 연결 화면이 열립니다. 앱 안 스캐너가 잘 안 될 때 써 보세요.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **The phone pairing QR is much easier to scan (#251)** — the pairing QR carries every path to the PC, so it is dense (77–109 modules). It used to be shrunk into a small box, leaving each module about 2 pixels wide and unevenly sized, so the phone had to be held very close to read it.
+  - **PC**: the QR is larger (up to 360) and drawn 1:1 with every module an exact whole number of screen pixels. It is redrawn when the display scale (125%, 150%, …) changes. In a scan simulation under the same conditions, the old QR only read with the phone very close; the new one reads from about twice that distance.
+  - **Phone app**: the Scan QR screen now focuses continuously and meters on the QR in the middle, so the white code on the dark window no longer blows out.
+  - The phone's own camera app also opens the pairing screen, if the in-app scanner struggles.
+<!-- /en -->
+
 ## [1.59.1] - 2026-11-15
 
 <!-- ko -->

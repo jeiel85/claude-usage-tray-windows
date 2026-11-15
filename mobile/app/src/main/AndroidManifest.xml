@@ -57,11 +57,16 @@
             </intent-filter>
         </activity>
 
-        <!-- zxing's scanner activity, locked to portrait like the rest of the app. -->
+        <!-- Pairing scanner: zxing's capture screen with focus/metering tuned for a monitor (#251),
+             locked to portrait like the rest of the app. Same window setup as zxing's CaptureActivity. -->
         <activity
-            android:name="com.journeyapps.barcodescanner.CaptureActivity"
+            android:name=".ui.PairScanActivity"
+            android:clearTaskOnLaunch="true"
+            android:exported="false"
             android:screenOrientation="portrait"
-            tools:replace="android:screenOrientation" />
+            android:stateNotNeeded="true"
+            android:theme="@style/zxing_CaptureTheme"
+            android:windowSoftInputMode="stateAlwaysHidden" />
 
         <!-- UnifiedPush connector (AND_3). Exported because the distributor is another app;
              broadcasts are checked against our token and must decrypt with our key. -->
