@@ -153,7 +153,7 @@
 
   // Hand the payload to the app locally. Without the app, Chrome falls back to this same page.
   open.href = 'intent://pair/' + payload +
-    '#Intent;scheme=claudeusage;package=io.github.jeiel85.claudeusage;S.browser_fallback_url=' +
+    '#Intent;scheme=claudeusage;package=com.jeiel85.aiusage;S.browser_fallback_url=' +
     encodeURIComponent(location.href) + ';end';
   if (!isAndroid) open.href = 'claudeusage://pair/' + payload;
 })();

@@ -70,6 +70,16 @@ GitHub 저장소 → Settings → Secrets and variables → Actions → **New re
   (`apksigner verify --print-certs ClaudeUsageTray-Mobile.apk`로 받은 APK가 이 키로 서명됐는지 확인할 수 있습니다)
 - 키 파일과 비밀번호는 저장소 밖(관리자 PC의 `mobile/.keystore/`·`mobile/release-signing.properties`, git 제외)과 별도 백업에만 있습니다.
 
+## 패키지명 변경 (v1.60.0, #254)
+
+`applicationId`가 `io.github.jeiel85.claudeusage`에서 `com.jeiel85.aiusage`로 바뀌었습니다(새 패키지명 규칙 `com.jeiel85.<앱이름>`, Play 첫 업로드 전에 확정). Kotlin 패키지와 `namespace`는 그대로입니다. 서명 키는 같습니다.
+
+- Android는 두 이름을 **다른 앱**으로 봅니다. v1.59.2 이하 앱의 자동 업데이트가 v1.60.0 APK를 내려받으면 시스템 설치 앱이 업데이트가 아니라 **새 앱으로 따로** 설치합니다.
+- 앱 데이터(연결한 PC, 설정, 알림 기록)는 옮겨지지 않습니다. 새 앱에서 PC를 다시 연결해야 합니다.
+- 새 앱은 이전 앱이 남아 있으면 홈에 **이전 앱 삭제** 안내를 띄웁니다(`ui/LegacyAppNotice.kt`, `<queries><package>` 와 `REQUEST_DELETE_PACKAGES`). 두 앱이 모두 연결돼 있으면 알림이 두 번 오기 때문입니다.
+- PC에는 이전 휴대폰이 따로 연결된 기기로 남습니다. 휴대폰 연결 창의 '연결된 휴대폰'에서 이전 항목을 **연결 해제**하세요.
+- 이전 앱을 지워도 ntfy에는 그 앱의 구독(`up…` 토픽)이 남을 수 있습니다. 앱이 지워질 때 배포자가 알아서 정리해 주지 않기 때문입니다(#242와 같은 원인). ntfy 구독 목록에서 직접 지우면 됩니다.
+
 ## 로컬에서 흐름 검증 (선택)
 
 같은 키로 서명한 두 APK를 만들어, 디버그 빌드를 로컬 서버로 향하게 할 수 있습니다.
