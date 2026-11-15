@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.60.0] - 2026-11-15
+
+<!-- ko -->
+### 변경
+- **휴대폰 앱의 패키지 이름이 `com.jeiel85.aiusage`로 바뀌었습니다 (#254)** — Google Play 출시에 앞서 앱 패키지 이름을 정리했습니다. Android는 패키지 이름이 다르면 다른 앱으로 보기 때문에, 이번 버전은 기존 앱의 **업데이트가 아니라 새 앱으로** 설치됩니다.
+  - **옮기는 방법**: 새 앱을 설치합니다. 기존 앱의 업데이트 알림으로 받아도 새 앱으로 따로 설치됩니다. PC 트레이의 '휴대폰 연결'로 PC를 다시 추가한 다음 기존 앱을 삭제하세요. 연결한 PC, 설정, 알림 기록은 옮겨지지 않습니다.
+  - 기존 앱이 남아 있으면 새 앱 홈에 **이전 앱 삭제** 안내가 뜹니다. 두 앱이 모두 연결돼 있으면 같은 알림이 두 번 오기 때문입니다.
+  - PC 앱에는 바뀐 점이 없습니다. PC의 휴대폰 연결 창 '연결된 휴대폰'에 남은 기존 항목은 **연결 해제**하세요. ntfy 앱에 기존 앱의 구독이 남아 있으면 ntfy에서 지우면 됩니다.
+<!-- /ko -->
+
+<!-- en -->
+### Changed
+- **The phone app's package name is now `com.jeiel85.aiusage` (#254)** — the package name was settled ahead of a Google Play release. Android treats a different package name as a different app, so this version installs **as a new app, not as an update** of the old one.
+  - **To move over**: install the new app (the old app's update prompt also installs it as a separate app), add your PCs again with Connect phone in the PC tray, then uninstall the old app. Paired PCs, settings and alert history do not carry over.
+  - While the old app is still installed, the new app shows a **Remove old app** notice on its home screen — with both paired, every alert would arrive twice.
+  - Nothing changes in the PC app. In the PC's Connect phone window, **Disconnect** the old entry under Connected phones. If the ntfy app still lists the old app's subscription, delete it there.
+<!-- /en -->
+
 ## [1.59.2] - 2026-11-15
 
 <!-- ko -->

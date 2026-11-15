@@ -142,6 +142,8 @@ fun HomeScreen(
         }
         // New app version (#228): one line above the tabs, only when there is something to install.
         UpdateSurface.Banner(Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+        // Old package still installed (#254): it would double every alert and never update into this app.
+        LegacyAppNotice(Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
         if (pcs.isEmpty()) {
             EmptyState(onAdd)
             return@Column

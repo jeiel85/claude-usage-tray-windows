@@ -44,7 +44,9 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "io.github.jeiel85.claudeusage"
+        // com.jeiel85.<public app name> (#254). The Kotlin package and namespace stay io.github.jeiel85.claudeusage;
+        // only the install identity changed, before the first Play upload fixes it for good.
+        applicationId = "com.jeiel85.aiusage"
         minSdk = 26
         targetSdk = 35
         versionCode = cutVersionCode

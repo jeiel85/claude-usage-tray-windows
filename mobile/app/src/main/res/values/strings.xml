@@ -78,6 +78,9 @@
 
     <!-- App updates (#228) -->
     <string name="update_banner">New version %1$s — tap to update</string>
+    <string name="legacy_app_title">Old version of the app is still installed</string>
+    <string name="legacy_app_body">This app replaces it, but cannot update it or take over its data. With both paired, every alert arrives twice. Pair your PCs here, then remove the old app.</string>
+    <string name="legacy_app_remove">Remove old app</string>
     <string name="update_settings_title">App updates</string>
     <string name="update_current_version">Installed: %1$s</string>
     <string name="update_settings_description">Checks GitHub Releases for a new version once a day and notifies you once. Installing only happens when you tap it: the APK is checked against its SHA-256 and handed to the Android installer.</string>

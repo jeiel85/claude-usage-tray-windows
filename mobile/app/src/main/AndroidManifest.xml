@@ -10,6 +10,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Sideload-only app: the in-app updater hands the SHA-256-checked APK to the system installer (#228). -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Offers to remove the app from before the package rename (#254). Without it, API 28+ drops ACTION_DELETE silently. -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <!-- Keeps the background update check scheduled across reboots (JobInfo.setPersisted). -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
@@ -20,6 +22,8 @@
         <intent>
             <action android:name="org.unifiedpush.android.distributor.REGISTER" />
         </intent>
+        <!-- The app before the package rename (#254): offer to remove it (LegacyAppNotice). -->
+        <package android:name="io.github.jeiel85.claudeusage" />
     </queries>
 
     <application

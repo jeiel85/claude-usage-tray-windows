@@ -78,6 +78,9 @@
 
     <!-- App updates (#228) -->
     <string name="update_banner">새 버전 %1$s — 눌러서 업데이트</string>
+    <string name="legacy_app_title">이전 버전 앱이 아직 설치돼 있습니다</string>
+    <string name="legacy_app_body">이 앱이 이전 앱을 대신하지만, 이전 앱을 업데이트하거나 데이터를 옮겨 오지는 못합니다. 두 앱이 모두 페어링돼 있으면 알림이 두 번 옵니다. 여기서 PC를 다시 연결한 뒤 이전 앱을 삭제하세요.</string>
+    <string name="legacy_app_remove">이전 앱 삭제</string>
     <string name="update_settings_title">앱 업데이트</string>
     <string name="update_current_version">설치된 버전: %1$s</string>
     <string name="update_settings_description">하루 한 번 GitHub Releases에서 새 버전을 확인하고, 새 버전이 나오면 알림으로 한 번 알립니다. 설치는 내가 누를 때만 진행되고, 받은 APK는 SHA-256을 대조한 뒤 Android 설치 화면으로 넘깁니다.</string>
