@@ -50,6 +50,8 @@ public partial class MobileConnectWindow : Window
         Loaded += (_, _) =>
         {
             RefreshView();
+            // 뜨기 전에 서버 변경 알림으로 이미 발급된 오퍼는 배율을 몰라 그리지 않았다 — 이제 그린다.
+            if (QrImage.Source is null) RenderOfferQr();
             RefreshDevices();
             _ = CheckFirewallAsync();
             _tick.Start();
@@ -119,9 +121,20 @@ public partial class MobileConnectWindow : Window
         QrImage.Opacity = 1;
     }
 
-    /// <summary>지금 오퍼의 QR 을 이 창이 놓인 화면의 배율로 그린다(칸 = 물리 픽셀 정수배, #251).</summary>
-    private void RenderOfferQr() =>
-        QrImage.Source = _offerLink is null ? null : PairingQr.Render(_offerLink, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+    /// <summary>
+    /// 지금 오퍼의 QR 을 이 창이 놓인 화면의 배율로 그린다(칸 = 물리 픽셀 정수배, #251).
+    /// 화면에 붙기 전에는 배율이 정해지지 않아 그리지 않는다 — Loaded 에서 다시 부른다.
+    /// </summary>
+    private void RenderOfferQr()
+    {
+        if (_offerLink is null)
+        {
+            QrImage.Source = null;
+            return;
+        }
+        if (!IsLoaded) return;
+        QrImage.Source = PairingQr.Render(_offerLink, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+    }
 
     /// <summary>배율이 다른 모니터로 옮기면 같은 오퍼를 새 배율로 다시 그린다 — 코드는 그대로 둔다.</summary>
     protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
