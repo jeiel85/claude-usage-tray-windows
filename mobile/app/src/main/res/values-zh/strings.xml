@@ -83,7 +83,7 @@
     <string name="update_settings_description">每天在 GitHub Releases 检查一次新版本，有新版本时通过通知提醒一次。只有在你点击时才会安装：下载的 APK 会先核对 SHA-256，再交给 Android 安装界面。</string>
     <string name="update_check_now">立即检查</string>
     <string name="update_notifications_off">通知已关闭，新版本只会在应用内显示 — 允许通知</string>
-    <string name="update_result_available">有新版本 %1$s — 请点击账户标签上方的横幅</string>
+    <string name="update_result_available">有新版本 %1$s</string>
     <string name="update_result_latest">已是最新版本 (%1$s)</string>
     <string name="update_result_failed">无法检查更新。请检查网络。(也可能这个版本的更新尚未发布)</string>
     <string name="update_notification_title">Claude Usage %1$s 更新</string>

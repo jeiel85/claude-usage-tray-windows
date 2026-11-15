@@ -83,7 +83,7 @@
     <string name="update_settings_description">Checks GitHub Releases for a new version once a day and notifies you once. Installing only happens when you tap it: the APK is checked against its SHA-256 and handed to the Android installer.</string>
     <string name="update_check_now">Check now</string>
     <string name="update_notifications_off">Notifications are off, so new versions only show inside the app — allow</string>
-    <string name="update_result_available">Version %1$s is available — see the banner on the Accounts tab</string>
+    <string name="update_result_available">Version %1$s is available</string>
     <string name="update_result_latest">You have the latest version (%1$s)</string>
     <string name="update_result_failed">Couldn\'t check for updates. Check the network, or no update is published for this build yet.</string>
     <string name="update_notification_title">Claude Usage %1$s is available</string>
