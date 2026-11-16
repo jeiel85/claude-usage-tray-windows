@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Play build only (#257): no in-app updater — Google Play delivers updates. -->
+<resources>
+    <string name="about_privacy">This app connects only to the PCs you paired — directly, or through a PC\'s Cloudflare Tunnel if you turned it on. No ads, analytics or usage tracking. The only other outgoing traffic is end-to-end-encrypted alerts through your push app\'s relay; updates come through Google Play.</string>
+</resources>

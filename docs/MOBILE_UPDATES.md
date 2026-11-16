@@ -1,6 +1,7 @@
 # 휴대폰 앱 자동 업데이트 (#228)
 
-휴대폰 앱은 GitHub Releases의 APK를 직접 설치하는 앱이라, 앱이 스스로 새 버전을 확인하고 설치까지 이어 줍니다.
+GitHub Releases의 APK로 설치한 휴대폰 앱은 스스로 새 버전을 확인하고 설치까지 이어 줍니다.
+이 기능은 **GitHub 빌드에만** 있습니다. Play 빌드는 Google Play가 업데이트합니다(아래 "배포 채널" 참고).
 구조는 [Homebase](https://github.com/jeiel85/homebase)의 `update/` 패키지(Markleaf에서 온 구조, Homebase DECISIONS M-4·M-22)를 그대로 옮겼습니다.
 
 ## 흐름
@@ -80,13 +81,29 @@ GitHub 저장소 → Settings → Secrets and variables → Actions → **New re
 - PC에는 이전 휴대폰이 따로 연결된 기기로 남습니다. 휴대폰 연결 창의 '연결된 휴대폰'에서 이전 항목을 **연결 해제**하세요.
 - 이전 앱을 지워도 ntfy에는 그 앱의 구독(`up…` 토픽)이 남을 수 있습니다. 앱이 지워질 때 배포자가 알아서 정리해 주지 않기 때문입니다(#242와 같은 원인). ntfy 구독 목록에서 직접 지우면 됩니다.
 
+## 배포 채널: GitHub 빌드와 Play 빌드 (v1.61.0, #257)
+
+휴대폰 앱은 채널마다 따로 빌드합니다(Gradle product flavor `channel`).
+
+| | `github` | `play` |
+|---|---|---|
+| 배포 | GitHub Releases의 `ClaudeUsageTray-Mobile.apk` (태그 push → CI) | Google Play (`bundlePlayRelease` → `.aab`) |
+| 앱 안 업데이트 | 있음 (이 문서의 흐름, `update.json`) | 없음. Play가 업데이트 |
+| `REQUEST_INSTALL_PACKAGES`·`RECEIVE_BOOT_COMPLETED` | 있음 | 없음 |
+| 서명 키 | `cut` 키 (아래 "정식 서명 키") | 별도 Play 업로드 키 + Google 관리 앱 서명 키 (아직 미발급, #256) |
+
+- 업데이트 코드·권한·문구는 `mobile/app/src/github/`에만 있고, 공용 코드는 `update/AppUpdates`만 부릅니다. Play 쪽 `AppUpdates`(`src/play/`)는 아무것도 하지 않습니다. 실행 중에 설치 출처를 보고 끄는 방식은 쓰지 않습니다.
+- Play 정책은 Play 밖에서 스스로 업데이트하는 앱을 허용하지 않고, `REQUEST_INSTALL_PACKAGES`는 제한 권한입니다. 그래서 Play 빌드에는 업데이터가 아예 들어가지 않습니다.
+- **두 채널은 서로 덮어 설치할 수 없습니다.** 패키지명(`com.jeiel85.aiusage`)과 버전은 같지만 서명 키가 다르기 때문입니다. 채널을 바꾸려면 앱을 지우고 다른 채널로 다시 설치한 뒤 PC를 다시 연결해야 합니다(앱 데이터는 Android Keystore로 암호화돼 옮겨지지 않습니다).
+- 빌드 명령: GitHub `.\gradlew assembleGithubRelease`, Play `.\gradlew bundlePlayRelease`. 업로드 키가 없으면 Play 번들은 서명되지 않은 채 만들어집니다(업로드 불가).
+
 ## 로컬에서 흐름 검증 (선택)
 
-같은 키로 서명한 두 APK를 만들어, 디버그 빌드를 로컬 서버로 향하게 할 수 있습니다.
+같은 키로 서명한 두 APK를 만들어, GitHub 디버그 빌드를 로컬 서버로 향하게 할 수 있습니다.
 
 ```powershell
 cd mobile
-.\gradlew assembleDebug -Pcut.version=1.55.0 -Pcut.updateManifestUrl=http://10.0.2.2:8000/update.json -Pcut.updateAllowHttp=true
+.\gradlew assembleGithubDebug -Pcut.version=1.55.0 -Pcut.updateManifestUrl=http://10.0.2.2:8000/update.json -Pcut.updateAllowHttp=true
 ```
 
 에뮬레이터(`10.0.2.2` = PC)에서 그 APK를 설치하고, 더 높은 버전 APK와 그 `update.json`을 PC의 `python -m http.server 8000`으로 내보내면 됩니다.

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Play build only (#257): no in-app updater — Google Play delivers updates. -->
+<resources>
+    <string name="about_privacy">本应用只连接你配对的电脑 — 直接连接，或经由该电脑开启的 Cloudflare Tunnel。没有广告、分析或使用记录收集。其他外发流量只有经由推送应用中继服务器的端到端加密通知；更新由 Google Play 提供。</string>
+</resources>

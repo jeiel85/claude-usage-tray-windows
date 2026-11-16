@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.61.0] - 2026-11-16
+
+<!-- ko -->
+### 변경
+- **휴대폰 앱을 GitHub 빌드와 Google Play 빌드로 나눴습니다 (#257)** — Google Play 출시를 준비하는 작업입니다. Play에서 받는 앱은 Play가 업데이트하므로 앱 안 업데이트 기능과 그 권한을 뺐습니다(Play 정책). GitHub Releases의 APK는 **지금과 똑같이** 앱 안에서 새 버전을 확인하고 설치합니다.
+  - 두 빌드는 서명 키가 달라 서로 업데이트되지 않습니다. 나중에 Play 버전으로 바꾸려면 GitHub 버전을 지우고 Play에서 설치한 뒤 PC를 다시 연결해야 합니다.
+  - Play 버전은 아직 출시되지 않았습니다. 지금 설치본은 그대로 쓰시면 됩니다.
+<!-- /ko -->
+
+<!-- en -->
+### Changed
+- **The phone app now comes as a GitHub build and a Google Play build (#257)** — groundwork for a Play release. Play updates the apps it installs, so the Play build leaves out the in-app updater and its permission (Play policy). The APK on GitHub Releases **works as before**: it checks for and installs new versions itself.
+  - The two builds are signed with different keys, so neither updates the other. To switch to the Play version later, uninstall the GitHub version, install from Play and add your PCs again.
+  - The Play version is not out yet. Keep using your current install.
+<!-- /en -->
+
 ## [1.60.0] - 2026-11-15
 
 <!-- ko -->

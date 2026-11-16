@@ -64,16 +64,16 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Unit tests, lint, debug build
+      - name: Unit tests, lint, debug build (both channels, #257)
         working-directory: mobile
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
+          ./gradlew --no-daemon testGithubDebugUnitTest testPlayDebugUnitTest lintGithubDebug lintPlayDebug assembleGithubDebug assemblePlayDebug
 
       - name: Upload debug APK
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: claude-usage-mobile-debug
-          path: mobile/app/build/outputs/apk/debug/*.apk
+          path: mobile/app/build/outputs/apk/*/debug/*.apk
           if-no-files-found: ignore

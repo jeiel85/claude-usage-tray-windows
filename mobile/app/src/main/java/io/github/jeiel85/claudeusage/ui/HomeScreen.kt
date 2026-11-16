@@ -82,7 +82,7 @@ import io.github.jeiel85.claudeusage.net.Gauge
 import io.github.jeiel85.claudeusage.net.GaugeKind
 import io.github.jeiel85.claudeusage.push.NotificationHistory
 import io.github.jeiel85.claudeusage.push.NotificationHistoryLog
-import io.github.jeiel85.claudeusage.update.UpdateSurface
+import io.github.jeiel85.claudeusage.update.AppUpdates
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -141,7 +141,7 @@ fun HomeScreen(
             }
         }
         // New app version (#228): one line above the tabs, only when there is something to install.
-        UpdateSurface.Banner(Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+        AppUpdates.Banner(Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
         // Old package still installed (#254): it would double every alert and never update into this app.
         LegacyAppNotice(Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
         if (pcs.isEmpty()) {

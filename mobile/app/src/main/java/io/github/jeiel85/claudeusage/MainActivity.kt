@@ -33,9 +33,7 @@ import io.github.jeiel85.claudeusage.ui.HomeScreen
 import io.github.jeiel85.claudeusage.ui.NotificationCenterScreen
 import io.github.jeiel85.claudeusage.ui.PairScreen
 import io.github.jeiel85.claudeusage.ui.SettingsScreen
-import io.github.jeiel85.claudeusage.update.UpdateCheckScheduler
-import io.github.jeiel85.claudeusage.update.UpdateNotifier
-import io.github.jeiel85.claudeusage.update.UpdateSurface
+import io.github.jeiel85.claudeusage.update.AppUpdates
 import io.github.jeiel85.claudeusage.ui.Palette
 import kotlinx.coroutines.launch
 
@@ -65,11 +63,9 @@ class MainActivity : ComponentActivity() {
         pairingLink = if (savedInstanceState == null) intent.pairingLink() else savedInstanceState.getString(KEY_PAIRING_LINK)
         settingsOpen = savedInstanceState?.getBoolean(KEY_SETTINGS_OPEN) ?: false
         historyOpen = savedInstanceState?.getBoolean(KEY_HISTORY_OPEN) ?: false
-        // Opened from the "new version" notification (#228): the home banner opens the update dialog right away.
-        // Not on recreation (rotation) — the request was already consumed then.
-        if (savedInstanceState == null && intent.opensUpdate()) UpdateSurface.requestOpen()
-        // Keep the background update check scheduled (or cancelled) to match the user's choice.
-        UpdateCheckScheduler.sync(this)
+        // GitHub build: opened from the "new version" notification (#228) → the home banner opens the update dialog,
+        // and the background check stays scheduled. Play build: nothing — Play updates it (#257).
+        AppUpdates.onCreate(this, intent, firstCreate = savedInstanceState == null)
 
         val store = PcStore(this)
         val api = UsageApi(networks = NetworkProbe(this)::current)
@@ -152,14 +148,11 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         intent.pairingLink()?.let { pairingLink = it }
-        if (intent.opensUpdate()) {
+        if (AppUpdates.onNewIntent(intent)) {
             settingsOpen = false // the update dialog opens from the home banner
             historyOpen = false
-            UpdateSurface.requestOpen()
         }
     }
-
-    private fun Intent?.opensUpdate(): Boolean = this?.getBooleanExtra(UpdateNotifier.EXTRA_OPEN_UPDATE, false) == true
 
     private fun Intent?.pairingLink(): String? =
         this?.takeIf { it.action == Intent.ACTION_VIEW }?.dataString?.takeIf(PairingLink::isLink)

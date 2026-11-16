@@ -54,7 +54,7 @@ import io.github.jeiel85.claudeusage.data.AppPrefs
 import io.github.jeiel85.claudeusage.data.PcStore
 import io.github.jeiel85.claudeusage.net.UsageApi
 import io.github.jeiel85.claudeusage.push.PushNotifier
-import io.github.jeiel85.claudeusage.update.UpdateSurface
+import io.github.jeiel85.claudeusage.update.AppUpdates
 
 /** Links the About section opens (#230). */
 internal object Links {
@@ -105,8 +105,11 @@ fun SettingsScreen(store: PcStore, api: UsageApi, onBack: () -> Unit) {
             item { SectionHeader(stringResource(R.string.settings_section_display)) }
             item { DisplaySettings() }
 
-            item { SectionHeader(stringResource(R.string.settings_section_updates)) }
-            item { UpdateCard() }
+            // Play build: no section — Google Play updates the app (#257).
+            if (AppUpdates.IN_APP) {
+                item { SectionHeader(stringResource(R.string.settings_section_updates)) }
+                item { UpdateCard() }
+            }
 
             item { SectionHeader(stringResource(R.string.settings_section_about), trailing = "v${BuildConfig.VERSION_NAME}") }
             item {
@@ -199,7 +202,7 @@ private fun UpdateCard() {
     LaunchedEffect(Unit) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { canNotify = PushNotifier.canNotify(context) }
     }
-    UpdateSurface.SettingsCard(
+    AppUpdates.SettingsCard(
         canNotify = canNotify,
         onAllowNotifications = {
             if (Build.VERSION.SDK_INT >= 33 && !NotificationAsk.asked) {
