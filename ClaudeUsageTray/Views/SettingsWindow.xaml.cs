@@ -151,6 +151,8 @@ public partial class SettingsWindow : Window, IDisposable
         LblUsageSyncFolder.Text             = Loc.UsageSyncFolder;
         BtnUsageSyncBrowse.Content          = Loc.UsageSyncBrowse;
         UpdateUsageSyncStatusLabel();
+        LblPcAlias.Text                     = Loc.PcAliasTitle;
+        LblPcAliasHint.Text                 = Loc.PcAliasHint(Environment.MachineName);
         LblMobileTitle.Text                 = Loc.MobileTitle;
         ChkMobileEnabled.Content            = Loc.MobileEnabled;
         LblMobileDescription.Text           = Loc.MobileDescription;
@@ -309,6 +311,7 @@ public partial class SettingsWindow : Window, IDisposable
         ChkMobileTailscale.IsChecked     = _vm.MobileTailscale;
         ChkMobileCloudflare.IsChecked    = _vm.MobileCloudflare;
         TxtCloudflareHostname.Text       = _vm.MobileCloudflareHostname;
+        TxtPcAlias.Text                  = _vm.PcAlias;
         // 고정 주소를 이미 쓰고 있으면 펼쳐 둔다 — 넣어 둔 값이 숨어 있으면 "왜 임시 주소가 아니지?" 를 찾기 어렵다.
         PanelCloudflareNamed.Visibility  = HasNamedTunnelSettings() ? Visibility.Visible : Visibility.Collapsed;
         UpdateMobileStatusLabel();
@@ -410,6 +413,7 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.MobileTailscale       = ChkMobileTailscale.IsChecked == true;
         _vm.MobileCloudflare      = ChkMobileCloudflare.IsChecked == true;
         _vm.MobileCloudflareHostname = TxtCloudflareHostname.Text.Trim();
+        _vm.PcAlias = Services.PcName.Clean(TxtPcAlias.Text, Services.PcName.MaxAliasLength);
         // 토큰 칸이 비어 있으면 저장된 토큰을 그대로 둔다(칸은 보안상 저장값을 다시 보여 주지 않는다). 지우기는 전용 버튼으로.
         if (PwdCloudflareToken.Password.Trim() is { Length: > 0 } newToken)
         {
@@ -529,6 +533,24 @@ public partial class SettingsWindow : Window, IDisposable
         // 값이 그대로면 저장하지 않는다 — 칸을 지나가기만 해도 터널이 다시 시작되면 Quick Tunnel 주소가 바뀐다.
         var hostnameChanged = TxtCloudflareHostname.Text.Trim() != _vm.MobileCloudflareHostname;
         if (hostnameChanged || PwdCloudflareToken.Password.Trim().Length > 0) Setting_Changed(sender, e);
+    }
+
+    /// <summary>
+    /// PC 이름 칸을 떠날 때 저장한다(#271). 값이 그대로면 저장하지 않는다 — 다른 칸의 LostFocus 와 같은 규칙.
+    /// 저장한 뒤 정리된 값(공백 정리)을 칸에 다시 보여 준다.
+    /// </summary>
+    private void PcAlias_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (Services.PcName.Clean(TxtPcAlias.Text, Services.PcName.MaxAliasLength) == _vm.PcAlias) return;
+        Setting_Changed(sender, e);
+        TxtPcAlias.Text = _vm.PcAlias;
+    }
+
+    private void PcAlias_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != System.Windows.Input.Key.Enter) return;
+        PcAlias_LostFocus(sender, e);
+        e.Handled = true;
     }
 
     private void BtnCloudflareTokenClear_Click(object sender, RoutedEventArgs e)

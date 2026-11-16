@@ -643,6 +643,11 @@
                         <Border Style="{StaticResource TabCard}">
                             <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="540">
                             <StackPanel>
+                                <!-- 이 PC 이름 (#271) — 휴대폰·다른 PC·공유 폴더·ntfy 알림에 보이는 이름 -->
+                                <TextBlock x:Name="LblPcAlias" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
+                                <TextBox x:Name="TxtPcAlias" Style="{StaticResource DarkTextBox}" Padding="10,7" MaxLength="32" LostFocus="PcAlias_LostFocus" KeyDown="PcAlias_KeyDown"/>
+                                <TextBlock x:Name="LblPcAliasHint" Foreground="#5A5F7A" FontSize="11" TextWrapping="Wrap" Margin="2,4,0,0"/>
+                                <Border Height="1" Background="#2D2F45" Margin="0,12,0,10"/>
                                 <TextBlock x:Name="LblMobileTitle" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
                                 <CheckBox x:Name="ChkMobileEnabled" Style="{StaticResource CheckStyle}" Margin="0,0,0,4" Click="Setting_Changed"/>
                                 <TextBlock x:Name="LblMobileDescription" Foreground="#5A5F7A" FontSize="11" TextWrapping="Wrap" Margin="2,0,0,6"/>

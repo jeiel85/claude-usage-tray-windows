@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.65.0] - 2026-11-16
+
+<!-- ko -->
+### 추가
+- **PC에 이름을 붙일 수 있습니다 (#271)** — 설정 → 연결 탭 맨 위 '이 PC 이름'에 적은 이름이 휴대폰 앱·다른 PC의 동기화 목록·공유 폴더 동기화·ntfy 알림(본문 끝 "— 이름")에 `DESKTOP-…` 대신 보입니다. 비우면 지금처럼 컴퓨터 이름을 씁니다. 바꾸면 다시 시작하지 않아도 1분 안에 휴대폰과 다른 PC에 반영됩니다(휴대폰은 페어링 때 받은 이름을 그대로 두던 것을 이제 연결할 때마다 갱신합니다).
+- **휴대폰에서 PC별 별칭 (#271)** — 휴대폰 앱 PC 탭의 ⋮ 메뉴 → '이름 바꾸기'로 그 휴대폰에서만 쓰는 이름을 붙입니다. 별칭은 PC 목록·계정 카드의 PC 칩·알림·알림센터에 우선 보이고, PC 카드에는 PC가 보내는 이름도 함께 보입니다. 칸을 비우면 PC 이름으로 돌아갑니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Name your PC (#271)** — the new "This PC's name" field at the top of Settings → Link replaces `DESKTOP-…` on the phone app, other PCs' sync lists, shared-folder sync and ntfy alerts (the "— name" line). Leave it empty to keep the computer name. A change reaches phones and other PCs within a minute without a restart (the phone used to keep the name it got at pairing; it now updates it on every connection).
+- **Per-PC aliases on the phone (#271)** — PCs tab → ⋮ → Rename gives a PC a name used on that phone only. The alias shows first in the PC list, the account cards' PC chips, alerts and the notification center, and the PC card still shows the name the PC sends. Clear the field to go back to the PC's name.
+<!-- /en -->
+
 ## [1.64.0] - 2026-11-16
 
 <!-- ko -->

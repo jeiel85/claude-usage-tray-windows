@@ -10,7 +10,6 @@ namespace ClaudeUsageTray.Services;
 public class NotificationService
 {
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(AppConstants.PushTimeoutSeconds) };
-    private static readonly string MachineName = Environment.MachineName;
     private readonly Func<NotifyIcon?> _getIcon;
 
     public NotificationService(Func<NotifyIcon?> getNotifyIcon)
@@ -194,7 +193,7 @@ public class NotificationService
     {
         try
         {
-            message = message + "\n" + "— " + MachineName;
+            message = message + "\n" + "— " + PcName.Current;
 
             if (key is not null)
             {

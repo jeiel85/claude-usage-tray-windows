@@ -27,7 +27,7 @@ data class PcStatus(
     val snapshot: UsageSnapshot?,
     val receivedAtMs: Long?,
 ) {
-    fun toView() = PcView(pc.pcId, pc.name, connection == PcConnection.LIVE, snapshot, receivedAtMs)
+    fun toView() = PcView(pc.pcId, pc.displayName, connection == PcConnection.LIVE, snapshot, receivedAtMs)
 }
 
 /**
@@ -58,20 +58,24 @@ class LiveHub(
      */
     suspend fun run() {
         try {
-            store.pcs
-                .map { list -> list.map { it.pcId to it.token } }
-                .distinctUntilChanged()
-                .collectLatest { ids ->
-                    val wanted = ids.map { it.first }.toSet()
-                    _status.update { m -> m.filterKeys { it in wanted } }
-                    seed(store.all())
-                    coroutineScope {
-                        for ((pcId, _) in ids) {
-                            val pc = store.get(pcId) ?: continue
-                            launch { follow(pc) }
+            coroutineScope {
+                // A rename (#271 — this phone's alias, or the name the PC sent) shows at once, without a redial.
+                launch { store.pcs.collect(::refreshEntries) }
+                store.pcs
+                    .map { list -> list.map { it.pcId to it.token } }
+                    .distinctUntilChanged()
+                    .collectLatest { ids ->
+                        val wanted = ids.map { it.first }.toSet()
+                        _status.update { m -> m.filterKeys { it in wanted } }
+                        seed(store.all())
+                        coroutineScope {
+                            for ((pcId, _) in ids) {
+                                val pc = store.get(pcId) ?: continue
+                                launch { follow(pc) }
+                            }
                         }
                     }
-                }
+            }
         } finally {
             _status.update { m -> m.mapValues { (_, s) -> s.copy(connection = PcConnection.OFFLINE, retryInSeconds = null) } }
         }
@@ -91,7 +95,11 @@ class LiveHub(
         if (state is LiveState.Live && _status.value[pc.pcId]?.connection != PcConnection.LIVE) {
             onConnected(store.get(pc.pcId) ?: pc)
         }
-        if (state is LiveState.Live) store.cacheSnapshot(pc.pcId, state.json, now)
+        if (state is LiveState.Live) {
+            store.cacheSnapshot(pc.pcId, state.json, now)
+            // The PC's settings may have renamed it since pairing (#271).
+            store.updateName(pc.pcId, state.snapshot.pcName)
+        }
         _status.update { m ->
             val old = m[pc.pcId] ?: PcStatus(pc, PcConnection.CONNECTING, null, null, null, null, null)
             val next = when (state) {
@@ -109,6 +117,14 @@ class LiveHub(
                 is LiveState.Incompatible -> old.copy(connection = PcConnection.INCOMPATIBLE, detail = state.reason, retryInSeconds = null)
             }
             m + (pc.pcId to next.copy(pc = store.get(pc.pcId) ?: pc))
+        }
+    }
+
+    /** Puts the stored entry (name, alias, paths) into each status, so the screens show the current names. */
+    private fun refreshEntries(pcs: List<PcEntry>) {
+        val byId = pcs.associateBy { it.pcId }
+        _status.update { m ->
+            m.mapValues { (id, s) -> byId[id]?.takeIf { it != s.pc }?.let { s.copy(pc = it) } ?: s }
         }
     }
 

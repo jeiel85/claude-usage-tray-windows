@@ -136,6 +136,7 @@ class MainActivity : ComponentActivity() {
                             pairing = true
                         },
                         onRemove = { pcId -> if (!showSample) removePc(store, api, pcId) },
+                        onRename = { pcId, alias -> if (!showSample) store.setAlias(pcId, alias) },
                         onSettings = { settingsOpen = true },
                         onHistory = { historyOpen = true },
                         sample = showSample,

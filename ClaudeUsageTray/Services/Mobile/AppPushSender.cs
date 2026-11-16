@@ -51,15 +51,15 @@ public sealed class AppPushSender
     private readonly MobileDeviceStore _devices;
     private readonly HttpClient _http;
     private readonly TimeProvider _time;
-    private readonly string _pcName;
+    private readonly Func<string> _pcName;
     private readonly Dictionary<string, DateTimeOffset> _blockedUntil = new(StringComparer.Ordinal);
     private readonly object _gate = new();
 
-    public AppPushSender(MobileDeviceStore devices, HttpClient http, string pcName, TimeProvider? time = null)
+    public AppPushSender(MobileDeviceStore devices, HttpClient http, string? pcName, TimeProvider? time = null)
     {
         _devices = devices;
         _http = http;
-        _pcName = pcName;
+        _pcName = PcName.Source(pcName);
         _time = time ?? TimeProvider.System;
     }
 
@@ -134,7 +134,7 @@ public sealed class AppPushSender
         return new(MobileProtocol.Schema,
             Guid.NewGuid().ToString("N"),
             _devices.PcId,
-            _pcName,
+            _pcName(),
             category,
             PushPriority.FromNtfy(ntfyPriority),
             title,

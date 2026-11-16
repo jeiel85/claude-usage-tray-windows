@@ -2612,6 +2612,22 @@ public static class Loc
 
     // ── 휴대폰 앱 연동 (#220) ──────────────────────────────────────────────
 
+    public static string PcAliasTitle => Lang switch
+    {
+        "ko" => "이 PC 이름",
+        "zh" => "此电脑名称",
+        "ja" => "このPCの名前",
+        _ => "This PC's name"
+    };
+
+    public static string PcAliasHint(string machineName) => Lang switch
+    {
+        "ko" => $"휴대폰·다른 PC·ntfy 알림에 이 이름으로 보입니다. 비우면 컴퓨터 이름({machineName})을 씁니다.",
+        "zh" => $"手机、其他电脑和 ntfy 通知中显示此名称。留空则使用计算机名（{machineName}）。",
+        "ja" => $"スマホ・他のPC・ntfy通知にこの名前で表示されます。空欄ならコンピューター名（{machineName}）を使います。",
+        _ => $"Phones, other PCs and ntfy alerts show this name. Leave empty to use the computer name ({machineName})."
+    };
+
     public static string MobileTitle => Lang switch
     {
         "ko" => "휴대폰·PC 연결",

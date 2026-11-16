@@ -22,7 +22,12 @@ data class PcEntry(
     val lastGood: String? = null,
     /** PC-clock time of the last path push applied (#225) — a late duplicate must not bring back old paths. */
     val endpointsPushTs: Long = 0L,
+    /** A name for this PC on this phone only (#271); null shows the PC's own [name]. */
+    val alias: String? = null,
 ) {
+    /** What every screen and notification calls this PC. */
+    val displayName: String get() = alias ?: name
+
     /** Paths to try now, best first, for the phone's current network. */
     fun orderedEndpoints(net: LocalNetworks?): List<Endpoint> = RouteSelector.order(endpoints, net, lastGood)
 }
@@ -87,6 +92,30 @@ class PcStore(context: Context) {
     }
 
     /**
+     * The name the PC sends with every snapshot (#271) — it changes when the PC's settings rename it, while
+     * [PcEntry.name] was only set at pairing. Blank names are ignored; an unchanged name writes nothing
+     * (a snapshot arrives on every usage change).
+     */
+    fun updateName(pcId: String, name: String?) {
+        val clean = PcNames.clean(name) ?: return
+        synchronized(LOCK) {
+            val list = all()
+            if (list.none { it.pcId == pcId && it.name != clean }) return
+            save(list.map { if (it.pcId == pcId) it.copy(name = clean) else it })
+        }
+    }
+
+    /** This phone's own name for the PC (#271); blank clears it so the PC's name shows again. */
+    fun setAlias(pcId: String, alias: String?) {
+        val clean = PcNames.clean(alias, PcNames.MAX_ALIAS)
+        synchronized(LOCK) {
+            val list = all()
+            if (list.none { it.pcId == pcId && it.alias != clean }) return
+            save(list.map { if (it.pcId == pcId) it.copy(alias = clean) else it })
+        }
+    }
+
+    /**
      * Paths the PC pushed (#225), already verified. Returns false when the PC isn't paired or the push is
      * not newer than the last one applied ([PushEndpointsUpdate.isNewerThan]).
      */
@@ -135,6 +164,7 @@ class PcStore(context: Context) {
         .put("token", cipher.encrypt(pc.token.toByteArray(Charsets.UTF_8)))
         .put("lastGood", pc.lastGood)
         .put("endpointsPushTs", pc.endpointsPushTs)
+        .put("alias", pc.alias)
 
     /** null when the Keystore key is gone (e.g. app data restored elsewhere) — the PC must be re-paired. */
     private fun fromJson(o: JSONObject): PcEntry? {
@@ -147,6 +177,7 @@ class PcStore(context: Context) {
             token = token,
             lastGood = o.optString("lastGood").ifBlank { null },
             endpointsPushTs = o.optLong("endpointsPushTs", 0L),
+            alias = PcNames.clean(o.optString("alias"), PcNames.MAX_ALIAS),
         )
     }
 

@@ -57,7 +57,7 @@ public sealed class MobileApiServer : IDisposable
     private readonly MobileDeviceStore _devices;
     private readonly PairingService _pairing;
     private readonly PeerSyncHub? _sync;
-    private readonly string _pcName;
+    private readonly Func<string> _pcName;
     private readonly SemaphoreSlim _connections = new(MaxConnections);
     private readonly object _gate = new();
     private MobileServerOptions _options = new(MobileProtocol.DefaultPort, true, true);
@@ -81,14 +81,14 @@ public sealed class MobileApiServer : IDisposable
     /// <summary>터널 주소가 바뀌었을 때 호출한다 — 연결 창이 새 경로로 QR 을 다시 만들게.</summary>
     public void NotifyEndpointsChanged() => StatusChanged?.Invoke();
 
-    public MobileApiServer(MobileUsageFeed feed, MobileDeviceStore devices, PairingService pairing, string? pcName = null,
+    public MobileApiServer(MobileUsageFeed feed, MobileDeviceStore devices, PairingService pairing, Func<string>? pcName = null,
         PeerSyncHub? sync = null)
     {
         _feed = feed;
         _devices = devices;
         _pairing = pairing;
         _sync = sync;
-        _pcName = string.IsNullOrWhiteSpace(pcName) ? Environment.MachineName : pcName.Trim();
+        _pcName = pcName ?? (() => PcName.Current);
     }
 
     public static string AppVersion =>
@@ -171,7 +171,7 @@ public sealed class MobileApiServer : IDisposable
         }
         if (endpoints.Count == 0) return null;
         var (code, expires) = _pairing.Begin();
-        return new PairingOffer(MobileProtocol.OfferMarker, _devices.PcId, _pcName, code, expires, endpoints);
+        return new PairingOffer(MobileProtocol.OfferMarker, _devices.PcId, _pcName(), code, expires, endpoints);
     }
 
     /// <summary>
@@ -451,7 +451,7 @@ public sealed class MobileApiServer : IDisposable
         {
             case ("GET", "/api/v1/info"):
                 return (200, Json(new PcInfo(MobileProtocol.Schema, MobileProtocol.Protocol, _devices.PcId,
-                    _pcName, AppVersion, Environment.OSVersion.VersionString)));
+                    _pcName(), AppVersion, Environment.OSVersion.VersionString)));
 
             case ("POST", "/api/v1/pair"):
             {
@@ -464,7 +464,7 @@ public sealed class MobileApiServer : IDisposable
                 return result.Outcome switch
                 {
                     PairOutcome.Paired => (200, Json(new PairResponse(MobileProtocol.Schema, result.DeviceId!, result.Token!,
-                        _devices.PcId, _pcName))),
+                        _devices.PcId, _pcName()))),
                     PairOutcome.Expired => (410, Error("code_expired", "The pairing code expired. Show a new QR code.")),
                     PairOutcome.Locked => (429, Error("locked", "Too many wrong codes. Try again in a few minutes.")),
                     _ => (400, Error("invalid_code", "The pairing code is not valid.")),
@@ -509,7 +509,7 @@ public sealed class MobileApiServer : IDisposable
     }
 
     public UsageSnapshotMessage BuildSnapshot() =>
-        new(MobileProtocol.Schema, DateTimeOffset.UtcNow, _devices.PcId, _pcName, AppVersion, _feed.Current(_devices.PcId));
+        new(MobileProtocol.Schema, DateTimeOffset.UtcNow, _devices.PcId, _pcName(), AppVersion, _feed.Current(_devices.PcId));
 
     /// <summary>
     /// WebSocket 실시간 전송. 연결 직후 한 번, 그 뒤 사용량이 바뀔 때마다, 변화가 없으면 <see cref="LiveHeartbeat"/> 마다 보낸다.
@@ -620,7 +620,9 @@ public sealed class MobileApiServer : IDisposable
                 {
                     var bytes = await PeerSyncClient.ReceiveMessageAsync(socket, linked.Token);
                     if (bytes is null) break;
-                    PeerSyncClient.ApplyFrame(sync, bytes);
+                    // 연결해 온 PC 가 이름을 바꾸면(#271) 연결 탭 목록의 이름도 따라간다.
+                    if (PeerSyncClient.ApplyFrame(sync, bytes) is { } frame)
+                        _devices.RenamePc(device.DeviceId, frame.FromPcName);
                 }
             }
             catch (Exception ex) when (ex is WebSocketException or OperationCanceledException or IOException) { }
@@ -636,7 +638,7 @@ public sealed class MobileApiServer : IDisposable
                     await socket.CloseOutputAsync(WebSocketCloseStatus.PolicyViolation, RevokedCloseReason, CancellationToken.None);
                     break;
                 }
-                var frame = new SyncFrame(MobileProtocol.Schema, SyncFrame.FrameKind, _devices.PcId, _pcName, sync.Snapshot());
+                var frame = new SyncFrame(MobileProtocol.Schema, SyncFrame.FrameKind, _devices.PcId, _pcName(), sync.Snapshot());
                 await socket.SendAsync(JsonSerializer.SerializeToUtf8Bytes(frame, MobileProtocol.Json),
                     WebSocketMessageType.Text, endOfMessage: true, linked.Token);
                 await signal.WaitAsync(LiveHeartbeat, linked.Token);

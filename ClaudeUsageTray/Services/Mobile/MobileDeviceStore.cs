@@ -162,6 +162,25 @@ public sealed class MobileDeviceStore
         return true;
     }
 
+    /// <summary>
+    /// 연결해 둔 PC 가 동기화 프레임으로 보낸 이름으로 바꾼다(#271). PC 기기만 바꾼다 — 휴대폰 이름은 페어링 때 정해진다.
+    /// 빈 이름은 무시하고, 같으면 파일을 다시 쓰지 않는다(프레임은 1분마다 온다).
+    /// </summary>
+    public bool RenamePc(string deviceId, string? name)
+    {
+        var clean = PcName.Clean(name);
+        if (clean.Length == 0) return false;
+        lock (_gate)
+        {
+            var device = _state.Devices.FirstOrDefault(d => d.DeviceId == deviceId);
+            if (device is null || MobileDeviceKind.Normalize(device.Kind) != MobileDeviceKind.Pc || device.Name == clean) return false;
+            device.Name = clean;
+            Save();
+        }
+        Changed?.Invoke();
+        return true;
+    }
+
     /// <summary>푸시 구독이 있는 모든 기기.</summary>
     public IReadOnlyList<PushTarget> PushTargets()
     {

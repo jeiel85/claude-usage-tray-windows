@@ -31,6 +31,11 @@
     <string name="pc_providers">サービス %1$d件</string>
     <string name="remove_pc">削除</string>
     <string name="remove_confirm">このスマホから %1$s を削除しますか？再び見るにはPCで新しいQRをスキャンしてください。</string>
+    <string name="rename_pc">名前を変更</string>
+    <string name="rename_pc_title">このスマホでの名前</string>
+    <string name="rename_pc_hint">このスマホだけで使う名前です。空欄にするとPCが送る名前を使います。</string>
+    <string name="pc_own_name">PC名: %1$s</string>
+    <string name="save">保存</string>
     <string name="pair_title">PCを追加</string>
     <string name="pair_step1">PCで: トレイアイコン → 設定 → スマホアプリ連携 → 「スマホを接続… (QR表示)」。</string>
     <string name="pair_step2">QRをスキャンしてください。スマホが同じWi-Fiにあるか、Tailscaleがオンか、PCで「外出先からも接続(Cloudflare)」がオンである必要があります。</string>

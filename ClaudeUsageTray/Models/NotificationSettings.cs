@@ -124,6 +124,12 @@ public class NotificationSettings
     public int UsageSyncApiSnapshotTtlMinutes { get; set; } = 5;
     public int UsageSyncLocalSnapshotTtlHours { get; set; } = 24;
 
+    /// <summary>
+    /// 다른 기기에 보여 줄 이 PC 의 이름(#271). 비어 있으면 Windows 컴퓨터 이름 — 키가 없던 예전 파일도 그렇게 읽힌다.
+    /// 휴대폰·다른 PC·공유 폴더 스냅샷·ntfy 알림이 모두 이 이름을 쓴다(<see cref="Services.PcName"/>).
+    /// </summary>
+    public string PcAlias { get; set; } = "";
+
     // 휴대폰 앱 연동(#220). 기본은 꺼짐 — 켜야 이 PC 가 휴대폰용 포트를 연다.
     public bool MobileEnabled { get; set; } = false;
     /// <summary>같은 Wi-Fi·유선 LAN 경로(TLS 핀 고정).</summary>

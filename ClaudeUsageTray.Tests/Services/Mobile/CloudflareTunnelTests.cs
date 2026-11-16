@@ -109,7 +109,7 @@ public class CloudflareTunnelTests : IDisposable
     {
         var dir = Path.Combine(_dir, "pc");
         var store = new MobileDeviceStore(dir);
-        using var server = new MobileApiServer(new MobileUsageFeed(), store, new PairingService(store), "PC");
+        using var server = new MobileApiServer(new MobileUsageFeed(), store, new PairingService(store), () => "PC");
         MobileEndpoint? tunnel = null;
         server.TunnelEndpoint = () => tunnel;
         server.Start(new MobileServerOptions(FreePort(), Lan: false, Tailscale: false, BindLoopback: false, Cloudflare: true));

@@ -31,6 +31,11 @@
     <string name="pc_providers">%1$d 项服务</string>
     <string name="remove_pc">删除</string>
     <string name="remove_confirm">要从此手机删除 %1$s 吗？如需再次查看，请在电脑上扫描新的二维码。</string>
+    <string name="rename_pc">重命名</string>
+    <string name="rename_pc_title">在此手机上的名称</string>
+    <string name="rename_pc_hint">仅此手机使用此名称。留空则使用电脑发送的名称。</string>
+    <string name="pc_own_name">电脑名称：%1$s</string>
+    <string name="save">保存</string>
     <string name="pair_title">添加电脑</string>
     <string name="pair_step1">在电脑上: 托盘图标 → 设置 → 手机应用连接 → \"连接手机… (显示二维码)\"。</string>
     <string name="pair_step2">扫描二维码。手机需要在同一 Wi-Fi 下、已开启 Tailscale，或电脑已开启\"外网也可连接(Cloudflare)\"。</string>
