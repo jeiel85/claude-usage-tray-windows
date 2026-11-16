@@ -33,6 +33,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
@@ -45,6 +46,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -77,6 +79,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.jeiel85.claudeusage.R
 import io.github.jeiel85.claudeusage.data.AppPrefs
+import io.github.jeiel85.claudeusage.data.PcNames
 import io.github.jeiel85.claudeusage.domain.AccountAggregator
 import io.github.jeiel85.claudeusage.domain.AccountCard
 import io.github.jeiel85.claudeusage.domain.PcConnection
@@ -103,6 +106,8 @@ fun HomeScreen(
     status: Map<String, PcStatus>,
     onAdd: () -> Unit,
     onRemove: (String) -> Unit,
+    /** This phone's own name for a PC (#271); a blank name clears it. */
+    onRename: (pcId: String, alias: String) -> Unit,
     onSettings: () -> Unit,
     onHistory: () -> Unit,
     initialPage: Int = 0,
@@ -123,7 +128,7 @@ fun HomeScreen(
             now = System.currentTimeMillis()
         }
     }
-    val pcs = status.values.sortedBy { it.pc.name.lowercase() }
+    val pcs = status.values.sortedBy { it.pc.displayName.lowercase() }
     val cards = remember(status, now) { AccountAggregator.aggregate(pcs.map { it.toView() }, now) }
     val live = pcs.count { it.connection == PcConnection.LIVE }
 
@@ -175,7 +180,7 @@ fun HomeScreen(
                         items(cards, key = { it.key }) { AccountCardView(it, now) }
                     }
                     else -> {
-                        items(pcs, key = { it.pc.pcId }) { PcRow(it, now, onRemove) }
+                        items(pcs, key = { it.pc.pcId }) { PcRow(it, now, onRemove, onRename) }
                         item(key = "add") { AddPcRow(onAdd) }
                     }
                 }
@@ -426,12 +431,13 @@ private fun UsageBar(usage: Double, timeProgress: Double?) {
     }
 }
 
-/** One paired PC: its state as a coloured chip, details below, removal behind the overflow menu. */
+/** One paired PC: its state as a coloured chip, details below, rename and removal behind the overflow menu. */
 @Composable
-private fun PcRow(s: PcStatus, now: Long, onRemove: (String) -> Unit) {
+private fun PcRow(s: PcStatus, now: Long, onRemove: (String) -> Unit, onRename: (String, String) -> Unit) {
     val context = LocalContext.current
     var menu by remember { mutableStateOf(false) }
     var confirm by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf(false) }
     val (color, line) = when (s.connection) {
         PcConnection.LIVE -> Palette.Ok to stringResource(R.string.pc_live, s.endpointLabel ?: "")
         PcConnection.CONNECTING -> Palette.Warn to stringResource(R.string.pc_connecting)
@@ -443,7 +449,13 @@ private fun PcRow(s: PcStatus, now: Long, onRemove: (String) -> Unit) {
     Card {
         Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f).padding(top = 2.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(s.pc.name, color = Palette.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Column {
+                    Text(s.pc.displayName, color = Palette.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    // With an alias the PC's own name still matters: it is what the PC and its other devices show.
+                    if (s.pc.alias != null) {
+                        Text(stringResource(R.string.pc_own_name, s.pc.name), color = Palette.TextDim, fontSize = 12.sp)
+                    }
+                }
                 Chip(line, color, dot = true)
                 if (s.connection == PcConnection.RETRYING && !s.detail.isNullOrBlank()) {
                     Text(s.detail, color = Palette.TextDim, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -470,6 +482,14 @@ private fun PcRow(s: PcStatus, now: Long, onRemove: (String) -> Unit) {
                     shadowElevation = 8.dp,
                 ) {
                     DropdownMenuItem(
+                        text = { Text(stringResource(R.string.rename_pc), color = Palette.Text, fontSize = 15.sp) },
+                        leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null, tint = Palette.TextSoft) },
+                        onClick = {
+                            menu = false
+                            renaming = true
+                        },
+                    )
+                    DropdownMenuItem(
                         text = { Text(stringResource(R.string.remove_pc), color = Palette.Danger, fontSize = 15.sp) },
                         leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null, tint = Palette.Danger) },
                         onClick = {
@@ -484,7 +504,7 @@ private fun PcRow(s: PcStatus, now: Long, onRemove: (String) -> Unit) {
     if (confirm) {
         AlertDialog(
             onDismissRequest = { confirm = false },
-            text = { Text(stringResource(R.string.remove_confirm, s.pc.name)) },
+            text = { Text(stringResource(R.string.remove_confirm, s.pc.displayName)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirm = false
@@ -494,6 +514,44 @@ private fun PcRow(s: PcStatus, now: Long, onRemove: (String) -> Unit) {
             dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
+    if (renaming) {
+        RenameDialog(
+            current = s.pc.alias.orEmpty(),
+            pcName = s.pc.name,
+            onDismiss = { renaming = false },
+            onSave = { alias ->
+                renaming = false
+                onRename(s.pc.pcId, alias)
+            },
+        )
+    }
+}
+
+/**
+ * This phone's name for a PC (#271). Empty means "use the PC's name", which the field shows as its placeholder —
+ * so clearing the field is how the alias goes away, without a separate reset button.
+ */
+@Composable
+private fun RenameDialog(current: String, pcName: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+    var text by remember { mutableStateOf(current) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.rename_pc_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { if (it.length <= PcNames.MAX_ALIAS) text = it },
+                    placeholder = { Text(pcName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(stringResource(R.string.rename_pc_hint), color = Palette.TextDim, fontSize = 12.sp)
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(text) }) { Text(stringResource(R.string.save)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 /** The last row of the PC list: the same action as the + in the top bar, where a list of PCs ends. */

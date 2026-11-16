@@ -104,9 +104,9 @@ public class PeerSyncTests : IDisposable
         var dir = Path.Combine(_dir, name);
         var store = new MobileDeviceStore(dir);
         var hub = new PeerSyncHub();
-        var server = new MobileApiServer(new MobileUsageFeed(), store, new PairingService(store), name, hub);
+        var server = new MobileApiServer(new MobileUsageFeed(), store, new PairingService(store), () => name, hub);
         server.Start(new MobileServerOptions(FreePort(), Lan: false, Tailscale: false, BindLoopback: true));
-        var client = new PeerSyncClient(hub, new SyncPeerStore(dir), () => store.PcId, name);
+        var client = new PeerSyncClient(hub, new SyncPeerStore(dir), () => store.PcId, () => name);
         return new Pc(name, store, hub, server, client);
     }
 
@@ -152,6 +152,67 @@ public class PeerSyncTests : IDisposable
         // 새 코드로 다시 연결하면(토큰 교체) 끝난 연결 작업을 버리고 새로 붙는다(Codex 리뷰 P2).
         Assert.Equal("A", await b.Client.JoinAsync(PairingLink.Build(a.Server.CreateOffer()!)));
         await WaitUntil(() => b.Client.Status().Single().Connected);
+    }
+
+    /// <summary>
+    /// 한쪽이 설정에서 PC 이름을 바꾸면(#271) 다시 연결하지 않아도 다음 프레임부터 상대 PC 의 목록 이름이 따라간다 —
+    /// 연결해 온 쪽(A 의 기기 목록)과 연결한 쪽(B 의 peers.json) 모두, 파일에도 남는다.
+    /// </summary>
+    [Fact]
+    public async Task RenamedPcShowsUpUnderItsNewNameOnTheOtherSide()
+    {
+        var aName = "A";
+        var bName = "B";
+        var aDir = Path.Combine(_dir, "A");
+        var bDir = Path.Combine(_dir, "B");
+        var aStore = new MobileDeviceStore(aDir);
+        var aHub = new PeerSyncHub();
+        using var aServer = new MobileApiServer(new MobileUsageFeed(), aStore, new PairingService(aStore), () => aName, aHub);
+        aServer.Start(new MobileServerOptions(FreePort(), Lan: false, Tailscale: false, BindLoopback: true));
+        var bStore = new MobileDeviceStore(bDir);
+        var bHub = new PeerSyncHub();
+        var bPeers = new SyncPeerStore(bDir);
+        using var bClient = new PeerSyncClient(bHub, bPeers, () => bStore.PcId, () => bName);
+        await WaitUntil(() => aServer.Status().Listening);
+
+        Assert.Equal("A", await bClient.JoinAsync(PairingLink.Build(aServer.CreateOffer()!)));
+        await WaitUntil(() => bClient.Status().All(s => s.Connected));
+        Assert.Equal("B", aStore.List().Single(d => d.Kind == MobileDeviceKind.Pc).Name);
+
+        bName = "Study laptop";
+        bHub.PublishLocal(Snapshot("dev-b", bName, "claude", "org", 0.2)); // 다음 전송을 일으킨다
+        await WaitUntil(() => aStore.List().Single(d => d.Kind == MobileDeviceKind.Pc).Name == "Study laptop");
+        Assert.Equal("Study laptop", new MobileDeviceStore(aDir).List().Single(d => d.Kind == MobileDeviceKind.Pc).Name);
+
+        aName = "Office desktop";
+        aHub.PublishLocal(Snapshot("dev-a", aName, "claude", "org", 0.1));
+        await WaitUntil(() => bPeers.All().Single().PcName == "Office desktop");
+        Assert.Equal("Office desktop", new SyncPeerStore(bDir).All().Single().PcName);
+        Assert.Equal("Office desktop", bClient.Status().Single().Peer.PcName);
+    }
+
+    [Fact]
+    public void PeerAndDeviceRenamesIgnoreBlankAndUnchangedNames()
+    {
+        var dir = Path.Combine(_dir, "rename");
+        var peers = new SyncPeerStore(dir);
+        peers.Upsert(new SyncPeer("pc-1", "OLD", [], "dev", "token", DateTimeOffset.UtcNow));
+        var changes = 0;
+        peers.Changed += () => changes++;
+        Assert.False(peers.UpdateName("pc-1", "  "));
+        Assert.False(peers.UpdateName("pc-1", "OLD"));
+        Assert.False(peers.UpdateName("missing", "NEW"));
+        Assert.True(peers.UpdateName("pc-1", " Home\nPC "));
+        Assert.Equal("Home PC", peers.All().Single().PcName);
+        Assert.Equal(1, changes);
+
+        var devices = new MobileDeviceStore(dir);
+        var phone = devices.Add("Pixel", null, new string('a', 64));
+        var pc = devices.Add("DESKTOP-1", "Windows PC", new string('b', 64), MobileDeviceKind.Pc);
+        Assert.False(devices.RenamePc(phone.DeviceId, "Renamed phone")); // 휴대폰 이름은 페어링 때 정해진다
+        Assert.False(devices.RenamePc(pc.DeviceId, ""));
+        Assert.True(devices.RenamePc(pc.DeviceId, "Gaming PC"));
+        Assert.Equal(["Pixel", "Gaming PC"], devices.List().Select(d => d.Name));
     }
 
     [Fact]

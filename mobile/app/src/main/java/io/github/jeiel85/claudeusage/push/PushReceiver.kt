@@ -83,16 +83,21 @@ class PushReceiver : BroadcastReceiver() {
             handleEndpoints(context, plain)
             return
         }
-        val message = try {
+        val parsed = try {
             PushMessage.parse(plain)
         } catch (e: Exception) {
             Log.w(TAG, "dropped an unreadable push: ${e.message}")
             return
         }
-        if (PcStore(context).get(message.pcId) == null) {
+        val store = PcStore(context)
+        val pc = store.get(parsed.pcId) ?: run {
             Log.i(TAG, "dropped a push from an unpaired PC")
             return
         }
+        // The push carries the PC's current name (#271) — it may have been renamed while the app was in the
+        // background, when no live snapshot updates the stored one. Keep it, and show this phone's alias over it.
+        store.updateName(pc.pcId, parsed.pcName)
+        val message = parsed.copy(pcName = pc.alias ?: parsed.pcName)
         // The PC skips muted categories itself; this catches the moments before the PC heard about a change.
         if (NotificationGroups.isMuted(message.category, state.mutedCategories)) return
         val show = synchronized(DEDUPE_LOCK) {

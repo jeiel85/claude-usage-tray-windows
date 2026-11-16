@@ -396,6 +396,8 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private bool _mobileTailscale = true;
     [ObservableProperty] private bool _mobileCloudflare;
     [ObservableProperty] private string _mobileCloudflareHostname = "";
+    /// <summary>다른 기기에 보여 줄 이 PC 의 이름(#271). 비어 있으면 컴퓨터 이름.</summary>
+    [ObservableProperty] private string _pcAlias = "";
     /// <summary>DPAPI 로 감싼 터널 토큰(<see cref="Services.Mobile.MobileSecret"/>). 원문은 메모리에도 들고 있지 않는다.</summary>
     [ObservableProperty] private string _mobileCloudflareTokenProtected = "";
 
@@ -686,6 +688,7 @@ namespace ClaudeUsageTray.ViewModels;
         MobileCloudflare = s.MobileCloudflare;
         MobileCloudflareHostname = s.MobileCloudflareHostname ?? "";
         MobileCloudflareTokenProtected = s.MobileCloudflareTokenProtected ?? "";
+        PcAlias = PcName.Clean(s.PcAlias, PcName.MaxAliasLength);
         TrayDisplayMode = UsageProviderKind.IsValid(s.TrayDisplayMode) ? s.TrayDisplayMode : UsageProviderKind.Auto;
         HideInactiveProviders = s.HideInactiveProviders;
 
@@ -953,6 +956,7 @@ namespace ClaudeUsageTray.ViewModels;
             MobileCloudflare   = MobileCloudflare,
             MobileCloudflareHostname       = MobileCloudflareHostname,
             MobileCloudflareTokenProtected = MobileCloudflareTokenProtected,
+            PcAlias            = PcName.Clean(PcAlias, PcName.MaxAliasLength),
             // 파일에서만 바꾸는 값은 디스크 값을 보존한다.
             MobilePort         = existing.MobilePort,
             MobileBindLoopback = existing.MobileBindLoopback,
@@ -970,6 +974,9 @@ namespace ClaudeUsageTray.ViewModels;
     /// </summary>
     private void ApplyMobileSettings(NotificationSettings settings)
     {
+        // 이름은 휴대폰 연동을 꺼도 쓰인다(공유 폴더 스냅샷·ntfy 알림) — 연동 적용이 실패해도 먼저 반영한다.
+        // 시작할 때도 첫 새로고침 전에 이 함수를 거치므로 첫 알림부터 설정한 이름이 나간다.
+        PcName.SetAlias(settings.PcAlias);
         try
         {
             Mobile.Feed.Retain(settings.VisibleProviders);

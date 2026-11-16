@@ -241,6 +241,24 @@ public sealed class SyncPeerStore
         }
     }
 
+    /// <summary>
+    /// 상대 PC 가 보낸 이름으로 바꾼다. 빈 이름은 무시하고, 같으면 파일을 다시 쓰지 않는다(프레임은 1분마다 온다).
+    /// </summary>
+    public bool UpdateName(string pcId, string? name)
+    {
+        var clean = PcName.Clean(name);
+        if (clean.Length == 0) return false;
+        lock (_gate)
+        {
+            var i = _peers.FindIndex(p => p.PcId == pcId);
+            if (i < 0 || _peers[i].PcName == clean) return false;
+            _peers[i] = _peers[i] with { PcName = clean };
+            Save();
+        }
+        Changed?.Invoke();
+        return true;
+    }
+
     public bool Remove(string pcId)
     {
         bool removed;
@@ -335,18 +353,18 @@ public sealed class PeerSyncClient : IDisposable
     private readonly PeerSyncHub _hub;
     private readonly SyncPeerStore _peers;
     private readonly Func<string> _pcId;
-    private readonly string _pcName;
+    private readonly Func<string> _pcName;
     private readonly object _gate = new();
     private readonly Dictionary<string, (CancellationTokenSource Cts, SyncPeerStatus Status, string Token, Task Worker)> _links = [];
 
     public event Action? Changed;
 
-    public PeerSyncClient(PeerSyncHub hub, SyncPeerStore peers, Func<string> pcId, string? pcName = null)
+    public PeerSyncClient(PeerSyncHub hub, SyncPeerStore peers, Func<string> pcId, Func<string>? pcName = null)
     {
         _hub = hub;
         _peers = peers;
         _pcId = pcId;
-        _pcName = string.IsNullOrWhiteSpace(pcName) ? Environment.MachineName : pcName;
+        _pcName = pcName ?? (() => PcName.Current);
         _peers.Changed += Reconcile;
     }
 
@@ -397,7 +415,7 @@ public sealed class PeerSyncClient : IDisposable
         var offer = ParseOffer(code) ?? throw new PeerJoinException("not_a_code");
         if (offer.PcId == _pcId()) throw new PeerJoinException("self");
 
-        var body = JsonSerializer.Serialize(new PairRequest(offer.Code, _pcName, "Windows PC", MobileDeviceKind.Pc), MobileProtocol.Json);
+        var body = JsonSerializer.Serialize(new PairRequest(offer.Code, _pcName(), "Windows PC", MobileDeviceKind.Pc), MobileProtocol.Json);
         Exception? last = null;
         foreach (var e in Order(offer.Endpoints))
         {
@@ -525,7 +543,7 @@ public sealed class PeerSyncClient : IDisposable
 
     private async Task SendAsync(WebSocket ws, CancellationToken ct)
     {
-        var frame = new SyncFrame(MobileProtocol.Schema, SyncFrame.FrameKind, _pcId(), _pcName, _hub.Snapshot());
+        var frame = new SyncFrame(MobileProtocol.Schema, SyncFrame.FrameKind, _pcId(), _pcName(), _hub.Snapshot());
         await ws.SendAsync(JsonSerializer.SerializeToUtf8Bytes(frame, MobileProtocol.Json), WebSocketMessageType.Text, true, ct);
     }
 
@@ -535,23 +553,29 @@ public sealed class PeerSyncClient : IDisposable
         {
             var bytes = await ReceiveMessageAsync(ws, ct);
             if (bytes is null) return;
-            ApplyFrame(_hub, bytes);
+            // 상대 PC 가 설정에서 이름을 바꾸면(#271) 프레임의 이름으로 목록을 맞춘다 — 저장된 이름은 연결 당시의 것이다.
+            if (ApplyFrame(_hub, bytes) is { } frame && frame.FromPcId == peer.PcId)
+                _peers.UpdateName(peer.PcId, frame.FromPcName);
             SetStatus(peer.PcId, owner, true, null, null);
         }
     }
 
-    /// <summary>받은 프레임을 표에 합친다. 형식이 틀린 프레임은 버린다(연결은 유지).</summary>
-    public static bool ApplyFrame(PeerSyncHub hub, byte[] bytes)
+    /// <summary>
+    /// 받은 프레임을 표에 합친다. 형식이 틀린 프레임은 버린다(연결은 유지).
+    /// Output: 받아들인 프레임(보낸 PC 이름을 목록에 반영할 때 쓴다), 틀린 프레임이면 null
+    /// </summary>
+    public static SyncFrame? ApplyFrame(PeerSyncHub hub, byte[] bytes)
     {
         try
         {
             var frame = JsonSerializer.Deserialize<SyncFrame>(bytes, MobileProtocol.Json);
-            if (frame is null || frame.Schema != MobileProtocol.Schema || frame.Kind != SyncFrame.FrameKind) return false;
-            return hub.Merge(frame.Snapshots ?? []);
+            if (frame is null || frame.Schema != MobileProtocol.Schema || frame.Kind != SyncFrame.FrameKind) return null;
+            hub.Merge(frame.Snapshots ?? []);
+            return frame;
         }
         catch (JsonException)
         {
-            return false;
+            return null;
         }
     }
 

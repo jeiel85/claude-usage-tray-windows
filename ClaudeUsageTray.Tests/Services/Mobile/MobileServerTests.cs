@@ -152,7 +152,7 @@ public class MobileServerTests : IDisposable
         var store = new MobileDeviceStore(_dir);
         var pairing = new PairingService(store);
         var feed = new MobileUsageFeed();
-        using var server = new MobileApiServer(feed, store, pairing, "TEST-PC");
+        using var server = new MobileApiServer(feed, store, pairing, () => "TEST-PC");
         var port = FreePort();
         server.Start(new MobileServerOptions(port, Lan: false, Tailscale: false, BindLoopback: true));
         await WaitUntil(() => server.Status().Listening);

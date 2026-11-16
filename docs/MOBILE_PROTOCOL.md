@@ -90,7 +90,7 @@ https://jeiel85.github.io/claude-usage-tray-windows/pair/#<base64url(UTF-8 JSON 
 | 필드 | 의미 |
 |---|---|
 | `schema` | 1. 다르면 앱은 반쪽 파싱하지 않고 "버전 불일치"로 멈춤 |
-| `ts`, `pcId`, `pcName`, `appVersion` | 보낸 PC |
+| `ts`, `pcId`, `pcName`, `appVersion` | 보낸 PC. `pcName`은 PC 설정의 'PC 이름'(비우면 컴퓨터 이름)이라 바뀔 수 있습니다 — 앱은 받을 때마다 저장된 이름을 갱신합니다(#271). PC 구분은 `pcId`로만 합니다 |
 | `providers[]` | 화면에서 켠 provider만, 6시간 안에 관측한 것만 |
 | `providers[].provider` | `claude`·`codex`·`opencode`·`antigravity` |
 | `providers[].accountHash`, `accountScope` | 위 "계정 묶기" 참고(`account`·`device`) |
@@ -145,7 +145,7 @@ QR로 PC를 연결하면 알림도 함께 연결됩니다. 토픽 이름을 정�
 
 - **동기화 코드** = 휴대폰 QR과 같은 일회용 링크(5분·1회용). PC A의 설정 → 연결 → "이 PC의 동기화 코드 복사"(또는 휴대폰 연결 창의 같은 버튼) → PC B의 설정 → 연결에 붙여 넣기 → B가 `POST /api/v1/pair`에 `kind: "pc"`로 페어링하고 토큰을 DPAPI로 감싸 `peers.json`에 저장합니다.
 - **연결**: B → A `GET /api/v1/sync` WebSocket(Bearer). B가 여는 쪽이라 A만 B에서 닿으면 됩니다(B의 포트·방화벽은 필요 없음). 경로는 LAN(TLS 핀) → Tailscale → Cloudflare(공인 인증서) 순.
-- **프레임**: 양쪽 모두 `{schema: 1, kind: "sync", fromPcId, fromPcName, snapshots: UsageSyncSnapshot[]}`를 연결 직후, 표가 바뀔 때, 변화가 없으면 60초마다 보냅니다. `snapshots`는 공유 폴더 동기화 파일과 **같은 형식·같은 계정 해시**라, 받은 쪽은 기존 선택 규칙(`SelectQuotaCandidates`·`MergeLocalTotals`)을 그대로 씁니다.
+- **프레임**: 양쪽 모두 `{schema: 1, kind: "sync", fromPcId, fromPcName, snapshots: UsageSyncSnapshot[]}`를 연결 직후, 표가 바뀔 때, 변화가 없으면 60초마다 보냅니다. 받은 쪽은 `fromPcName`으로 목록 이름(연결한 PC의 `peers.json`, 연결해 온 PC의 기기 항목)을 갱신합니다(#271). `snapshots`는 공유 폴더 동기화 파일과 **같은 형식·같은 계정 해시**라, 받은 쪽은 기존 선택 규칙(`SelectQuotaCandidates`·`MergeLocalTotals`)을 그대로 씁니다.
 - **가십**: 각 PC는 (원래 PC, provider)별 최신 스냅샷 표를 갖고, 받은 것 중 더 새로운 것만 반영하며, 바뀌면 모든 연결로 다시 보냅니다. 그래서 B·C가 A에만 연결해도 B와 C가 서로의 값을 갖습니다. 자기 원본 값은 다른 PC를 거쳐 돌아와도 받지 않고, 24시간 넘은 관측·5분 넘는 미래 시각은 버립니다.
 - **Claude Code가 없는 PC**: 계정 키(orgUuid)가 없으면 그룹에서 할당량을 가장 최근에 관측한 Claude 계정을 대신 보여 줍니다.
 - **해제**: A의 연결 탭(또는 휴대폰 연결 창)에서 B를 해제하면 다음 전송 전에 1008 `revoked`로 끊기고, B는 다시 연결하지 않습니다.

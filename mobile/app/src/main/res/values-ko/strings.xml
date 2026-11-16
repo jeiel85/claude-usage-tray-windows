@@ -31,6 +31,11 @@
     <string name="pc_providers">서비스 %1$d개</string>
     <string name="remove_pc">삭제</string>
     <string name="remove_confirm">이 휴대폰에서 %1$s을(를) 지울까요? 다시 보려면 PC에서 새 QR을 스캔해야 합니다.</string>
+    <string name="rename_pc">이름 바꾸기</string>
+    <string name="rename_pc_title">이 휴대폰에서 쓸 이름</string>
+    <string name="rename_pc_hint">이 휴대폰에서만 쓰는 이름입니다. 비우면 PC가 보내는 이름을 씁니다.</string>
+    <string name="pc_own_name">PC 이름: %1$s</string>
+    <string name="save">저장</string>
     <string name="pair_title">PC 추가</string>
     <string name="pair_step1">PC에서: 트레이 아이콘 → 설정 → 휴대폰 앱 연동 → \'휴대폰 연결… (QR 표시)\'.</string>
     <string name="pair_step2">QR을 스캔하세요. 휴대폰이 같은 Wi-Fi에 있거나, Tailscale이 켜져 있거나, PC에서 \'밖에서도 연결(Cloudflare)\'을 켜 두어야 합니다.</string>

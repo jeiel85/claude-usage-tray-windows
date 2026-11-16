@@ -22,23 +22,25 @@ public class UsageSyncService
 
     private readonly string _appDataDirectory;
     private readonly Func<DateTimeOffset> _now;
-    private readonly string _deviceName;
+    private readonly Func<string> _deviceName;
     private readonly object _deviceIdLock = new();
     private string? _deviceId;
 
     public UsageSyncService()
         : this(
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ClaudeUsageTray"),
-            () => DateTimeOffset.Now,
-            Environment.MachineName)
+            () => DateTimeOffset.Now)
     {
+        // 설정의 PC 이름(#271)을 스냅샷을 만들 때마다 읽는다 — 이름을 바꾸면 다음 스냅샷부터 다른 PC 에 보인다.
+        _deviceName = () => PcName.Current;
     }
 
     public UsageSyncService(string appDataDirectory, Func<DateTimeOffset>? now = null, string? deviceName = null)
     {
         _appDataDirectory = appDataDirectory;
         _now = now ?? (() => DateTimeOffset.Now);
-        _deviceName = string.IsNullOrWhiteSpace(deviceName) ? "unknown-device" : deviceName.Trim();
+        var fixedName = string.IsNullOrWhiteSpace(deviceName) ? "unknown-device" : deviceName.Trim();
+        _deviceName = () => fixedName;
     }
 
     public string DeviceId => EnsureDeviceId();
@@ -64,7 +66,7 @@ public class UsageSyncService
             AccountHash = BuildAccountHash(normalizedProvider, accountKey),
             Provider = normalizedProvider,
             DeviceId = DeviceId,
-            DeviceName = _deviceName,
+            DeviceName = _deviceName(),
             LocalDate = DateOnly.FromDateTime(now.LocalDateTime).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             ObservedAtUtc = now.ToUniversalTime(),
             Quota = quota,

@@ -167,7 +167,7 @@ public sealed class MobileLinkService : IDisposable, IAppPushSender
             _store ??= _storeFactory();
             _pairing = new PairingService(_store);
             _server = new MobileApiServer(Feed, _store, _pairing, sync: PeerSync);
-            _push = new AppPushSender(_store, PushHttp, Environment.MachineName);
+            _push = new AppPushSender(_store, PushHttp, pcName: null);
             _server.TunnelEndpoint = Tunnel.Endpoint;
             var server = _server;
             var push = _push;

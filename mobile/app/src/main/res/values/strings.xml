@@ -31,6 +31,11 @@
     <string name="pc_providers">%1$d services</string>
     <string name="remove_pc">Remove</string>
     <string name="remove_confirm">Remove %1$s from this phone? To see it again, scan a new QR on the PC.</string>
+    <string name="rename_pc">Rename</string>
+    <string name="rename_pc_title">Name on this phone</string>
+    <string name="rename_pc_hint">Only this phone uses this name. Leave it empty to use the name the PC sends.</string>
+    <string name="pc_own_name">PC name: %1$s</string>
+    <string name="save">Save</string>
     <string name="pair_title">Add PC</string>
     <string name="pair_step1">On the PC: tray icon → Settings → Phone App → \"Connect phone… (show QR)\".</string>
     <string name="pair_step2">Scan the QR. The phone must be on the same Wi-Fi, have Tailscale on, or the PC must have \"Connect from anywhere (Cloudflare)\" on.</string>

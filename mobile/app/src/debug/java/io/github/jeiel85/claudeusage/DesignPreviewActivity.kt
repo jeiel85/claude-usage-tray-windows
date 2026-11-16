@@ -57,6 +57,7 @@ class DesignPreviewActivity : ComponentActivity() {
                         status,
                         onAdd = {},
                         onRemove = {},
+                        onRename = { _, _ -> },
                         onSettings = {},
                         onHistory = {},
                         initialPage = if (screen == "pcs") 1 else 0,
