@@ -87,15 +87,23 @@ GitHub 저장소 → Settings → Secrets and variables → Actions → **New re
 
 | | `github` | `play` |
 |---|---|---|
-| 배포 | GitHub Releases의 `ClaudeUsageTray-Mobile.apk` (태그 push → CI) | Google Play (`bundlePlayRelease` → `.aab`) |
+| 배포 | GitHub Releases의 `ClaudeUsageTray-Mobile.apk` (태그 push → CI) | Google Play. 태그 push → CI가 서명된 `ClaudeUsageTray-Mobile-play.aab`를 워크플로 산출물(`play-bundle`)로 남기고, Play Console 업로드는 사람이 합니다 |
 | 앱 안 업데이트 | 있음 (이 문서의 흐름, `update.json`) | 없음. Play가 업데이트 |
 | `REQUEST_INSTALL_PACKAGES`·`RECEIVE_BOOT_COMPLETED` | 있음 | 없음 |
-| 서명 키 | `cut` 키 (아래 "정식 서명 키") | 별도 Play 업로드 키 + Google 관리 앱 서명 키 (아직 미발급, #256) |
+| 서명 키 | `cut` 키 (아래 "정식 서명 키") | Play 업로드 키(아래) → Google이 자기가 보관하는 앱 서명 키로 다시 서명(Play App Signing) |
 
 - 업데이트 코드·권한·문구는 `mobile/app/src/github/`에만 있고, 공용 코드는 `update/AppUpdates`만 부릅니다. Play 쪽 `AppUpdates`(`src/play/`)는 아무것도 하지 않습니다. 실행 중에 설치 출처를 보고 끄는 방식은 쓰지 않습니다.
 - Play 정책은 Play 밖에서 스스로 업데이트하는 앱을 허용하지 않고, `REQUEST_INSTALL_PACKAGES`는 제한 권한입니다. 그래서 Play 빌드에는 업데이터가 아예 들어가지 않습니다.
 - **두 채널은 서로 덮어 설치할 수 없습니다.** 패키지명(`com.jeiel85.aiusage`)과 버전은 같지만 서명 키가 다르기 때문입니다. 채널을 바꾸려면 앱을 지우고 다른 채널로 다시 설치한 뒤 PC를 다시 연결해야 합니다(앱 데이터는 Android Keystore로 암호화돼 옮겨지지 않습니다).
-- 빌드 명령: GitHub `.\gradlew assembleGithubRelease`, Play `.\gradlew bundlePlayRelease`. 업로드 키가 없으면 Play 번들은 서명되지 않은 채 만들어집니다(업로드 불가).
+- 빌드 명령: GitHub `.\gradlew assembleGithubRelease`, Play `.\gradlew bundlePlayRelease`. 업로드 키 값이 없으면 Play 번들은 서명되지 않은 채 만들어집니다(업로드 불가). `-Pcut.requirePlaySigning=true`를 주면 그때 빌드가 실패합니다.
+
+### Play 업로드 키 (2026-11-16, v1.61.1)
+
+- `cut` 키와 다른 키입니다(채널마다 다른 키). PKCS12, 별칭 `upload`, RSA 4096, 유효 기간 100년, 저장소·키 비밀번호 동일(무작위 32자).
+- 인증서 SHA-256: `4C:65:B6:47:15:49:79:66:11:2C:FF:58:44:50:7A:5E:0C:EB:96:AF:7D:97:1E:E4:61:43:4E:62:A6:56:52:22`
+  (`keytool -printcert -jarfile ClaudeUsageTray-Mobile-play.aab`로 확인. Play Console의 "앱 무결성 → 업로드 키 인증서"와 같아야 합니다)
+- 키 파일과 비밀번호는 저장소 밖(관리자 PC의 `mobile/.keystore/cut-play-upload.jks`·`mobile/play-signing.properties`, git 제외)과 별도 백업에만 있습니다. CI는 시크릿 `CUT_PLAY_*` 4개를 씁니다.
+- Play App Signing에서는 업로드 키를 잃어도 Play Console에서 재설정을 요청할 수 있습니다(앱 서명 키는 Google이 보관). 그래도 백업을 지킵니다.
 
 ## 로컬에서 흐름 검증 (선택)
 

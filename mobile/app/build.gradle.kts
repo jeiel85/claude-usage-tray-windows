@@ -23,21 +23,25 @@ val debugManifestUrl = providers.gradleProperty("cut.updateManifestUrl").orElse(
 val debugAllowHttp = providers.gradleProperty("cut.updateAllowHttp").orElse("false").get()
 
 // --- Release signing --------------------------------------------------------------------------
-// Values come from CI secrets (environment) or a git-ignored release-signing.properties. Without
-// them the release build is unsigned and the release workflow skips the APK.
+// One key per distribution channel (#257). Values come from CI secrets (environment) or git-ignored files:
+//   CUT_RELEASE_* (release-signing.properties) — the GitHub APK's cut key
+//   CUT_PLAY_*    (play-signing.properties)    — the Google Play upload key
+// Without them that channel's release build is unsigned (the release workflow then attaches a debug-signed APK).
 val signingProps = Properties().apply {
-    rootProject.file("release-signing.properties").takeIf { it.exists() }?.inputStream()?.use(::load)
+    listOf("release-signing.properties", "play-signing.properties").forEach { name ->
+        rootProject.file(name).takeIf { it.exists() }?.inputStream()?.use(::load)
+    }
 }
 fun signing(name: String): String? = providers.environmentVariable(name).orNull ?: signingProps.getProperty(name)
-val storeFilePath = signing("CUT_RELEASE_STORE_FILE")
-val hasReleaseSigning = listOf(
-    storeFilePath,
-    signing("CUT_RELEASE_STORE_PASSWORD"),
-    signing("CUT_RELEASE_KEY_ALIAS"),
-    signing("CUT_RELEASE_KEY_PASSWORD"),
-).all { !it.isNullOrBlank() }
+fun hasSigning(prefix: String) =
+    listOf("STORE_FILE", "STORE_PASSWORD", "KEY_ALIAS", "KEY_PASSWORD").all { !signing("${prefix}_$it").isNullOrBlank() }
+val hasReleaseSigning = hasSigning("CUT_RELEASE")
+val hasPlaySigning = hasSigning("CUT_PLAY")
 if (providers.gradleProperty("cut.requireReleaseSigning").orNull == "true" && !hasReleaseSigning) {
     throw GradleException("Release signing values are missing (CUT_RELEASE_STORE_FILE/STORE_PASSWORD/KEY_ALIAS/KEY_PASSWORD).")
+}
+if (providers.gradleProperty("cut.requirePlaySigning").orNull == "true" && !hasPlaySigning) {
+    throw GradleException("Play upload key values are missing (CUT_PLAY_STORE_FILE/STORE_PASSWORD/KEY_ALIAS/KEY_PASSWORD).")
 }
 
 android {
@@ -57,10 +61,18 @@ android {
     signingConfigs {
         if (hasReleaseSigning) {
             create("release") {
-                storeFile = rootProject.file(storeFilePath!!)
+                storeFile = rootProject.file(signing("CUT_RELEASE_STORE_FILE")!!)
                 storePassword = signing("CUT_RELEASE_STORE_PASSWORD")
                 keyAlias = signing("CUT_RELEASE_KEY_ALIAS")
                 keyPassword = signing("CUT_RELEASE_KEY_PASSWORD")
+            }
+        }
+        if (hasPlaySigning) {
+            create("playUpload") {
+                storeFile = rootProject.file(signing("CUT_PLAY_STORE_FILE")!!)
+                storePassword = signing("CUT_PLAY_STORE_PASSWORD")
+                keyAlias = signing("CUT_PLAY_KEY_ALIAS")
+                keyPassword = signing("CUT_PLAY_KEY_PASSWORD")
             }
         }
     }
@@ -69,8 +81,8 @@ android {
     // github: the standalone APK on GitHub Releases, with the in-app updater (src/github: code, permissions,
     //         update.json), signed with the cut key above.
     // play:   the Google Play bundle. Play installs updates and its policy forbids self-updating, so no updater.
-    //         Signed with a separate Play upload key, not the cut key (one key per channel); none is set up yet,
-    //         so the Play release bundle is unsigned for now.
+    //         Signed with the Play upload key, not the cut key (one key per channel); Google re-signs it with
+    //         the app signing key it keeps (Play App Signing).
     // Same applicationId and versionCode; the signatures differ, so one channel cannot update the other.
     flavorDimensions += "channel"
     productFlavors {
@@ -83,6 +95,7 @@ android {
         }
         create("play") {
             dimension = "channel"
+            if (hasPlaySigning) signingConfig = signingConfigs.getByName("playUpload")
         }
     }
 
