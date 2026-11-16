@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.63.0] - 2026-11-16
+
+<!-- ko -->
+### 추가
+- **휴대폰 앱: 샘플 데이터로 둘러보기 (#261)** — PC를 연결하기 전에도 앱이 무엇을 보여 주는지 볼 수 있습니다. 첫 화면의 **샘플 데이터로 둘러보기**를 누르면 계정·PC 화면을 예시 PC 3대의 사용량으로 보여 줍니다. 위쪽 안내에서 **끝내기**를 누르거나 뒤로 가기를 하면 돌아오고, PC를 추가하면 샘플은 사라집니다. 샘플은 화면에만 보이며 PC·네트워크·알림 기록에는 아무것도 남기지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Phone app: Try with sample data (#261)** — see what the app shows before pairing a PC. **Try with sample data** on the first screen fills the Accounts and PCs tabs with three example PCs. **End** in the banner (or Back) returns, and adding a PC replaces the sample. The sample is only shown on screen; nothing is stored, sent or added to the alert history.
+<!-- /en -->
+
 ## [1.62.0] - 2026-11-16
 
 <!-- ko -->

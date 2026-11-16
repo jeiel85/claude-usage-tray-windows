@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Google Play feature graphic (1024x500). Same palette and bar motif as the launcher icon (icon.svg). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <rect width="1024" height="500" fill="#0F1117"/>
+  <!-- three usage bars, the icon's motif at large scale -->
+  <g transform="translate(96,150)">
+    <rect x="0" y="0" width="300" height="44" rx="6" fill="#2D2F45"/>
+    <rect x="0" y="0" width="210" height="44" rx="6" fill="#8B5CF6"/>
+    <rect x="0" y="78" width="300" height="44" rx="6" fill="#2D2F45"/>
+    <rect x="0" y="78" width="120" height="44" rx="6" fill="#A78BFA"/>
+    <rect x="0" y="156" width="300" height="44" rx="6" fill="#2D2F45"/>
+    <rect x="0" y="156" width="270" height="44" rx="6" fill="#F59E0B"/>
+  </g>
+  <g font-family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif" fill="#F3F4F6">
+    <text x="470" y="232" font-size="68" font-weight="700">AI 사용량</text>
+    <text x="472" y="292" font-size="30" fill="#C4C6D4">PC의 AI 사용량·한도 알림을</text>
+    <text x="472" y="334" font-size="30" fill="#C4C6D4">휴대폰에서 바로</text>
+  </g>
+</svg>

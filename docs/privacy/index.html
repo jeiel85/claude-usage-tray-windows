@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>AI 사용량 — 개인정보처리방침 / Privacy Policy</title>
+  <!-- Privacy policy for the Android app "AI 사용량" (com.jeiel85.aiusage), linked from Google Play (#256).
+       Keep it in step with mobile/store/play-listing.md "데이터 보안". No external resources. -->
+  <style>
+    :root { --bg:#0F1117; --card:#1A1D2E; --line:#2D2F45; --text:#F1F5F9; --soft:#A9AFC8; --accent:#A78BFA; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font: 15px/1.7 system-ui, -apple-system, "Segoe UI", "Noto Sans KR", sans-serif; }
+    main { max-width: 720px; margin: 0 auto; padding: 32px 16px 48px; }
+    h1 { font-size: 24px; margin-bottom: 4px; }
+    h2 { font-size: 18px; margin: 28px 0 8px; }
+    p, li { color: var(--soft); }
+    p { margin-bottom: 10px; }
+    ul { padding-left: 20px; margin-bottom: 10px; }
+    li { margin-bottom: 4px; }
+    a { color: var(--accent); }
+    .meta { font-size: 13px; color: var(--soft); margin-bottom: 20px; }
+    section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 14px; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--text); font-weight: 600; }
+    td { color: var(--soft); }
+  </style>
+</head>
+<body>
+<main>
+  <h1>개인정보처리방침 · Privacy Policy</h1>
+  <p class="meta">Android 앱 "AI 사용량" (<code>com.jeiel85.aiusage</code>) · 시행일 / Effective: 2026-11-16</p>
+
+  <section lang="ko">
+    <h2>요약</h2>
+    <ul>
+      <li>개발자 서버가 없습니다. 개발자는 이 앱을 통해 어떤 개인정보도 받지 않습니다.</li>
+      <li>앱은 사용자가 QR로 직접 연결한 사용자 본인의 PC(Windows 트레이 앱 "Claude Usage Tray")와만 통신합니다.</li>
+      <li>광고, 분석 도구, 사용 기록 추적이 없습니다.</li>
+    </ul>
+
+    <h2>휴대폰에서 기기 밖으로 보내는 정보</h2>
+    <table>
+      <tr><th>정보</th><th>받는 곳</th><th>목적</th></tr>
+      <tr><td>기기 이름·모델</td><td>사용자가 연결한 PC</td><td>PC의 '연결된 휴대폰' 목록 표시 (연결할 때 1회)</td></tr>
+      <tr><td>푸시 구독 정보(엔드포인트 주소, 공개 키, 인증 비밀값)</td><td>사용자가 연결한 PC</td><td>PC가 알림을 암호화해 보내기 위해</td></tr>
+      <tr><td>받을 알림 종류 설정</td><td>사용자가 연결한 PC</td><td>끈 종류의 알림을 보내지 않기 위해</td></tr>
+    </table>
+    <p>통신은 암호화됩니다: 같은 Wi-Fi에서는 PC 인증서를 고정한 TLS, Tailscale에서는 WireGuard, PC에서 켠 Cloudflare Tunnel에서는 TLS.</p>
+
+    <h2>휴대폰이 받는 정보</h2>
+    <p>연결한 PC가 이미 확인한 AI 서비스 사용량(한도 사용률, 초기화 시각, 오늘 토큰 수)을 받아 화면에 보여 줍니다. 계정 이메일이나 ID는 받지 않으며, 계정 구분에는 해시 값만 씁니다.</p>
+    <p>알림은 PC에서 종단 간 암호화(RFC 8291)되어 사용자가 고른 푸시 앱(ntfy 등 UnifiedPush 앱)과 그 중계 서버를 거쳐 옵니다. 중계 서버는 암호문만 볼 수 있습니다. 푸시 앱과 중계 서버의 정보 처리는 해당 서비스의 방침을 따릅니다.</p>
+
+    <h2>휴대폰에만 저장하는 정보</h2>
+    <ul>
+      <li>연결한 PC 목록과 접속 정보(접속 토큰은 Android Keystore로 암호화)</li>
+      <li>받은 알림 기록(최근 30일, 최대 200건), 앱 설정</li>
+      <li>QR 스캔용 카메라 영상은 기기 안에서만 처리하며 저장하거나 보내지 않습니다.</li>
+    </ul>
+    <p>앱 데이터는 Android 백업에 포함되지 않습니다. 앱을 삭제하면 함께 지워집니다.</p>
+
+    <h2>삭제</h2>
+    <p>PC 앱의 '연결된 휴대폰'에서 이 휴대폰의 연결을 해제하면 PC에 저장된 기기 이름·모델과 푸시 구독이 지워집니다. 앱에서 PC를 삭제하면 휴대폰의 연결 정보가 지워지고, 그 PC에 저장된 푸시 구독도 삭제를 요청합니다(PC에 닿을 때). 개발자가 보관하는 정보는 없습니다.</p>
+
+    <h2>문의</h2>
+    <p><a href="https://github.com/jeiel85/claude-usage-tray-windows/issues">GitHub 이슈</a>로 문의해 주세요. 이 방침이 바뀌면 이 페이지를 고치고 시행일을 갱신합니다.</p>
+  </section>
+
+  <section lang="en">
+    <h2>Summary</h2>
+    <ul>
+      <li>There is no developer server. The developer receives no personal data through this app.</li>
+      <li>The app talks only to the user's own PCs that the user paired by QR (the Windows tray app "Claude Usage Tray").</li>
+      <li>No ads, analytics or usage tracking.</li>
+    </ul>
+
+    <h2>What the phone sends off the device</h2>
+    <table>
+      <tr><th>Data</th><th>Sent to</th><th>Purpose</th></tr>
+      <tr><td>Device name and model</td><td>The user's paired PC</td><td>Shown in the PC's list of connected phones (once, when pairing)</td></tr>
+      <tr><td>Push subscription (endpoint URL, public key, auth secret)</td><td>The user's paired PC</td><td>Lets the PC encrypt and send alerts</td></tr>
+      <tr><td>Which alert types to receive</td><td>The user's paired PC</td><td>So the PC skips alert types the user turned off</td></tr>
+    </table>
+    <p>Traffic is encrypted: TLS with the PC's certificate pinned on the same Wi-Fi, WireGuard over Tailscale, and TLS through a Cloudflare Tunnel the user turned on on the PC.</p>
+
+    <h2>What the phone receives</h2>
+    <p>AI service usage the paired PC already checked (limit usage, reset times, today's tokens), shown on screen. No account email or ID is received; accounts are told apart by hash values only.</p>
+    <p>Alerts are end-to-end encrypted on the PC (RFC 8291) and delivered through the push app the user chose (a UnifiedPush app such as ntfy) and its relay server, which sees only ciphertext. The push app and relay handle data under their own policies.</p>
+
+    <h2>Stored only on the phone</h2>
+    <ul>
+      <li>Paired PCs and how to reach them (access tokens encrypted with Android Keystore)</li>
+      <li>Received alert history (last 30 days, up to 200 alerts) and app settings</li>
+      <li>Camera frames for QR scanning are processed on the device only, never stored or sent.</li>
+    </ul>
+    <p>App data is excluded from Android backup and removed when the app is uninstalled.</p>
+
+    <h2>Deletion</h2>
+    <p>Disconnecting this phone under Connected phones in the PC app deletes its device name, model and push subscription from that PC. Removing a PC in the app deletes the connection from the phone and asks that PC to delete the push subscription (when it can reach the PC). The developer holds no data.</p>
+
+    <h2>Contact</h2>
+    <p>Please use <a href="https://github.com/jeiel85/claude-usage-tray-windows/issues">GitHub issues</a>. If this policy changes, this page is updated along with its effective date.</p>
+  </section>
+</main>
+</body>
+</html>

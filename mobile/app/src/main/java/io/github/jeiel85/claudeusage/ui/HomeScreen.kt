@@ -103,6 +103,11 @@ fun HomeScreen(
     onSettings: () -> Unit,
     onHistory: () -> Unit,
     initialPage: Int = 0,
+    /** Showing [io.github.jeiel85.claudeusage.domain.SampleData] instead of paired PCs (#261): a banner says so and offers [onEndSample]. */
+    sample: Boolean = false,
+    /** Empty screen's "Try with sample data"; null hides the button. */
+    onTrySample: (() -> Unit)? = null,
+    onEndSample: () -> Unit = {},
 ) {
     // rememberPagerState is saveable: the open tab survives rotation and process death like before.
     val pager = rememberPagerState(initialPage = initialPage, pageCount = { TAB_COUNT })
@@ -144,8 +149,9 @@ fun HomeScreen(
         AppUpdates.Banner(Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
         // Old package still installed (#254): it would double every alert and never update into this app.
         LegacyAppNotice(Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+        if (sample) SampleBanner(onEndSample, Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
         if (pcs.isEmpty()) {
-            EmptyState(onAdd)
+            EmptyState(onAdd, onTrySample)
             return@Column
         }
         SegmentedTabs(
@@ -213,8 +219,30 @@ private fun resetText(resetAtMs: Long, now: Long): String {
     return stringResource(R.string.reset_at, DateUtils.formatDateTime(context, resetAtMs, flags))
 }
 
+/** Sample mode (#261): the cards below are made up, not the user's PCs. */
 @Composable
-private fun EmptyState(onAdd: () -> Unit) {
+private fun SampleBanner(onEnd: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Palette.Warn.copy(alpha = 0.18f))
+            .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            stringResource(R.string.sample_banner),
+            color = Palette.Text,
+            fontSize = 12.sp,
+            lineHeight = 17.sp,
+            modifier = Modifier.weight(1f).padding(vertical = 8.dp),
+        )
+        TextButton(onClick = onEnd) { Text(stringResource(R.string.sample_end)) }
+    }
+}
+
+@Composable
+private fun EmptyState(onAdd: () -> Unit, onTrySample: (() -> Unit)?) {
     Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier.size(64.dp).clip(RoundedCornerShape(20.dp)).background(Palette.Accent.copy(alpha = 0.16f)),
@@ -228,6 +256,10 @@ private fun EmptyState(onAdd: () -> Unit) {
         Text(stringResource(R.string.empty_body), color = Palette.TextSoft, fontSize = 14.sp, lineHeight = 20.sp, textAlign = TextAlign.Center)
         Spacer(Modifier.height(24.dp))
         Button(onClick = onAdd, modifier = Modifier.height(48.dp)) { Text(stringResource(R.string.add_pc), fontSize = 15.sp) }
+        if (onTrySample != null) {
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = onTrySample) { Text(stringResource(R.string.sample_try), fontSize = 14.sp) }
+        }
     }
 }
 

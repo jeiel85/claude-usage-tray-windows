@@ -11,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.toArgb
@@ -21,6 +22,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import io.github.jeiel85.claudeusage.data.AppPrefs
 import io.github.jeiel85.claudeusage.data.PcStore
 import io.github.jeiel85.claudeusage.domain.LiveHub
+import io.github.jeiel85.claudeusage.domain.SampleData
 import io.github.jeiel85.claudeusage.net.NetworkProbe
 import io.github.jeiel85.claudeusage.net.PairingLink
 import io.github.jeiel85.claudeusage.net.UsageApi
@@ -83,6 +85,9 @@ class MainActivity : ComponentActivity() {
             AppTheme {
                 val status by hub.status.collectAsStateWithLifecycle()
                 var pairing by rememberSaveable { mutableStateOf(false) }
+                // "Try with sample data" (#261). Out here, not in the home branch, so opening Settings or the
+                // notification center and coming back keeps the sample on (Codex review on #263).
+                var sample by rememberSaveable { mutableStateOf(false) }
                 // Settings → Display → keep the screen on while the app is visible (#230). The window flag only
                 // applies while this activity is in front, so it never keeps the phone awake in the background.
                 val keepOn = AppPrefs.keepScreenOn
@@ -117,12 +122,25 @@ class MainActivity : ComponentActivity() {
                 } else if (settingsOpen) {
                     SettingsScreen(store, api, onBack = { settingsOpen = false })
                 } else {
+                    // Sample mode: made-up PCs on the home screen until the user ends it or pairs a real PC. Only
+                    // rendered — nothing is stored, sent or added to the notification history.
+                    val showSample = sample && status.isEmpty()
+                    val sampleStatus = remember(showSample) {
+                        if (showSample) SampleData.status(System.currentTimeMillis()) else emptyMap()
+                    }
+                    BackHandler(enabled = showSample) { sample = false }
                     HomeScreen(
-                        status,
-                        onAdd = { pairing = true },
-                        onRemove = { pcId -> removePc(store, api, pcId) },
+                        if (showSample) sampleStatus else status,
+                        onAdd = {
+                            sample = false
+                            pairing = true
+                        },
+                        onRemove = { pcId -> if (!showSample) removePc(store, api, pcId) },
                         onSettings = { settingsOpen = true },
                         onHistory = { historyOpen = true },
+                        sample = showSample,
+                        onTrySample = { sample = true },
+                        onEndSample = { sample = false },
                     )
                 }
             }

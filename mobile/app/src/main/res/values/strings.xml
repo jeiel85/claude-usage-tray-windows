@@ -79,6 +79,10 @@
     <string name="legacy_app_title">Old version of the app is still installed</string>
     <string name="legacy_app_body">This app replaces it, but cannot update it or take over its data. With both paired, every alert arrives twice. Pair your PCs here, then remove the old app.</string>
     <string name="legacy_app_remove">Remove old app</string>
+    <!-- Sample data on the empty home screen (#261) -->
+    <string name="sample_try">Try with sample data</string>
+    <string name="sample_banner">Sample data, not your PCs. Add a PC to see your real usage.</string>
+    <string name="sample_end">End</string>
     <string name="update_dialog_close">Close</string>
 
     <!-- Settings screen (#230) -->
