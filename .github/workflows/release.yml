@@ -57,7 +57,7 @@ jobs:
             SHA256.txt
 
   # 휴대폰 앱(mobile/, #220). 서명 키 시크릿이 있으면 정식 서명 APK, 없으면 디버그 서명 APK 를 올린다.
-  # GitHub 채널(github flavor, 앱 내 업데이트 포함)만 만든다. Play 채널 AAB 는 cut 키가 아닌 별도 업로드 키로 서명해야 해서 여기서 만들지 않는다(#257, #256).
+  # GitHub 채널(github flavor, 앱 내 업데이트 포함)만 만든다. Play 채널 AAB 는 아래 build-aab 가 Play 업로드 키로 만든다(#257).
   # 시크릿: CUT_RELEASE_KEYSTORE_BASE64, CUT_RELEASE_STORE_PASSWORD, CUT_RELEASE_KEY_ALIAS, CUT_RELEASE_KEY_PASSWORD
   build-apk:
     runs-on: ubuntu-latest
@@ -152,6 +152,60 @@ jobs:
           path: |
             ClaudeUsageTray-Mobile.apk
             update.json
+
+  # Google Play 채널(play flavor, 앱 내 업데이트 없음)의 AAB(#257). cut 키가 아닌 Play 업로드 키로 서명한다(채널마다 다른 키).
+  # AAB 는 휴대폰에 바로 설치할 수 없는 Play 업로드용이라 GitHub Release 에 붙이지 않고 워크플로 산출물로만 남긴다 —
+  # Play Console 에 올리는 것은 사람이 한다. 시크릿이 없으면 건너뛴다(GitHub 릴리스는 이 작업을 기다리지 않는다).
+  # 시크릿: CUT_PLAY_KEYSTORE_BASE64, CUT_PLAY_STORE_PASSWORD, CUT_PLAY_KEY_ALIAS, CUT_PLAY_KEY_PASSWORD
+  build-aab:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Play signing secrets
+        id: signing
+        shell: bash
+        env:
+          KEYSTORE: ${{ secrets.CUT_PLAY_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE" ]; then echo "enabled=true" >> $GITHUB_OUTPUT; else
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "::warning::CUT_PLAY_KEYSTORE_BASE64 is not set — no Play bundle for this release."
+          fi
+
+      - name: Checkout
+        if: steps.signing.outputs.enabled == 'true'
+        uses: actions/checkout@v5
+
+      - name: Setup Java
+        if: steps.signing.outputs.enabled == 'true'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Build signed Play bundle
+        if: steps.signing.outputs.enabled == 'true'
+        shell: bash
+        working-directory: mobile
+        env:
+          KEYSTORE: ${{ secrets.CUT_PLAY_KEYSTORE_BASE64 }}
+          CUT_PLAY_STORE_PASSWORD: ${{ secrets.CUT_PLAY_STORE_PASSWORD }}
+          CUT_PLAY_KEY_ALIAS: ${{ secrets.CUT_PLAY_KEY_ALIAS }}
+          CUT_PLAY_KEY_PASSWORD: ${{ secrets.CUT_PLAY_KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE" | base64 -d > play-upload.jks
+          export CUT_PLAY_STORE_FILE=play-upload.jks
+          chmod +x gradlew
+          ./gradlew --no-daemon testPlayReleaseUnitTest bundlePlayRelease -Pcut.version=${GITHUB_REF_NAME#v} -Pcut.requirePlaySigning=true
+          cp app/build/outputs/bundle/playRelease/app-play-release.aab ../ClaudeUsageTray-Mobile-play.aab
+          rm -f play-upload.jks
+          keytool -printcert -jarfile ../ClaudeUsageTray-Mobile-play.aab | grep -E "Owner:|SHA256:"
+
+      - name: Upload Play bundle
+        if: steps.signing.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: play-bundle
+          path: ClaudeUsageTray-Mobile-play.aab
 
   release:
     needs: [build-fd, build-apk]

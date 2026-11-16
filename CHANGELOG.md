@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.61.1] - 2026-11-16
+
+<!-- ko -->
+### 내부
+- **Google Play용 빌드에 업로드 키 서명을 붙였습니다 (#256)** — Play 빌드는 GitHub 빌드와 다른 키(Play 업로드 키)로 서명됩니다. 릴리스마다 서명된 Play 번들도 함께 만들어집니다(Play Console 업로드용, GitHub 릴리스에는 붙지 않음). 앱 기능과 GitHub APK는 바뀐 점이 없습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Internal
+- **The Google Play build is now signed with its upload key (#256)** — a different key from the GitHub build's. Each release also produces a signed Play bundle (for Play Console upload; not attached to the GitHub release). No app changes; the GitHub APK is unchanged.
+<!-- /en -->
+
 ## [1.61.0] - 2026-11-16
 
 <!-- ko -->
