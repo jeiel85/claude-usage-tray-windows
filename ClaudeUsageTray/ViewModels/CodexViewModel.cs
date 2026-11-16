@@ -95,7 +95,7 @@ public partial class CodexViewModel : ObservableObject
                     // 추정 리셋은 PC 마다 달라(로그의 첫 활동 시각 기준) 같은 창을 가르는 근거가 못 된다.
                     var windowResetAt = snapshot.IsShortResetEstimated ? null : snapshot.ShortResetAt;
                     foreach (var t in alerts.CrossedThresholds)
-                        showUsageAlert(t, Loc.Usage, Reset, ntfyTopic, windowResetAt);
+                        showUsageAlert(t, Loc.AlertWindowUsage, Reset, ntfyTopic, windowResetAt);
                 }
 
                 Percent = newPercent;

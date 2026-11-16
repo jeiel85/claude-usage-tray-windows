@@ -28,7 +28,7 @@ public interface IAppPushSender
 
     Task<AppPushResult> SendAsync(
         string category, string title, string? body, int ntfyPriority, string? eventKey, TimeSpan eventTolerance,
-        string? clickUrl, CancellationToken ct = default);
+        string? clickUrl, PushAccount? account = null, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -121,9 +121,17 @@ public sealed class AppPushSender
         return delivered;
     }
 
+    /// <summary>
+    /// 계정이 있으면 사용량 피드와 같은 규칙(<see cref="MobileAccountHash.For"/>)으로 해시한다 — 계정 키를 모르면
+    /// 이 PC 의 pcId 를 섞은 "device" 해시가 되어, 피드에서 이 PC 만의 카드와 같은 값이 된다.
+    /// </summary>
     public PushMessage Build(string category, string title, string? body, int ntfyPriority, string? eventKey,
-        TimeSpan eventTolerance, string? clickUrl) =>
-        new(MobileProtocol.Schema,
+        TimeSpan eventTolerance, string? clickUrl, PushAccount? account = null)
+    {
+        var provider = account?.Provider.Trim().ToLowerInvariant();
+        var hash = string.IsNullOrEmpty(provider) ? null : MobileAccountHash.For(provider, account!.AccountKey, _devices.PcId).Hash;
+        var label = account?.Label?.Trim();
+        return new(MobileProtocol.Schema,
             Guid.NewGuid().ToString("N"),
             _devices.PcId,
             _pcName,
@@ -134,7 +142,11 @@ public sealed class AppPushSender
             eventKey,
             (int)Math.Max(0, eventTolerance.TotalSeconds),
             clickUrl,
-            _time.GetUtcNow());
+            _time.GetUtcNow(),
+            string.IsNullOrEmpty(provider) ? null : provider,
+            hash,
+            string.IsNullOrEmpty(hash) || string.IsNullOrEmpty(label) ? null : label);
+    }
 
     private async Task<bool> SendOneAsync(PushTarget target, byte[] plaintext, string urgency, CancellationToken ct)
     {

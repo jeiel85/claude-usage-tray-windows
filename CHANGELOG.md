@@ -3,6 +3,26 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.62.0] - 2026-11-16
+
+<!-- ko -->
+### 개선
+- **휴대폰 알림이 PC 대신 계정으로 구분됩니다 (#262)** — 알림 위의 작은 글씨가 보낸 PC 이름이 아니라 그 알림의 계정 이름(예: `김민준 · Acme Corp`)으로 바뀌고, 알림 색이 서비스 색(Claude 주황, Codex 초록)으로 칠해집니다. 알림센터에도 계정 이름이 보입니다. 계정 정보는 암호화된 앱 푸시에만 실리고 ntfy 토픽에는 보내지 않습니다. Codex는 표시할 이름이 이메일뿐이라 지금처럼 PC 이름이 보입니다.
+- **알림 문구를 다시 썼습니다 (#262)** — 제목만 봐도 무엇이 몇 %인지 알 수 있게 `Claude 90% · 5시간 한도`처럼 바꾸고, 본문에는 `15:30 초기화 · 3h 12m 남음`처럼 초기화 시각을 적습니다(Windows 알림·ntfy·휴대폰 공통, 4개 언어).
+
+### 수정
+- 사용량 알림 본문에 점이 두 번 찍히던 문제(`· · 3h 12m 후 초기화`)와 조기 소진 알림 본문이 `(원래 초기화:  · 3h 후 초기화)`로 깨지던 문제를 고쳤습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Phone alerts now name the account, not the PC (#262)** — the small text above an alert is the account it is about (e.g. `Jane Doe · Acme Corp`) instead of the PC that sent it, and alerts are tinted with the service's color (Claude orange, Codex green). The notification center shows the account too. The account travels only in the encrypted app push, never the ntfy topic. Codex has no display name other than an email, so Codex alerts still show the PC.
+- **Rewritten alert text (#262)** — titles say what and how much at a glance (`Claude 90% · 5h limit`) and the body gives the reset time (`Resets at 15:30 · 3h 12m left`). Applies to Windows notifications, ntfy and the phone, in all four languages.
+
+### Fixed
+- Usage alerts printed a doubled separator (`· · resets 3h 12m`), and the early-exhaustion body was garbled (`(original reset:  · resets 3h)`).
+<!-- /en -->
+
 ## [1.61.1] - 2026-11-16
 
 <!-- ko -->

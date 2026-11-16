@@ -71,9 +71,19 @@ public static class PushPriority
 }
 
 /// <summary>
+/// 알림이 어느 계정의 일인지(#262). 휴대폰은 PC 이름 대신 이 계정으로 알림을 구분한다.
+/// <c>AccountKey</c> 는 휴대폰 사용량 피드와 같은 원시 키(Claude <c>orgUuid|accountUuid</c>, Codex <c>account_id|user_id</c>) —
+/// 밖으로는 <see cref="MobileAccountHash"/> 해시로만 나간다. <c>Label</c> 은 피드의 <c>accountLabel</c> 과 같은 표시 이름(이메일·UUID 없음).
+/// </summary>
+public sealed record PushAccount(string Provider, string? AccountKey, string? Label);
+
+/// <summary>
 /// 복호화된 푸시 내용(UTF-8 JSON, 픽스처 <c>push-message.v1.json</c>).
 /// <c>EventKey</c>·<c>EventToleranceSec</c> 는 기존 ntfy 의 <c>sequence_id</c> 중복 방지(#175)를 앱으로 옮긴 것이다 —
 /// 같은 계정을 보는 여러 PC 가 같은 사건을 각자 보내도 휴대폰은 하나만 띄운다.
+/// <c>Provider</c>·<c>AccountHash</c>·<c>AccountLabel</c>(#262)은 계정에 딸린 알림에만 붙는다(날씨·테스트는 없음).
+/// 해시는 사용량 피드의 <c>providers[].accountHash</c> 와 같은 값이라 휴대폰이 계정 카드와 맞춰 볼 수 있다.
+/// 뒤에 붙인 선택 필드라 예전 앱은 무시하고, 예전 PC 의 알림에는 없다.
 /// </summary>
 public sealed record PushMessage(
     int Schema,
@@ -87,7 +97,10 @@ public sealed record PushMessage(
     string? EventKey,
     int EventToleranceSec,
     string? ClickUrl,
-    DateTimeOffset Ts);
+    DateTimeOffset Ts,
+    string? Provider = null,
+    string? AccountHash = null,
+    string? AccountLabel = null);
 
 /// <summary>경로 갱신 푸시의 서명된 본문(<c>data</c> 의 base64url 을 풀면 이 JSON).</summary>
 public sealed record PushEndpointsData(int Schema, string PcId, DateTimeOffset Ts, IReadOnlyList<MobileEndpoint> Endpoints);

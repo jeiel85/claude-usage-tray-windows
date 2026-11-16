@@ -1,4 +1,4 @@
-# 휴대폰 앱 연동·PC 동기화 프로토콜 v1 (#220·#222·#223·#225)
+# 휴대폰 앱 연동·PC 동기화 프로토콜 v1 (#220·#222·#223·#225·#262)
 
 휴대폰 앱(`mobile/`)과 각 PC의 트레이 앱 사이 계약입니다. 구조는 [Homebase](https://github.com/jeiel85/homebase)의
 Mobile Protocol v1(`docs/MOBILE_PROTOCOL.md`, DECISIONS M-1~M-25)을 따릅니다. 형식은 [`mobile-protocol/`](mobile-protocol/)의
@@ -122,6 +122,10 @@ QR로 PC를 연결하면 알림도 함께 연결됩니다. 토픽 이름을 정�
 | `eventKey`, `eventToleranceSec` | 사건 키(예전 ntfy `sequence_id`, #175). 여러 PC가 같은 사건을 보내면 앱이 한 번만 띄움 — 접두사가 같고 시각 차가 허용 오차(+59초) 안이면 같은 사건 |
 | `clickUrl` | 날씨 알림의 예보 링크(https만) |
 | `ts` | 생성 시각 |
+| `provider`, `accountHash`, `accountLabel` | 어느 계정의 알림인지(#262). 사용량 피드의 `providers[].provider`·`accountHash`·`accountLabel`과 같은 값(계정 키를 모르면 `device` 해시). 날씨·테스트 알림과 예전 PC에는 없음. `accountLabel`은 Claude만(Codex는 표시 이름이 이메일뿐이라 보내지 않음) |
+
+앱은 알림 보조 문구와 알림센터에 `accountLabel`을, 없으면 `pcName`을 보입니다 — 같은 계정을 여러 PC가 보면 중복 제거 뒤 남는 PC 이름은 먼저 도착한 쪽일 뿐이라 계정이 더 정확합니다. `provider`가 있으면 알림 강조색을 그 서비스 색으로 칠합니다.
+계정 필드는 종단 암호화되는 앱 푸시에만 싣고, 평문 ntfy 토픽에는 넣지 않습니다.
 
 두 구현이 맞는지는 [`push-message.v1.aes128gcm.txt`](mobile-protocol/push-message.v1.aes128gcm.txt)로 확인합니다. .NET이 RFC 8291 부록 A의 서버 키·salt로 위 메시지를 암호화하고, Kotlin 테스트가 부록 A의 휴대폰 키로 복호화합니다.
 
