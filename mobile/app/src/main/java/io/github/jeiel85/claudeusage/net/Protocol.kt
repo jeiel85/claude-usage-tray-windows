@@ -2,6 +2,7 @@ package io.github.jeiel85.claudeusage.net
 
 import org.json.JSONArray
 import org.json.JSONObject
+import java.time.Duration
 import java.time.OffsetDateTime
 import java.time.format.DateTimeParseException
 
@@ -79,6 +80,18 @@ data class Gauge(
      */
     fun effective(nowMs: Long): Gauge =
         if (resetAtMs != null && resetAtMs <= nowMs) copy(usage = 0.0, resetAtMs = null) else this
+
+    /**
+     * How far [nowMs] is into this window, 0..1 — where the tray draws its time-line marker
+     * (`UsageCalculator.TimeProgress`). Null when the window length is unknown or now falls outside the
+     * window: a marker at the wrong place reads as a wrong pace, so none is drawn rather than a guessed one.
+     */
+    fun timeProgress(nowMs: Long): Double? {
+        val reset = resetAtMs ?: return null
+        val minutes = windowMinutes?.takeIf { it > 0 } ?: return null
+        val elapsed = 1.0 - (reset - nowMs) / (minutes * 60_000.0)
+        return elapsed.takeIf { it in 0.0..1.0 }
+    }
 }
 
 /** Account-level quota (same meaning as the PC's `UsageSyncQuotaSnapshot`). */
@@ -90,8 +103,39 @@ data class Quota(
     val extraCreditsLabel: String,
 ) {
     companion object {
-        private const val CLAUDE_SHORT_MINUTES = 300
-        private const val CLAUDE_LONG_MINUTES = 7 * 24 * 60
+        private const val SHORT_MINUTES = 300
+        private const val WEEK_MINUTES = 7 * 24 * 60
+        private const val CLAUDE_SHORT_MINUTES = SHORT_MINUTES
+        private const val CLAUDE_LONG_MINUTES = WEEK_MINUTES
+
+        /**
+         * Antigravity names its window ("weekly", "5h") instead of giving its length. Snapshots from PCs that
+         * didn't send the name still carry it as the bucket id's tail ("gemini-weekly") — the PC's
+         * `AntigravityViewModel.ResolveWindowLength` reads it the same way. Anything else: unknown, no marker.
+         */
+        internal fun antigravityWindowMinutes(window: String?, modelId: String): Int? {
+            val kind = window ?: modelId.substringAfterLast('-', "")
+            return when (kind.lowercase()) {
+                "weekly" -> WEEK_MINUTES
+                "5h" -> SHORT_MINUTES
+                else -> null
+            }
+        }
+
+        /**
+         * OpenCode's monthly window runs from one calendar month before its reset to the reset, so its length
+         * is 28–31 days — the PC's `OpenCodeViewModel.CalculateTimeProgress` (`ResetAt.AddMonths(-1)`).
+         * Uses the reset's own offset, as the PC does.
+         */
+        private fun monthMinutesBefore(o: JSONObject, key: String): Int? {
+            if (o.isNull(key)) return null
+            return try {
+                val reset = OffsetDateTime.parse(o.optString(key))
+                Duration.between(reset.minusMonths(1), reset).toMinutes().toInt()
+            } catch (_: DateTimeParseException) {
+                null
+            }
+        }
 
         fun parse(o: JSONObject?, provider: String): Quota? {
             if (o == null) return null
@@ -110,7 +154,12 @@ data class Quota(
                 openCode != null -> {
                     for (key in listOf("rolling", "weekly", "monthly")) {
                         val w = openCode.optJSONObject(key) ?: continue
-                        gauges += Gauge(GaugeKind.NAMED, key, fraction(w, "usagePercent"), time(w, "resetAt"), null)
+                        val minutes = when (key) {
+                            "rolling" -> SHORT_MINUTES
+                            "weekly" -> WEEK_MINUTES
+                            else -> monthMinutesBefore(w, "resetAt")
+                        }
+                        gauges += Gauge(GaugeKind.NAMED, key, fraction(w, "usagePercent"), time(w, "resetAt"), minutes)
                     }
                 }
                 models.isNotEmpty() -> {
@@ -119,7 +168,10 @@ data class Quota(
                             .firstOrNull { it.isNotBlank() } ?: continue
                         val window = m.optString("window").takeIf { it.isNotBlank() }
                         val label = if (window != null) "$name · $window" else name
-                        gauges += Gauge(GaugeKind.NAMED, label, 1.0 - fraction(m, "remainingFraction"), time(m, "resetAt"), null)
+                        gauges += Gauge(
+                            GaugeKind.NAMED, label, 1.0 - fraction(m, "remainingFraction"), time(m, "resetAt"),
+                            antigravityWindowMinutes(window, m.optString("modelId")),
+                        )
                     }
                 }
                 else -> {

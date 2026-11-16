@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.64.0] - 2026-11-16
+
+<!-- ko -->
+### 추가
+- **휴대폰 앱 게이지에도 시간선이 보입니다 (#269)** — PC 팝업처럼 각 게이지에 이번 창이 얼마나 흘렀는지 알려 주는 흰 세로 마커를 그립니다. 막대가 마커보다 앞서 있으면 이번 창을 평소보다 빨리 쓰고 있다는 뜻입니다. 5시간·주간 창과 추가 한도는 PC가 보내는 창 길이로, OpenCode는 롤링 5시간·주간 7일·월간(초기화 한 달 전부터)으로, Antigravity는 창 종류(주간·5시간)로 위치를 잡습니다. 창 길이를 모르거나 이미 초기화된 창에는 위치를 지어내지 않고 마커를 그리지 않습니다. PC 쪽 변경은 없어 예전 PC와도 그대로 동작합니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Time-line marker on the phone's gauges (#269)** — like the PC popup, each gauge now has a white vertical marker showing how much of the window has passed. A bar ahead of its marker means you're using this window faster than an even pace. The position uses the window length the PC already sends for 5-hour/weekly and extra limits, OpenCode's rolling 5 hours, weekly 7 days and monthly (from one month before the reset), and Antigravity's window kind (weekly, 5h). When the length is unknown or the window has already reset, no marker is drawn rather than a guessed one. Nothing changed on the PC, so older PCs work as before.
+<!-- /en -->
+
 ## [1.63.1] - 2026-11-16
 
 <!-- ko -->
