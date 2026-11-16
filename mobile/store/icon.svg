@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Google Play store icon (512x512): the launcher icon (res/mipmap-anydpi-v26/ic_launcher.xml) as one square —
+     ic_background behind the ic_launcher_foreground bars, same 108-unit viewport. Play applies its own mask. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 108 108">
+  <rect width="108" height="108" fill="#0F1117"/>
+  <path fill="#2D2F45" d="M34,38 L74,38 L74,44 L34,44 Z"/>
+  <path fill="#8B5CF6" d="M34,38 L62,38 L62,44 L34,44 Z"/>
+  <path fill="#2D2F45" d="M34,51 L74,51 L74,57 L34,57 Z"/>
+  <path fill="#A78BFA" d="M34,51 L50,51 L50,57 L34,57 Z"/>
+  <path fill="#2D2F45" d="M34,64 L74,64 L74,70 L34,70 Z"/>
+  <path fill="#F59E0B" d="M34,64 L70,64 L70,70 L34,70 Z"/>
+</svg>
