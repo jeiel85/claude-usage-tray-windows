@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.63.1] - 2026-11-16
+
+<!-- ko -->
+### 개선
+- **Codex도 휴대폰에서 계정 이름으로 보입니다 (#266)** — v1.62.0에서 알림을 계정 이름으로 구분했지만 Codex는 이름이 없어 PC 이름이 보였습니다. 이제 Codex 로그인 정보의 이름을 휴대폰 계정 카드·알림·알림센터에 보입니다. 이메일은 보내지 않고(이름을 정하지 않아 이메일만 있는 계정은 지금처럼 PC 이름), ntfy 토픽에도 넣지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Codex accounts are named on the phone too (#266)** — v1.62.0 named alerts by account, but Codex had no name so the PC was shown. The phone's account card, alerts and notification center now show the name from the Codex login. Emails are never sent (an account with only an email still shows the PC), and nothing is added to the ntfy topic.
+<!-- /en -->
+
 ## [1.63.0] - 2026-11-16
 
 <!-- ko -->

@@ -66,7 +66,7 @@ data class PushMessage(
 ) {
     /**
      * Who the alert is about, shown next to it: the account's name when the PC knows it. Otherwise the PC that
-     * sent it (weather, tests, older PCs, Codex — the PC has no display name for it, only an email it doesn't send).
+     * sent it (weather, tests, older PCs, or an account whose name the PC can't read).
      * When several PCs watch one account the PC name is just whichever got there first, so the account wins.
      */
     val source: String get() = accountLabel ?: pcName

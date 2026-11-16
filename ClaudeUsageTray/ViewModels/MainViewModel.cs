@@ -1743,9 +1743,9 @@ namespace ClaudeUsageTray.ViewModels;
     private PushAccount ClaudePushAccount() => new(UsageProviderKind.Claude,
         BuildClaudeMobileAccountKey(_credentials.GetOrganizationUuid(), _claudeAccount.GetAccountUuid()), _claudeAccount.GetLabel());
 
-    /// <summary>Codex 는 피드에도 표시 이름을 싣지 않는다(이메일뿐이라) — 계정 해시만 붙는다.</summary>
+    /// <summary>Codex 표시 이름은 id_token 의 <c>name</c>(이메일은 보내지 않는다, #266) — 피드와 같은 값.</summary>
     private static PushAccount CodexPushAccount() =>
-        new(UsageProviderKind.Codex, CodexUsageMonitor.GetCurrentAccountIdentity(), null);
+        new(UsageProviderKind.Codex, CodexUsageMonitor.GetCurrentAccountIdentity(), CodexUsageMonitor.GetCurrentAccountName());
 
     /// <summary>
     /// Claude 의 휴대폰용 계정 키. 기존 동기화·기록은 orgUuid 를 계정으로 쓰지만, Team·Enterprise 조직은 여러 사람이
@@ -1904,7 +1904,7 @@ namespace ClaudeUsageTray.ViewModels;
         if (IsMobileProviderVisible(provider))
             PublishMobile(provider,
                 provider == UsageProviderKind.Codex ? CodexUsageMonitor.GetCurrentAccountIdentity() : null,
-                "", () => CreateProviderQuotaSnapshot(provider, snapshot), CreateLocalTotals(snapshot),
+                provider == UsageProviderKind.Codex ? CodexUsageMonitor.GetCurrentAccountName() ?? "" : "", () => CreateProviderQuotaSnapshot(provider, snapshot), CreateLocalTotals(snapshot),
                 ClassifyProviderError(snapshot.ErrorMessage));
         if (!IsAnySyncActive)
             return UsageSyncProviderResult.Empty;

@@ -91,6 +91,51 @@ public class CodexUsageMonitor
     public static string? GetCurrentAccountIdentity() => TryReadAccountIdentity(AuthPath);
 
     /// <summary>
+    /// <b>지금</b> 로그인돼 있는 Codex 계정의 표시 이름(휴대폰 계정 카드·알림에 쓴다, #266). 없거나 읽지 못하면 null.
+    /// </summary>
+    public static string? GetCurrentAccountName() => TryReadAccountName(AuthPath);
+
+    /// <summary>휴대폰에 싣는 이름의 최대 길이. 비정상적으로 긴 값이 푸시 한 건의 크기를 다 쓰지 않게.</summary>
+    internal const int MaxAccountNameLength = 64;
+
+    /// <summary>
+    /// Input : <c>~/.codex/auth.json</c> 경로
+    /// Output: id_token 의 <c>name</c> 클레임(사람 이름). 없거나 이메일 꼴이면 null
+    /// 핵심 로직: 휴대폰 프로토콜은 이메일을 보내지 않는다(Claude 표시 이름과 같은 규칙) — 그래서 <c>email</c> 클레임은 읽지 않고,
+    ///           <c>name</c> 이 이메일로 채워진 계정(이름을 정하지 않은 경우)도 버린다. 앞뒤 공백을 떼고 길이를 자른다.
+    ///           id_token 은 서명 검증 없이 payload 만 읽는다 — 표시 전용이다.
+    /// </summary>
+    internal static string? TryReadAccountName(string authPath)
+    {
+        try
+        {
+            if (!File.Exists(authPath)) return null;
+
+            using var doc = JsonDocument.Parse(ReadAuthFile(authPath));
+            if (!doc.RootElement.TryGetProperty("tokens", out var tokens) || tokens.ValueKind != JsonValueKind.Object ||
+                ReadString(tokens, "id_token") is not { } idToken)
+                return null;
+
+            using var payload = DecodeJwtPayload(idToken);
+            if (payload is null || ReadString(payload.RootElement, "name") is not { } raw) return null;
+
+            var name = raw.Trim();
+            if (name.Contains('@')) return null;
+            if (name.Length > MaxAccountNameLength)
+            {
+                var cut = MaxAccountNameLength;
+                if (char.IsHighSurrogate(name[cut - 1])) cut--;
+                name = name[..cut].TrimEnd() + "…";
+            }
+            return name;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
     /// 로그인 파일에서 계정 식별자를 만든다.
     ///
     /// Input : <c>~/.codex/auth.json</c> 경로
