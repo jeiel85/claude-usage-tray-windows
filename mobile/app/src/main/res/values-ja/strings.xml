@@ -79,6 +79,10 @@
     <string name="legacy_app_title">以前のバージョンのアプリがまだインストールされています</string>
     <string name="legacy_app_body">このアプリが以前のアプリに代わりますが、以前のアプリを更新したりデータを引き継いだりはできません。両方がペアリングされていると通知が2回届きます。ここでPCを再接続してから、以前のアプリを削除してください。</string>
     <string name="legacy_app_remove">以前のアプリを削除</string>
+    <!-- Sample data on the empty home screen (#261) -->
+    <string name="sample_try">サンプルデータで見てみる</string>
+    <string name="sample_banner">サンプルデータです。あなたの PC ではありません。PC を追加すると実際の使用量が表示されます。</string>
+    <string name="sample_end">終了</string>
     <string name="update_dialog_close">閉じる</string>
 
     <!-- Settings screen (#230) -->

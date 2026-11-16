@@ -79,6 +79,10 @@
     <string name="legacy_app_title">旧版应用仍已安装</string>
     <string name="legacy_app_body">本应用取代旧版应用，但无法更新旧版或迁移其数据。两个应用都已配对时，每条提醒都会收到两次。请先在这里重新连接电脑，然后删除旧版应用。</string>
     <string name="legacy_app_remove">删除旧版应用</string>
+    <!-- Sample data on the empty home screen (#261) -->
+    <string name="sample_try">用示例数据看看</string>
+    <string name="sample_banner">这是示例数据，不是你的电脑。添加电脑后会显示实际用量。</string>
+    <string name="sample_end">结束</string>
     <string name="update_dialog_close">关闭</string>
 
     <!-- Settings screen (#230) -->

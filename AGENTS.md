@@ -109,6 +109,7 @@ git fetch origin && git pull origin master && git status
 ## 📜 최근 변경 이력 요약
 *상세 내용은 [CHANGELOG.md](./CHANGELOG.md) 참조*
 
+- **v1.62.0**: 샘플 데이터 둘러보기(#261) — 빈 홈의 버튼 → `HomeScreen(sample = true)` 에 `domain/SampleData`(디버그 `DesignPreviewActivity` 와 공용, 실제 이름·토큰 없음). 상태는 `MainActivity` 의 `rememberSaveable`, 실제 PC가 생기면 자동 종료. Play 등록 자료(아이콘·그래픽·스크린샷·문구·선언 초안)는 `mobile/store/`, 개인정보처리방침은 `docs/privacy/`(GitHub Pages).
 - **v1.61.1**: Play 업로드 키(#256) — `play` flavor 는 `CUT_PLAY_*`(로컬 `mobile/play-signing.properties`, 키 `mobile/.keystore/cut-play-upload.jks`, git 제외)로 서명. 릴리스 워크플로 `build-aab` 가 서명된 AAB 를 산출물 `play-bundle` 로 남긴다(GitHub Release 에는 안 붙임, Play 업로드는 수동). 인증서 지문은 `docs/MOBILE_UPDATES.md` "Play 업로드 키".
 - **v1.61.0**: 휴대폰 앱 배포 채널 분리(#257) — product flavor `github`/`play`. 앱 내 업데이트(`update/`·`REQUEST_INSTALL_PACKAGES`·`RECEIVE_BOOT_COMPLETED`·FileProvider·`update_*` 문구)는 `src/github/`에만, 공용 코드는 `update/AppUpdates`(play 쪽은 빈 구현)만 부른다. Gradle 작업명에 flavor가 붙는다: `assembleGithubDebug`·`testGithubDebugUnitTest`·`lintPlayDebug`·`bundlePlayRelease`. `cut` 키는 github 릴리스에만, Play는 별도 업로드 키(미발급, #256). `docs/MOBILE_UPDATES.md` "배포 채널".
 - **v1.60.0**: 휴대폰 앱 패키지명 변경(#254) — `applicationId` = `com.jeiel85.aiusage`(Kotlin 패키지·`namespace`는 `io.github.jeiel85.claudeusage` 유지, 그래서 `adb am start -n com.jeiel85.aiusage/io.github.jeiel85.claudeusage.<Activity>`). 이전 앱이 남아 있으면 홈에 삭제 안내(`ui/LegacyAppNotice.kt`, `ACTION_DELETE` 는 API 28+ 에서 `REQUEST_DELETE_PACKAGES` 없으면 조용히 무시된다). 이전 앱에서 데이터는 옮겨지지 않는다. `docs/MOBILE_UPDATES.md` "패키지명 변경".
