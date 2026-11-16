@@ -219,12 +219,12 @@ public sealed class MobileLinkService : IDisposable, IAppPushSender
 
     public async Task<AppPushResult> SendAsync(
         string category, string title, string? body, int ntfyPriority, string? eventKey, TimeSpan eventTolerance,
-        string? clickUrl, CancellationToken ct = default)
+        string? clickUrl, PushAccount? account = null, CancellationToken ct = default)
     {
         AppPushSender? push;
         lock (_gate) push = _enabled ? _push : null;
         if (push is null) return AppPushResult.NoTargets;
-        return await push.SendAsync(push.Build(category, title, body, ntfyPriority, eventKey, eventTolerance, clickUrl), ct);
+        return await push.SendAsync(push.Build(category, title, body, ntfyPriority, eventKey, eventTolerance, clickUrl, account), ct);
     }
 
     public void Dispose()

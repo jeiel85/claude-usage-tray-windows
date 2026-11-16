@@ -612,45 +612,85 @@ public static class Loc
         _ => "Usage"
     };
 
-    // Notifications
-    public static string NotificationTitle => Lang switch
+    // Notifications (#262) — 제목에 서비스·창·퍼센트, 본문에 초기화 시각. 풍선·ntfy·앱 푸시가 함께 쓴다.
+    // 서비스·퍼센트를 앞에 둔다: Android 16 접힌 알림은 제목·계정 이름·시각을 한 줄에 놓아 제목 끝부터 잘리므로,
+    // 잘려도 "Claude 90%" 는 남게 한다(에뮬레이터 API 36 에서 확인).
+    public static string UsageAlertTitle(string agent, string window, int percent) => $"{agent} {percent}% · {window}";
+
+    /// <summary>알림 제목의 창 이름(UsageAlertTitle 의 window). 팝업의 "5시간 윈도우" 보다 짧은 말.</summary>
+    public static string AlertWindowFiveHour => Lang switch
     {
-        "ko" => "에이전트 사용량 알림",
-        "zh" => "智能体用量提醒",
-        "ja" => "エージェント使用量アラート",
-        _ => "Agent Usage Alert"
+        "ko" => "5시간 한도",
+        "zh" => "5小时额度",
+        "ja" => "5時間枠",
+        _ => "5h limit"
     };
 
-    public static string NotificationBody(int percent, string window, string resetLabel, string agent = "") => Lang switch
+    public static string AlertWindowExtra => Lang switch
     {
-        "ko" => $"{(agent.Length > 0 ? $"[{agent}] " : "")}{window}{(window.EndsWith("량") ? "이" : "가")} {percent}%에 도달했습니다{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}",
-        "zh" => $"{(agent.Length > 0 ? $"[{agent}] " : "")}{window} 已达到 {percent}%{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}",
-        "ja" => $"{(agent.Length > 0 ? $"[{agent}] " : "")}{window} が {percent}% に達しました{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}",
-        _ => $"{(agent.Length > 0 ? $"[{agent}] " : "")}{window} reached {percent}%{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}"
+        "ko" => "추가 사용량",
+        "zh" => "额外用量",
+        "ja" => "追加使用量",
+        _ => "extra usage"
+    };
+
+    public static string AlertWindowUsage => Lang switch
+    {
+        "ko" => "사용량",
+        "zh" => "用量",
+        "ja" => "使用量",
+        _ => "usage"
+    };
+
+    /// <summary>clock: "15:30" 또는 "11/21 15:30", remaining: "3h 12m".</summary>
+    public static string AlertResetsAt(string clock, string remaining) => Lang switch
+    {
+        "ko" => $"{clock} 초기화 · {remaining} 남음",
+        "zh" => $"{clock} 重置 · 还剩 {remaining}",
+        "ja" => $"{clock} にリセット · 残り {remaining}",
+        _ => $"Resets at {clock} · {remaining} left"
+    };
+
+    /// <summary>리셋 시각이 없는 한도(추가 사용량)의 본문.</summary>
+    public static string AlertThresholdPassed(int percent) => Lang switch
+    {
+        "ko" => $"설정한 알림 기준 {percent}%를 넘었습니다",
+        "zh" => $"已超过设定的 {percent}% 提醒线",
+        "ja" => $"設定した通知ライン {percent}% を超えました",
+        _ => $"Passed your {percent}% alert threshold"
     };
 
     public static string RateLimitTitle => Lang switch
     {
-        "ko" => "Claude 실시간 사용 제한 발생",
-        "zh" => "Claude 已达到速率限制",
-        "ja" => "Claude レート制限に達しました",
-        _ => "Claude Rate Limit Reached"
+        "ko" => "Claude 사용 제한 발생",
+        "zh" => "Claude 触发使用限制",
+        "ja" => "Claude 利用制限が発生",
+        _ => "Claude rate limited"
     };
 
-    public static string EarlyExhaustionTitle => Lang switch
+    public static string RateLimitAlertBody => Lang switch
     {
-        "ko" => "Claude 조기 소진 경고",
-        "zh" => "Claude 提前耗尽警告",
-        "ja" => "Claude 早期枯渇警告",
-        _ => "Claude Early Exhaustion"
+        "ko" => "Claude Code 요청이 사용 제한에 걸렸습니다. 잠시 뒤 다시 시도하세요.",
+        "zh" => "Claude Code 的请求触发了使用限制，请稍后再试。",
+        "ja" => "Claude Code のリクエストが利用制限にかかりました。しばらくしてから再試行してください。",
+        _ => "Claude Code hit a usage limit. Try again in a moment."
     };
 
-    public static string EarlyExhaustionBody(string depletionTime, string resetTime) => Lang switch
+    public static string EarlyExhaustionAlertTitle => Lang switch
     {
-        "ko" => $"예상보다 빠른 소진 속도입니다. 이대로면 {depletionTime}경 소진 예상 (원래 초기화: {resetTime})",
-        "zh" => $"消耗速度超出预期。按此速度将于 {depletionTime} 耗尽（原重置时间：{resetTime}）",
-        "ja" => $"予想より早い枯渇ペースです。このままでは {depletionTime} 頃に枯渇する見込み（本来のリセット：{resetTime}）",
-        _ => $"Depleting faster than expected. At this rate will exhaust by {depletionTime} (original reset: {resetTime})"
+        "ko" => "Claude 조기 소진 예상",
+        "zh" => "Claude 可能提前耗尽",
+        "ja" => "Claude 早期枯渇の見込み",
+        _ => "Claude may run out early"
+    };
+
+    /// <summary>depletion·reset: "15:30" 또는 "11/21 15:30".</summary>
+    public static string EarlyExhaustionAlertBody(string depletion, string reset) => Lang switch
+    {
+        "ko" => $"지금 속도면 {depletion}쯤 다 씁니다 · 초기화는 {reset}",
+        "zh" => $"按当前速度约 {depletion} 用完 · {reset} 重置",
+        "ja" => $"このペースだと {depletion} 頃に使い切ります · リセットは {reset}",
+        _ => $"At this pace it runs out around {depletion} · resets at {reset}"
     };
 
     // Settings

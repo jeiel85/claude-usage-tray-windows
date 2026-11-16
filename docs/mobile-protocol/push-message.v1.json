@@ -5,9 +5,12 @@
   "pcName": "HOME-PC",
   "category": "usage",
   "priority": "warning",
-  "title": "Claude \uC0AC\uC6A9\uB7C9 \uACBD\uACE0",
-  "body": "5\uC2DC\uAC04 \uCC3D \uC0AC\uC6A9\uB7C9\uC774 90%\uC5D0 \uB3C4\uB2EC\uD588\uC2B5\uB2C8\uB2E4 \u00B7 1h 12m \uD6C4 \uCD08\uAE30\uD654",
+  "title": "Claude 90% \u00B7 5\uC2DC\uAC04 \uD55C\uB3C4",
+  "body": "15:30 \uCD08\uAE30\uD654 \u00B7 1h 12m \uB0A8\uC74C",
   "eventKey": "claude-usage-short-90-a1b2c3_1794620400",
   "eventToleranceSec": 300,
-  "ts": "2026-11-14T03:00:00+00:00"
+  "ts": "2026-11-14T03:00:00+00:00",
+  "provider": "claude",
+  "accountHash": "968457bb39374eb944710d0959514c3b52f194a5f3cdaf7b7bfa58e83e8d9af2",
+  "accountLabel": "\uAE40\uBBFC\uC900 \u00B7 Acme Corp"
 }

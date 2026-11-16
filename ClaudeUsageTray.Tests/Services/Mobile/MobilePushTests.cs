@@ -73,8 +73,9 @@ public class MobilePushTests : IDisposable
 
     public static PushMessage SampleMessage() => new(MobileProtocol.Schema,
         "5b0e1c2d3f4a49b8a1c2d3e4f5a6b7c8", MobileProtocolFixtures.PcId, "HOME-PC", PushCategories.Usage, PushPriority.Warning,
-        "Claude 사용량 경고", "5시간 창 사용량이 90%에 도달했습니다 · 1h 12m 후 초기화", "claude-usage-short-90-a1b2c3_1794620400", 300, null,
-        MobileProtocolFixtures.Now);
+        "Claude 90% · 5시간 한도", "15:30 초기화 · 1h 12m 남음", "claude-usage-short-90-a1b2c3_1794620400", 300, null,
+        MobileProtocolFixtures.Now, "claude",
+        MobileAccountHash.For("claude", "org-uuid|account-uuid", MobileProtocolFixtures.PcId).Hash, "김민준 · Acme Corp");
 
     [Fact]
     public void PushFixturesMatch()
@@ -167,5 +168,33 @@ public class MobilePushTests : IDisposable
         sender = new AppPushSender(store, new HttpClient(new FakeHandler(_ => HttpStatusCode.Gone)), "HOME-PC");
         Assert.Equal(AppPushResult.Failed, await sender.SendAsync(SampleMessage()));
         Assert.Empty(store.PushTargets());
+    }
+
+    [Fact]
+    public void BuildCarriesTheSameAccountHashAsTheUsageFeed()
+    {
+        var store = new MobileDeviceStore(_dir);
+        var sender = new AppPushSender(store, new HttpClient(new FakeHandler(_ => HttpStatusCode.Created)), "HOME-PC");
+
+        var claude = sender.Build(PushCategories.Usage, "t", "b", 4, null, TimeSpan.Zero, null,
+            new PushAccount("Claude", "org|acct", " 김민준 · Acme "));
+        Assert.Equal("claude", claude.Provider);
+        Assert.Equal(MobileAccountHash.For("claude", "org|acct", store.PcId).Hash, claude.AccountHash);
+        Assert.Equal("김민준 · Acme", claude.AccountLabel);
+
+        // 계정 키를 모르면 피드처럼 이 PC 의 device 해시가 된다. 빈 표시 이름은 싣지 않는다.
+        var codex = sender.Build(PushCategories.Usage, "t", "b", 4, null, TimeSpan.Zero, null,
+            new PushAccount("codex", null, "  "));
+        Assert.Equal(MobileAccountHash.For("codex", null, store.PcId).Hash, codex.AccountHash);
+        Assert.Null(codex.AccountLabel);
+
+        // 날씨·테스트처럼 계정이 없는 알림에는 계정 필드가 모두 없다(JSON 에도 나가지 않는다).
+        var weather = sender.Build(PushCategories.Weather, "t", "b", 4, null, TimeSpan.Zero, null);
+        Assert.Null(weather.Provider);
+        Assert.Null(weather.AccountHash);
+        Assert.Null(weather.AccountLabel);
+        var json = JsonDocument.Parse(PushPayload.Serialize(weather)).RootElement;
+        Assert.False(json.TryGetProperty("accountHash", out _));
+        Assert.False(json.TryGetProperty("accountLabel", out _));
     }
 }

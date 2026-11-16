@@ -30,22 +30,24 @@ public class NotificationService
     // windowId/windowResetAt/accountId: 여러 PC 가 같은 토픽을 쓸 때 "같은 사건" 을 가르는 값이다(#175).
     // windowLabel 은 표시 언어에 따라 PC 마다 달라지므로 키에 쓰지 않고, 창의 리셋 시각은 서버 값이라 PC 간에 같다.
     // accountId 는 모니터링 중인 계정의 식별자 원문(해시는 키 쪽에서 한다) — 계정이 다른 PC 의 알림이 서로를 삼키지 않게 한다.
+    // resetLabel 은 리셋 시각을 모를 때(Codex 추정 리셋)만 본문에 쓴다. pushAccount 는 휴대폰 앱이 계정으로 알림을 구분하게 한다(#262).
     public void ShowUsageAlert(int thresholdPercent, string windowLabel, string resetLabel, string ntfyTopic,
         string agent = "Claude", int priority = 3, string windowId = "short", DateTimeOffset? windowResetAt = null,
-        string? accountId = null)
+        string? accountId = null, PushAccount? pushAccount = null)
     {
-        var title = Loc.NotificationTitle;
-        var body  = Loc.NotificationBody(thresholdPercent, windowLabel, resetLabel, agent);
+        var now = DateTimeOffset.Now;
+        var title = AlertText.UsageTitle(agent, windowLabel, thresholdPercent);
+        var body  = AlertText.UsageBody(thresholdPercent, windowResetAt, resetLabel, now);
 
         ShowBalloon(title, body);
         SendNtfy(PushCategories.Usage, ntfyTopic, title, body, priority,
-            key: NtfyEventKey.ForUsage(agent, windowId, thresholdPercent, windowResetAt, DateTimeOffset.Now, accountId));
+            key: NtfyEventKey.ForUsage(agent, windowId, thresholdPercent, windowResetAt, now, accountId), account: pushAccount);
     }
 
     // 테스트 알림은 키를 붙이지 않는다 — 눌러 볼 때마다 실제로 도착해야 "테스트" 가 된다.
     public void ShowTestAlert(string ntfyTopic, string agent = "Claude", int priority = 3)
     {
-        var title = Loc.NotificationTitle;
+        var title = Loc.TestNotification;
         var body  = Loc.TestNotificationBody;
         ShowBalloon(title, body);
         SendNtfy(PushCategories.Test, ntfyTopic, title, body, priority);
@@ -53,7 +55,7 @@ public class NotificationService
 
     public async Task<NotificationTestResult> ShowTestAlertAsync(string ntfyTopic, string agent = "Claude")
     {
-        var title = Loc.NotificationTitle;
+        var title = Loc.TestNotification;
         var body  = Loc.TestNotificationBody;
         ShowBalloon(title, body);
 
@@ -70,38 +72,40 @@ public class NotificationService
     }
 
     // eventAt: 로그에 찍힌 레이트 리밋 기록의 시각. 재시작 뒤 같은 기록을 다시 읽어도 같은 사건으로 알아보게 하는 기준이다.
-    public void ShowRateLimitAlert(string ntfyTopic, int priority = 2, string? accountId = null, DateTimeOffset? eventAt = null)
+    public void ShowRateLimitAlert(string ntfyTopic, int priority = 2, string? accountId = null, DateTimeOffset? eventAt = null,
+        PushAccount? pushAccount = null)
     {
         var title = Loc.RateLimitTitle;
-        var body  = Loc.RateLimited;
+        var body  = Loc.RateLimitAlertBody;
 
         ShowBalloon(title, body);
         SendNtfy(PushCategories.RateLimit, ntfyTopic, title, body, priority,
-            key: NtfyEventKey.ForRateLimit(eventAt, DateTimeOffset.Now, accountId));
+            key: NtfyEventKey.ForRateLimit(eventAt, DateTimeOffset.Now, accountId), account: pushAccount);
     }
 
     // endedWindowResetAt: 초기화로 끝난 창의 서버 리셋 시각. 초기화를 자고 넘겨 늦게 깬 PC 도 다른 PC 가 보낸 같은 초기화를 알아보게 한다.
     public void ShowQuotaResetAlert(string ntfyTopic, string agent = "Claude", int priority = 2, string? accountId = null,
-        DateTimeOffset? endedWindowResetAt = null)
+        DateTimeOffset? endedWindowResetAt = null, PushAccount? pushAccount = null)
     {
         var title = Loc.QuotaResetTitle(agent);
         var body  = Loc.QuotaResetBody(agent);
 
         ShowBalloon(title, body);
         SendNtfy(PushCategories.Reset, ntfyTopic, title, body, priority,
-            key: NtfyEventKey.ForReset(agent, endedWindowResetAt, DateTimeOffset.Now, accountId));
+            key: NtfyEventKey.ForReset(agent, endedWindowResetAt, DateTimeOffset.Now, accountId), account: pushAccount);
     }
 
-    // depletionAt: 예상 소진 시각(문자열 depletionTime 은 표시용이라 키에 쓸 수 없다). PC 마다 몇 분씩 어긋나므로 허용 오차로 흡수한다.
-    public void ShowEarlyExhaustionAlert(string depletionTime, string resetTime, string ntfyTopic, int priority = 2,
-        DateTimeOffset? depletionAt = null, string? accountId = null)
+    // depletionAt: 예상 소진 시각. PC 마다 몇 분씩 어긋나므로 키에서는 허용 오차로 흡수한다. resetAt: 지금 5시간 창의 서버 리셋 시각.
+    public void ShowEarlyExhaustionAlert(DateTimeOffset depletionAt, DateTimeOffset resetAt, string ntfyTopic, int priority = 2,
+        string? accountId = null, PushAccount? pushAccount = null)
     {
-        var title = Loc.EarlyExhaustionTitle;
-        var body  = Loc.EarlyExhaustionBody(depletionTime, resetTime);
+        var now = DateTimeOffset.Now;
+        var title = Loc.EarlyExhaustionAlertTitle;
+        var body  = AlertText.EarlyExhaustionBody(depletionAt, resetAt, now);
 
         ShowBalloon(title, body);
         SendNtfy(PushCategories.Exhaustion, ntfyTopic, title, body, priority, [],
-            NtfyEventKey.ForEarlyExhaustion("Claude", depletionAt, DateTimeOffset.Now, accountId));
+            NtfyEventKey.ForEarlyExhaustion("Claude", depletionAt, now, accountId), account: pushAccount);
     }
 
     // dedupeKey: 날씨 알림이 PC 안에서 이미 쓰는 중복 방지 키(위치·날짜 포함). 없으면(테스트 알림) 중복 확인을 건너뛴다.
@@ -139,7 +143,7 @@ public class NotificationService
     ///           모든 휴대폰이 그 범주를 껐으면(AllMuted) 사용자의 선택이므로 토픽으로도 보내지 않는다.
     /// </summary>
     private void SendNtfy(string category, string topic, string title, string body, int priority = 3, string[]? tags = null,
-        NtfyEventKey? key = null, string? clickUrl = null)
+        NtfyEventKey? key = null, string? clickUrl = null, PushAccount? account = null)
     {
         var push = SendsPhoneAlerts() ? AppPush : null;
         if (string.IsNullOrWhiteSpace(topic) && push is not { HasTargets: true }) return;
@@ -152,8 +156,9 @@ public class NotificationService
                 AppPushResult result;
                 try
                 {
+                    // 계정은 종단 암호화되는 앱 푸시에만 싣는다 — 아래 평문 토픽에는 계정 이름을 보내지 않는다.
                     result = await push.SendAsync(category, title, body, priority, key?.SequenceId,
-                        key?.Tolerance ?? TimeSpan.Zero, clickUrl);
+                        key?.Tolerance ?? TimeSpan.Zero, clickUrl, account);
                 }
                 catch (Exception ex)
                 {
@@ -263,3 +268,36 @@ public record NotificationTestResult(
     bool NtfySucceeded,
     string? ErrorMessage,
     AppPushResult? AppPush = null);
+
+/// <summary>
+/// 사용량 알림 문구(#262). Windows 풍선·ntfy 토픽·휴대폰 앱 푸시가 같은 문구를 쓴다.
+/// 제목만 봐도 무엇이 몇 % 인지 알 수 있게 서비스·창·퍼센트를 제목에 두고, 본문에는 초기화 시각을 적는다.
+/// 알림은 나중에 열어 보는 일이 많아 "3h 12m 후" 같은 상대 시간만으로는 언제인지 알 수 없으므로 절대 시각을 함께 적는다.
+/// </summary>
+internal static class AlertText
+{
+    public static string UsageTitle(string agent, string window, int percent) => Loc.UsageAlertTitle(agent, window, percent);
+
+    /// <summary>
+    /// Input : 임계값(%), 창의 서버 리셋 시각(모르면 null), 리셋 시각을 모를 때 쓸 팝업 라벨(" · 약 3h 후 초기화(예상)" 꼴), 지금
+    /// Output: 본문
+    /// 핵심 로직: 리셋 시각이 앞으로 있으면 "15:30 초기화 · 3h 12m 남음". 없으면 팝업 라벨에서 앞의 구분점을 떼어 쓰고,
+    ///           그것도 없으면(추가 사용량처럼 창이 없는 한도) 어떤 기준을 넘었는지만 적는다.
+    /// </summary>
+    public static string UsageBody(int percent, DateTimeOffset? resetAt, string? fallbackResetLabel, DateTimeOffset now)
+    {
+        if (ResetText(resetAt, now) is { } reset) return reset;
+        var label = fallbackResetLabel?.Trim().TrimStart('·').Trim();
+        return string.IsNullOrEmpty(label) ? Loc.AlertThresholdPassed(percent) : label;
+    }
+
+    public static string EarlyExhaustionBody(DateTimeOffset depletionAt, DateTimeOffset resetAt, DateTimeOffset now) =>
+        Loc.EarlyExhaustionAlertBody(UsageCalculator.FormatClockStamp(depletionAt, now), UsageCalculator.FormatClockStamp(resetAt, now));
+
+    /// <summary>"15:30 초기화 · 3h 12m 남음". 리셋 시각을 모르거나 이미 지났으면 null.</summary>
+    public static string? ResetText(DateTimeOffset? resetAt, DateTimeOffset now)
+    {
+        if (resetAt is not { } at || at <= now) return null;
+        return Loc.AlertResetsAt(UsageCalculator.FormatClockStamp(at, now), UsageCalculator.FormatRemaining(at - now));
+    }
+}

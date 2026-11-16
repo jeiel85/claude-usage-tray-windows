@@ -22,7 +22,12 @@ data class HistoryEntry(
     val clickUrl: String?,
     val atMs: Long,
     val receivedAtMs: Long,
-)
+    /** The account's name (#262); null for weather, tests and alerts from older PCs. */
+    val accountLabel: String? = null,
+) {
+    /** Same rule as [PushMessage.source]: the account when known, else the sending PC. */
+    val source: String get() = accountLabel ?: pcName
+}
 
 /**
  * Pure list rules for the history, so they are unit-tested on the JVM: newest first, the last
@@ -56,6 +61,7 @@ object NotificationHistoryLog {
         clickUrl = message.clickUrl,
         atMs = message.tsMs,
         receivedAtMs = receivedAtMs,
+        accountLabel = message.accountLabel,
     )
 
     /** Unreadable or partial rows are skipped, never the whole history. */
@@ -75,6 +81,7 @@ object NotificationHistoryLog {
                 clickUrl = o.optString("url").takeIf { it.startsWith("https://") },
                 atMs = o.optLong("at"),
                 receivedAtMs = o.optLong("rcv"),
+                accountLabel = o.optString("acct").ifBlank { null },
             )
         }
     } catch (_: Exception) {
@@ -93,7 +100,8 @@ object NotificationHistoryLog {
                     .put("body", e.body ?: "")
                     .put("url", e.clickUrl ?: "")
                     .put("at", e.atMs)
-                    .put("rcv", e.receivedAtMs),
+                    .put("rcv", e.receivedAtMs)
+                    .put("acct", e.accountLabel ?: ""),
             )
         }
     }.toString()

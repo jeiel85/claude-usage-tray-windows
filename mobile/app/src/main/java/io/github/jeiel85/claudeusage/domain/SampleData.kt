@@ -16,14 +16,14 @@ import java.time.LocalDate
  * entries carry no real address or token, and the screens only render them.
  *
  * The account label has the shape the PC really sends ("name · team org", never an email — MOBILE_PROTOCOL.md);
- * the Play store screenshots are taken from this, so no real names.
+ * the Play store screenshots are taken from this, so no real names. Same account as the debug preview's sample alerts.
  */
 object SampleData {
     fun status(now: Long): Map<String, PcStatus> {
         val today = LocalDate.now().toString()
         fun claude(observed: Long, short: Double, long: Double) = ProviderUsage(
             provider = "claude", accountHash = "a".repeat(64), accountScope = ProviderUsage.SCOPE_ACCOUNT,
-            accountLabel = "Alex", observedAtMs = observed, errorKind = "",
+            accountLabel = "김민준 · Acme Corp", observedAtMs = observed, errorKind = "",
             quota = Quota(
                 hasData = true, observedAtMs = observed, planType = "max",
                 gauges = listOf(
