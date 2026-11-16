@@ -94,7 +94,7 @@ https://jeiel85.github.io/claude-usage-tray-windows/pair/#<base64url(UTF-8 JSON 
 | `providers[]` | 화면에서 켠 provider만, 6시간 안에 관측한 것만 |
 | `providers[].provider` | `claude`·`codex`·`opencode`·`antigravity` |
 | `providers[].accountHash`, `accountScope` | 위 "계정 묶기" 참고(`account`·`device`) |
-| `providers[].accountLabel` | 표시 이름(Claude만, "이름 · 팀 조직"). 이메일·UUID는 넣지 않음 |
+| `providers[].accountLabel` | 표시 이름. Claude는 "이름 · 팀 조직"(`~/.claude.json`), Codex는 이름(`~/.codex/auth.json` id_token의 `name`, 이메일 꼴이면 생략·64자 제한, #266). 이메일·UUID는 넣지 않음 |
 | `providers[].observedAt`, `errorKind` | 이 PC가 마지막으로 조회한 시각, 실패 종류 |
 | `providers[].quota` | 다중 PC 동기화와 같은 `UsageSyncQuotaSnapshot`(사용률은 0~1 비율) |
 | `providers[].today` | 오늘 이 PC의 토큰·세션·요청 수와 그 PC의 현지 날짜 `date`(없으면 생략). 앱은 휴대폰의 오늘 날짜와 같은 것만 더함 — 밤새 꺼진 PC의 어제 합계가 섞이지 않게 |
@@ -122,7 +122,7 @@ QR로 PC를 연결하면 알림도 함께 연결됩니다. 토픽 이름을 정�
 | `eventKey`, `eventToleranceSec` | 사건 키(예전 ntfy `sequence_id`, #175). 여러 PC가 같은 사건을 보내면 앱이 한 번만 띄움 — 접두사가 같고 시각 차가 허용 오차(+59초) 안이면 같은 사건 |
 | `clickUrl` | 날씨 알림의 예보 링크(https만) |
 | `ts` | 생성 시각 |
-| `provider`, `accountHash`, `accountLabel` | 어느 계정의 알림인지(#262). 사용량 피드의 `providers[].provider`·`accountHash`·`accountLabel`과 같은 값(계정 키를 모르면 `device` 해시). 날씨·테스트 알림과 예전 PC에는 없음. `accountLabel`은 Claude만(Codex는 표시 이름이 이메일뿐이라 보내지 않음) |
+| `provider`, `accountHash`, `accountLabel` | 어느 계정의 알림인지(#262). 사용량 피드의 `providers[].provider`·`accountHash`·`accountLabel`과 같은 값(계정 키를 모르면 `device` 해시). 날씨·테스트 알림과 예전 PC에는 없음. `accountLabel`이 없는 계정(이름을 모르는 Codex, OpenCode·Antigravity)은 PC 이름으로 보임 |
 
 앱은 알림 보조 문구와 알림센터에 `accountLabel`을, 없으면 `pcName`을 보입니다 — 같은 계정을 여러 PC가 보면 중복 제거 뒤 남는 PC 이름은 먼저 도착한 쪽일 뿐이라 계정이 더 정확합니다. `provider`가 있으면 알림 강조색을 그 서비스 색으로 칠합니다.
 계정 필드는 종단 암호화되는 앱 푸시에만 싣고, 평문 ntfy 토픽에는 넣지 않습니다.

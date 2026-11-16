@@ -131,4 +131,47 @@ public class CodexAccountIdentityTests
 
         Assert.Equal("acct-1|user-9", CodexUsageMonitor.TryReadAccountIdentity(path));
     }
+
+    /// <summary>최상위 클레임까지 넣은 서명 없는 id_token(이름·이메일은 OpenAI id_token 의 표준 클레임 자리).</summary>
+    private static string IdTokenWithProfile(string? name, string? email = null)
+    {
+        var claims = new Dictionary<string, object?> { ["https://api.openai.com/auth"] = new { chatgpt_user_id = "user-9" } };
+        if (name is not null) claims["name"] = name;
+        if (email is not null) claims["email"] = email;
+        var encoded = Convert.ToBase64String(JsonSerializer.SerializeToUtf8Bytes(claims))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        return "header." + encoded + ".signature";
+    }
+
+    // 휴대폰 계정 카드·알림의 Codex 표시 이름(#266): 이름은 보내고 이메일은 보내지 않는다.
+    [Fact]
+    public void AccountName_IsTheNameClaim_NeverTheEmail()
+    {
+        var path = TempAuthPath();
+        Write(path, "acct-1", IdTokenWithProfile("  김민준  ", "minjun@example.com"));
+        Assert.Equal("김민준", CodexUsageMonitor.TryReadAccountName(path));
+
+        // 이름이 없으면 이메일로 대신하지 않는다.
+        Write(path, "acct-1", IdTokenWithProfile(null, "minjun@example.com"));
+        Assert.Null(CodexUsageMonitor.TryReadAccountName(path));
+
+        // 이름 자리에 이메일이 들어 있는 계정도 보내지 않는다.
+        Write(path, "acct-1", IdTokenWithProfile("minjun@example.com"));
+        Assert.Null(CodexUsageMonitor.TryReadAccountName(path));
+    }
+
+    [Fact]
+    public void AccountName_IsCapped_AndMissingFilesGiveNull()
+    {
+        var path = TempAuthPath();
+        Write(path, "acct-1", IdTokenWithProfile(new string('가', 200)));
+        var name = CodexUsageMonitor.TryReadAccountName(path);
+        Assert.NotNull(name);
+        Assert.True(name!.Length <= CodexUsageMonitor.MaxAccountNameLength + 1);
+        Assert.EndsWith("…", name);
+
+        Assert.Null(CodexUsageMonitor.TryReadAccountName(Path.Combine(Path.GetDirectoryName(path)!, "missing.json")));
+        Write(path, "acct-1", idToken: null);
+        Assert.Null(CodexUsageMonitor.TryReadAccountName(path));
+    }
 }

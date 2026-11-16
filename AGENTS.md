@@ -109,6 +109,7 @@ git fetch origin && git pull origin master && git status
 ## 📜 최근 변경 이력 요약
 *상세 내용은 [CHANGELOG.md](./CHANGELOG.md) 참조*
 
+- **v1.63.1**: Codex 계정 이름(#266) — `CodexUsageMonitor.GetCurrentAccountName()` 이 `~/.codex/auth.json` id_token 의 `name` 을 읽어(이메일 꼴이면 null, 64자 제한, `email` 클레임은 읽지 않음) 피드 `accountLabel`·앱 푸시 `accountLabel` 에 싣는다.
 - **v1.63.0**: 샘플 데이터 둘러보기(#261) — 빈 홈의 버튼 → `HomeScreen(sample = true)` 에 `domain/SampleData`(디버그 `DesignPreviewActivity` 와 공용, 실제 이름·토큰 없음). 상태는 `MainActivity` 의 `rememberSaveable`, 실제 PC가 생기면 자동 종료. Play 등록 자료(아이콘·그래픽·스크린샷·문구·선언 초안)는 `mobile/store/`, 개인정보처리방침은 `docs/privacy/`(GitHub Pages).
 - **v1.62.0**: 휴대폰 알림 계정 표시·문구 개선(#262) — 앱 푸시 `PushMessage` 에 선택 필드 `provider`·`accountHash`·`accountLabel`(피드와 같은 값, `PushAccount` → `AppPushSender.Build` 가 `MobileAccountHash.For` 로 해시)을 싣고 휴대폰은 `PushMessage.source`(계정 이름, 없으면 PC 이름)를 보조 문구·알림센터에, 서비스 색을 강조색에 쓴다. ntfy 토픽에는 계정을 싣지 않는다. 문구는 `AlertText`(NotificationService.cs) — 제목은 서비스·퍼센트를 앞에(Android 16 접힌 알림이 제목 끝부터 자름), 본문은 절대 초기화 시각. 디버그 `DesignPreviewActivity -e screen notify` 로 실제 알림을 띄워 볼 수 있다.
 - **v1.61.1**: Play 업로드 키(#256) — `play` flavor 는 `CUT_PLAY_*`(로컬 `mobile/play-signing.properties`, 키 `mobile/.keystore/cut-play-upload.jks`, git 제외)로 서명. 릴리스 워크플로 `build-aab` 가 서명된 AAB 를 산출물 `play-bundle` 로 남긴다(GitHub Release 에는 안 붙임, Play 업로드는 수동). 인증서 지문은 `docs/MOBILE_UPDATES.md` "Play 업로드 키".
