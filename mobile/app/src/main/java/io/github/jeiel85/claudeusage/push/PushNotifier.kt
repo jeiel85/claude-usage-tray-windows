@@ -9,16 +9,19 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import androidx.compose.ui.graphics.toArgb
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import io.github.jeiel85.claudeusage.MainActivity
 import io.github.jeiel85.claudeusage.R
+import io.github.jeiel85.claudeusage.ui.Palette
 
 /**
  * Shows decrypted pushes. One Android channel per category (usage, rate limit, weather, …) so the user
- * can silence one kind from Android's settings; the PC name goes in the subtext. Alerts about one
- * account share a group so several of them stack instead of filling the shade.
+ * can silence one kind from Android's settings. The subtext names the account the alert is about (#262;
+ * the PC name when there is none — see [PushMessage.source]) and the accent is the service's color, so
+ * alerts for different accounts and services can be told apart at a glance.
  */
 object PushNotifier {
 
@@ -49,12 +52,13 @@ object PushNotifier {
             .setContentTitle(message.title)
             .setContentText(message.body)
             .setStyle(message.body?.let { NotificationCompat.BigTextStyle().bigText(it) })
-            .setSubText(message.pcName)
+            .setSubText(message.source)
             .setWhen(message.tsMs)
             .setShowWhen(true)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setPriority(if (high) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(open)
+            .apply { message.provider?.let { setColor(Palette.forProvider(it).toArgb()) } }
             .setAutoCancel(true)
             .build()
         try {

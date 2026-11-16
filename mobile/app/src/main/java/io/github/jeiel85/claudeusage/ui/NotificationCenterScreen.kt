@@ -144,7 +144,7 @@ private fun HistoryRow(entry: HistoryEntry, unread: Boolean) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(8.dp).clip(CircleShape).background(dot))
                 Spacer(Modifier.width(8.dp))
-                val meta = listOf(stringResource(NotificationGroups.label(entry.category)), entry.pcName).filter { it.isNotBlank() }
+                val meta = listOf(stringResource(NotificationGroups.label(entry.category)), entry.source).filter { it.isNotBlank() }
                 Text(meta.joinToString(" · "), color = Palette.TextSoft, fontSize = 11.sp, modifier = Modifier.weight(1f), maxLines = 1)
                 if (unread) {
                     Chip(stringResource(R.string.history_new), Palette.AccentLight)

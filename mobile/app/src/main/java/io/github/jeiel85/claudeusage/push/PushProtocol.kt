@@ -44,6 +44,9 @@ data class PushSubscriptionResponse(val deviceId: String, val registered: Boolea
 /**
  * One decrypted notification. [eventKey] + [eventToleranceSec] identify the event across PCs (the PC's
  * `NtfyEventKey`): several PCs watching one account send the same alert and [EventDedupe] shows it once.
+ *
+ * [provider], [accountHash] and [accountLabel] (#262) say which account an alert is about — the same hash and
+ * name as that account's card. Weather and test alerts carry none, and neither do alerts from older PCs.
  */
 data class PushMessage(
     val id: String,
@@ -57,7 +60,17 @@ data class PushMessage(
     val eventToleranceSec: Int,
     val clickUrl: String?,
     val tsMs: Long,
+    val provider: String? = null,
+    val accountHash: String? = null,
+    val accountLabel: String? = null,
 ) {
+    /**
+     * Who the alert is about, shown next to it: the account's name when the PC knows it. Otherwise the PC that
+     * sent it (weather, tests, older PCs, Codex — the PC has no display name for it, only an email it doesn't send).
+     * When several PCs watch one account the PC name is just whichever got there first, so the account wins.
+     */
+    val source: String get() = accountLabel ?: pcName
+
     companion object {
         /** Throws [ProtocolException] for another schema or a missing field — never a half-filled message. */
         fun parse(json: String): PushMessage {
@@ -83,6 +96,9 @@ data class PushMessage(
                 clickUrl = o.optString("clickUrl").takeIf { it.startsWith("https://") },
                 tsMs = runCatching { OffsetDateTime.parse(o.getString("ts")).toInstant().toEpochMilli() }
                     .getOrDefault(System.currentTimeMillis()),
+                provider = o.optString("provider").trim().lowercase().ifBlank { null },
+                accountHash = o.optString("accountHash").trim().ifBlank { null },
+                accountLabel = o.optString("accountLabel").trim().ifBlank { null },
             )
         }
     }
