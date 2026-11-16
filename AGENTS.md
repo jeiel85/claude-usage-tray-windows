@@ -109,6 +109,7 @@ git fetch origin && git pull origin master && git status
 ## 📜 최근 변경 이력 요약
 *상세 내용은 [CHANGELOG.md](./CHANGELOG.md) 참조*
 
+- **v1.61.0**: 휴대폰 앱 배포 채널 분리(#257) — product flavor `github`/`play`. 앱 내 업데이트(`update/`·`REQUEST_INSTALL_PACKAGES`·`RECEIVE_BOOT_COMPLETED`·FileProvider·`update_*` 문구)는 `src/github/`에만, 공용 코드는 `update/AppUpdates`(play 쪽은 빈 구현)만 부른다. Gradle 작업명에 flavor가 붙는다: `assembleGithubDebug`·`testGithubDebugUnitTest`·`lintPlayDebug`·`bundlePlayRelease`. `cut` 키는 github 릴리스에만, Play는 별도 업로드 키(미발급, #256). `docs/MOBILE_UPDATES.md` "배포 채널".
 - **v1.60.0**: 휴대폰 앱 패키지명 변경(#254) — `applicationId` = `com.jeiel85.aiusage`(Kotlin 패키지·`namespace`는 `io.github.jeiel85.claudeusage` 유지, 그래서 `adb am start -n com.jeiel85.aiusage/io.github.jeiel85.claudeusage.<Activity>`). 이전 앱이 남아 있으면 홈에 삭제 안내(`ui/LegacyAppNotice.kt`, `ACTION_DELETE` 는 API 28+ 에서 `REQUEST_DELETE_PACKAGES` 없으면 조용히 무시된다). 이전 앱에서 데이터는 옮겨지지 않는다. `docs/MOBILE_UPDATES.md` "패키지명 변경".
 - **v1.59.2**: 페어링 QR 인식 개선(#251) — `Views/PairingQr.cs` 가 칸을 물리 픽셀 정수배로 그리고 비트맵 DPI = 96×배율로 1:1 표시(창 폭 470, QR 최대 360 DIP), 폰은 `ui/PairScanActivity`(zxing CaptureActivity 상속, 연속 초점·중앙 측광 — 설정은 `super.onCreate` 뒤에 바꿔야 인텐트가 덮어쓰지 않는다). TRY_HARDER 는 시뮬레이션에서 효과가 없어 넣지 않았다.
 - **v1.59.1**: 업데이트 확인·설치 일관화(#247) — `UpdateSurface.offered` 를 홈 배너와 설정 카드가 공유, 설정 '지금 확인'이 새 버전을 찾으면 창을 바로 연다. PC ⋮ 메뉴는 `Palette.Raised`·테두리·그림자(#248, 메뉴 바탕이 카드와 같아 묻히던 회귀).

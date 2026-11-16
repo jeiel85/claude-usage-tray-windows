@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Play build only (#257): no in-app updater — Google Play delivers updates. -->
+<resources>
+    <string name="about_privacy">이 앱은 연결한 PC에만 접속합니다 — 직접, 또는 그 PC에서 켠 Cloudflare Tunnel을 거쳐서. 광고·분석·사용 기록 수집이 없습니다. 그 밖에 나가는 것은 푸시 앱의 중계 서버를 거치는 종단 암호화된 알림뿐이고, 업데이트는 Google Play가 맡습니다.</string>
+</resources>

@@ -1,3 +1,4 @@
+import com.android.build.api.variant.BuildConfigField
 import java.util.Properties
 
 plugins {
@@ -51,8 +52,6 @@ android {
         targetSdk = 35
         versionCode = cutVersionCode
         versionName = cutVersion
-        buildConfigField("String", "UPDATE_MANIFEST_URL", "\"$defaultManifestUrl\"")
-        buildConfigField("boolean", "UPDATE_ALLOW_HTTP", "false")
     }
 
     signingConfigs {
@@ -66,16 +65,32 @@ android {
         }
     }
 
-    buildTypes {
-        debug {
-            buildConfigField("String", "UPDATE_MANIFEST_URL", "\"$debugManifestUrl\"")
-            buildConfigField("boolean", "UPDATE_ALLOW_HTTP", debugAllowHttp)
+    // --- Distribution channels (#257) ---------------------------------------------------------
+    // github: the standalone APK on GitHub Releases, with the in-app updater (src/github: code, permissions,
+    //         update.json), signed with the cut key above.
+    // play:   the Google Play bundle. Play installs updates and its policy forbids self-updating, so no updater.
+    //         Signed with a separate Play upload key, not the cut key (one key per channel); none is set up yet,
+    //         so the Play release bundle is unsigned for now.
+    // Same applicationId and versionCode; the signatures differ, so one channel cannot update the other.
+    flavorDimensions += "channel"
+    productFlavors {
+        create("github") {
+            dimension = "channel"
+            buildConfigField("String", "UPDATE_MANIFEST_URL", "\"$defaultManifestUrl\"")
+            buildConfigField("boolean", "UPDATE_ALLOW_HTTP", "false")
+            // Release builds only: the debug build type keeps its own debug signing config.
+            if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
         }
+        create("play") {
+            dimension = "channel"
+        }
+    }
+
+    buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -94,6 +109,14 @@ android {
     }
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
+    }
+}
+
+// The GitHub debug build can point its updater at a local server (see the update manifest note above).
+androidComponents {
+    onVariants(selector().withFlavor("channel" to "github").withBuildType("debug")) { variant ->
+        variant.buildConfigFields.put("UPDATE_MANIFEST_URL", BuildConfigField("String", "\"$debugManifestUrl\"", null))
+        variant.buildConfigFields.put("UPDATE_ALLOW_HTTP", BuildConfigField("boolean", debugAllowHttp, null))
     }
 }
 

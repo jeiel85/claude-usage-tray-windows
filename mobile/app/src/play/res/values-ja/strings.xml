@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Play build only (#257): no in-app updater — Google Play delivers updates. -->
+<resources>
+    <string name="about_privacy">このアプリは接続した PC にだけ接続します — 直接、またはその PC でオンにした Cloudflare Tunnel 経由で。広告・分析・利用履歴の収集はありません。ほかに外へ出るのはプッシュアプリの中継サーバーを通るエンドツーエンド暗号化された通知だけで、更新は Google Play が行います。</string>
+</resources>

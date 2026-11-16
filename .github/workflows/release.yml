@@ -57,6 +57,7 @@ jobs:
             SHA256.txt
 
   # 휴대폰 앱(mobile/, #220). 서명 키 시크릿이 있으면 정식 서명 APK, 없으면 디버그 서명 APK 를 올린다.
+  # GitHub 채널(github flavor, 앱 내 업데이트 포함)만 만든다. Play 채널 AAB 는 cut 키가 아닌 별도 업로드 키로 서명해야 해서 여기서 만들지 않는다(#257, #256).
   # 시크릿: CUT_RELEASE_KEYSTORE_BASE64, CUT_RELEASE_STORE_PASSWORD, CUT_RELEASE_KEY_ALIAS, CUT_RELEASE_KEY_PASSWORD
   build-apk:
     runs-on: ubuntu-latest
@@ -94,8 +95,8 @@ jobs:
           echo "$KEYSTORE" | base64 -d > release.jks
           export CUT_RELEASE_STORE_FILE=release.jks
           chmod +x gradlew
-          ./gradlew --no-daemon testReleaseUnitTest assembleRelease -Pcut.version=${GITHUB_REF_NAME#v} -Pcut.requireReleaseSigning=true
-          cp app/build/outputs/apk/release/app-release.apk ../ClaudeUsageTray-Mobile.apk
+          ./gradlew --no-daemon testGithubReleaseUnitTest assembleGithubRelease -Pcut.version=${GITHUB_REF_NAME#v} -Pcut.requireReleaseSigning=true
+          cp app/build/outputs/apk/github/release/app-github-release.apk ../ClaudeUsageTray-Mobile.apk
           rm -f release.jks
 
       # 앱 내 업데이트(#228)가 읽는 update.json. 값은 빌드 스크립트가 아니라 방금 만든 APK 자체에서 뽑는다(버전·minSdk 는
@@ -141,8 +142,8 @@ jobs:
         working-directory: mobile
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon testDebugUnitTest assembleDebug -Pcut.version=${GITHUB_REF_NAME#v}
-          cp app/build/outputs/apk/debug/app-debug.apk ../ClaudeUsageTray-Mobile.apk
+          ./gradlew --no-daemon testGithubDebugUnitTest assembleGithubDebug -Pcut.version=${GITHUB_REF_NAME#v}
+          cp app/build/outputs/apk/github/debug/app-github-debug.apk ../ClaudeUsageTray-Mobile.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v6
