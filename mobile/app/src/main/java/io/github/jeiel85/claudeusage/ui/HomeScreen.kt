@@ -58,6 +58,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -377,23 +380,48 @@ private fun GaugeRow(g: Gauge, now: Long) {
                 style = TextStyle(fontFeatureSettings = "tnum"),
             )
         }
-        UsageBar(g.usage)
+        UsageBar(g.usage, g.timeProgress(now))
     }
 }
 
+/**
+ * Input : 사용률(0..1), 창 경과율(0..1, 모르면 null)
+ * Output: 막대와 그 위의 시간선 — PC 팝업과 같은 뜻의 세로 마커(#269). 막대가 마커보다 앞서면 이번 창을 평소보다 빨리 쓰는 중.
+ * 핵심 로직: 마커는 막대 위아래로 3dp 넘치게 그려 채워진 부분 위에서도 보이게 하고, 카드색 테두리로 막대색과 떼어 놓는다.
+ *           바깥 Box 는 자르지 않고(넘친 부분이 보이도록) 막대 Box 만 둥글게 자른다 — 줄 높이는 그대로 8dp.
+ */
 @Composable
-private fun UsageBar(usage: Double) {
+private fun UsageBar(usage: Double, timeProgress: Double?) {
     val fraction = usage.toFloat().coerceIn(0f, 1f)
-    Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(50)).background(Palette.Track)) {
-        if (fraction > 0f) {
-            Box(
-                Modifier
-                    .fillMaxWidth(fraction)
-                    .widthIn(min = 8.dp)
-                    .fillMaxHeight()
-                    .clip(RoundedCornerShape(50))
-                    .background(Palette.forUsage(usage)),
-            )
+    val marker = timeProgress?.toFloat()?.coerceIn(0f, 1f)
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(8.dp)
+            .drawWithContent {
+                drawContent()
+                if (marker != null) {
+                    val overhang = 3.dp.toPx()
+                    val halo = 4.dp.toPx()
+                    val x = (size.width * marker).coerceIn(halo / 2, size.width - halo / 2)
+                    val top = Offset(x, -overhang)
+                    val bottom = Offset(x, size.height + overhang)
+                    drawLine(Palette.Card, top, bottom, strokeWidth = halo, cap = StrokeCap.Round)
+                    drawLine(Palette.Text, top, bottom, strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
+                }
+            },
+    ) {
+        Box(Modifier.fillMaxSize().clip(RoundedCornerShape(50)).background(Palette.Track)) {
+            if (fraction > 0f) {
+                Box(
+                    Modifier
+                        .fillMaxWidth(fraction)
+                        .widthIn(min = 8.dp)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(50))
+                        .background(Palette.forUsage(usage)),
+                )
+            }
         }
     }
 }

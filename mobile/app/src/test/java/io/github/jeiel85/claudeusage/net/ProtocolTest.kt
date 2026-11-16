@@ -113,4 +113,56 @@ class ProtocolTest {
         assertEquals(0.0, g.effective(nowMs = 2_000L).usage, 0.0)
         assertEquals(0.9, g.effective(nowMs = 500L).usage, 0.0)
     }
+
+    // --- 시간선(#269): PC 의 UsageCalculator.TimeProgress 와 같은 위치, 모르면 그리지 않는다 ---
+
+    @Test
+    fun time_progress_is_the_elapsed_share_of_the_window() {
+        val hour = 3_600_000L
+        // 5시간 창이 2시간 남았으면 3/5 경과.
+        val g = Gauge(GaugeKind.SHORT, "", 0.4, resetAtMs = 10 * hour, windowMinutes = 300)
+        assertEquals(0.6, g.timeProgress(nowMs = 8 * hour)!!, 1e-9)
+        assertEquals(0.0, g.timeProgress(nowMs = 5 * hour)!!, 1e-9)
+        assertEquals(1.0, g.timeProgress(nowMs = 10 * hour)!!, 1e-9)
+    }
+
+    @Test
+    fun time_progress_is_not_guessed_outside_the_window_or_without_its_length() {
+        val hour = 3_600_000L
+        val g = Gauge(GaugeKind.SHORT, "", 0.4, resetAtMs = 10 * hour, windowMinutes = 300)
+        assertNull(g.timeProgress(nowMs = 11 * hour)) // 이미 초기화됨
+        assertNull(g.timeProgress(nowMs = 4 * hour)) // 초기화가 창 길이보다 멀다 — 창 길이가 어긋난 값
+        assertNull(g.copy(windowMinutes = null).timeProgress(nowMs = 8 * hour))
+        assertNull(g.copy(windowMinutes = 0).timeProgress(nowMs = 8 * hour))
+        assertNull(g.copy(resetAtMs = null).timeProgress(nowMs = 8 * hour))
+        // 초기화가 지난 창은 effective() 가 초기화 시각을 지워 마커도 사라진다.
+        assertNull(g.effective(nowMs = 11 * hour).timeProgress(nowMs = 11 * hour))
+    }
+
+    @Test
+    fun opencode_windows_get_their_lengths() {
+        val o = org.json.JSONObject(
+            """{"hasData":true,"openCode":{
+                "rolling":{"usagePercent":0.1,"resetAt":"2026-11-16T05:00:00+09:00"},
+                "weekly":{"usagePercent":0.2,"resetAt":"2026-11-20T00:00:00+09:00"},
+                "monthly":{"usagePercent":0.3,"resetAt":"2026-12-01T00:00:00+09:00"}}}""",
+        )
+        val gauges = Quota.parse(o, "opencode")!!.gauges
+        assertEquals(listOf("rolling", "weekly", "monthly"), gauges.map { it.name })
+        // 월간은 초기화 한 달 전부터 — 11월은 30일.
+        assertEquals(listOf(300, 7 * 24 * 60, 30 * 24 * 60), gauges.map { it.windowMinutes })
+    }
+
+    @Test
+    fun antigravity_windows_come_from_the_window_name_or_the_bucket_id() {
+        val o = org.json.JSONObject(
+            """{"hasData":true,"models":[
+                {"displayName":"Gemini","window":"weekly","remainingFraction":0.5,"resetAt":"2026-11-20T00:00:00+00:00"},
+                {"displayName":"Gemini","window":"5h","remainingFraction":0.5,"resetAt":"2026-11-16T05:00:00+00:00"},
+                {"displayName":"Claude","modelId":"claude-weekly","remainingFraction":0.5,"resetAt":"2026-11-20T00:00:00+00:00"},
+                {"displayName":"Gemini 3 Pro","modelId":"gemini-3-pro","remainingFraction":0.5,"resetAt":"2026-11-16T05:00:00+00:00"}]}""",
+        )
+        val gauges = Quota.parse(o, "antigravity")!!.gauges
+        assertEquals(listOf(7 * 24 * 60, 300, 7 * 24 * 60, null), gauges.map { it.windowMinutes })
+    }
 }
