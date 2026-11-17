@@ -46,14 +46,16 @@ if (providers.gradleProperty("cut.requirePlaySigning").orNull == "true" && !hasP
 
 android {
     namespace = "io.github.jeiel85.claudeusage"
-    compileSdk = 35
+    // Google Play requires targetSdk 36 (Android 16) for new uploads (#278). AGP 8.7.3 predates API 36,
+    // so gradle.properties suppresses its compileSdk warning.
+    compileSdk = 36
 
     defaultConfig {
         // com.jeiel85.<public app name> (#254). The Kotlin package and namespace stay io.github.jeiel85.claudeusage;
         // only the install identity changed, before the first Play upload fixes it for good.
         applicationId = "com.jeiel85.aiusage"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = cutVersionCode
         versionName = cutVersion
     }
