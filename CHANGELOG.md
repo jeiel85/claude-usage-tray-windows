@@ -3,6 +3,30 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.65.2] - 2026-11-17
+
+<!-- ko -->
+### 수정
+- **아주 긴 계정 이름 때문에 휴대폰 알림이 사라지던 문제 (#265)** — 앱 푸시는 암호화 한도를 넘으면 본문·제목만 줄였기 때문에, 계정 이름이 비정상적으로 길면 알림이 통째로 버려졌습니다. 이제 계정 이름을 한 줄·64자로 줄여 싣습니다.
+
+### 개선
+- **릴리스가 날씨 서버 상태에 막히지 않습니다 (#238)** — 실제 Open-Meteo·MET Norway를 부르는 테스트를 별도 범주(`Network`)로 나눴습니다. 릴리스 빌드는 이 테스트 없이 진행하고, 결과는 막지 않는 별도 단계에 남깁니다. 로컬 `dotnet test`에서는 그대로 함께 돕니다.
+- **릴리스 APK가 맞는 앱·채널인지 확인합니다 (#256)** — GitHub 릴리스에 붙는 APK의 패키지명이 `com.jeiel85.aiusage`인지, 앱 내 업데이트가 들어 있는 GitHub 빌드인지(`REQUEST_INSTALL_PACKAGES`) 검사해 다르면 릴리스를 멈춥니다.
+- **세션 제목을 만들 때 긴 첫 프롬프트를 통째로 복사하지 않습니다 (#145)** — 80자를 넘는 순간 읽기를 멈추고, 이모지를 반으로 자르지 않습니다. 보이는 제목은 같습니다.
+- 호출하는 곳이 없던 코드 세 곳(옛 사용량 적용 함수, 쓰기만 하던 Codex 퍼센트 필드, 옛 업데이트 설치 함수)을 지웠습니다 (#145, #113, #89).
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Phone alerts no longer vanish because of a very long account name (#265)** — when an app push went over the encryption limit only the body and title were shortened, so an abnormally long account name made the whole alert get dropped. The account name is now cut to one line of 64 characters.
+
+### Improved
+- **Releases no longer stall on weather-server outages (#238)** — tests that call the real Open-Meteo and MET Norway APIs are now in their own category (`Network`). The release build runs without them and reports them in a separate, non-blocking step. A local `dotnet test` still runs them.
+- **The release APK is checked for the right app and channel (#256)** — the APK attached to the GitHub release must have the package name `com.jeiel85.aiusage` and be the GitHub build with in-app updates (`REQUEST_INSTALL_PACKAGES`); otherwise the release stops.
+- **Session titles no longer copy a long first prompt in full (#145)** — reading stops as soon as 80 characters are reached, and an emoji is never cut in half. Titles look the same.
+- Removed three pieces of code nothing called (an old usage-apply method, a write-only Codex percent field, an old update-install method) (#145, #113, #89).
+<!-- /en -->
+
 ## [1.65.1] - 2026-11-17
 
 <!-- ko -->

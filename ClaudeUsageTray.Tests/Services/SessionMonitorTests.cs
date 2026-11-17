@@ -235,6 +235,48 @@ public class SessionMonitorTests : IDisposable
         Assert.Equal(3, session.TotalTokens);
     }
 
+    [Theory]
+    [InlineData(null, "")]
+    [InlineData("   \n\t ", "")]
+    [InlineData("  첫 줄\r\n  둘째   줄  ", "첫 줄 둘째 줄")]
+    [InlineData("  <command-name>/clear</command-name>", "")]
+    public void NormalizeTitle_FoldsWhitespaceAndSkipsWrappers(string? text, string expected)
+    {
+        Assert.Equal(expected, SessionMonitor.NormalizeTitle(text));
+    }
+
+    [Fact]
+    public void NormalizeTitle_KeepsExactlyMaxLength_WithoutEllipsis()
+    {
+        var eighty = new string('가', 80);
+
+        Assert.Equal(eighty, SessionMonitor.NormalizeTitle(eighty + "   \n"));
+    }
+
+    /// <summary>붙여 넣은 긴 로그로 시작한 세션도 제목은 80자 + … 이다(원문 전체를 접지 않고 앞부분만 읽는다).</summary>
+    [Fact]
+    public void NormalizeTitle_TruncatesVeryLongPrompt()
+    {
+        var huge = string.Concat(Enumerable.Repeat("로그 한 줄\n", 200_000));
+
+        var title = SessionMonitor.NormalizeTitle(huge);
+
+        Assert.InRange(title.Length, 2, 81);
+        Assert.EndsWith("…", title);
+        Assert.DoesNotContain("\n", title);
+        Assert.StartsWith("로그 한 줄 로그 한 줄", title);
+    }
+
+    [Fact]
+    public void NormalizeTitle_DoesNotSplitSurrogatePair()
+    {
+        var text = new string('a', 79) + "😀 끝";
+
+        var title = SessionMonitor.NormalizeTitle(text);
+
+        Assert.Equal(new string('a', 79) + "…", title);
+    }
+
     // ---------------------------------------------------------------- helpers
 
     // Codex 리뷰봇 지적(#176): 재시작하면 같은 레이트 리밋 기록을 다시 읽는다. 알림 키를 그 시각에 묶으려면

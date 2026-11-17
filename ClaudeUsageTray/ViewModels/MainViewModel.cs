@@ -41,7 +41,6 @@ namespace ClaudeUsageTray.ViewModels;
 
     // Tracks previous 5h usage to detect threshold crossings
     private double _prevShortPercent = -1;
-    private double _prevCodexPercent = -1;
     private double _prevExtraPercent = -1;
     private bool _prevHadRateLimit = false;
 
@@ -2286,7 +2285,6 @@ namespace ClaudeUsageTray.ViewModels;
         CodexErrorMessage = "";
 
         CodexPercent = quota.ShortUsagePercent;
-        _prevCodexPercent = quota.ShortUsagePercent;
         _rawCodexShortResetAt = quota.ShortResetAt;
         _rawCodexShortResetEstimated = quota.IsShortResetEstimated;
         CodexReset = FormatResetLabel(quota.ShortResetAt, quota.IsShortResetEstimated);
@@ -2914,7 +2912,6 @@ namespace ClaudeUsageTray.ViewModels;
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
             CodexPercent = CodexVm.Percent;
-            _prevCodexPercent = CodexVm.Percent;
             _rawCodexShortResetAt = CodexVm.RawShortResetAt;
             _rawCodexShortResetEstimated = CodexVm.RawShortResetEstimated;
             CodexReset = CodexVm.Reset;
@@ -3092,58 +3089,6 @@ namespace ClaudeUsageTray.ViewModels;
     // Manual triggers (optional, usually RefreshAsync is enough)
     [RelayCommand]
     public async Task RefreshCodexAsync() => await RefreshAsync();
-
-    private void ApplyProviderSnapshot(ProviderUsageSnapshot snapshot, bool isError)
-    {
-        System.Windows.Application.Current.Dispatcher.Invoke(() =>
-        {
-            TodayInputTokens = snapshot.TotalInputTokens;
-            TodayOutputTokens = snapshot.TotalOutputTokens;
-            TodayCacheRead = snapshot.TotalCacheReadTokens;
-            TodayCacheWrite = snapshot.TotalCacheWriteTokens;
-            SessionsLabel = Loc.Sessions(snapshot.SessionCount);
-            HistoryData = _history.GetLast(7);
-            HourlyTokens = snapshot.HourlyTokens;
-            TodayCostLabel = CalcCostLabel(snapshot.TotalInputTokens,
-                snapshot.TotalOutputTokens,
-                snapshot.TotalCacheReadTokens,
-                snapshot.TotalCacheWriteTokens);
-
-            _history.RecordToday(snapshot.TotalInputTokens, snapshot.TotalOutputTokens,
-                snapshot.TotalCacheReadTokens, snapshot.TotalCacheWriteTokens, snapshot.SessionCount);
-            HistoryData = _history.GetLast(7);
-
-            ShortUsagePercent = snapshot.ShortUsagePercent;
-            LongUsagePercent = snapshot.LongUsagePercent;
-            ShortResetLabel = FormatResetLabel(snapshot.ShortResetAt);
-            LongResetLabel = FormatResetLabel(snapshot.LongResetAt);
-            ClaudeVm.ShortSummary = Loc.UsageSummary(snapshot.ShortUsagePercent);
-            ClaudeVm.LongSummary = Loc.UsageSummary(snapshot.LongUsagePercent);
-            ShortDepletionLabel = snapshot.ShortResetAt is null ? "" : "";
-            LongDepletionLabel = snapshot.LongResetAt is null ? "" : "";
-
-            SetClaudeExtraUsage(false);
-            SetClaudeExtraOnlyMode(false);
-            HasRateLimitHit = false;
-            RateLimitInfo = "";
-
-            HasError = isError;
-            ErrorMessage = snapshot.IsLimited ? "" : snapshot.ErrorMessage ?? "";
-            RateLimitInfo = snapshot.IsLimited ? snapshot.ErrorMessage ?? "" : "";
-            HasRateLimitHit = snapshot.IsLimited;
-            StatusText = isError
-                ? "Source Unavailable"
-                : snapshot.IsLimited
-                    ? "Limited Data"
-                : snapshot.ShortUsagePercent > 0
-                    ? $"{snapshot.ShortUsagePercent:P0} used"
-                    : Loc.Updated;
-            LastUpdatedLabel = HasError
-                ? $"⚠ {DateTime.Now:HH:mm:ss}"
-                : Loc.UpdatedAt(DateTime.Now.ToString("HH:mm:ss"));
-            IsLoading = false;
-        });
-    }
 
     private void CheckThresholds(double newPercent, string resetLabel, string ntfyTopic, DateTimeOffset? endedWindowResetAt)
     {

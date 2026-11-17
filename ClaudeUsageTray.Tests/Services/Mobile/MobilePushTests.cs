@@ -197,4 +197,23 @@ public class MobilePushTests : IDisposable
         Assert.False(json.TryGetProperty("accountHash", out _));
         Assert.False(json.TryGetProperty("accountLabel", out _));
     }
+
+    /// <summary>
+    /// 계정 이름이 비정상적으로 길어도 알림은 나가야 한다(#265). 직렬화는 넘칠 때 본문·제목만 줄이므로,
+    /// 이름을 Build 에서 한 줄·64자로 줄이지 않으면 암호화 한도를 넘겨 알림이 통째로 버려진다.
+    /// </summary>
+    [Fact]
+    public void BuildCapsVeryLongAccountLabel_SoThePushStillFits()
+    {
+        var store = new MobileDeviceStore(_dir);
+        var sender = new AppPushSender(store, new HttpClient(new FakeHandler(_ => HttpStatusCode.Created)), "HOME-PC");
+
+        var message = sender.Build(PushCategories.Usage, "t", "b", 4, null, TimeSpan.Zero, null,
+            new PushAccount("claude", "org|acct", "이름\n" + new string('가', 10_000)));
+
+        Assert.NotNull(message.AccountLabel);
+        Assert.Equal(AppPushSender.MaxAccountLabelLength, message.AccountLabel!.Length);
+        Assert.StartsWith("이름 가", message.AccountLabel);
+        Assert.True(PushPayload.Serialize(message).Length <= WebPushEncryption.MaxPlaintextBytes);
+    }
 }

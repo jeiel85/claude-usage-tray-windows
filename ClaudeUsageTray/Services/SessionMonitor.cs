@@ -252,14 +252,34 @@ public class SessionMonitor
     private static bool IsTrue(JsonElement root, string name) =>
         root.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.True;
 
-    /// <summary>제목 한 줄 정규화 — 줄바꿈·연속 공백을 접고, 너무 길면 자른다.</summary>
-    private static string NormalizeTitle(string? text)
+    /// <summary>
+    /// 제목 한 줄 정규화 — 줄바꿈·연속 공백을 접고, 너무 길면 자른다(끝에 …).
+    /// 첫 프롬프트는 붙여 넣은 로그처럼 매우 길 수 있으므로 원문 전체를 나눠 복사하지 않고,
+    /// 제목 길이를 넘는 순간 읽기를 멈춘다(#145). 서로게이트 쌍 가운데에서 자르지 않는다.
+    /// </summary>
+    internal static string NormalizeTitle(string? text)
     {
         if (string.IsNullOrWhiteSpace(text)) return "";
 
-        var flat = string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-        if (flat.Length == 0 || flat[0] == '<') return "";
+        var sb = new System.Text.StringBuilder(MaxTitleLength + 1);
+        var pendingSpace = false;
+        foreach (var ch in text)
+        {
+            if (char.IsWhiteSpace(ch))
+            {
+                pendingSpace = sb.Length > 0;
+                continue;
+            }
+            if (sb.Length == 0 && ch == '<') return "";
+            if (pendingSpace) sb.Append(' ');
+            pendingSpace = false;
+            sb.Append(ch);
+            if (sb.Length > MaxTitleLength) break;
+        }
 
-        return flat.Length <= MaxTitleLength ? flat : flat[..MaxTitleLength].TrimEnd() + "…";
+        if (sb.Length <= MaxTitleLength) return sb.ToString();
+        var cut = MaxTitleLength;
+        if (char.IsHighSurrogate(sb[cut - 1])) cut--;
+        return sb.ToString(0, cut).TrimEnd() + "…";
     }
 }
