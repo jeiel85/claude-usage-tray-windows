@@ -27,6 +27,7 @@ public sealed class ClaudeAccountProfileReader
     private long _cachedLength = -1;
     private string _cachedLabel = "";
     private string? _cachedAccountUuid;
+    private string? _cachedOrganizationUuid;
 
     /// <param name="path">프로필 파일 경로. null 이면 ~/.claude.json (테스트용 주입점).</param>
     public ClaudeAccountProfileReader(string? path = null) => _path = path ?? DefaultPath;
@@ -58,6 +59,20 @@ public sealed class ClaudeAccountProfileReader
         }
     }
 
+    /// <summary>
+    /// 이 PC 에 로그인한 Claude 계정의 조직 orgUuid(#275). 최근 Claude Code 는 <c>~/.claude/.credentials.json</c> 에
+    /// <c>organizationUuid</c> 를 쓰지 않고 이 프로필에만 두므로, 자격 파일에 없을 때 대신 쓴다
+    /// (<c>MainViewModel.ResolveClaudeOrgUuid</c>). 읽지 못하면 null. 파일 캐시는 <see cref="GetLabel"/> 과 공유한다.
+    /// </summary>
+    public string? GetOrganizationUuid()
+    {
+        lock (_gate)
+        {
+            RefreshLocked();
+            return _cachedOrganizationUuid;
+        }
+    }
+
     private void RefreshLocked()
     {
         var file = new FileInfo(_path);
@@ -66,25 +81,28 @@ public sealed class ClaudeAccountProfileReader
             _cachedLength = -1;
             _cachedLabel = "";
             _cachedAccountUuid = null;
+            _cachedOrganizationUuid = null;
             return;
         }
 
         if (file.LastWriteTimeUtc == _cachedWriteTimeUtc && file.Length == _cachedLength)
             return;
 
-        if (!TryRead(out var label, out var accountUuid))
+        if (!TryRead(out var label, out var accountUuid, out var organizationUuid))
             return;
 
         _cachedWriteTimeUtc = file.LastWriteTimeUtc;
         _cachedLength = file.Length;
         _cachedLabel = label;
         _cachedAccountUuid = accountUuid;
+        _cachedOrganizationUuid = organizationUuid;
     }
 
-    private bool TryRead(out string label, out string? accountUuid)
+    private bool TryRead(out string label, out string? accountUuid, out string? organizationUuid)
     {
         label = "";
         accountUuid = null;
+        organizationUuid = null;
         try
         {
             using var stream = new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
@@ -94,6 +112,7 @@ public sealed class ClaudeAccountProfileReader
                 && account.ValueKind == JsonValueKind.Object)
             {
                 accountUuid = ReadString(account, "accountUuid")?.Trim() is { Length: > 0 } uuid ? uuid : null;
+                organizationUuid = ReadString(account, "organizationUuid")?.Trim() is { Length: > 0 } org ? org : null;
                 label = FormatLabel(
                     ReadString(account, "displayName") ?? ReadString(account, "fullName"),
                     ReadString(account, "organizationName"),

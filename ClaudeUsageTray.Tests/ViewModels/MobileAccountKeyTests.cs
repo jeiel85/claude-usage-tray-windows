@@ -21,4 +21,25 @@ public class MobileAccountKeyTests
         Assert.Equal("org", MainViewModel.BuildClaudeMobileAccountKey(" org ", null));
         Assert.Null(MainViewModel.BuildClaudeMobileAccountKey(null, "me"));
     }
+
+    // #275: 최근 Claude Code 는 자격 파일에 organizationUuid 를 쓰지 않는다 — 그러면 ~/.claude.json 의 값을 쓴다.
+    [Fact]
+    public void OrgUuidFallsBackToProfileWhenCredentialsLackIt()
+    {
+        Assert.Equal("org-profile", MainViewModel.ResolveClaudeOrgUuid(null, hasCredentials: true, " org-profile "));
+        Assert.Equal("org-profile", MainViewModel.ResolveClaudeOrgUuid("  ", hasCredentials: true, "org-profile"));
+    }
+
+    [Fact]
+    public void OrgUuidPrefersCredentialsSoExistingHistoryKeepsItsScope()
+        => Assert.Equal("org-cred", MainViewModel.ResolveClaudeOrgUuid("org-cred", hasCredentials: true, "org-profile"));
+
+    [Fact]
+    public void OrgUuidIsUnknownWhenLoggedOutOrNowhere()
+    {
+        // 로그아웃(자격 파일 없음)이면 프로필에 예전 계정이 남아 있어도 계정을 가진 척하지 않는다.
+        Assert.Null(MainViewModel.ResolveClaudeOrgUuid(null, hasCredentials: false, "org-profile"));
+        Assert.Null(MainViewModel.ResolveClaudeOrgUuid(null, hasCredentials: true, null));
+        Assert.Null(MainViewModel.ResolveClaudeOrgUuid(null, hasCredentials: true, " "));
+    }
 }
