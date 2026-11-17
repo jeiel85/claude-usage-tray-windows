@@ -48,6 +48,9 @@ public sealed class AppPushSender
     /// <summary>사용량 알림은 하루 지나면 의미가 없다 — 그 사이 꺼져 있던 휴대폰은 옛 경고를 받지 않는다.</summary>
     private const int TtlSeconds = 24 * 3600;
 
+    /// <summary>푸시에 싣는 계정 이름의 최대 길이(Codex 이름 읽기의 상한과 같다).</summary>
+    internal const int MaxAccountLabelLength = 64;
+
     private readonly MobileDeviceStore _devices;
     private readonly HttpClient _http;
     private readonly TimeProvider _time;
@@ -130,7 +133,9 @@ public sealed class AppPushSender
     {
         var provider = account?.Provider.Trim().ToLowerInvariant();
         var hash = string.IsNullOrEmpty(provider) ? null : MobileAccountHash.For(provider, account!.AccountKey, _devices.PcId).Hash;
-        var label = account?.Label?.Trim();
+        // 계정 이름은 한 줄·64자로 줄인다 — PushPayload.Serialize 는 넘칠 때 본문·제목만 줄이므로, 비정상적으로 긴
+        // 이름이 그대로 실리면 알림이 통째로 버려진다(#265). 보조 문구 한 줄에 들어가는 이름이라 PC 이름과 같은 규칙을 쓴다.
+        var label = PcName.Clean(account?.Label, MaxAccountLabelLength);
         return new(MobileProtocol.Schema,
             Guid.NewGuid().ToString("N"),
             _devices.PcId,

@@ -422,16 +422,4 @@ finally {
         System.Windows.Application.Current.Dispatcher.Invoke(() =>
             System.Windows.Application.Current.Shutdown());
     }
-
-    /// <summary>
-    /// Legacy - kept for compatibility but should use the prepare/apply flow for progress.
-    /// </summary>
-    public void ApplyUpdateAsync(string downloadUrl, string sha256Url = "")
-    {
-        // ... (existing code or just redirect to the new flow without progress)
-        _ = Task.Run(async () => {
-            var path = await DownloadAndPrepareUpdateAsync(downloadUrl, sha256Url, (_, _) => {});
-            ApplyPreparedUpdate(path);
-        });
-    }
 }
