@@ -194,6 +194,7 @@ public class HistoryService
         if (_scopes.ContainsKey(scopeKey)) return;
         var path = ScopeKeyToPath(scopeKey);
         var data = new Dictionary<string, DailyStats>();
+        var adopted = false;
         try
         {
             if (File.Exists(path))
@@ -201,6 +202,11 @@ public class HistoryService
                 var json = File.ReadAllText(path);
                 data = JsonSerializer.Deserialize<Dictionary<string, DailyStats>>(json)
                        ?? new Dictionary<string, DailyStats>();
+            }
+            else if (TryAdoptUnscopedNoLock(scopeKey) is { } inherited)
+            {
+                data = inherited;
+                adopted = true;
             }
         }
         catch (Exception ex)
@@ -211,6 +217,30 @@ public class HistoryService
             GC.KeepAlive(ex);
         }
         _scopes[scopeKey] = data;
+        if (adopted) Save(scopeKey);
+    }
+
+    /// <summary>
+    /// Input : 아직 파일이 없는 계정 scope
+    /// Output: 이어 받을 기록(계정 없는 scope 의 복사본). 이어 받지 않으면 null
+    /// 핵심 로직: 계정을 알아내지 못하던 동안(#275 — 최근 Claude Code 가 자격 파일에 orgUuid 를 쓰지 않음)의 기록은 계정 없는
+    ///           scope 에 쌓였다. 계정을 알게 되는 순간 빈 scope 로 바뀌면 차트와 자동 목표(최근 최대치)가 초기화된 것처럼 보이므로,
+    ///           이 PC 에 계정 scope 파일이 하나도 없을 때만 — 즉 이 PC 가 처음 알게 된 계정일 때만 — 그 기록을 복사해 이어 간다.
+    ///           이미 계정 scope 가 있는 PC 에서 다른 계정으로 바꾼 경우에는 남의 기록이 될 수 있어 이어 받지 않는다.
+    ///           원본은 지우지 않는다(로그아웃하면 다시 그 scope 를 본다).
+    /// </summary>
+    private Dictionary<string, DailyStats>? TryAdoptUnscopedNoLock(string scopeKey)
+    {
+        var (provider, accountKey) = ParseKey(scopeKey);
+        if (accountKey is null) return null;
+        if (Directory.Exists(_directory)
+            && Directory.EnumerateFiles(_directory, $"claude-usage-tray-history-{provider}-*.json").Any())
+            return null;
+
+        var unscopedKey = MakeKey(provider, null);
+        EnsureLoadedNoLock(unscopedKey);
+        var source = _scopes[unscopedKey];
+        return source.Count == 0 ? null : new Dictionary<string, DailyStats>(source);
     }
 
     private void Save(string scopeKey)

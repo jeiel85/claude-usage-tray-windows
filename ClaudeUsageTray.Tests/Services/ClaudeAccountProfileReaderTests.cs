@@ -138,4 +138,28 @@ public sealed class ClaudeAccountProfileReaderTests : IDisposable
     [InlineData(null, null, null, "")]
     public void FormatLabel_JoinsWhatIsSafeToShow(string? name, string? org, string? orgType, string expected)
         => Assert.Equal(expected, ClaudeAccountProfileReader.FormatLabel(name, org, orgType));
+
+    // #275: 자격 파일에 organizationUuid 가 없는 Claude Code 를 위해 프로필의 조직 ID 를 읽는다.
+    [Fact]
+    public void ReadsOrganizationUuid_AndForgetsItWhenTheFileGoesAway()
+    {
+        var reader = new ClaudeAccountProfileReader(_path);
+        Assert.Null(reader.GetOrganizationUuid());
+
+        File.WriteAllText(_path, Profile("김민준", "Acme Corp", "claude_team"));
+        Assert.Equal("00000000-0000-0000-0000-000000000002", reader.GetOrganizationUuid());
+
+        File.Delete(_path);
+        Assert.Null(reader.GetOrganizationUuid());
+    }
+
+    [Fact]
+    public void MissingOrBlankOrganizationUuid_IsNull()
+    {
+        File.WriteAllText(_path, """{ "oauthAccount": { "accountUuid": "a", "organizationUuid": "  " } }""");
+        Assert.Null(new ClaudeAccountProfileReader(_path).GetOrganizationUuid());
+
+        File.WriteAllText(_path, """{ "numStartups": 1 }""");
+        Assert.Null(new ClaudeAccountProfileReader(_path).GetOrganizationUuid());
+    }
 }

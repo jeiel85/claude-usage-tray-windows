@@ -649,7 +649,7 @@ namespace ClaudeUsageTray.ViewModels;
         // 아래에서 바로 새로고침하므로 "터미널에서 로그인" 뒤의 폴링 감시는 중복이다(#180).
         CancelClaudeLoginWatch();
         // 계정 전환 감지 — 히스토리를 새 계정으로 전환하고 즉시 새로고침
-        var orgUuid = _credentials.GetOrganizationUuid();
+        var orgUuid = CurrentClaudeOrgUuid();
         _history.SetScope(UsageProviderKind.Claude, orgUuid);
         // 계정 전환 시 rate-limit 대기를 초기화 — 새 계정은 독립적으로 조회
         _apiRetryAfter = DateTimeOffset.MinValue;
@@ -809,7 +809,7 @@ namespace ClaudeUsageTray.ViewModels;
                 _history.SetScope(UsageProviderKind.OpenCode, null);
                 break;
             default:
-                _history.SetScope(UsageProviderKind.Claude, _credentials.GetOrganizationUuid());
+                _history.SetScope(UsageProviderKind.Claude, CurrentClaudeOrgUuid());
                 break;
         }
     }
@@ -1748,11 +1748,34 @@ namespace ClaudeUsageTray.ViewModels;
     /// 알림의 계정 해시가 계정 카드의 해시와 같다.
     /// </summary>
     private PushAccount ClaudePushAccount() => new(UsageProviderKind.Claude,
-        BuildClaudeMobileAccountKey(_credentials.GetOrganizationUuid(), _claudeAccount.GetAccountUuid()), _claudeAccount.GetLabel());
+        BuildClaudeMobileAccountKey(CurrentClaudeOrgUuid(), _claudeAccount.GetAccountUuid()), _claudeAccount.GetLabel());
 
     /// <summary>Codex 표시 이름은 id_token 의 <c>name</c>(이메일은 보내지 않는다, #266) — 피드와 같은 값.</summary>
     private static PushAccount CodexPushAccount() =>
         new(UsageProviderKind.Codex, CodexUsageMonitor.GetCurrentAccountIdentity(), CodexUsageMonitor.GetCurrentAccountName());
+
+    /// <summary>
+    /// 지금 이 PC 에 로그인한 Claude 조직(orgUuid). 히스토리 구분·계정 전환 감지·PC 간 동기화·알림 키·휴대폰 계정 카드가
+    /// 모두 이 값으로 계정을 가른다(#275) — Claude 계정이 필요하면 <c>_credentials.GetOrganizationUuid()</c> 를 직접
+    /// 부르지 말고 이것을 쓴다.
+    /// </summary>
+    private string? CurrentClaudeOrgUuid() =>
+        ResolveClaudeOrgUuid(_credentials.GetOrganizationUuid(), _credentials.HasCredentials(), _claudeAccount.GetOrganizationUuid());
+
+    /// <summary>
+    /// Input : 자격 파일(<c>~/.claude/.credentials.json</c>)의 organizationUuid, 자격 파일이 있는지, 프로필(<c>~/.claude.json</c>
+    ///         <c>oauthAccount</c>)의 organizationUuid
+    /// Output: 계정을 가르는 orgUuid. 모르면 null
+    /// 핵심 로직: 최근 Claude Code 는 자격 파일에 organizationUuid 를 쓰지 않고 프로필에만 둔다(#275). 그대로 두면 계정 키가
+    ///           늘 비어 휴대폰은 같은 계정 PC 들을 합치지 못하고, PC 간 동기화는 다른 계정 PC 까지 한 계정으로 묶는다.
+    ///           자격 파일에 값이 있으면 예전처럼 그것을 쓰고(이미 쌓인 히스토리 구분이 바뀌지 않게), 없을 때만 프로필 값을 쓴다.
+    ///           자격 파일이 없으면(로그아웃) 프로필에 예전 계정이 남아 있어도 null — 로그인하지 않은 PC 가 계정을 가진 척하지 않게.
+    /// </summary>
+    internal static string? ResolveClaudeOrgUuid(string? credentialsOrgUuid, bool hasCredentials, string? profileOrgUuid)
+    {
+        if (!string.IsNullOrWhiteSpace(credentialsOrgUuid)) return credentialsOrgUuid;
+        return hasCredentials && !string.IsNullOrWhiteSpace(profileOrgUuid) ? profileOrgUuid.Trim() : null;
+    }
 
     /// <summary>
     /// Claude 의 휴대폰용 계정 키. 기존 동기화·기록은 orgUuid 를 계정으로 쓰지만, Team·Enterprise 조직은 여러 사람이
@@ -2425,7 +2448,7 @@ namespace ClaudeUsageTray.ViewModels;
         // CredentialService 는 생성 시점에 ~/.claude 가 있어야 감시를 시작하므로, Claude Code 를 한 번도
         // 쓰지 않은 PC 에서 트레이가 먼저 뜨면 이후 로그인해도 변경 이벤트가 오지 않는다(#154).
         UpdateClaudeSubscription();
-        var currentOrgUuid = _credentials.GetOrganizationUuid();
+        var currentOrgUuid = CurrentClaudeOrgUuid();
         if (currentOrgUuid != _lastKnownOrgUuid)
         {
             _lastKnownOrgUuid = currentOrgUuid;
@@ -2495,7 +2518,7 @@ namespace ClaudeUsageTray.ViewModels;
                 if (NotificationsEnabled && NotifyRateLimit &&
                     sessionStats.HasRateLimitHit && !_prevHadRateLimit)
                 {
-                    _notifier.ShowRateLimitAlert(NtfyTopicEffective, accountId: _credentials.GetOrganizationUuid(),
+                    _notifier.ShowRateLimitAlert(NtfyTopicEffective, accountId: CurrentClaudeOrgUuid(),
                         eventAt: sessionStats.RateLimitAt, pushAccount: ClaudePushAccount());
                 }
                 _prevHadRateLimit = sessionStats.HasRateLimitHit;
@@ -2547,7 +2570,7 @@ namespace ClaudeUsageTray.ViewModels;
                                                 depletionAt,
                                                 currentReset.Value,
                                                 NtfyTopicEffective,
-                                                accountId: _credentials.GetOrganizationUuid(),
+                                                accountId: CurrentClaudeOrgUuid(),
                                                 pushAccount: ClaudePushAccount());
                                         }
                                         // 조기 소진 예상이 늦춰졌더라도 기준 시각은 업데이트(다음 비교 기준)
@@ -2823,7 +2846,7 @@ namespace ClaudeUsageTray.ViewModels;
     {
         try
         {
-            var orgUuid = _credentials.GetOrganizationUuid();
+            var orgUuid = CurrentClaudeOrgUuid();
             var entries = _history.GetLast(UsageProviderKind.Claude, orgUuid, AppConstants.HistoryRetentionDays);
             if (entries.Count == 0) return nowUtc;
 
@@ -3127,7 +3150,7 @@ namespace ClaudeUsageTray.ViewModels;
         var settings = _settingsService.Load();
 
         // 같은 토픽을 쓰는 다른 계정의 알림과 키가 겹치지 않도록 계정을 함께 넘긴다(#175).
-        var accountId = _credentials.GetOrganizationUuid();
+        var accountId = CurrentClaudeOrgUuid();
 
         // 1. 할당량 초기화 감지 (100% -> 100% 미만)
         if (NotifyOnQuotaReset && _prevShortPercent >= 1.0 && newPercent < 1.0)

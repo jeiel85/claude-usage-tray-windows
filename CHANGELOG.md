@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.65.1] - 2026-11-17
+
+<!-- ko -->
+### 수정
+- **같은 Claude 계정을 쓰는 PC들이 휴대폰에서 한 카드로 합쳐집니다 (#275)** — 최근 Claude Code는 로그인 파일(`~/.claude/.credentials.json`)에 조직 ID를 적지 않습니다. 앱은 그 값으로만 계정을 알아봐서, 휴대폰 계정 탭에 Claude 카드가 PC마다 따로 "계정을 확인할 수 없어 PC별로 표시"로 나왔습니다. 이제 Claude Code가 계정 정보를 두는 `~/.claude.json`에서도 읽어, PC 3대 중 1대가 계정 A·2대가 계정 B면 카드 2개로 보입니다. 같은 계정의 PC들이 모두 이 버전이어야 합쳐집니다.
+- **PC 간 동기화가 다른 계정의 PC까지 한 계정으로 묶던 문제 (#275)** — 같은 원인으로 공유 폴더·동기화 코드 동기화가 모든 PC를 한 계정으로 보아, 다른 계정 PC의 오늘 토큰을 더하거나 API 조회가 실패할 때 다른 계정의 할당량을 대신 보여 줄 수 있었습니다. 이제 계정별로 나뉩니다. 사용량 기록의 계정 구분, 계정 전환 감지, 같은 ntfy 토픽을 쓰는 다른 계정 알림의 구분도 함께 바로잡힙니다.
+- 계정을 모르던 동안 쌓인 Claude 사용량 기록(차트·자동 목표)은 그 PC가 처음 알게 된 계정으로 이어지므로 초기화되지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **PCs on the same Claude account merge into one card on the phone again (#275)** — recent Claude Code no longer writes the organization ID to its login file (`~/.claude/.credentials.json`), which is the only place the app looked. The account stayed unknown, so the phone's Accounts tab showed one Claude card per PC marked "Account not identified — shown per PC". The app now also reads `~/.claude.json`, where Claude Code keeps the account profile: one PC on account A and two on account B now show two cards. All PCs on an account need this version to merge.
+- **PC-to-PC sync no longer lumps different accounts together (#275)** — for the same reason, shared-folder and sync-code sync treated every PC as one account, so it could add another account's tokens to today's total or show another account's quota when the API call failed. Sync is now split by account again, and so are usage history, account-switch detection and alerts from different accounts on one ntfy topic.
+- Claude usage history recorded while the account was unknown (chart, auto goal) carries over to the first account the PC identifies, so it does not reset.
+<!-- /en -->
+
 ## [1.65.0] - 2026-11-16
 
 <!-- ko -->
