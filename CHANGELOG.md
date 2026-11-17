@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.65.3] - 2026-11-17
+
+<!-- ko -->
+### 개선
+- **휴대폰 앱이 Android 16(API 36)을 타겟팅합니다 (#278)** — Google Play는 새로 올리는 앱에 API 36 이상 타겟팅을 요구해, 이전 빌드로는 비공개 테스트 검토를 보낼 수 없었습니다. 화면·기능은 같습니다. Android 16 태블릿 등 큰 화면에서는 페어링 QR 스캐너가 세로로 고정되지 않고 기기 방향을 따릅니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **The phone app now targets Android 16 (API 36) (#278)** — Google Play requires new uploads to target API 36 or higher, so the previous build could not be sent for closed-testing review. Screens and features are unchanged. On large screens such as Android 16 tablets the pairing QR scanner follows the device orientation instead of staying in portrait.
+<!-- /en -->
+
 ## [1.65.2] - 2026-11-17
 
 <!-- ko -->
