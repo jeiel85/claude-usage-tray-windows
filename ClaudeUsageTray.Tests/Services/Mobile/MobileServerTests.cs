@@ -64,6 +64,41 @@ public class MobileServerTests : IDisposable
     }
 
     [Fact]
+    public void WrongCodesSentWhileNoQrIsShownDoNotLockTheNextQr()
+    {
+        // Cloudflare 경로를 켜면 인터넷의 누구나 /pair 를 부를 수 있다(#290). QR 을 띄우기 전에 보낸 틀린 코드가
+        // 사용자가 띄울 QR 을 막으면 안 된다.
+        var time = new FakeTime(MobileProtocolFixtures.Now);
+        var pairing = new PairingService(new MobileDeviceStore(_dir, time), time);
+        for (var i = 0; i < PairingService.MaxFailures * 2; i++)
+            Assert.Equal(PairOutcome.InvalidCode, pairing.TryPair("wrong", null, null).Outcome);
+
+        // 만료된 QR 도 떠 있지 않은 것과 같다.
+        pairing.Begin();
+        time.Now += PairingService.CodeLifetime + TimeSpan.FromSeconds(1);
+        for (var i = 0; i < PairingService.MaxFailures * 2; i++)
+            Assert.Equal(PairOutcome.InvalidCode, pairing.TryPair("wrong", null, null).Outcome);
+
+        var (code, _) = pairing.Begin();
+        Assert.Equal(PairOutcome.Paired, pairing.TryPair(code, null, null).Outcome);
+    }
+
+    [Fact]
+    public void ANewQrStartsAFreshFailureCount()
+    {
+        // 떠 있는 QR 을 틀린 코드로 잠가도, 사용자가 새 QR 을 만들면 바로 연결할 수 있다(잠금은 코드마다).
+        var time = new FakeTime(MobileProtocolFixtures.Now);
+        var pairing = new PairingService(new MobileDeviceStore(_dir, time), time);
+        var (locked, _) = pairing.Begin();
+        for (var i = 0; i < PairingService.MaxFailures; i++)
+            pairing.TryPair("wrong", null, null);
+        Assert.Equal(PairOutcome.Locked, pairing.TryPair(locked, null, null).Outcome);
+
+        var (fresh, _) = pairing.Begin();
+        Assert.Equal(PairOutcome.Paired, pairing.TryPair(fresh, null, null).Outcome);
+    }
+
+    [Fact]
     public void StoreKeepsOnlyTokenHashesAndSurvivesCorruptFile()
     {
         var store = new MobileDeviceStore(_dir);
@@ -163,8 +198,8 @@ public class MobileServerTests : IDisposable
 
         using var http = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
 
-        var info = JsonDocument.Parse(await http.GetStringAsync("/api/v1/info")).RootElement;
-        Assert.Equal("TEST-PC", info.GetProperty("pcName").GetString());
+        // /info 도 토큰이 있어야 한다(#290) — 인증 없이 열린 것은 /pair 뿐이다.
+        Assert.Equal(HttpStatusCode.Unauthorized, (await http.GetAsync("/api/v1/info")).StatusCode);
 
         var wrong = await http.PostAsync("/api/v1/pair", Json(new { code = "nope", deviceName = "x" }));
         Assert.Equal(HttpStatusCode.BadRequest, wrong.StatusCode);
@@ -176,6 +211,13 @@ public class MobileServerTests : IDisposable
         Assert.Equal(store.PcId, pairBody.GetProperty("pcId").GetString());
 
         Assert.Equal(HttpStatusCode.Unauthorized, (await http.GetAsync("/api/v1/usage")).StatusCode);
+
+        using (var req = new HttpRequestMessage(HttpMethod.Get, "/api/v1/info"))
+        {
+            req.Headers.Authorization = new("Bearer", token);
+            var info = JsonDocument.Parse(await (await http.SendAsync(req)).Content.ReadAsStringAsync()).RootElement;
+            Assert.Equal("TEST-PC", info.GetProperty("pcName").GetString());
+        }
 
         feed.Publish(new MobileFeedEntry("claude", "org|acct", "Me", DateTimeOffset.UtcNow, "",
             new UsageSyncQuotaSnapshot { HasData = true, ShortUsagePercent = 0.5 }, null));

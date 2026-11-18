@@ -124,10 +124,10 @@ public class CloudflareTunnelTests : IDisposable
         Assert.Equal(MobileTransport.Cloudflare, endpoint.Transport);
         Assert.Equal(endpoint, Assert.Single(server.CreateOffer()!.Endpoints));
 
-        // 커넥터가 닿는 루프백 리스너는 실제로 열려 있다(평문 HTTP).
+        // 커넥터가 닿는 루프백 리스너는 실제로 열려 있다(평문 HTTP). 터널 너머 누구나 닿는 곳이라 /info 도 토큰을 요구한다(#290).
         using var http = new System.Net.Http.HttpClient();
-        var info = await http.GetStringAsync($"http://127.0.0.1:{server.Options.Port}/api/v1/info");
-        Assert.Contains("\"pcName\":\"PC\"", info);
+        var info = await http.GetAsync($"http://127.0.0.1:{server.Options.Port}/api/v1/info");
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, info.StatusCode);
     }
 
     [Fact]

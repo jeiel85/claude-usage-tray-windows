@@ -11,6 +11,8 @@ public sealed record PairResult(PairOutcome Outcome, string? DeviceId = null, st
 /// <summary>
 /// QR 일회용 페어링 코드(Homebase DECISIONS M-2 와 같은 규칙).
 /// 활성 코드는 하나뿐(새 QR 이 이전 것을 무효화), 5분 수명, 1회용, 5분에 10번 틀리면 잠근다.
+/// 실패는 QR 이 떠 있는 동안만 세고, 새 QR 을 만들면 다시 센다(#290) — Cloudflare 경로를 켜면 인터넷의 누구나 이 요청을 보낼 수
+/// 있어서, QR 을 띄우기 전부터 틀린 코드를 보내 두면 사용자가 5분간 페어링을 못 했다. 코드가 128bit 라 코드마다 10번이면 추측에 충분히 좁다.
 /// </summary>
 public sealed class PairingService
 {
@@ -41,6 +43,7 @@ public sealed class PairingService
         lock (_gate)
         {
             _code = Base64Url(RandomNumberGenerator.GetBytes(16));
+            _failures.Clear();
             _expiresAt = _time.GetUtcNow() + CodeLifetime;
             return (_code, _expiresAt);
         }
@@ -69,7 +72,8 @@ public sealed class PairingService
             if (_code is null || string.IsNullOrEmpty(code) ||
                 !CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(_code), Encoding.ASCII.GetBytes(code)))
             {
-                _failures.Enqueue(now);
+                // 떠 있는 QR 이 없으면(코드 없음·만료) 맞힐 코드도 없으므로 잠금에 세지 않는다.
+                if (_code is not null && now <= _expiresAt) _failures.Enqueue(now);
                 return new PairResult(PairOutcome.InvalidCode);
             }
 

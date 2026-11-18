@@ -49,7 +49,7 @@ Tailscale 없이 밖에서 닿는 경로입니다. 설정 → 연결 → **밖�
 - **Quick Tunnel**(기본): 계정·도메인 없이 `*.trycloudflare.com` 임시 주소를 받습니다. 주소는 커넥터 로그에서 읽고(`api.trycloudflare.com`은 커넥터가 부르는 API 주소라 제외), **앱을 다시 시작할 때마다 바뀝니다**. Cloudflare는 Quick Tunnel을 테스트용·가용성 무보장으로 안내합니다.
 - **이름 있는 터널**: Cloudflare 대시보드의 터널 토큰과 그 터널에 연결한 공개 호스트명을 넣으면 고정 주소를 씁니다. 토큰은 DPAPI(현재 사용자)로 감싸 `MobileCloudflareTokenProtected`에 저장하고, 커넥터에는 명령줄이 아닌 `TUNNEL_TOKEN` 환경 변수로 넘깁니다. 토큰만 있고 호스트명이 없으면 열지 않습니다(휴대폰에 줄 주소를 알 수 없음).
 - 커넥터는 kill-on-close Job Object에 넣어 앱과 함께 종료되고, 실패하면 5초→15초→1분→5분 백오프로 다시 띄웁니다. 설치되어 있지 않으면 1분마다 다시 찾습니다(설치 폴더 → `%LOCALAPPDATA%\Microsoft\WinGet\Links` → PATH). 설정의 **설치 (winget)** 버튼이 `winget install --id Cloudflare.cloudflared`를 실행합니다.
-- **노출 면**: 터널 주소를 아는 누구나 인증 없는 `/api/v1/info`(PC 이름·버전)와 `/api/v1/pair`에 닿습니다. 페어링은 128비트 1회용 코드(5분)와 5분 10회 실패 잠금으로, 그 밖의 모든 API는 256비트 Bearer 토큰으로 보호합니다. 요청 본문 읽기에도 10초 제한이 있어 느린 연결이 슬롯을 붙잡지 못합니다.
+- **노출 면**: 터널 주소를 아는 누구나 인증 없는 `/api/v1/pair`에 닿습니다(`/api/v1/info`도 v1.67.2부터 토큰이 필요합니다, #290). 페어링은 128비트 1회용 코드(5분)와 실패 잠금(QR이 떠 있는 동안 10회, 새 QR을 만들면 다시 셈)으로, 그 밖의 모든 API는 256비트 Bearer 토큰으로 보호합니다. 요청 본문 읽기에도 10초 제한이 있고, 동시 연결 수(32)는 경로(LAN·Tailscale·루프백)마다 따로 세어 터널로 들어온 연결이 LAN의 휴대폰 자리를 빼앗지 못합니다.
 
 ## 페어링 QR
 
@@ -68,7 +68,7 @@ https://jeiel85.github.io/claude-usage-tray-windows/pair/#<base64url(UTF-8 JSON 
 
 | 메서드 | 경로 | 인증 | 응답 |
 |---|---|---|---|
-| GET | `/api/v1/info` | 없음 | `{schema, protocol, pcId, pcName, appVersion, os}` |
+| GET | `/api/v1/info` | Bearer(v1.67.2+, #290 — 이전엔 없음) | 200 `{schema, protocol, pcId, pcName, appVersion, os}` · 401 |
 | POST | `/api/v1/pair` | 본문의 `code` | 200 `{schema, deviceId, token, pcId, pcName}` · 400 `invalid_code` · 410 `code_expired` · 429 `locked` |
 | DELETE | `/api/v1/pair` | Bearer | 200 `{schema, deviceId, paired: false}` · 401 (#285) |
 | GET | `/api/v1/endpoints` | Bearer | 200 `{schema, endpoints}`([`endpoints.v1.json`](mobile-protocol/endpoints.v1.json)) · 401 |
