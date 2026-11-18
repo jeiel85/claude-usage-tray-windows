@@ -1446,14 +1446,14 @@ public static class Loc
     };
 
     /// <summary>
-    /// 릴리스에 SHA256 자산이 없어 무결성 검증이 불가능한 경우 — 무인 설치를 하지 않는다.
+    /// 업데이트 서명이 없거나 맞지 않아 설치를 거부한 경우(#290). 검증 없이 설치하는 경로는 없다.
     /// </summary>
-    public static string UpdateNoChecksumWarning => Lang switch
+    public static string UpdateSignatureInvalid => Lang switch
     {
-        "ko" => "무결성 검증 파일(SHA256)이 없는 릴리스입니다 — 자동 설치를 건너뜁니다",
-        "zh" => "此版本未提供完整性校验文件(SHA256) — 已跳过自动安装",
-        "ja" => "整合性検証ファイル(SHA256)がないリリースです — 自動インストールは行いません",
-        _ => "This release ships no SHA256 checksum — skipping the automatic install"
+        "ko" => "업데이트 서명을 확인하지 못해 설치하지 않았습니다 (받은 파일은 지웠습니다)",
+        "zh" => "无法验证更新签名，未安装（已删除下载的文件）",
+        "ja" => "更新の署名を確認できなかったため、インストールしませんでした（ダウンロードしたファイルは削除しました）",
+        _ => "Could not verify the update signature, so it was not installed (the download was deleted)"
     };
 
     /// <summary>

@@ -24,7 +24,7 @@ git fetch origin && git pull origin master && git status
 - 사용자 경로는 항상 `Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)` 등을 사용하여 동적으로 생성한다.
 
 ### 2. 보안 및 무결성
-- 업데이트 파일 다운로드 후 반드시 SHA256 해시를 검증한다 (`UpdateService.cs`).
+- 자동 업데이트는 업데이트 서명(`ClaudeUsageTray.exe.sig`, `UpdateSignature.cs`)이 맞는 exe 만 설치한다. 검증 없이 설치하는 경로를 만들지 않는다(`docs/DECISIONS.md` D-1). 서명 개인키는 메인 체크아웃 `.keystore/update-signing.pem`(+ `update-signing.properties`)에만 있고 절대 커밋·출력하지 않는다.
 - ntfy 토픽은 20자 이상, 허용 문자(`^[a-z0-9_\-@.]+$`)만 사용하도록 검증한다.
 
 ### 3. 다국어 지원 (Localization)
@@ -49,6 +49,7 @@ git fetch origin && git pull origin master && git status
   3. `CHANGELOG.md` 최상단에 신규 버전 섹션 추가 (변경 내역 요약, ko/en 이중 언어)
   4. 커밋 → 태그(`v{x.y.z}`) → `git push origin master && git push origin v{x.y.z}`
   5. GitHub Release 생성 확인 (`gh release view v{x.y.z}` — exe 자산 첨부 여부까지 검증)
+  6. **업데이트 서명**: `pwsh tools/sign-release.ps1 v{x.y.z}` → `gh release view` 에 `ClaudeUsageTray.exe.sig` 가 있는지 확인. 서명이 없으면 v1.67.3 이상 앱은 그 버전을 받지 않는다(조용히 "최신").
 - **사용자가 "새 버전 만들기" 같은 명시적 요청을 하지 않아도 위 사이클을 자동 실행한다.**
 - 단, 사용자가 "아직 릴리즈 하지 마" 또는 "커밋만 해" 등 명시적으로 보류 의사를 밝힌 경우에는 릴리즈를 생성하지 않는다.
 
@@ -80,6 +81,8 @@ git fetch origin && git pull origin master && git status
   git push origin master && git push origin v{버전}
   # 3. GitHub Release 생성 확인 — exe 자산 첨부 여부 필수 검증
   gh release view v{버전}
+  # 4. 업데이트 서명(배포 PC 에서) — ClaudeUsageTray.exe.sig 가 붙어야 배포 완료
+  pwsh tools/sign-release.ps1 v{버전}
   ```
 - **릴리즈는 반드시 태그 push로**: 이 프로젝트의 CI(`release.yml`)는 브랜치 push에 반응하지 않고 **`v*` 형식의 태그 push에만 트리거**된다. 버전 bump 커밋 후 태그를 붙이지 않으면 GitHub Release가 생성되지 않는다.
 - **WPF 트리밍 제한**: WPF/WinForms 앱에서 `PublishTrimmed=true` 옵션은 리소스 로딩 오류 및 빌드 실패를 유발하므로 사용하지 않는다.
@@ -110,6 +113,10 @@ git fetch origin && git pull origin master && git status
 *상세 내용은 [CHANGELOG.md](./CHANGELOG.md) 참조*
 
 - **v1.67.1**: 상대가 지운 페어링 철회(#285) — `DELETE /api/v1/pair`(Bearer, 토큰의 기기 자신만 `Revoke`). 휴대폰 `MainActivity.removePc` → `UsageApi.forget`(405·404 옛 PC면 `DELETE /api/v1/push` 로 대신), PC 동기화 `PeerSyncClient.Remove` 도 상대 PC 에 보낸다(최선 노력, 목록은 바로 지움). 안 보내면 상대 목록에 옛 항목이 남아 다시 연결 시 같은 기기가 두 번 보였다(옛 항목은 `SetPushSubscription` 의 같은 엔드포인트 정리에 안 걸림: 푸시 해제로 비었거나 재설치로 주소가 다름). 이름·기종으로 자동 정리는 하지 않는다(같은 기종·이름의 다른 휴대폰). 휴대폰 단위 테스트는 `mockwebserver`(`ForgetPcTest`).
+- **v1.67.3**: 업데이트 서명(#290, `docs/DECISIONS.md` D-1) — `UpdateService.SelectUpdate` 는 exe 와 `ClaudeUsageTray.exe.sig` 가 모두 있는 가장 새 릴리스만 고르고, `DownloadAndPrepareUpdateAsync(url, sigUrl, version, …)` 는 `UpdateSignature.Verify`(ECDSA P-256, 메시지 `claude-usage-tray-update/v1
+<x.y.z>
+<sha256>
+`)가 틀리면 파일을 지우고 거부한다. `allowUnverified`·`canVerify`·`UpdateNoChecksumWarning` 은 없어졌다. 서명은 태그 릴리스 뒤 `tools/sign-release.ps1`. 실물 확인: `UpdateSignatureLiveReleaseTests`(Network). `SHA256.txt` 는 v1.67.2 이하 앱을 위해 계속 올린다.
 - **v1.67.2**: 보안 하드닝(#290) — 인증 없이 열린 휴대폰 API 는 `POST /api/v1/pair` 뿐(`/api/v1/info` 도 Bearer). 페어링 실패는 QR 이 떠 있을 때만 세고 `Begin()` 이 초기화(Cloudflare 경로로 누구나 `/pair` 를 부를 수 있음). 동시 연결 슬롯은 `PathKind` 마다 32. `release.yml` 의 서드파티 Action 은 커밋 SHA 로 고정 — 올릴 때 새 태그의 커밋을 확인해 바꾼다. 저장소에 `v*` 태그 ruleset(생성·이동·삭제는 관리자만, 관리자 우회) — 태그 재발행도 소유자 계정으로만 된다. `ClaudeUsageTray.Updater` 프로젝트는 삭제됨(업데이트는 `UpdateService` 의 PowerShell 스왑만).
 - **v1.67.0**: Play 빌드 새 버전 알림(#284, 도란 방식) — `playImplementation` `com.google.android.play:app-update:2.1.0` 으로 휴대폰의 Play 앱에 더 높은 versionCode 가 있는지 묻고(`StoreUpdates.check`, 15초 제한, Play 에서 받지 않은 설치본은 `NotFromPlay`), 홈 배너·설정 카드('Google Play' 버튼)·배경 잡 알림(버전당 1회, `StoreUpdateJobService` 잡 ID 787076, 12시간)으로 알린 뒤 Play 스토어(`market://`, 없으면 웹)로 보낸다. 설치·다운로드 코드는 여전히 github 에만. `AppUpdates.IN_APP` 은 없어졌고(두 빌드 모두 설정 '업데이트' 구역), 채널 전용 라이브러리 라이선스는 `AppUpdates.THIRD_PARTY`. 사이드로드 디버그로 확인: `am start … MainActivity --ei cut.fakeStoreUpdate 16700`(설치 버전보다 높게, `-Pcut.version=`).
 - **v1.66.0**: 휴대폰 앱 백그라운드 자동 설치(#281, github flavor) — 배경 잡(`UpdateCheckJobService.runCheck`)이 새 버전을 찾으면 `UpdateAutoInstaller` 가 받기(SHA-256) → 같은 패키지·더 높은 versionCode·같은 서명 키 확인 → 앱이 안 보일 때 `PackageInstaller` 세션 커밋(31+ `USER_ACTION_NOT_REQUIRED`, 권한 `UPDATE_PACKAGES_WITHOUT_USER_ACTION`; 자기 자신 업데이트라 첫 회도 조용함, 단 '알 수 없는 앱 설치' 미허용이면 확인 필요). 결과는 `UpdateInstallReceiver`: PENDING_USER_ACTION → 확인 인텐트 알림, ABORTED 는 무시(새 세션이 옛 세션을 버릴 때 오는 콜백이 진행 중 설치 기록을 지우던 경쟁), 그 밖 실패 → 평소 알림. 교체 뒤 `MY_PACKAGE_REPLACED` 로 "업데이트했습니다" 한 번. 버전당 자동 시도 한 번(`UpdateDecision.shouldAutoInstall`). 사용자가 누르는 수동 설치는 그대로 `ACTION_INSTALL_PACKAGE`. 시험: 잡 ID 786984 → `adb shell cmd jobscheduler run -f com.jeiel85.aiusage 786984`(앱을 한 번 열고 홈으로).
