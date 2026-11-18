@@ -40,7 +40,10 @@ internal object AppUpdates {
     fun SettingsCard(canNotify: Boolean, onAllowNotifications: () -> Unit) =
         StoreUpdateSurface.SettingsCard(canNotify, onAllowNotifications)
 
-    private fun Intent?.opensStore(): Boolean = this?.getBooleanExtra(StoreUpdateNotifier.EXTRA_OPEN_STORE, false) == true
+    /** Not when relaunched from Recents: that replays the notification's intent and would open the store again. */
+    private fun Intent?.opensStore(): Boolean = this != null &&
+        flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0 &&
+        getBooleanExtra(StoreUpdateNotifier.EXTRA_OPEN_STORE, false)
 
     /**
      * Debug builds only: `adb shell am start -n com.jeiel85.aiusage/io.github.jeiel85.claudeusage.MainActivity
