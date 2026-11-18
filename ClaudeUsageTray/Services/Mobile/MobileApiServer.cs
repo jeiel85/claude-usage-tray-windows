@@ -41,6 +41,10 @@ public sealed class MobileApiServer : IDisposable
     /// </summary>
     public static readonly TimeSpan LiveHeartbeat = TimeSpan.FromSeconds(60);
 
+    /// <summary>
+    /// 경로(LAN·Tailscale·루프백)마다 따로 세는 동시 연결 수(#290). 한 풀을 같이 쓰면 Cloudflare 터널로 들어오는 인터넷의 느린
+    /// 요청이 슬롯을 모두 묶어 같은 집 LAN 의 휴대폰까지 닿지 못한다.
+    /// </summary>
     private const int MaxConnections = 32;
 
     /// <summary>철회된 기기에 보내는 WebSocket 종료 사유(1008). 앱은 401 과 같게 처리한다.</summary>
@@ -58,7 +62,8 @@ public sealed class MobileApiServer : IDisposable
     private readonly PairingService _pairing;
     private readonly PeerSyncHub? _sync;
     private readonly Func<string> _pcName;
-    private readonly SemaphoreSlim _connections = new(MaxConnections);
+    private readonly Dictionary<PathKind, SemaphoreSlim> _connections =
+        Enum.GetValues<PathKind>().ToDictionary(k => k, _ => new SemaphoreSlim(MaxConnections));
     private readonly object _gate = new();
     private MobileServerOptions _options = new(MobileProtocol.DefaultPort, true, true);
     private CancellationTokenSource? _cts;
@@ -321,7 +326,8 @@ public sealed class MobileApiServer : IDisposable
             try { client = await listener.AcceptTcpClientAsync(ct); }
             catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException or SocketException) { return; }
 
-            if (!await _connections.WaitAsync(0, ct))
+            var slots = _connections[kind];
+            if (!await slots.WaitAsync(0, ct))
             {
                 client.Dispose();
                 continue;
@@ -337,7 +343,7 @@ public sealed class MobileApiServer : IDisposable
                 finally
                 {
                     client.Dispose();
-                    _connections.Release();
+                    slots.Release();
                 }
             }, CancellationToken.None);
         }
@@ -443,13 +449,16 @@ public sealed class MobileApiServer : IDisposable
     /// Input : 요청 머리, 본문
     /// Output: (상태 코드, JSON)
     /// 핵심 로직: 소켓과 분리해 두어 테스트가 라우팅·인증을 직접 확인할 수 있게 했다.
-    ///           <c>/info</c> 만 인증 없이 열린다(PC 이름·버전) — 휴대폰 목록의 "온라인" 표시용이다.
+    ///           인증 없이 열린 것은 <c>/pair</c> 뿐이다. <c>/info</c>(PC 이름·버전·Windows 버전)도 토큰을 요구한다(#290) —
+    ///           Cloudflare 경로를 켜면 터널 주소를 아는 누구나 닿으므로, 공격 대상 버전을 고르는 데 쓰일 정보를 내주지 않는다.
+    ///           휴대폰 앱은 이 경로를 부르지 않는다.
     /// </summary>
     public (int Status, string Json) HandleRest(HttpRequestHead head, byte[]? body)
     {
         switch (head.Method, head.Path)
         {
             case ("GET", "/api/v1/info"):
+                if (_devices.Authenticate(head.BearerToken() ?? "") is null) return Unauthorized();
                 return (200, Json(new PcInfo(MobileProtocol.Schema, MobileProtocol.Protocol, _devices.PcId,
                     _pcName(), AppVersion, Environment.OSVersion.VersionString)));
 

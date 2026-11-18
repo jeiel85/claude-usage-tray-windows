@@ -3,6 +3,40 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.67.3] - 2026-11-18
+
+<!-- ko -->
+### 보안
+- **자동 업데이트가 서명을 확인합니다 (#290)** — 지금까지는 같은 릴리스에 함께 올라간 SHA256 파일로만 확인해서, GitHub 계정이나 배포 도구가 탈취되면 바꿔 끼운 exe가 그대로 설치될 수 있었습니다. 이제 GitHub 밖에 있는 키로 서명한 업데이트만 설치합니다. 서명이 없거나 맞지 않으면 받은 파일을 지우고 설치하지 않습니다. 직접 '업데이트'를 눌러도 같습니다.
+- 이 버전부터 확인이 시작됩니다. 이 버전 자체는 예전 방식(SHA256)으로 받습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Security
+- **Automatic updates now check a signature (#290)** — Until now an update was checked only against the SHA256 file uploaded with the same release, so a hijacked GitHub account or release tool could get a swapped exe installed. Now only updates signed with a key kept outside GitHub are installed; if the signature is missing or wrong, the download is deleted and nothing is installed — also when you click Update yourself.
+- Checking starts with this version; this version itself is still installed the old way (SHA256).
+<!-- /en -->
+
+## [1.67.2] - 2026-11-18
+
+<!-- ko -->
+### 보안
+- **휴대폰 연결 서버를 더 단단하게 했습니다 (#290)** — 보안 감사에서 이 앱을 통해 PC를 장악할 경로는 찾지 못했고, 남은 약한 곳을 고쳤습니다.
+  - **페어링 잠금:** 틀린 코드는 연결 QR이 떠 있는 동안만 셉니다. 새 QR을 만들면 다시 셉니다. Cloudflare 경로를 켠 PC에서 누군가 미리 틀린 코드를 보내 두면 5분 동안 연결할 수 없던 문제가 없어졌습니다.
+  - **연결 자리:** 동시 연결 수(32)를 LAN·Tailscale·Cloudflare 경로마다 따로 셉니다. 인터넷에서 들어온 연결이 같은 집 휴대폰의 자리를 빼앗지 못합니다.
+  - **PC 정보:** `/api/v1/info`(PC 이름·앱 버전·Windows 버전)는 이제 연결된 기기만 볼 수 있습니다. 휴대폰 앱은 이 경로를 쓰지 않아 달라지는 것은 없습니다.
+  - 쓰이지 않던 옛 업데이터 프로젝트(`ClaudeUsageTray.Updater`)를 지웠습니다. SHA256 파일을 받지 못하면 검증 없이 설치하는 코드라, 다시 쓰이지 않게 없앴습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Security
+- **Hardened the phone connection server (#290)** — A security audit found no way to take over the PC through this app; the remaining weak spots are fixed.
+  - **Pairing lockout:** wrong codes are counted only while a pairing QR is shown, and a new QR starts a fresh count. On a PC with the Cloudflare path on, someone sending wrong codes in advance could block pairing for 5 minutes.
+  - **Connection slots:** the 32 concurrent connections are now counted per path (LAN, Tailscale, Cloudflare), so connections from the internet cannot take the slots of phones on your home network.
+  - **PC info:** `/api/v1/info` (PC name, app version, Windows version) now requires a paired device. The phone app does not use it, so nothing changes for you.
+  - Removed the unused legacy updater project (`ClaudeUsageTray.Updater`), which installed without verification when the SHA256 file could not be fetched, so it cannot come back into use.
+<!-- /en -->
+
 ## [1.67.1] - 2026-11-18
 
 <!-- ko -->
