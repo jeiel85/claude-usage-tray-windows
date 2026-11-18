@@ -5,6 +5,8 @@
 
     <!-- The updater hands the SHA-256-checked APK to the system installer. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Android 12+: lets the background auto-install (#281) update this app itself without a confirmation prompt. -->
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
     <!-- Keeps the background update check scheduled across reboots (JobInfo.setPersisted). -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
@@ -14,6 +16,15 @@
             android:name=".update.UpdateCheckJobService"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <!-- Background auto-install (#281): install-session results, and "this app was just replaced" (one notice). -->
+        <receiver
+            android:name=".update.UpdateInstallReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Shares only the downloaded update APK (cache/updates) with the system installer. -->
         <provider
