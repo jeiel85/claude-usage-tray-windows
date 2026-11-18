@@ -7,9 +7,10 @@ import androidx.core.content.FileProvider
 import java.io.File
 
 /**
- * 검증된 APK 를 시스템 설치 앱에 넘긴다(Homebase 이식, Markleaf D079).
+ * 사용자가 누른 업데이트의 검증된 APK 를 시스템 설치 앱에 넘긴다(Homebase 이식, Markleaf D079). 아무도 보고 있지 않을 때의
+ * 자동 설치는 [UpdateAutoInstaller] 가 `PackageInstaller` 세션으로 따로 한다(#281) — 그때는 띄울 화면이 없다.
  *
- * `PackageInstaller` 세션이 아니라 `ACTION_INSTALL_PACKAGE` 인 이유: 세션으로 자기 자신을 업데이트하면 설치가 끝나는 순간 이 앱
+ * 여기서 `PackageInstaller` 세션이 아니라 `ACTION_INSTALL_PACKAGE` 인 이유: 세션으로 자기 자신을 업데이트하면 설치가 끝나는 순간 이 앱
  * 프로세스가 교체되며 조용히 사라진다 — 사용자에게는 "앱이 닫혔다" 로만 보인다. 인텐트로 넘기면 확인·진행·"완료/열기" 화면을
  * 시스템 설치 앱이 자기 프로세스에서 그려 "열기" 한 번으로 새 버전이 뜬다. `ACTION_VIEW` 가 아닌 이유: APK MIME 을 여는 파일
  * 관리자·서드파티 설치 앱이 끼어들 수 있다. 이 액션은 API 29 에서 deprecated 지만 시스템 설치 앱이 그대로 처리한다.

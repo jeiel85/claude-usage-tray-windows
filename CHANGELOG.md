@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.66.0] - 2026-11-18
+
+<!-- ko -->
+### 추가
+- **휴대폰 앱이 새 버전을 백그라운드에서 자동으로 설치합니다 (#281, GitHub APK 설치본)** — 지금까지는 새 버전 알림을 보고 앱을 열어 '업데이트'를 누르고, 설치 화면에서 한 번 더 눌러야 했습니다. 이제 하루 한 번 확인할 때 새 버전이 있으면 받아서 SHA-256과 서명 키(이 앱과 같은 키인지)를 확인한 뒤, 앱을 쓰지 않을 때 Android 12 이상에서 확인 없이 설치하고 "업데이트했습니다" 알림을 한 번 띄웁니다. Android가 확인을 요구하면(Android 11 이하, '알 수 없는 앱 설치'를 아직 허용하지 않은 경우 등) "설치 준비됨" 알림을 누르면 바로 설치 확인 화면이 뜹니다. 설정 → 앱 업데이트의 '백그라운드에서 자동 설치'로 끌 수 있습니다(기본 켜짐). Play 설치본은 지금처럼 Google Play가 업데이트합니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **The phone app installs new versions in the background (#281, GitHub APK installs)** — Until now a new version meant a notification, opening the app, tapping Update and confirming in the installer. Now the daily check downloads a new version, verifies its SHA-256 and that it is signed with this app's key, and installs it while you aren't using the app — without a prompt on Android 12 and later — then shows one "Updated" notification. When Android asks for confirmation (Android 11 and earlier, or "Install unknown apps" not yet allowed), tapping the "Ready to install" notification opens the installer's confirmation directly. Turn it off with "Install updates in the background" in Settings → App updates (on by default). Play installs keep updating through Google Play.
+<!-- /en -->
+
 ## [1.65.3] - 2026-11-17
 
 <!-- ko -->

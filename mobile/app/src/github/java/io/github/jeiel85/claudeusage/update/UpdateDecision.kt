@@ -44,4 +44,13 @@ internal object UpdateDecision {
      *           같은 새 버전을 매번 다시 알린다. 사용자가 알림을 지웠다면 그것도 답이다 — 앱 안 배너는 남는다.
      */
     fun shouldNotify(offeredVersionCode: Int, notifiedVersionCode: Int): Boolean = offeredVersionCode != notifiedVersionCode
+
+    /**
+     * Input : 자동 설치 설정, 알릴 versionCode, 이미 자동 설치를 시도한 versionCode(없으면 0)
+     * Output: 이번 배경 확인에서 자동 설치를 시도할까(#281)
+     * 핵심 로직: **한 버전에 자동 시도는 한 번.** 받기·확인·설치가 실패한 버전을 12시간마다 다시 받지 않는다 — 그 버전은 평소처럼
+     *           알림과 수동 설치로 넘어간다. 앱이 화면에 있어 미룬 경우는 시도로 치지 않는다(호출부가 기록하지 않는다).
+     */
+    fun shouldAutoInstall(autoInstallEnabled: Boolean, offeredVersionCode: Int, attemptedVersionCode: Int): Boolean =
+        autoInstallEnabled && offeredVersionCode != attemptedVersionCode
 }

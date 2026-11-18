@@ -4,7 +4,13 @@
     <string name="update_banner">新版本 %1$s — 点击更新</string>
     <string name="update_settings_title">应用更新</string>
     <string name="update_current_version">已安装: %1$s</string>
-    <string name="update_settings_description">每天在 GitHub Releases 检查一次新版本，有新版本时通过通知提醒一次。只有在你点击时才会安装：下载的 APK 会先核对 SHA-256，再交给 Android 安装界面。</string>
+    <string name="update_settings_description">每天在 GitHub Releases 检查一次新版本。下载的 APK 只有在 SHA-256 与发布一致时才会安装。</string>
+    <string name="update_auto_install">在后台自动安装</string>
+    <string name="update_auto_install_description">有新版本时会下载，并确认它与本应用使用同一密钥签名，然后在你不使用应用时安装。在 Android 11 及更早版本，或 Android 要求确认时，点一下通知即可完成。</string>
+    <string name="update_confirm_title">Claude Usage %1$s 已准备好安装</string>
+    <string name="update_confirm_text">点击完成安装。</string>
+    <string name="update_installed_title">已更新到 Claude Usage %1$s</string>
+    <string name="update_installed_text">已在后台安装。可在 设置 → 应用更新 中关闭。</string>
     <string name="update_check_now">立即检查</string>
     <string name="update_notifications_off">通知已关闭，新版本只会在应用内显示 — 允许通知</string>
     <string name="update_result_available">有新版本 %1$s</string>
@@ -13,7 +19,7 @@
     <string name="update_notification_title">Claude Usage %1$s 更新</string>
     <string name="update_notification_text">点击查看更新内容并安装。</string>
     <string name="update_channel_name">应用更新</string>
-    <string name="update_channel_description">本应用有新版本时提醒一次</string>
+    <string name="update_channel_description">通知本应用的新版本和在后台安装的更新</string>
     <string name="update_dialog_title">更新</string>
     <string name="update_dialog_offer">下载并安装 Claude Usage %1$s (%2$s)?</string>
     <string name="update_dialog_notes">查看更新内容</string>

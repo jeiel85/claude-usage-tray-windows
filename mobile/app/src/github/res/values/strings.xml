@@ -4,7 +4,13 @@
     <string name="update_banner">New version %1$s — tap to update</string>
     <string name="update_settings_title">App updates</string>
     <string name="update_current_version">Installed: %1$s</string>
-    <string name="update_settings_description">Checks GitHub Releases for a new version once a day and notifies you once. Installing only happens when you tap it: the APK is checked against its SHA-256 and handed to the Android installer.</string>
+    <string name="update_settings_description">Checks GitHub Releases for a new version once a day. A downloaded APK is installed only after its SHA-256 matches the release.</string>
+    <string name="update_auto_install">Install updates in the background</string>
+    <string name="update_auto_install_description">When a new version is out, downloads it, checks that it is signed with this app\'s key, and installs it while you aren\'t using the app. On Android 11 and earlier, or when Android asks for confirmation, a notification lets you finish with one tap.</string>
+    <string name="update_confirm_title">Claude Usage %1$s is ready to install</string>
+    <string name="update_confirm_text">Tap to finish installing.</string>
+    <string name="update_installed_title">Updated to Claude Usage %1$s</string>
+    <string name="update_installed_text">Installed in the background. You can turn this off in Settings → App updates.</string>
     <string name="update_check_now">Check now</string>
     <string name="update_notifications_off">Notifications are off, so new versions only show inside the app — allow</string>
     <string name="update_result_available">Version %1$s is available</string>
@@ -13,7 +19,7 @@
     <string name="update_notification_title">Claude Usage %1$s is available</string>
     <string name="update_notification_text">Tap to see what changed and install.</string>
     <string name="update_channel_name">App updates</string>
-    <string name="update_channel_description">Tells you once when a new version of this app is out</string>
+    <string name="update_channel_description">New versions of this app and updates installed in the background</string>
     <string name="update_dialog_title">Update</string>
     <string name="update_dialog_offer">Download and install Claude Usage %1$s (%2$s)?</string>
     <string name="update_dialog_notes">What\'s new</string>

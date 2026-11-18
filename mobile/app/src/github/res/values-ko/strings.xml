@@ -4,7 +4,13 @@
     <string name="update_banner">새 버전 %1$s — 눌러서 업데이트</string>
     <string name="update_settings_title">앱 업데이트</string>
     <string name="update_current_version">설치된 버전: %1$s</string>
-    <string name="update_settings_description">하루 한 번 GitHub Releases에서 새 버전을 확인하고, 새 버전이 나오면 알림으로 한 번 알립니다. 설치는 내가 누를 때만 진행되고, 받은 APK는 SHA-256을 대조한 뒤 Android 설치 화면으로 넘깁니다.</string>
+    <string name="update_settings_description">하루 한 번 GitHub Releases에서 새 버전을 확인합니다. 받은 APK는 SHA-256이 릴리스와 같을 때만 설치합니다.</string>
+    <string name="update_auto_install">백그라운드에서 자동 설치</string>
+    <string name="update_auto_install_description">새 버전이 나오면 받아서 이 앱과 같은 키로 서명됐는지 확인한 뒤, 앱을 쓰지 않을 때 설치합니다. Android 11 이하이거나 Android가 확인을 요구하면 알림을 한 번 눌러 마칩니다.</string>
+    <string name="update_confirm_title">Claude Usage %1$s 설치 준비됨</string>
+    <string name="update_confirm_text">눌러서 설치를 마치세요.</string>
+    <string name="update_installed_title">Claude Usage %1$s(으)로 업데이트했습니다</string>
+    <string name="update_installed_text">백그라운드에서 설치했습니다. 설정 → 앱 업데이트에서 끌 수 있습니다.</string>
     <string name="update_check_now">지금 확인</string>
     <string name="update_notifications_off">알림이 꺼져 있어 새 버전을 앱 안에서만 볼 수 있습니다 — 허용하기</string>
     <string name="update_result_available">새 버전 %1$s이(가) 나왔습니다</string>
@@ -13,7 +19,7 @@
     <string name="update_notification_title">Claude Usage %1$s 업데이트</string>
     <string name="update_notification_text">눌러서 변경 내용을 보고 설치하세요.</string>
     <string name="update_channel_name">앱 업데이트</string>
-    <string name="update_channel_description">이 앱의 새 버전이 나오면 한 번 알립니다</string>
+    <string name="update_channel_description">이 앱의 새 버전과 백그라운드에서 설치한 업데이트를 알립니다</string>
     <string name="update_dialog_title">업데이트</string>
     <string name="update_dialog_offer">Claude Usage %1$s (%2$s)을(를) 받아 설치할까요?</string>
     <string name="update_dialog_notes">변경 내용 보기</string>

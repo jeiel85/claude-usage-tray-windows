@@ -1,5 +1,6 @@
 package io.github.jeiel85.claudeusage.update
 
+import android.annotation.SuppressLint
 import android.content.Context
 
 /**
@@ -34,6 +35,28 @@ internal class UpdatePreferences(context: Context) {
 
     fun setNotifiedVersionCode(versionCode: Int) = prefs.edit().putInt(KEY_NOTIFIED_VERSION_CODE, versionCode).apply()
 
+    /** 배경 확인이 새 버전을 찾으면 그 자리에서 설치까지 할지(#281). 기본 켜짐 — 끄면 예전처럼 알림만. */
+    fun isAutoInstallEnabled(): Boolean = prefs.getBoolean(KEY_AUTO_INSTALL, true)
+
+    fun setAutoInstallEnabled(enabled: Boolean) = prefs.edit().putBoolean(KEY_AUTO_INSTALL, enabled).apply()
+
+    /** 자동 설치를 시도한 versionCode, 없으면 0([UpdateDecision.shouldAutoInstall]). */
+    fun autoInstallAttemptedVersionCode(): Int = prefs.getInt(KEY_AUTO_ATTEMPTED_VERSION_CODE, 0)
+
+    fun setAutoInstallAttemptedVersionCode(versionCode: Int) =
+        prefs.edit().putInt(KEY_AUTO_ATTEMPTED_VERSION_CODE, versionCode).apply()
+
+    /**
+     * 확인 없이 설치하도록 넘긴 versionCode, 없으면 0. 패키지가 교체된 새 프로세스가 이 값으로 "자동으로 업데이트했다" 를 알린다.
+     * 프로세스가 곧 죽으므로 commit 으로 바로 쓴다.
+     */
+    fun installingVersionCode(): Int = prefs.getInt(KEY_INSTALLING_VERSION_CODE, 0)
+
+    @SuppressLint("ApplySharedPref") // 의도적 — apply() 는 쓰기 전에 프로세스가 교체될 수 있다.
+    fun setInstallingVersionCode(versionCode: Int) {
+        prefs.edit().putInt(KEY_INSTALLING_VERSION_CODE, versionCode).commit()
+    }
+
     private companion object {
         const val NAME = "cut_update"
         const val KEY_ENABLED = "enabled"
@@ -41,5 +64,8 @@ internal class UpdatePreferences(context: Context) {
         const val KEY_CACHED_MANIFEST = "cached_manifest"
         const val KEY_SKIPPED_VERSION_CODE = "skipped_version_code"
         const val KEY_NOTIFIED_VERSION_CODE = "notified_version_code"
+        const val KEY_AUTO_INSTALL = "auto_install"
+        const val KEY_AUTO_ATTEMPTED_VERSION_CODE = "auto_attempted_version_code"
+        const val KEY_INSTALLING_VERSION_CODE = "installing_version_code"
     }
 }

@@ -76,4 +76,13 @@ class UpdateLogicTest {
         assertFalse(UpdateDecision.shouldNotify(15500, 15500))
         assertTrue(UpdateDecision.shouldNotify(15600, 15500))
     }
+
+    @Test
+    fun auto_install_tries_each_version_once_and_only_when_on() {
+        // #281: a failed download/verify/install must not be retried every 12 hours — it falls back to the notification.
+        assertTrue(UpdateDecision.shouldAutoInstall(autoInstallEnabled = true, offeredVersionCode = 15500, attemptedVersionCode = 0))
+        assertFalse(UpdateDecision.shouldAutoInstall(autoInstallEnabled = true, offeredVersionCode = 15500, attemptedVersionCode = 15500))
+        assertTrue(UpdateDecision.shouldAutoInstall(autoInstallEnabled = true, offeredVersionCode = 15600, attemptedVersionCode = 15500))
+        assertFalse(UpdateDecision.shouldAutoInstall(autoInstallEnabled = false, offeredVersionCode = 15600, attemptedVersionCode = 0))
+    }
 }

@@ -154,7 +154,7 @@ internal object UpdateSurface {
      * Input : 없음
      * Output: 설정의 "앱 업데이트" 카드 — 켜기/끄기, 무엇을 하는지 설명, 현재 버전, (새 버전이 있으면) 바로 설치 버튼, 지금 확인,
      *         (권한이 없으면) 알림 허용 안내
-     * 핵심 로직: 켜는 순간 무엇이 달라지는지(하루 1회 GitHub 요청, 설치는 내가 누를 때만, SHA-256 대조)를 같은 자리에서 말한다.
+     * 핵심 로직: 켜는 순간 무엇이 달라지는지(하루 1회 GitHub 요청, SHA-256 대조, 백그라운드 자동 설치 여부)를 같은 자리에서 말한다.
      *           새 버전은 홈 배너와 같은 창으로 **이 카드에서 바로** 설치한다(#247) — "지금 확인" 으로 찾았으면 창을 곧바로 연다.
      */
     @Composable
@@ -163,6 +163,7 @@ internal object UpdateSurface {
         val scope = rememberCoroutineScope()
         val preferences = remember(context) { UpdatePreferences(context) }
         var enabled by remember { mutableStateOf(preferences.isEnabled()) }
+        var autoInstall by remember { mutableStateOf(preferences.isAutoInstallEnabled()) }
         var checking by remember { mutableStateOf(false) }
         var result by remember { mutableStateOf<String?>(null) }
         var dialogOpen by rememberSaveable { mutableStateOf(false) }
@@ -193,6 +194,22 @@ internal object UpdateSurface {
                 )
             }
             Text(stringResource(R.string.update_settings_description), color = Palette.TextSoft, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
+            if (enabled) {
+                // 자동 설치(#281): 확인이 켜져 있을 때만 의미가 있다 — 배경 확인이 찾은 버전을 그 자리에서 설치한다.
+                Row(Modifier.padding(top = 12.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.update_auto_install), color = Palette.Text, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.update_auto_install_description), color = Palette.TextSoft, fontSize = 12.sp)
+                    }
+                    AppSwitch(
+                        checked = autoInstall,
+                        onCheckedChange = { checked ->
+                            preferences.setAutoInstallEnabled(checked)
+                            autoInstall = checked
+                        },
+                    )
+                }
+            }
             val manifest = offered
             if (enabled && manifest != null) {
                 Row(
@@ -282,7 +299,7 @@ internal object UpdateSurface {
      * "한 번 지우고 다시 설치" 를 안내한다. 로컬 http 서버로 흐름을 검증하는 디버그 빌드(UPDATE_ALLOW_HTTP)는 같은 키로 서명한
      * 테스트 APK 를 쓰므로 원래 흐름을 그대로 탄다.
      */
-    private val needsReinstall: Boolean get() = BuildConfig.DEBUG && !BuildConfig.UPDATE_ALLOW_HTTP
+    internal val needsReinstall: Boolean get() = BuildConfig.DEBUG && !BuildConfig.UPDATE_ALLOW_HTTP
 
     /**
      * 업데이트 창: 제안 → (권한 필요) → 내려받는 중 → 설치 앱으로 넘김(창 닫힘) / 실패(다시 시도·브라우저).

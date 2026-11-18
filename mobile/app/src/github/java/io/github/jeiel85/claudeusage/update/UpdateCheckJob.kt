@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * 앱을 열지 않아도 새 버전을 알게 하는 배경 확인(Homebase M-22 이식, #228).
+ * 앱을 열지 않아도 새 버전을 알게 하는 배경 확인(Homebase M-22 이식, #228). 켜 두면 그 자리에서 설치까지 한다(#281).
  * 플랫폼 JobScheduler 를 쓴다 — 이 일 하나에 WorkManager 의존성을 들일 이유가 없다. 네트워크가 있을 때 12시간마다 깨어나되
  * 실제 GET 은 [UpdateRefresh] 가 하루 1회로 거른다. 주기를 하루보다 짧게 잡는 이유: 마지막 확인 23시간 뒤에 깨면 이번엔
  * 건너뛰므로 주기가 하루면 최악 48시간, 12시간이면 최악 36시간이다.
@@ -46,15 +46,41 @@ class UpdateCheckJobService : JobService() {
 
         /**
          * Input : 컨텍스트, 중단 여부
-         * Output: 없음(필요하면 알림 1건)
-         * 핵심 로직: 알릴 버전이 있고 아직 알리지 않았으면 알리고 그 버전을 기억한다. 알림 권한이 없어 못 띄웠으면 기억하지
-         *           않는다 — 나중에 권한을 주면 그때 알린다. GET 뒤에 설정·중단을 다시 본다: 그사이 사용자가 확인을 껐다면
+         * Output: 없음(자동 설치를 넘기거나, 필요하면 알림 1건)
+         * 핵심 로직: 알릴 버전이 있으면 먼저 자동 설치를 시도한다(#281, 켜져 있고 이 버전을 아직 시도하지 않았을 때). 설치를 넘겼거나
+         *           앱이 화면에 있어 미뤘으면 여기서 끝 — 결과 알림은 [UpdateInstallReceiver] 가 맡는다. 자동 설치를 안 하거나
+         *           실패하면 예전처럼 버전당 한 번 알린다. GET 뒤에 설정·중단을 다시 본다: 그사이 사용자가 확인을 껐다면
          *           [UpdateCheckScheduler.sync] 가 이미 알림을 지웠고, 여기서 띄우면 그 선택을 되돌린다.
          */
         fun runCheck(context: Context, isStopped: () -> Boolean = { false }) {
             val preferences = UpdatePreferences(context)
             val manifest = UpdateRefresh.run(preferences) ?: return
             if (isStopped() || !preferences.isEnabled()) return
+            val tryAutoInstall = !UpdateSurface.needsReinstall && UpdateDecision.shouldAutoInstall(
+                autoInstallEnabled = preferences.isAutoInstallEnabled(),
+                offeredVersionCode = manifest.versionCode,
+                attemptedVersionCode = preferences.autoInstallAttemptedVersionCode(),
+            )
+            if (tryAutoInstall) {
+                if (UpdateAutoInstaller.run(context, manifest, preferences) != UpdateAutoInstaller.Outcome.Failed) return
+                // 받는 동안(블로킹) 사용자가 확인을 껐을 수 있다 — 끄기가 지운 알림을 되살리지 않는다(Codex 리뷰).
+                if (isStopped() || !preferences.isEnabled()) return
+            }
+            notify(context, preferences, manifest)
+        }
+
+        /**
+         * 자동 설치가 끝내 실패했을 때([UpdateInstallReceiver]) 쓰는 평소 알림. 캐시된 판단을 다시 해, 그사이 설치했거나 건너뛰었거나
+         * 확인을 껐으면 알리지 않는다. 네트워크는 타지 않는다(하루 1회 규칙 안에서 방금 확인했다).
+         */
+        fun notifyOnce(context: Context, preferences: UpdatePreferences) {
+            if (!preferences.isEnabled()) return
+            val manifest = UpdateRefresh.run(preferences) ?: return
+            notify(context, preferences, manifest)
+        }
+
+        /** 알림 권한이 없어 못 띄웠으면 기억하지 않는다 — 나중에 권한을 주면 그때 알린다. */
+        private fun notify(context: Context, preferences: UpdatePreferences, manifest: UpdateManifest) {
             if (!UpdateDecision.shouldNotify(manifest.versionCode, preferences.notifiedVersionCode())) return
             if (UpdateNotifier.show(context, manifest)) preferences.setNotifiedVersionCode(manifest.versionCode)
         }
