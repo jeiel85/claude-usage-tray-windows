@@ -105,11 +105,9 @@ fun SettingsScreen(store: PcStore, api: UsageApi, onBack: () -> Unit) {
             item { SectionHeader(stringResource(R.string.settings_section_display)) }
             item { DisplaySettings() }
 
-            // Play build: no section — Google Play updates the app (#257).
-            if (AppUpdates.IN_APP) {
-                item { SectionHeader(stringResource(R.string.settings_section_updates)) }
-                item { UpdateCard() }
-            }
+            // GitHub build: the in-app updater (#228). Play build: a "new version on Google Play" notice (#284).
+            item { SectionHeader(stringResource(R.string.settings_section_updates)) }
+            item { UpdateCard() }
 
             item { SectionHeader(stringResource(R.string.settings_section_about), trailing = "v${BuildConfig.VERSION_NAME}") }
             item {
@@ -239,7 +237,8 @@ private fun LinkRow(title: String, description: String, onClick: () -> Unit) {
 
 /**
  * What ships in the APK besides this app's own code. Kept by hand — the dependency list is short (app/build.gradle.kts);
- * add a line here when a library is added there.
+ * add a line here when a library is added there. A library only one channel ships goes in that channel's
+ * `AppUpdates.THIRD_PARTY`.
  */
 private val THIRD_PARTY = listOf(
     "AndroidX (Activity, Core, Lifecycle, Compose, Material 3, Material Icons)" to "Apache License 2.0",
@@ -258,7 +257,7 @@ private fun LicensesDialog(onDismiss: () -> Unit) {
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(stringResource(R.string.about_licenses_intro), fontSize = 13.sp)
-                THIRD_PARTY.forEach { (name, license) ->
+                (THIRD_PARTY + AppUpdates.THIRD_PARTY).forEach { (name, license) ->
                     Column {
                         Text(name, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                         Text(license, fontSize = 12.sp)

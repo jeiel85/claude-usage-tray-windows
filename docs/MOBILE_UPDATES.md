@@ -1,7 +1,7 @@
 # 휴대폰 앱 자동 업데이트 (#228)
 
 GitHub Releases의 APK로 설치한 휴대폰 앱은 스스로 새 버전을 확인하고 설치까지 이어 줍니다.
-이 기능은 **GitHub 빌드에만** 있습니다. Play 빌드는 Google Play가 업데이트합니다(아래 "배포 채널" 참고).
+이 기능은 **GitHub 빌드에만** 있습니다. Play 빌드는 Google Play가 업데이트하고, 앱은 새 버전이 있다고 알려 Play 스토어로 보내기만 합니다(아래 "Play 빌드의 새 버전 알림" 참고).
 구조는 [Homebase](https://github.com/jeiel85/homebase)의 `update/` 패키지(Markleaf에서 온 구조, Homebase DECISIONS M-4·M-22)를 그대로 옮겼습니다.
 
 ## 흐름
@@ -95,14 +95,32 @@ GitHub 저장소 → Settings → Secrets and variables → Actions → **New re
 | | `github` | `play` |
 |---|---|---|
 | 배포 | GitHub Releases의 `ClaudeUsageTray-Mobile.apk` (태그 push → CI) | Google Play. 태그 push → CI가 서명된 `ClaudeUsageTray-Mobile-play.aab`를 워크플로 산출물(`play-bundle`)로 남기고, Play Console 업로드는 사람이 합니다 |
-| 앱 안 업데이트 | 있음 (이 문서의 흐름, `update.json`) | 없음. Play가 업데이트 |
-| `REQUEST_INSTALL_PACKAGES`·`RECEIVE_BOOT_COMPLETED` | 있음 | 없음 |
+| 앱 안 업데이트 | 있음 (이 문서의 흐름, `update.json`) | 설치는 Play가 함. 앱은 새 버전 알림 → Play 스토어로 이동만(#284, 아래) |
+| `REQUEST_INSTALL_PACKAGES` | 있음 | 없음 |
+| `RECEIVE_BOOT_COMPLETED` | 있음 (배경 확인 유지) | 있음 (배경 확인 유지, #284) |
 | 서명 키 | `cut` 키 (아래 "정식 서명 키") | Play 업로드 키(아래) → Google이 자기가 보관하는 앱 서명 키로 다시 서명(Play App Signing) |
 
-- 업데이트 코드·권한·문구는 `mobile/app/src/github/`에만 있고, 공용 코드는 `update/AppUpdates`만 부릅니다. Play 쪽 `AppUpdates`(`src/play/`)는 아무것도 하지 않습니다. 실행 중에 설치 출처를 보고 끄는 방식은 쓰지 않습니다.
+- 업데이트 코드·권한·문구는 `mobile/app/src/github/`에만 있고, 공용 코드는 `update/AppUpdates`만 부릅니다. Play 쪽 `AppUpdates`(`src/play/`)는 새 버전 알림만 합니다(#284). 실행 중에 설치 출처를 보고 끄는 방식은 쓰지 않습니다.
 - Play 정책은 Play 밖에서 스스로 업데이트하는 앱을 허용하지 않고, `REQUEST_INSTALL_PACKAGES`는 제한 권한입니다. 그래서 Play 빌드에는 업데이터가 아예 들어가지 않습니다.
 - **두 채널은 서로 덮어 설치할 수 없습니다.** 패키지명(`com.jeiel85.aiusage`)과 버전은 같지만 서명 키가 다르기 때문입니다. 채널을 바꾸려면 앱을 지우고 다른 채널로 다시 설치한 뒤 PC를 다시 연결해야 합니다(앱 데이터는 Android Keystore로 암호화돼 옮겨지지 않습니다).
 - 빌드 명령: GitHub `.\gradlew assembleGithubRelease`, Play `.\gradlew bundlePlayRelease`. 업로드 키 값이 없으면 Play 번들은 서명되지 않은 채 만들어집니다(업로드 불가). `-Pcut.requirePlaySigning=true`를 주면 그때 빌드가 실패합니다.
+
+### Play 빌드의 새 버전 알림 (v1.67.0, #284)
+
+Play 자동 업데이트를 꺼 둔 사용자도 새 버전을 알 수 있게, Play 빌드는 **Play In-App Updates API**(`com.google.android.play:app-update`, `playImplementation`)로 휴대폰의 Google Play 앱에 "이 사용자가 받을 수 있는 더 높은 버전이 있는가"를 묻습니다. 같은 개발자의 도란(family-gagebu) Play 빌드와 같은 방식입니다.
+
+- 답은 이 사용자에게 열린 트랙 기준입니다(내부·비공개 테스트 참여자는 그 트랙의 새 버전). 앱이 GitHub나 다른 서버로 요청하지 않습니다.
+- 새 버전이 있으면 홈 배너, 설정 → 앱 업데이트 카드의 'Google Play' 버튼, 배경 확인 알림(버전당 1회)으로 알립니다. 누르면 Play 스토어 앱의 이 앱 페이지(`market://details`, 없으면 웹 `play.google.com`)로 갑니다. 알림은 앱을 거쳐 스토어를 엽니다(웹 대체 경로를 유지하려고).
+- 설치는 Play가 합니다. 앱 안 다운로드·설치 코드와 `REQUEST_INSTALL_PACKAGES`는 여전히 없습니다. Flexible/Immediate 앱 내 업데이트 흐름도 쓰지 않습니다(스토어로 보내기만).
+- 확인 시점: 앱이 화면에 올라올 때 마지막 답이 6시간보다 오래됐으면, 그리고 배경 잡(JobScheduler, ID `787076` = `0x0c_0284`, 12시간 주기·네트워크 필요·재부팅 유지). 설정의 '새 버전 알림'(기본 켜짐)은 배경 확인·알림만 끄고, 홈 배너는 그대로 보입니다.
+- Play에서 받지 않은 설치본(사이드로드한 디버그 등)은 API가 답하지 않습니다. 배경·배너에서는 조용히 넘어가고, '지금 확인'을 눌렀을 때만 이유를 보여 줍니다.
+- 코드: `mobile/app/src/play/java/.../update/` (`StoreUpdates`·`StoreUpdateDecision`·`StoreUpdateJob`·`StoreUpdateNotifier`·`StoreUpdateSurface`·`StoreUpdatePreferences`), 테스트 `src/testPlay/`.
+- 사이드로드 빌드로 화면 확인(디버그 빌드만): Play가 버전을 내놓은 것처럼 흉내 냅니다.
+  ```
+  adb shell am start -S -n com.jeiel85.aiusage/io.github.jeiel85.claudeusage.MainActivity --ei cut.fakeStoreUpdate 16700
+  adb shell cmd jobscheduler run -f com.jeiel85.aiusage 787076
+  ```
+  설치된 versionCode보다 높아야 하므로 `-Pcut.version=1.66.0`처럼 버전을 주고 빌드합니다. 실제 Play 응답은 Play에서 설치한 앱(테스트 트랙 포함)에서만 볼 수 있습니다.
 
 ### Play 업로드 키 (2026-11-16, v1.61.1)
 

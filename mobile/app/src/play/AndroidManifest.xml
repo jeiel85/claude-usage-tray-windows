@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Play build only (#284): the "new version on Google Play" notice. No installer and no REQUEST_INSTALL_PACKAGES —
+     Google Play installs updates (#257). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Keeps the background check scheduled across reboots (JobInfo.setPersisted). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application>
+        <!-- Twice-daily check with the Google Play app → one "new version" notification per version. -->
+        <service
+            android:name=".update.StoreUpdateJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+    </application>
+</manifest>

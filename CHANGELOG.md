@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.67.0] - 2026-11-18
+
+<!-- ko -->
+### 추가
+- **Google Play에서 설치한 휴대폰 앱도 새 버전이 나오면 알려 줍니다 (#284)** — 지금까지 Play 설치본은 업데이트 확인이 없어, Play 자동 업데이트를 꺼 두면 새 버전이 나온 것을 알 수 없었습니다. 이제 휴대폰의 Google Play 앱에 새 버전이 있는지 물어(테스트 트랙 참여자는 그 트랙 기준) 홈 화면 배너, 설정 → 앱 업데이트, 알림(버전마다 한 번)으로 알리고, 누르면 Play 스토어의 앱 페이지로 갑니다. 설치는 지금처럼 Google Play가 합니다. 알림은 설정 → 앱 업데이트의 스위치로 끌 수 있습니다. GitHub APK 설치본은 바뀌지 않았습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **The phone app installed from Google Play now tells you when a new version is out (#284)** — Until now Play installs had no update check, so with Play's auto-update turned off you couldn't tell a new version had shipped. The app now asks the Google Play app on the phone whether a newer version is available (testers see their track's), shows it as a home-screen banner, in Settings → App updates and as one notification per version, and a tap opens the app's Play Store page. Google Play still does the installing. Turn the notification off with the switch in Settings → App updates. GitHub APK installs are unchanged.
+<!-- /en -->
+
 ## [1.66.0] - 2026-11-18
 
 <!-- ko -->

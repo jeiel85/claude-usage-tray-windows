@@ -65,8 +65,8 @@ class MainActivity : ComponentActivity() {
         pairingLink = if (savedInstanceState == null) intent.pairingLink() else savedInstanceState.getString(KEY_PAIRING_LINK)
         settingsOpen = savedInstanceState?.getBoolean(KEY_SETTINGS_OPEN) ?: false
         historyOpen = savedInstanceState?.getBoolean(KEY_HISTORY_OPEN) ?: false
-        // GitHub build: opened from the "new version" notification (#228) → the home banner opens the update dialog,
-        // and the background check stays scheduled. Play build: nothing — Play updates it (#257).
+        // Opened from the "new version" notification → GitHub build: the home banner opens the update dialog (#228);
+        // Play build: the Play listing opens (#284). Either way the background check stays scheduled.
         AppUpdates.onCreate(this, intent, firstCreate = savedInstanceState == null)
 
         val store = PcStore(this)
@@ -167,7 +167,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         intent.pairingLink()?.let { pairingLink = it }
-        if (AppUpdates.onNewIntent(intent)) {
+        if (AppUpdates.onNewIntent(this, intent)) {
             settingsOpen = false // the update dialog opens from the home banner
             historyOpen = false
         }
