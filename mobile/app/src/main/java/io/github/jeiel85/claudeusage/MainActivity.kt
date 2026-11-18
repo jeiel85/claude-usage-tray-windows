@@ -148,13 +148,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Removes a PC and, best effort, its copy of this phone's push subscription (so it stops sending). */
+    /**
+     * Removes a PC here and, best effort, tells the PC to drop this phone too (#285) — or, on an older PC,
+     * at least its copy of the push subscription so it stops sending. An unreachable PC keeps its entry
+     * until it is removed there; re-pairing the same app still replaces it (same push endpoint).
+     */
     private fun removePc(store: PcStore, api: UsageApi, pcId: String) {
         val pc = store.get(pcId)
         store.remove(pcId)
         PushRegistrar.forget(pcId)
         PushState(this).markRegistered(pcId, false)
-        if (pc != null) PushRegistrar.scope.launch { runCatching { api.unregisterPush(pc) } }
+        if (pc != null) PushRegistrar.scope.launch { runCatching { api.forget(pc) } }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

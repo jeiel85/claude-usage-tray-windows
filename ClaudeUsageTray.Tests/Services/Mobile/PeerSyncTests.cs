@@ -155,6 +155,35 @@ public class PeerSyncTests : IDisposable
     }
 
     /// <summary>
+    /// 연결한 쪽(B)에서 상대 PC(A)를 지우면 A 의 기기 목록에서도 B 가 빠진다(#285) — 남아 있으면 다시 연결할 때 B 가 두 번 보인다.
+    /// 상대에게 닿지 않아도 이쪽 목록에서는 바로 지워지고 예외가 나지 않는다.
+    /// </summary>
+    [Fact]
+    public async Task RemovingAPeerAlsoUnpairsThisPcThere()
+    {
+        using var a = StartPc("A");
+        using var b = StartPc("B");
+        await WaitUntil(() => a.Server.Status().Listening);
+
+        Assert.Equal("A", await b.Client.JoinAsync(PairingLink.Build(a.Server.CreateOffer()!)));
+        Assert.Single(a.Store.List(), d => d.Kind == MobileDeviceKind.Pc && d.Name == "B");
+
+        await b.Client.Remove(a.Store.PcId);
+        Assert.Empty(b.Client.Status());
+        Assert.Empty(a.Store.List());
+
+        // 다시 연결해도 A 에는 B 가 하나뿐이다.
+        Assert.Equal("A", await b.Client.JoinAsync(PairingLink.Build(a.Server.CreateOffer()!)));
+        Assert.Single(a.Store.List());
+
+        // A 가 꺼져 있어도 B 목록에서는 지워지고 조용히 끝난다.
+        a.Server.Dispose();
+        await b.Client.Remove(a.Store.PcId);
+        Assert.Empty(b.Client.Status());
+        await b.Client.Remove("unknown-pc"); // 없는 PC 는 아무것도 하지 않는다
+    }
+
+    /// <summary>
     /// 한쪽이 설정에서 PC 이름을 바꾸면(#271) 다시 연결하지 않아도 다음 프레임부터 상대 PC 의 목록 이름이 따라간다 —
     /// 연결해 온 쪽(A 의 기기 목록)과 연결한 쪽(B 의 peers.json) 모두, 파일에도 남는다.
     /// </summary>

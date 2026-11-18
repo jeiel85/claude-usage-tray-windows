@@ -447,8 +447,38 @@ public sealed class PeerSyncClient : IDisposable
         throw new IOException(last?.Message ?? "no endpoints", last);
     }
 
-    /// <summary>연결을 끊고 목록에서 지운다. 상대 PC 의 기기 목록에는 남으므로 그쪽에서도 해제할 수 있다.</summary>
-    public void Remove(string pcId) => _peers.Remove(pcId);
+    /// <summary>
+    /// 연결을 끊고 목록에서 지운 뒤, 상대 PC 에 <c>DELETE /api/v1/pair</c> 로 이 PC 의 페어링을 철회하라고 알린다(#285) —
+    /// 알리지 않으면 상대 PC 의 기기 목록에 이 PC 가 남고, 다시 연결하면 두 번 보인다. 목록에서는 응답을 기다리지 않고 바로 지운다.
+    /// 상대 PC 가 꺼져 있거나 이 경로를 모르는 옛 버전(405)이면 그쪽 목록에 남으므로 그쪽에서 해제할 수 있다.
+    /// Output: 알림 시도가 끝나면 완료되는 작업(실패해도 예외 없음) — 화면은 기다리지 않고, 테스트가 기다린다.
+    /// </summary>
+    public Task Remove(string pcId)
+    {
+        var peer = _peers.All().FirstOrDefault(p => p.PcId == pcId);
+        _peers.Remove(pcId);
+        return peer is null ? Task.CompletedTask : UnpairAsync(peer);
+    }
+
+    private static async Task UnpairAsync(SyncPeer peer)
+    {
+        foreach (var e in Order(peer.Endpoints))
+        {
+            try
+            {
+                using var http = CreateHttp(e, TimeSpan.FromSeconds(6));
+                using var req = new HttpRequestMessage(HttpMethod.Delete, Url(e, "/api/v1/pair"));
+                req.Headers.Authorization = new("Bearer", peer.Token);
+                using var res = await http.SendAsync(req);
+                // 답이 왔으면 끝 — 철회됨(200)·이미 해제됨(401)·옛 버전(405) 모두 다른 경로로 다시 보낼 이유가 없다.
+                return;
+            }
+            catch (Exception ex)
+            {
+                GC.KeepAlive(ex); // 닿지 않으면 다음 경로. 최선 노력이라 실패를 밖으로 내지 않는다.
+            }
+        }
+    }
 
     private async Task RunAsync(string pcId, CancellationToken ct)
     {

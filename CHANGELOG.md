@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.67.1] - 2026-11-18
+
+<!-- ko -->
+### 수정
+- **휴대폰에서 PC를 지우면 PC의 '연결된 휴대폰' 목록에서도 빠집니다 (#285)** — 지금까지 휴대폰에서 PC를 지우면 알림 구독만 해제되고 PC 쪽 연결은 남았습니다. 그래서 다시 연결하면 PC 목록에 같은 휴대폰이 두 번 보였습니다. 이제 휴대폰이 PC에 연결 해제를 함께 요청합니다(PC와 휴대폰 앱 모두 이 버전 이상일 때. PC가 이전 버전이면 예전처럼 알림 구독만 해제합니다). PC 동기화도 같습니다: 연결 탭에서 상대 PC를 지우면 상대 PC의 목록에서도 이 PC가 빠집니다. 지울 때 상대 PC가 꺼져 있었거나, 휴대폰 앱을 지우거나 새로 설치한 경우(예: v1.60.0 패키지명 변경)에는 알릴 수 없어 그대로 남습니다 — 휴대폰 연결 창에서 마지막 접속이 오래된 항목을 **연결 해제**하세요.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Removing a PC on the phone now also removes the phone from that PC's "Connected phones" list (#285)** — Until now removing a PC on the phone only cancelled its notifications; the PC kept the pairing. Pairing again then listed the same phone twice. Now the phone also asks the PC to unpair it (when both the PC and the phone app are on this version or later; an older PC only has its notification subscription removed, as before). PC sync works the same way: removing the other PC on the Connection tab also removes this PC from that PC's list. If the other PC was off at the time, or the phone app was uninstalled or reinstalled (for example the v1.60.0 package rename), it can't be told and the old entry stays — click **Revoke** on the entry with the old last-seen time in the phone connection window.
+<!-- /en -->
+
 ## [1.67.0] - 2026-11-18
 
 <!-- ko -->

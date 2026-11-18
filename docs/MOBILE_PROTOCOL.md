@@ -70,6 +70,7 @@ https://jeiel85.github.io/claude-usage-tray-windows/pair/#<base64url(UTF-8 JSON 
 |---|---|---|---|
 | GET | `/api/v1/info` | 없음 | `{schema, protocol, pcId, pcName, appVersion, os}` |
 | POST | `/api/v1/pair` | 본문의 `code` | 200 `{schema, deviceId, token, pcId, pcName}` · 400 `invalid_code` · 410 `code_expired` · 429 `locked` |
+| DELETE | `/api/v1/pair` | Bearer | 200 `{schema, deviceId, paired: false}` · 401 (#285) |
 | GET | `/api/v1/endpoints` | Bearer | 200 `{schema, endpoints}`([`endpoints.v1.json`](mobile-protocol/endpoints.v1.json)) · 401 |
 | GET | `/api/v1/usage` | Bearer | 200 `UsageSnapshot` · 401 |
 | POST | `/api/v1/push` | Bearer | 200 `{schema, deviceId, registered: true}` · 400 `invalid_subscription` · 401 |
@@ -78,6 +79,10 @@ https://jeiel85.github.io/claude-usage-tray-windows/pair/#<base64url(UTF-8 JSON 
 
 `POST /api/v1/pair` 본문은 `{code, deviceName, deviceModel, kind?}` — `kind`는 `phone`(기본) 또는 `pc`(PC 동기화). 오류 응답은 항상 `{schema, error, message}`.
 토큰은 256bit이며 PC는 SHA-256만 `%APPDATA%\ClaudeUsageTray\mobile\state.json`에 저장합니다. 앱은 Android Keystore AES-GCM으로 암호화해 둡니다.
+
+`DELETE /api/v1/pair`는 토큰이 가리키는 기기 **자신의** 페어링만 철회합니다(#285). 휴대폰은 PC를 지울 때, PC 동기화는 연결한 PC를 지울 때 보냅니다 — 보내지 않으면 상대 목록에 옛 항목이 남아, 다시 연결하면 같은 기기가 두 번 보입니다.
+이 경로를 모르는 옛 PC는 405를 돌려주므로, 휴대폰은 405·404면 예전처럼 `DELETE /api/v1/push`로 알림 구독만 지웁니다. 상대에게 닿지 않으면 이쪽에서만 지우고, 남은 항목은 상대 쪽에서 해제할 수 있습니다(같은 앱으로 다시 연결하면 같은 푸시 주소 규칙으로 정리됩니다).
+앱을 지우거나 새로 설치하면 PC에 알릴 수단이 없습니다. 이름·기종이 같다고 자동으로 지우지는 않습니다(같은 기종·이름의 다른 휴대폰을 끊을 수 있음).
 
 ## Live (WebSocket)
 
@@ -148,5 +153,5 @@ QR로 PC를 연결하면 알림도 함께 연결됩니다. 토픽 이름을 정�
 - **프레임**: 양쪽 모두 `{schema: 1, kind: "sync", fromPcId, fromPcName, snapshots: UsageSyncSnapshot[]}`를 연결 직후, 표가 바뀔 때, 변화가 없으면 60초마다 보냅니다. 받은 쪽은 `fromPcName`으로 목록 이름(연결한 PC의 `peers.json`, 연결해 온 PC의 기기 항목)을 갱신합니다(#271). `snapshots`는 공유 폴더 동기화 파일과 **같은 형식·같은 계정 해시**라, 받은 쪽은 기존 선택 규칙(`SelectQuotaCandidates`·`MergeLocalTotals`)을 그대로 씁니다.
 - **가십**: 각 PC는 (원래 PC, provider)별 최신 스냅샷 표를 갖고, 받은 것 중 더 새로운 것만 반영하며, 바뀌면 모든 연결로 다시 보냅니다. 그래서 B·C가 A에만 연결해도 B와 C가 서로의 값을 갖습니다. 자기 원본 값은 다른 PC를 거쳐 돌아와도 받지 않고, 24시간 넘은 관측·5분 넘는 미래 시각은 버립니다.
 - **Claude Code가 없는 PC**: 계정 키(orgUuid)가 없으면 그룹에서 할당량을 가장 최근에 관측한 Claude 계정을 대신 보여 줍니다.
-- **해제**: A의 연결 탭(또는 휴대폰 연결 창)에서 B를 해제하면 다음 전송 전에 1008 `revoked`로 끊기고, B는 다시 연결하지 않습니다.
+- **해제**: A의 연결 탭(또는 휴대폰 연결 창)에서 B를 해제하면 다음 전송 전에 1008 `revoked`로 끊기고, B는 다시 연결하지 않습니다. 반대로 B가 연결 탭에서 A를 지우면 A에 `DELETE /api/v1/pair`를 보내 A의 목록에서도 B가 빠집니다(#285, A가 꺼져 있거나 옛 버전이면 A에 남음).
 - **한계**: PC끼리 같은 LAN·Tailscale로 닿거나, A가 Cloudflare Tunnel을 켜 두어야 합니다. A가 Quick Tunnel만 쓰면 A의 앱이 다시 시작될 때 주소가 바뀌어 B가 끊깁니다(경로 갱신 푸시는 휴대폰만 받음) — 이때는 새 코드로 다시 연결하거나, A에 고정 주소(이름 있는 터널)를 쓰세요. 그 밖의 경우 기존 공유 폴더 동기화를 함께 쓸 수 있습니다 — 두 경로의 값은 한 목록으로 합쳐지고, 같은 PC가 두 경로로 들어오면 더 새로운 하나만 씁니다.

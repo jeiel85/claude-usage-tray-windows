@@ -471,6 +471,16 @@ public sealed class MobileApiServer : IDisposable
                 };
             }
 
+            // 휴대폰(또는 연결한 PC)이 자기 쪽에서 이 PC 를 지울 때 보낸다(#285). 이게 없으면 상대가 지운 기기가
+            // 이 PC 목록에 남고, 다시 연결하면 같은 기기가 두 번 보인다. 토큰이 가리키는 기기 자신만 지울 수 있다.
+            case ("DELETE", "/api/v1/pair"):
+            {
+                var device = _devices.Authenticate(head.BearerToken() ?? "");
+                if (device is null) return Unauthorized();
+                _devices.Revoke(device.DeviceId);
+                return (200, Json(new UnpairResponse(MobileProtocol.Schema, device.DeviceId, false)));
+            }
+
             case ("GET", "/api/v1/endpoints"):
                 if (_devices.Authenticate(head.BearerToken() ?? "") is null) return Unauthorized();
                 return (200, Json(new EndpointsResponse(MobileProtocol.Schema, Endpoints())));

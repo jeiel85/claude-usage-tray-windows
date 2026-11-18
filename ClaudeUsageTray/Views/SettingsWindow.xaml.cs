@@ -675,7 +675,7 @@ public partial class SettingsWindow : Window, IDisposable
     private void BtnPeerSyncRemove_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement { Tag: string key }) return;
-        if (key.StartsWith("out:", StringComparison.Ordinal)) _vm.Mobile.Peers.Remove(key[4..]);
+        if (key.StartsWith("out:", StringComparison.Ordinal)) _ = _vm.Mobile.Peers.Remove(key[4..]); // 상대 PC 에 알리는 건 기다리지 않는다
         else if (key.StartsWith("in:", StringComparison.Ordinal)) _vm.Mobile.Devices?.Revoke(key[3..]);
         UpdatePeerSyncList();
     }
