@@ -9,7 +9,8 @@
       1. exe·SHA256.txt 를 올린 것이 CI(github-actions[bot])이다 — 손으로 바꿔 끼운 자산에 서명하지 않는다.
       2. 태그 커밋이 origin/master 에 들어 있다 — 리뷰·머지를 거친 코드다.
       3. 받은 exe 의 SHA-256 이 CI 가 만든 SHA256.txt 와 같다.
-      4. 키의 공개키가 그 태그의 앱에 내장된 공개키(UpdateSignature.cs)와 같다.
+      4. 키의 공개키가 이 버전을 받을 앱(직전 버전 태그)이 내장한 공개키(UpdateSignature.cs)와 같다. 직전 태그가 서명 도입
+         전이면 이 태그의 것과 맞춘다. 키를 바꾸는 릴리스는 그래서 옛 키로 서명된다.
     서명 메시지는 UpdateSignature.Message 와 같아야 한다: "claude-usage-tray-update/v1\n<버전>\n<sha256 소문자>\n".
 
 .PARAMETER Tag
@@ -73,13 +74,20 @@ try {
     $key = [System.Security.Cryptography.ECDsa]::Create()
     $key.ImportFromEncryptedPem((Get-Content -LiteralPath $pemPath -Raw), $password)
     Remove-Variable password
-    # 그 태그의 앱이 내장한 공개키. 서명 도입 전 태그면 지금 master 의 것(그 릴리스를 업데이트로 받을 앱이 가진 키)과 맞춘다.
-    $source = git -C $PSScriptRoot show "${tagCommit}:ClaudeUsageTray/Services/UpdateSignature.cs" 2>$null
-    if ($LASTEXITCODE -ne 0) { $source = git -C $PSScriptRoot show 'origin/master:ClaudeUsageTray/Services/UpdateSignature.cs' }
-    if ($LASTEXITCODE -ne 0) { throw "UpdateSignature.cs 를 찾지 못했습니다." }
+    # 이 서명을 확인할 쪽은 이 버전을 업데이트로 받을 앱, 즉 직전 버전이다. 그래서 직전 버전 태그가 내장한 공개키와 맞춘다 —
+    # 키를 바꾸는 릴리스(새 공개키를 내장)는 옛 키로 서명해야 기존 설치본이 받는다(DECISIONS D-1, Codex 리뷰 P2).
+    # 직전 태그가 서명 도입 전이면(받는 앱이 서명을 보지 않음) 이 태그가 내장한 키와 맞춘다.
+    $previous = git -C $PSScriptRoot tag --list 'v*' --sort=-v:refname |
+        Where-Object { $_ -match '^v(\d+\.\d+\.\d+)$' -and [Version]$Matches[1] -lt $version } | Select-Object -First 1
+    $trusted = $null
+    foreach ($ref in @($previous, $tagCommit) | Where-Object { $_ }) {
+        $source = git -C $PSScriptRoot show "${ref}:ClaudeUsageTray/Services/UpdateSignature.cs" 2>$null
+        if ($LASTEXITCODE -eq 0) { $trusted = $ref; break }
+    }
+    if (-not $trusted) { throw "$Tag 와 직전 태그($previous) 어디에도 UpdateSignature.cs 가 없습니다." }
     $embedded = (($source -join "`n") -replace '(?s).*-----BEGIN PUBLIC KEY-----(.*?)-----END PUBLIC KEY-----.*', '$1') -replace '\s', ''
     $mine = ($key.ExportSubjectPublicKeyInfoPem() -replace '-----(BEGIN|END) PUBLIC KEY-----', '') -replace '\s', ''
-    if ($embedded -ne $mine) { throw "이 키는 앱에 내장된 공개키(UpdateSignature.PublicKeyPem)와 짝이 아닙니다." }
+    if ($embedded -ne $mine) { throw "이 키는 $trusted 의 앱이 내장한 공개키와 짝이 아닙니다 — 그 앱은 이 서명을 거부합니다." }
 
     # 서명 — UpdateSignature.Message 와 같은 바이트
     $message = [Text.Encoding]::UTF8.GetBytes("claude-usage-tray-update/v1`n$($version.ToString(3))`n$sha`n")
