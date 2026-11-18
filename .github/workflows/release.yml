@@ -262,8 +262,10 @@ jobs:
           echo "$NOTES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+      # 서드파티 Action 은 커밋 SHA 로 고정한다(#290). 이 단계는 contents: write 토큰으로 사용자 PC 가 자동 설치할 exe 를
+      # 올리므로, 움직이는 태그(@v3)면 그 저장소가 탈취됐을 때 다음 릴리스의 exe 가 바뀔 수 있다. 올릴 때는 새 태그의 커밋을 확인해 바꾼다.
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           name: ${{ github.ref_name }}
           body: ${{ steps.changelog.outputs.NOTES }}
