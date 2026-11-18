@@ -30,6 +30,29 @@ class PairException(val code: String?, val httpStatus: Int) : Exception(code ?: 
 /** The PC no longer knows this phone (revoked in the tray) — re-pair. */
 class UnauthorizedException : Exception("unauthorized")
 
+/** How a PC answered `DELETE /api/v1/pair` (#285). */
+enum class UnpairOutcome {
+    /** The PC dropped this phone from its "Connected phones" list. */
+    Unpaired,
+
+    /** The PC no longer knew this phone (already revoked in the tray). */
+    AlreadyGone,
+
+    /** A PC from before #285 has no such route (405, or 404): only the push subscription can be removed there. */
+    Unsupported,
+    ;
+
+    companion object {
+        /** The outcome for the PC's HTTP status; null for anything else (a failure). */
+        fun fromStatus(code: Int): UnpairOutcome? = when (code) {
+            in 200..299 -> Unpaired
+            401 -> AlreadyGone
+            404, 405 -> Unsupported
+            else -> null
+        }
+    }
+}
+
 /** What the app knows about one PC's live connection. */
 sealed interface LiveState {
     data object Connecting : LiveState
@@ -103,6 +126,37 @@ class UsageApi(
 
     /** Removes this phone's subscription from [pc] (`DELETE /api/v1/push`). */
     suspend fun unregisterPush(pc: PcEntry): PushSubscriptionResponse = pushCall(pc, Request.Builder().delete())
+
+    /**
+     * Called after the user removed [pc] on this phone (#285). Asks the PC to drop this phone too
+     * (`DELETE /api/v1/pair`) — without it the PC keeps the old entry, so re-pairing lists the phone twice
+     * and the PC keeps pushing to it. A PC from before #285 doesn't know that route; there the push
+     * subscription is removed instead, as before. Throws [IOException] when no path answered.
+     */
+    suspend fun forget(pc: PcEntry): UnpairOutcome {
+        val outcome = unpair(pc)
+        if (outcome == UnpairOutcome.Unsupported) unregisterPush(pc)
+        return outcome
+    }
+
+    /** `DELETE /api/v1/pair` on the first path that answers. */
+    private suspend fun unpair(pc: PcEntry): UnpairOutcome = withContext(Dispatchers.IO) {
+        var last: Exception = IOException("no endpoints")
+        for (e in pc.orderedEndpoints(networks())) {
+            val req = Request.Builder().url(e.url("/api/v1/pair")).delete()
+                .header("Authorization", "Bearer ${pc.token}").build()
+            val res = try {
+                clientFor(e, quick).newCall(req).execute()
+            } catch (ex: IOException) {
+                last = IOException("${e.label}: ${describe(ex)}")
+                continue
+            }
+            res.use {
+                return@withContext UnpairOutcome.fromStatus(it.code) ?: throw IOException("unpair failed (HTTP ${it.code})")
+            }
+        }
+        throw last
+    }
 
     private suspend fun pushCall(pc: PcEntry, builder: Request.Builder): PushSubscriptionResponse = withContext(Dispatchers.IO) {
         var last: Exception = IOException("no endpoints")

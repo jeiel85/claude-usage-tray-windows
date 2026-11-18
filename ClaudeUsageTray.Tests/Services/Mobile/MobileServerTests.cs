@@ -212,6 +212,45 @@ public class MobileServerTests : IDisposable
         Assert.Equal(MobileApiServer.RevokedCloseReason, ws.CloseStatusDescription);
     }
 
+    /// <summary>
+    /// 휴대폰이 자기 쪽에서 PC 를 지우면 <c>DELETE /api/v1/pair</c> 로 PC 목록에서도 빠진다(#285) —
+    /// 그 기기 자신만 지우고(다른 휴대폰은 그대로), 토큰 없이는 401, 지운 뒤에는 그 토큰이 더 통하지 않는다.
+    /// </summary>
+    [Fact]
+    public void PhoneUnpairsItselfAndOnlyItself()
+    {
+        var store = new MobileDeviceStore(_dir);
+        var pairing = new PairingService(store);
+        using var server = new MobileApiServer(new MobileUsageFeed(), store, pairing, () => "TEST-PC");
+        string PairOne(string name) => pairing.TryPair(pairing.Begin().Code, name, "SM-S921N").Token!;
+        var oldToken = PairOne("Galaxy");
+        var newToken = PairOne("Galaxy");
+        Assert.Equal(2, store.List().Count);
+
+        HttpRequestHead Delete(string? token)
+        {
+            var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (token is not null) headers["Authorization"] = $"Bearer {token}";
+            return new("DELETE", "/api/v1/pair", headers);
+        }
+
+        Assert.Equal(401, server.HandleRest(Delete(null), null).Status);
+        Assert.Equal(401, server.HandleRest(Delete("not-a-token"), null).Status);
+
+        var (status, json) = server.HandleRest(Delete(oldToken), null);
+        Assert.Equal(200, status);
+        var body = JsonDocument.Parse(json).RootElement;
+        Assert.False(body.GetProperty("paired").GetBoolean());
+        var remaining = store.List().Single();
+        Assert.NotEqual(remaining.DeviceId, body.GetProperty("deviceId").GetString());
+        Assert.NotNull(store.Authenticate(newToken));
+        Assert.Null(store.Authenticate(oldToken));
+        Assert.Equal(401, server.HandleRest(Delete(oldToken), null).Status); // 두 번째는 이미 없다
+
+        // 다른 메서드는 여전히 405(페어링은 POST, 해제는 DELETE 만).
+        Assert.Equal(405, server.HandleRest(new HttpRequestHead("GET", "/api/v1/pair", new Dictionary<string, string>()), null).Status);
+    }
+
     private static StringContent Json(object value) =>
         new(JsonSerializer.Serialize(value), Encoding.UTF8, "application/json");
 

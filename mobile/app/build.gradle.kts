@@ -150,4 +150,6 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // Real org.json on the JVM test classpath (android.jar only ships stubs).
     testImplementation("org.json:json:20240303")
+    // A local HTTP server for UsageApi calls (same version as okhttp above).
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }

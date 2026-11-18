@@ -75,6 +75,9 @@ public sealed record PairRequest(string Code, string DeviceName, string? DeviceM
 
 public sealed record PairResponse(int Schema, string DeviceId, string Token, string PcId, string PcName);
 
+/// <summary><c>DELETE /api/v1/pair</c> 응답(#285) — 요청한 기기 자신의 페어링을 철회했다.</summary>
+public sealed record UnpairResponse(int Schema, string DeviceId, bool Paired);
+
 public sealed record ErrorResponse(int Schema, string Error, string Message);
 
 /// <summary><see cref="MobileProviderUsage.AccountScope"/> 값.</summary>
