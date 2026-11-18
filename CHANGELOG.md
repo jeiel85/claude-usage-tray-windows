@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.67.3] - 2026-11-18
+
+<!-- ko -->
+### 보안
+- **자동 업데이트가 서명을 확인합니다 (#290)** — 지금까지는 같은 릴리스에 함께 올라간 SHA256 파일로만 확인해서, GitHub 계정이나 배포 도구가 탈취되면 바꿔 끼운 exe가 그대로 설치될 수 있었습니다. 이제 GitHub 밖에 있는 키로 서명한 업데이트만 설치합니다. 서명이 없거나 맞지 않으면 받은 파일을 지우고 설치하지 않습니다. 직접 '업데이트'를 눌러도 같습니다.
+- 이 버전부터 확인이 시작됩니다. 이 버전 자체는 예전 방식(SHA256)으로 받습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Security
+- **Automatic updates now check a signature (#290)** — Until now an update was checked only against the SHA256 file uploaded with the same release, so a hijacked GitHub account or release tool could get a swapped exe installed. Now only updates signed with a key kept outside GitHub are installed; if the signature is missing or wrong, the download is deleted and nothing is installed — also when you click Update yourself.
+- Checking starts with this version; this version itself is still installed the old way (SHA256).
+<!-- /en -->
+
 ## [1.67.2] - 2026-11-18
 
 <!-- ko -->

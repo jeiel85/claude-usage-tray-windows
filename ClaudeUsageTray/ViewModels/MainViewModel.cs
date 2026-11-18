@@ -500,7 +500,8 @@ namespace ClaudeUsageTray.ViewModels;
 
     // IsClaudeSubscribed → ClaudeVm.IsSubscribed
     private string _updateDownloadUrl = "";
-    private string _updateSha256Url = "";
+    private string _updateSignatureUrl = "";
+    private Version? _updateFullVersion;
     private string _updateVersion = "";
     private string _updateReleaseNotes = "";
     private bool _isUpdateDialogOpen = false;
@@ -1234,7 +1235,8 @@ namespace ClaudeUsageTray.ViewModels;
         _updateVersion = versionStr;
         _updateReleaseNotes = info.releaseNotes;
         _updateDownloadUrl = info.downloadUrl;
-        _updateSha256Url = info.sha256Url;
+        _updateSignatureUrl = info.signatureUrl;
+        _updateFullVersion = info.version;
         return versionStr;
     }
 
@@ -1250,16 +1252,12 @@ namespace ClaudeUsageTray.ViewModels;
     /// <summary>
     /// 무인 설치(카운트다운)를 허용할지 결정한다. 정책 자체를 검증할 수 있도록 순수 함수로 분리했다.
     /// </summary>
-    /// <param name="canVerify">릴리스에 SHA256 자산이 있어 무결성 검증이 가능한지.</param>
     /// <param name="autoRetryExhausted">이 버전을 이미 자동으로 적용하려다 실패한 적이 있는지.</param>
     /// <returns>카운트다운 초(0 이면 수동 실행만) 와 모달에 띄울 안내 문구(없으면 null).</returns>
     internal static (int seconds, string? notice) ResolveAutoUpdatePlan(
-        bool canVerify, bool autoRetryExhausted, bool autoUpdateEnabled, int countdownSeconds)
+        bool autoRetryExhausted, bool autoUpdateEnabled, int countdownSeconds)
     {
-        // 검증이 불가능하면 사람이 보지 않는 사이에 설치하지 않는다. 이 안내는 자동 설치를 꺼 둔
-        // 사용자에게도 유효하다 — 직접 실행할지 판단하는 데 필요한 정보라 먼저 확인한다.
-        if (!canVerify) return (0, Loc.UpdateNoChecksumWarning);
-
+        // 서명 없는 릴리스는 UpdateService.SelectUpdate 가 아예 고르지 않으므로(#290) 여기까지 오는 업데이트는 모두 검증할 수 있다.
         // 사용자가 자동 설치를 껐다면 그대로 따른다. 본인이 고른 동작이므로 별도 안내는 띄우지 않는다.
         if (!autoUpdateEnabled) return (0, null);
 
@@ -1280,7 +1278,6 @@ namespace ClaudeUsageTray.ViewModels;
     private void ShowUpdateDialogWithCountdown(string version, string notes)
     {
         var (seconds, notice) = ResolveAutoUpdatePlan(
-            canVerify: !string.IsNullOrWhiteSpace(_updateSha256Url),
             autoRetryExhausted: _settingsService.Load().AutoUpdateAttemptedVersion == version,
             autoUpdateEnabled: AutoUpdateEnabled,
             countdownSeconds: AutoUpdateCountdownSeconds);
@@ -1315,11 +1312,10 @@ namespace ClaudeUsageTray.ViewModels;
                     try
                     {
                         IsUpdating = true;
+                        // 서명이 맞지 않으면 서비스가 받은 파일을 지우고 거부한다 — 사용자가 직접 누른 경우도 같다(#290).
                         var tempPath = await _updater.DownloadAndPrepareUpdateAsync(
-                            _updateDownloadUrl, _updateSha256Url,
-                            // 이중 방어: 카운트다운으로 시작된 무인 설치는 검증 자산이 없으면 서비스가 거부한다.
-                            // 사용자가 경고를 보고 직접 누른 경우에만 검증 없이 진행한다.
-                            allowUnverified: !dialog.StartedAutomatically,
+                            _updateDownloadUrl, _updateSignatureUrl,
+                            _updateFullVersion ?? throw new InvalidOperationException(Loc.UpdateSignatureInvalid),
                             onProgress: (pc, status) =>
                             {
                                 dialog.UpdateProgress(pc, status);
