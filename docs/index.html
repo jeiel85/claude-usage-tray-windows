@@ -1,470 +1,1267 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Claude Usage Tray — Windows</title>
-  <meta name="description" content="Windows 시스템 트레이에서 Claude, Codex, OpenCode, Antigravity 사용량과 날씨 알림을 함께 확인하는 통합 모니터링 앱." />
-  <meta property="og:title" content="Claude Usage Tray" />
-  <meta property="og:description" content="Monitor Claude, Codex, OpenCode, Antigravity usage and weather alerts from the Windows system tray." />
-  <meta property="og:image" content="https://jeiel85.github.io/claude-usage-tray-windows/screenshot.png" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Usage Tray — AI 코딩 한도를 트레이에서 한눈에</title>
+<meta name="description" content="Claude·Codex·Antigravity·OpenCode 사용량과 초기화 시각, 소진 속도를 Windows 트레이에서 한눈에. 휴대폰 앱으로 자리를 비워도 한도 알림을 받으세요. 무료 오픈 소스.">
+<meta name="theme-color" content="#0A0B10">
+<link rel="canonical" href="https://jeiel85.github.io/claude-usage-tray-windows/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://jeiel85.github.io/claude-usage-tray-windows/">
+<meta property="og:site_name" content="Claude Usage Tray">
+<meta property="og:title" content="Claude Usage Tray — AI 코딩 한도를 트레이에서 한눈에">
+<meta property="og:description" content="Claude, Codex, Antigravity, OpenCode usage, reset times and burn rate in your Windows tray — with alerts on your phone. Free and open source.">
+<meta property="og:image" content="https://jeiel85.github.io/claude-usage-tray-windows/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+<!-- Only external resources: the Pretendard web font (falls back to system fonts) and the GitHub API
+     for the latest version number (hidden if it fails). No analytics, no cookies. -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<script>document.documentElement.classList.add('js')</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Claude Usage Tray","operatingSystem":"Windows 10, Windows 11, Android 8.0+","applicationCategory":"DeveloperApplication","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"url":"https://jeiel85.github.io/claude-usage-tray-windows/","downloadUrl":"https://github.com/jeiel85/claude-usage-tray-windows/releases/latest","license":"https://opensource.org/licenses/MIT"}
+</script>
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#0A0B10; --bg-2:#0F1117; --card:#1A1D2E; --card-2:#151827; --line:#2D2F45; --line-2:#3D4266;
+  --text:#F1F5F9; --soft:#B4BAD3; --muted:#8B92B3; --dim:#5A5F7A;
+  --violet:#8B5CF6; --violet-2:#A78BFA; --violet-3:#C4B5FD; --indigo:#6366F1; --peri:#A5B4FC;
+  --amber:#F59E0B; --red:#EF4444; --red-2:#F87171; --green:#10B981; --mint:#6EE7B7; --orange:#F97316; --orange-2:#FB923C; --sky:#60A5FA;
+  --maxw:1160px;
+  --font:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;
+  --mono:ui-monospace,"Cascadia Code","JetBrains Mono",Consolas,"D2Coding",monospace;
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;scroll-padding-top:72px}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:16px;line-height:1.65;word-break:keep-all;overflow-wrap:break-word;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+img{max-width:100%;display:block}
+a{color:inherit}
+button{font:inherit;color:inherit}
+h1,h2,h3,p,ul,ol,figure{margin:0}
+ul,ol{padding:0;list-style:none}
+:focus-visible{outline:2px solid var(--violet-2);outline-offset:3px;border-radius:6px}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+.ico{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
-    :root {
-      --bg: #0f0f1a;
-      --bg2: #16162a;
-      --card: #1e1e35;
-      --border: #2a2a4a;
-      --purple: #7c3aed;
-      --purple-light: #a78bfa;
-      --purple-dim: #4c1d95;
-      --text: #e2e8f0;
-      --text-muted: #94a3b8;
-      --text-dim: #64748b;
-      --green: #10b981;
-      --radius: 14px;
-    }
+/* ── nav ── */
+.nav{position:sticky;top:0;z-index:50;border-bottom:1px solid transparent;transition:background .3s,border-color .3s}
+.nav.scrolled{background:rgba(10,11,16,.8);-webkit-backdrop-filter:saturate(140%) blur(14px);backdrop-filter:saturate(140%) blur(14px);border-color:rgba(45,47,69,.7)}
+.nav-in{display:flex;align-items:center;gap:20px;height:64px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;text-decoration:none;letter-spacing:-.01em;white-space:nowrap}
+.brand svg{width:30px;height:30px;border-radius:8px;flex:none}
+.nav-links{display:flex;gap:2px;margin-left:12px}
+.nav-links a{padding:8px 12px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:.92rem;font-weight:500;transition:color .2s,background .2s}
+.nav-links a:hover{color:var(--text);background:rgba(255,255,255,.04)}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.lang{display:flex;border:1px solid var(--line);border-radius:999px;padding:3px;background:rgba(26,29,46,.5)}
+.lang button{border:0;background:none;padding:4px 10px;border-radius:999px;font-size:.78rem;font-weight:700;color:var(--muted);cursor:pointer;letter-spacing:.02em}
+.lang button[aria-pressed="true"]{background:var(--card);color:var(--text);box-shadow:0 0 0 1px var(--line-2) inset}
+.icon-link{display:grid;place-items:center;width:36px;height:36px;border-radius:10px;color:var(--muted);transition:color .2s,background .2s}
+.icon-link:hover{color:var(--text);background:rgba(255,255,255,.05)}
+.icon-link svg{width:20px;height:20px;fill:currentColor}
+.btn-sm{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:10px;background:var(--violet);color:#fff;text-decoration:none;font-weight:700;font-size:.88rem;white-space:nowrap;transition:background .2s,transform .2s}
+.btn-sm:hover{background:#7C3AED;transform:translateY(-1px)}
+.btn-sm .ico{width:16px;height:16px;stroke-width:2.2}
+@media (max-width:920px){.nav-links{display:none}}
+@media (max-width:520px){.nav-right .icon-link{display:none}.brand span{display:none}}
 
-    html { scroll-behavior: smooth; }
+/* ── shared section bits ── */
+.sec-pad{padding:112px 0}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.8rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--violet-2);margin-bottom:16px}
+.eyebrow::before{content:"";width:18px;height:2px;border-radius:2px;background:linear-gradient(90deg,var(--violet),var(--amber))}
+h2{font-size:clamp(2rem,3.8vw,3.1rem);line-height:1.18;letter-spacing:-.035em;font-weight:800}
+.lead{font-size:clamp(1.02rem,1.3vw,1.15rem);color:var(--soft);margin-top:18px;max-width:38em}
+.head{margin-bottom:56px}
+.head.center{text-align:center}
+.head.center .lead{margin-left:auto;margin-right:auto}
+.grad{background:linear-gradient(92deg,#C4B5FD 0%,#A78BFA 38%,#F59E0B 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:72px;align-items:center}
+@media (max-width:980px){.two{grid-template-columns:minmax(0,1fr);gap:48px}.sec-pad{padding:84px 0}}
+.js .reveal{opacity:0;transform:translateY(24px);transition:opacity .8s var(--ease),transform .8s var(--ease)}
+.js .reveal.in{opacity:1;transform:none}
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      line-height: 1.6;
-      min-height: 100vh;
-    }
+/* ── buttons ── */
+.cta{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch}
+.btn{display:inline-flex;align-items:center;gap:12px;padding:13px 20px;border-radius:14px;text-decoration:none;font-weight:700;line-height:1.25;transition:transform .2s,box-shadow .2s,background .2s,border-color .2s}
+.btn .ico{width:22px;height:22px}
+.btn small{display:block;font-weight:500;font-size:.78rem;opacity:.72;margin-top:2px}
+.btn-primary{background:linear-gradient(135deg,#8B5CF6,#6D28D9);color:#fff;box-shadow:0 12px 32px -10px rgba(139,92,246,.7),inset 0 1px 0 rgba(255,255,255,.2)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 18px 44px -12px rgba(139,92,246,.85),inset 0 1px 0 rgba(255,255,255,.22)}
+.btn-ghost{background:rgba(255,255,255,.03);border:1px solid var(--line-2);color:var(--text)}
+.btn-ghost:hover{border-color:var(--violet-2);background:rgba(139,92,246,.08);transform:translateY(-2px)}
+.text-link{color:var(--violet-2);text-decoration:none;font-weight:600}
+.text-link:hover{text-decoration:underline}
 
-    /* ── HEADER ── */
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      background: rgba(15, 15, 26, 0.85);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
-      padding: 0 2rem;
-    }
-    .header-inner {
-      max-width: 900px;
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      height: 56px;
-    }
-    .logo-small {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      text-decoration: none;
-      color: var(--text);
-      font-weight: 600;
-      font-size: 0.95rem;
-    }
-    .logo-small .icon {
-      width: 28px; height: 28px;
-      background: var(--purple);
-      border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 14px;
-    }
-    .header-links {
-      display: flex;
-      gap: 0.5rem;
-    }
-    .btn-xs {
-      padding: 6px 14px;
-      border-radius: 8px;
-      font-size: 0.82rem;
-      font-weight: 500;
-      text-decoration: none;
-      border: 1px solid var(--border);
-      color: var(--text-muted);
-      background: transparent;
-      transition: all .2s;
-    }
-    .btn-xs:hover { border-color: var(--purple-light); color: var(--purple-light); }
+/* ── hero ── */
+.hero{position:relative;isolation:isolate;padding:48px 0 32px;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:-160px -20% auto;height:980px;z-index:-1;pointer-events:none;
+  background:radial-gradient(42% 46% at 26% 32%,rgba(139,92,246,.24),transparent 70%),radial-gradient(34% 40% at 82% 26%,rgba(245,158,11,.11),transparent 70%)}
+.hero::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:56px 56px;
+  -webkit-mask-image:radial-gradient(ellipse 70% 55% at 40% 30%,#000 20%,transparent 75%);mask-image:radial-gradient(ellipse 70% 55% at 40% 30%,#000 20%,transparent 75%)}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:56px;align-items:center}
+.pill{display:inline-flex;align-items:center;gap:10px;padding:6px 14px 6px 10px;border:1px solid var(--line);border-radius:999px;background:rgba(26,29,46,.6);font-size:.85rem;color:var(--soft)}
+.pill .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(16,185,129,.16);flex:none}
+.pill .ver{color:var(--text);font-weight:700;padding-left:10px;border-left:1px solid var(--line)}
+.hero h1{font-size:clamp(2.6rem,5.3vw,4.35rem);line-height:1.1;letter-spacing:-.045em;font-weight:800;margin:22px 0}
+.hero-sub{font-size:clamp(1.05rem,1.35vw,1.2rem);color:var(--soft);max-width:31em;margin-bottom:34px}
+.meta-line{margin-top:20px;font-size:.86rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16px}
+.meta-line li{display:flex;align-items:center;gap:6px}
+.meta-line .ico{width:15px;height:15px;color:var(--green);stroke-width:2.4}
+@media (max-width:980px){.hero-grid{grid-template-columns:minmax(0,1fr);gap:44px}.hero{padding-top:32px}}
 
-    /* ── HERO ── */
-    .hero {
-      padding: 80px 2rem 60px;
-      text-align: center;
-    }
-    .app-icon {
-      width: 72px; height: 72px;
-      background: linear-gradient(135deg, #7c3aed, #4c1d95);
-      border-radius: 20px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 36px;
-      margin: 0 auto 28px;
-      box-shadow: 0 8px 32px rgba(124,58,237,.4);
-    }
-    .hero h1 {
-      font-size: clamp(2rem, 5vw, 3rem);
-      font-weight: 700;
-      letter-spacing: -0.03em;
-      background: linear-gradient(135deg, #e2e8f0 0%, #a78bfa 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      margin-bottom: 16px;
-    }
-    .hero-sub {
-      font-size: 1.1rem;
-      color: var(--text-muted);
-      max-width: 520px;
-      margin: 0 auto 36px;
-    }
+/* hero stage: a desktop with the tray popup */
+.stage{position:relative;height:624px;border-radius:24px;border:1px solid rgba(61,66,102,.75);overflow:hidden;
+  background:radial-gradient(85% 65% at 12% 8%,rgba(124,58,237,.5),transparent 60%),radial-gradient(70% 55% at 100% 95%,rgba(245,158,11,.24),transparent 60%),radial-gradient(55% 45% at 70% 25%,rgba(99,102,241,.28),transparent 60%),linear-gradient(160deg,#1b1640,#0c0e17 72%);
+  box-shadow:0 50px 120px -40px rgba(0,0,0,.9),0 0 0 1px rgba(255,255,255,.03) inset}
+.term{position:absolute;left:18px;top:138px;width:312px;height:300px;border-radius:10px;background:rgba(12,13,20,.86);border:1px solid rgba(255,255,255,.08);box-shadow:0 20px 50px -20px rgba(0,0,0,.8);overflow:hidden;font-family:var(--mono);font-size:11px;color:#9aa3c7}
+.term-bar{display:flex;align-items:center;height:30px;background:rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.06);padding-left:10px;gap:8px;font-family:var(--font);font-size:11px;color:#c9cfe6}
+.term-tab{padding:4px 10px;border-radius:6px 6px 0 0;background:rgba(255,255,255,.06);margin-top:6px}
+.term-ctl{margin-left:auto;display:flex}
+.term-ctl span{width:30px;text-align:center;color:#7d84a6}
+.term pre{margin:0;padding:12px 14px;white-space:pre-wrap;line-height:1.7;font:inherit}
+.term .p{color:#6EE7B7}.term .v{color:#C4B5FD}.term .a{color:#FBBF24}
+.cursor{display:inline-block;width:7px;height:13px;background:#c9cfe6;vertical-align:-2px;animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
 
-    /* ── CTA BUTTONS ── */
-    .cta-group {
-      display: flex;
-      gap: 12px;
-      justify-content: center;
-      flex-wrap: wrap;
-      margin-bottom: 14px;
-    }
-    .btn-primary {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 13px 28px;
-      background: var(--purple);
-      color: #fff;
-      border-radius: 12px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      text-decoration: none;
-      transition: all .2s;
-      box-shadow: 0 4px 20px rgba(124,58,237,.35);
-    }
-    .btn-primary:hover { background: #6d28d9; box-shadow: 0 6px 28px rgba(124,58,237,.5); transform: translateY(-1px); }
-    .btn-secondary {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 13px 24px;
-      background: var(--card);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      text-decoration: none;
-      transition: all .2s;
-    }
-    .btn-secondary:hover { border-color: var(--purple-light); color: var(--purple-light); transform: translateY(-1px); }
-    .cta-note {
-      font-size: 0.78rem;
-      color: var(--text-dim);
-    }
-    .cta-note a { color: var(--text-dim); }
+.pop{position:absolute;right:16px;bottom:56px;width:324px;background:#0F1117;border:1px solid #2D2F45;border-radius:14px;box-shadow:0 34px 80px -16px rgba(0,0,0,.85),0 0 0 1px rgba(0,0,0,.4);font-size:12.5px;color:#F1F5F9;overflow:hidden;line-height:1.35;text-align:left}
+.pop-head{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#1A1D2E;border-bottom:1px solid #2D2F45}
+.pop-logo{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#8B5CF6,#6366F1);display:grid;place-items:center;font-weight:800;font-size:13px;flex:none}
+.pop-title{font-weight:650;font-size:13.5px}
+.pop-sub{font-size:10.5px;color:#5A5F7A;font-variant-numeric:tabular-nums}
+.pop-tools{margin-left:auto;display:flex;gap:12px;color:#5A5F7A}
+.pop-tools .ico{width:15px;height:15px}
+.pop-body{padding:12px 16px 8px}
+.pop-sec{color:#A78BFA;font-weight:700;font-size:12px;margin:2px 0 6px}
+.prov{display:flex;align-items:center;gap:8px;padding:5px 0}
+.mono{width:15px;height:15px;border-radius:4px;display:grid;place-items:center;font-size:9px;font-weight:800;color:#fff;flex:none}
+.prov-name{font-weight:700}
+.badge{font-size:9.5px;padding:1px 6px;border-radius:5px;background:rgba(139,92,246,.2);color:#C4B5FD;font-weight:700;letter-spacing:.02em}
+.prov-pct{margin-left:auto;font-weight:800;font-size:14px;font-variant-numeric:tabular-nums}
+.win{padding:5px 0 5px 14px}
+.win-top{display:flex;align-items:baseline;gap:6px}
+.win-right{margin-left:auto;font-size:11px;color:#8B92B3;font-variant-numeric:tabular-nums;white-space:nowrap}
+.win-right b{color:#A78BFA;font-weight:800;margin-right:4px}
+.bar{position:relative;height:4px;border-radius:3px;background:#2D2F45;margin-top:6px}
+.bar i{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:3px;background:linear-gradient(90deg,#7C3AED,#A78BFA);transition:width 1s var(--ease)}
+.bar .mk{position:absolute;top:-3px;width:2px;height:10px;border-radius:1px;background:#E2E8F0;margin-left:-1px}
+.hr{height:1px;background:#2D2F45;margin:9px 0}
+.tok-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
+.tok-head span{font-size:10.5px;color:#8B92B3}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.tile{background:#1A1D2E;border-radius:9px;padding:7px 11px}
+.tile span{font-size:10.5px;color:#8B92B3}
+.tile b{display:block;font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.cost{text-align:right;font-size:10.5px;color:#8B92B3;margin-top:5px}
+.pop-foot{display:flex;justify-content:space-between;padding:8px 16px;background:#1A1D2E;border-top:1px solid #2D2F45;font-size:10.5px;color:#5A5F7A}
+.pop-foot .quit{color:#F87171}
 
-    /* ── SCREENSHOT ── */
-    .screenshot-wrap {
-      max-width: 380px;
-      margin: 52px auto 0;
-      position: relative;
-    }
-    .screenshot-wrap::before {
-      content: '';
-      position: absolute;
-      inset: -2px;
-      border-radius: var(--radius);
-      background: linear-gradient(135deg, var(--purple), transparent, var(--purple-dim));
-      z-index: 0;
-      opacity: .6;
-    }
-    .screenshot-wrap img {
-      width: 100%;
-      border-radius: calc(var(--radius) - 2px);
-      display: block;
-      position: relative;
-      z-index: 1;
-      box-shadow: 0 24px 80px rgba(0,0,0,.6);
-    }
+.taskbar{position:absolute;left:0;right:0;bottom:0;height:44px;display:flex;align-items:center;padding:0 12px;background:rgba(14,15,24,.8);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border-top:1px solid rgba(255,255,255,.07)}
+.tb-apps{display:flex;gap:8px;align-items:center}
+.tb-apps span{width:26px;height:26px;border-radius:7px;position:relative}
+.tb-apps span.on::after{content:"";position:absolute;left:8px;right:8px;bottom:-6px;height:3px;border-radius:2px;background:var(--violet-2)}
+.tray{margin-left:auto;display:flex;align-items:center;gap:11px;color:#cbd2e6;font-size:11px}
+.tray .ico{width:15px;height:15px;stroke-width:2}
+.ti-wrap{position:relative;display:grid;place-items:center;width:24px;height:24px;border-radius:5px;background:rgba(255,255,255,.07)}
+.ti-wrap::after{content:"";position:absolute;inset:-4px;border-radius:8px;border:1.5px solid rgba(167,139,250,.75);animation:ring 2.6s var(--ease) infinite}
+@keyframes ring{0%{opacity:.9;transform:scale(.8)}70%,100%{opacity:0;transform:scale(1.35)}}
+.ti{position:relative;width:16px;height:16px;border:1px solid #8B5CF6;background:rgba(139,92,246,.16);overflow:hidden}
+.ti i{position:absolute;left:0;right:0;bottom:0;height:0;background:#8B5CF6;transition:height .5s var(--ease),background .4s}
+.clock{text-align:right;line-height:1.3;font-variant-numeric:tabular-nums;white-space:nowrap}
 
-    /* ── FEATURES ── */
-    .features {
-      padding: 80px 2rem;
-    }
-    .section-label {
-      text-align: center;
-      font-size: 0.75rem;
-      font-weight: 600;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      color: var(--purple-light);
-      margin-bottom: 12px;
-    }
-    .section-title {
-      text-align: center;
-      font-size: 1.6rem;
-      font-weight: 700;
-      margin-bottom: 48px;
-      color: var(--text);
-    }
-    .grid {
-      max-width: 900px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 16px;
-    }
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 24px;
-      transition: border-color .2s, transform .2s;
-    }
-    .card:hover { border-color: var(--purple); transform: translateY(-2px); }
-    .card-icon {
-      font-size: 1.6rem;
-      margin-bottom: 12px;
-    }
-    .card h3 {
-      font-size: 0.95rem;
-      font-weight: 600;
-      margin-bottom: 6px;
-      color: var(--text);
-    }
-    .card p {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      line-height: 1.5;
-    }
+.toast{position:absolute;left:18px;top:18px;width:296px;padding:12px 14px;border-radius:18px;background:rgba(30,33,53,.9);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.09);box-shadow:0 24px 60px -18px rgba(0,0,0,.85);opacity:0;transform:translateY(-14px) scale(.97);transition:opacity .5s var(--ease),transform .6s var(--ease);z-index:3;text-align:left}
+.toast.show{opacity:1;transform:none}
+.toast-top{display:flex;align-items:center;gap:7px;font-size:11px;color:#8B92B3}
+.toast-top svg{width:18px;height:18px;border-radius:5px;flex:none}
+.toast-top b{color:#C4B5FD;font-weight:600}
+.toast-title{font-weight:700;font-size:13.5px;margin-top:6px;color:#F1F5F9}
+.toast-body{font-size:12px;color:#B4BAD3;margin-top:1px}
+.toast-tag{position:absolute;right:12px;top:11px;font-size:10px;color:#F59E0B;font-weight:700;display:flex;align-items:center;gap:4px}
+.toast-tag::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
 
-    /* ── HOW TO INSTALL ── */
-    .install {
-      padding: 0 2rem 80px;
-    }
-    .install-box {
-      max-width: 600px;
-      margin: 0 auto;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 36px 40px;
-    }
-    .steps {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      margin-top: 28px;
-    }
-    .step {
-      display: flex;
-      align-items: flex-start;
-      gap: 16px;
-    }
-    .step-num {
-      width: 32px; height: 32px;
-      min-width: 32px;
-      background: var(--purple-dim);
-      border: 1px solid var(--purple);
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 0.8rem;
-      font-weight: 700;
-      color: var(--purple-light);
-    }
-    .step-body h4 {
-      font-size: 0.9rem;
-      font-weight: 600;
-      margin-bottom: 2px;
-    }
-    .step-body p {
-      font-size: 0.82rem;
-      color: var(--text-muted);
-    }
-    .step-body code {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 5px;
-      padding: 1px 6px;
-      font-size: 0.8rem;
-      color: var(--purple-light);
-    }
+@media (max-width:560px){
+  .stage{height:auto;padding:118px 12px 64px}
+  .pop{position:relative;right:auto;bottom:auto;margin:0 auto;width:100%;max-width:340px}
+  .term{display:none}
+  .toast{left:12px;right:12px;top:12px;width:auto}
+  .tb-apps{display:none}
+}
 
-    /* ── FOOTER ── */
-    footer {
-      border-top: 1px solid var(--border);
-      padding: 28px 2rem;
-      text-align: center;
-    }
-    .footer-inner {
-      max-width: 900px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
-    }
-    .footer-meta {
-      font-size: 0.78rem;
-      color: var(--text-dim);
-    }
-    .footer-meta a {
-      color: var(--text-dim);
-      text-decoration: none;
-    }
-    .footer-meta a:hover { color: var(--purple-light); }
-    .footer-meta span { margin: 0 6px; }
-    .badge-row {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-    .badge-row img { height: 20px; }
+/* stats strip */
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:64px;border:1px solid var(--line);border-radius:18px;background:rgba(21,24,39,.55);overflow:hidden}
+.stats>div{padding:22px 24px;border-left:1px solid var(--line)}
+.stats>div:first-child{border-left:0}
+.stats b{display:block;font-size:2rem;font-weight:800;letter-spacing:-.03em;line-height:1.1;font-variant-numeric:tabular-nums}
+.stats span{font-size:.88rem;color:var(--muted)}
+@media (max-width:760px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.stats>div:nth-child(3){border-left:0}.stats>div:nth-child(n+3){border-top:1px solid var(--line)}}
 
-    /* ── RESPONSIVE ── */
-    @media (max-width: 600px) {
-      .hero { padding: 60px 1.5rem 40px; }
-      .install-box { padding: 28px 24px; }
-      .cta-group { flex-direction: column; align-items: center; }
-      .btn-primary, .btn-secondary { width: 100%; max-width: 300px; justify-content: center; }
-    }
-  </style>
+/* ── providers ── */
+.prov-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+@media (max-width:1040px){.prov-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:600px){.prov-grid{grid-template-columns:minmax(0,1fr)}}
+.pcard{position:relative;padding:24px;border-radius:20px;background:linear-gradient(180deg,rgba(26,29,46,.9),rgba(21,24,39,.9));border:1px solid var(--line);overflow:hidden;transition:transform .3s var(--ease),border-color .3s}
+.pcard::before{content:"";position:absolute;inset:-1px -1px auto;height:120px;background:radial-gradient(60% 100% at 20% 0%,color-mix(in srgb,var(--c) 28%,transparent),transparent 70%);pointer-events:none}
+.pcard:hover{transform:translateY(-4px);border-color:color-mix(in srgb,var(--c) 55%,var(--line))}
+.pc-top{position:relative;display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.pc-mono{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;font-weight:800;font-size:18px;color:#fff;background:var(--c);box-shadow:0 8px 20px -8px var(--c)}
+.pcard h3{font-size:1.15rem;font-weight:750;letter-spacing:-.01em;line-height:1.2}
+.pc-plan{font-size:.8rem;color:var(--muted)}
+.mini{position:relative;display:grid;gap:10px;padding:14px;border-radius:12px;background:rgba(10,11,16,.55);border:1px solid rgba(45,47,69,.6);margin-bottom:18px}
+.mrow{display:flex;justify-content:space-between;font-size:.78rem;color:var(--muted);margin-bottom:5px}
+.mrow em{font-style:normal;font-weight:800;color:var(--c2);font-variant-numeric:tabular-nums}
+.mbar{position:relative;height:5px;border-radius:3px;background:#2D2F45}
+.mbar i{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:3px;background:var(--c);transition:width 1.2s var(--ease) .2s}
+.mbar s{position:absolute;top:-3px;width:2px;height:11px;border-radius:1px;background:#E2E8F0;left:var(--x);margin-left:-1px;opacity:0;transition:opacity .4s 1s}
+.pcard.in .mbar i{width:var(--w)}
+.pcard.in .mbar s{opacity:1}
+.pcard>p{color:var(--soft);font-size:.92rem;line-height:1.6}
+.note-line{text-align:center;margin-top:28px;color:var(--muted);font-size:.9rem}
+
+/* ── pace ── */
+.checks{margin-top:28px;display:grid;gap:14px}
+.checks li{display:flex;gap:14px;align-items:flex-start;color:var(--soft)}
+.checks li b{color:var(--text)}
+.swatch{flex:none;margin-top:6px;width:44px;height:10px;border-radius:3px;background:#2D2F45;position:relative;overflow:visible}
+.swatch i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--violet)}
+.swatch s{position:absolute;top:-3px;width:2px;height:16px;background:#E2E8F0;border-radius:1px}
+.pace-card{padding:28px;border-radius:24px;background:linear-gradient(180deg,#171a2a,#12141f);border:1px solid var(--line);box-shadow:0 40px 90px -40px rgba(0,0,0,.8)}
+.pace-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:28px;flex-wrap:wrap}
+.seg{display:flex;padding:4px;border-radius:12px;background:rgba(10,11,16,.6);border:1px solid var(--line)}
+.seg button{border:0;background:none;padding:7px 14px;border-radius:9px;font-weight:600;font-size:.88rem;color:var(--muted);cursor:pointer;transition:background .2s,color .2s}
+.seg button[aria-pressed="true"]{background:var(--card);color:var(--text);box-shadow:0 0 0 1px var(--line-2) inset}
+.status{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;font-size:.84rem;font-weight:700;background:rgba(16,185,129,.12);color:var(--mint);transition:background .3s,color .3s}
+.status::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.status.tight{background:rgba(245,158,11,.13);color:#FBBF24}
+.status.over,.status.full{background:rgba(239,68,68,.14);color:var(--red-2)}
+.pg-track{position:relative;height:16px;border-radius:8px;background:#22253a;box-shadow:inset 0 0 0 1px rgba(255,255,255,.03)}
+.pg-fill,.pg-over{position:absolute;top:0;bottom:0;left:0;border-radius:8px;transition:width .25s var(--ease),left .25s var(--ease)}
+.pg-fill{background:linear-gradient(90deg,#7C3AED,#A78BFA)}
+.pg-over{border-radius:0 8px 8px 0;background:repeating-linear-gradient(-45deg,#F59E0B 0 6px,#D97706 6px 12px)}
+.pg-over.red{background:repeating-linear-gradient(-45deg,#EF4444 0 6px,#DC2626 6px 12px)}
+.pg-mk{position:absolute;top:-7px;bottom:-7px;width:3px;border-radius:2px;background:#F1F5F9;margin-left:-1.5px;box-shadow:0 0 0 3px rgba(15,17,23,.85);transition:left .25s var(--ease)}
+.pg-mk::after{content:attr(data-label);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);font-size:.72rem;font-weight:700;color:var(--text);white-space:nowrap;background:#2D2F45;padding:2px 7px;border-radius:6px}
+.pg-scale{display:flex;justify-content:space-between;font-size:.74rem;color:var(--dim);margin-top:10px;font-variant-numeric:tabular-nums}
+.pace-gauge{padding-top:22px;margin-bottom:22px}
+.rng{display:block;margin-top:18px}
+.rng-top{display:flex;justify-content:space-between;font-size:.9rem;color:var(--soft);margin-bottom:8px}
+.rng-top b{color:var(--text);font-variant-numeric:tabular-nums}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:24px;background:transparent;cursor:pointer;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--violet) var(--pct,50%),#2D2F45 var(--pct,50%))}
+input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:#2D2F45}
+input[type=range]::-moz-range-progress{height:6px;border-radius:3px;background:var(--violet)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#F1F5F9;border:4px solid var(--violet);margin-top:-7px;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:#F1F5F9;border:4px solid var(--violet);box-shadow:0 4px 12px rgba(0,0,0,.5)}
+.rng.time input[type=range]::-webkit-slider-runnable-track{background:linear-gradient(90deg,#E2E8F0 var(--pct,50%),#2D2F45 var(--pct,50%))}
+.rng.time input[type=range]::-moz-range-progress{background:#E2E8F0}
+.rng.time input[type=range]::-webkit-slider-thumb{border-color:#E2E8F0;background:#0F1117}
+.rng.time input[type=range]::-moz-range-thumb{border-color:#E2E8F0;background:#0F1117}
+.verdict{margin-top:26px;padding:16px 18px;border-radius:14px;background:rgba(10,11,16,.55);border:1px solid var(--line);color:var(--soft);min-height:84px;font-size:.96rem}
+.verdict b{color:var(--text)}
+.pace-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.pace-stats div{padding:12px 14px;border-radius:12px;background:rgba(26,29,46,.6)}
+.pace-stats span{display:block;font-size:.76rem;color:var(--muted)}
+.pace-stats b{font-size:1.05rem;font-variant-numeric:tabular-nums;letter-spacing:-.01em;white-space:nowrap}
+.pace-stats b small{font-size:.72em;font-weight:600;color:var(--muted);margin-left:1px}
+
+/* ── alerts ── */
+.alerts-sec{position:relative;isolation:isolate}
+.alerts-sec::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(40% 50% at 20% 50%,rgba(239,68,68,.07),transparent 70%)}
+.stack{position:relative;display:grid;gap:12px}
+.ncard{display:block;padding:16px 18px;border-radius:18px;background:#1A1D2E;border:1px solid #2D2F45;box-shadow:0 20px 40px -24px rgba(0,0,0,.9)}
+.js .stack .ncard{opacity:0;transform:translateX(-24px)}
+.js .stack.in .ncard{opacity:1;transform:none;transition:opacity .6s var(--ease),transform .7s var(--ease)}
+.js .stack.in .ncard:nth-child(2){transition-delay:.15s}
+.js .stack.in .ncard:nth-child(3){transition-delay:.3s}
+.js .stack.in .ncard:nth-child(4){transition-delay:.45s}
+.ncard:nth-child(2){margin-left:24px}.ncard:nth-child(3){margin-left:48px}.ncard:nth-child(4){margin-left:24px}
+@media (max-width:600px){.ncard:nth-child(n){margin-left:0}}
+.n-top{display:flex;align-items:center;gap:8px;font-size:.8rem;color:var(--muted)}
+.n-top .d{width:8px;height:8px;border-radius:50%;flex:none}
+.n-top time{margin-left:auto;color:var(--dim)}
+.n-title{font-weight:700;margin-top:6px;letter-spacing:-.01em}
+.n-body{font-size:.88rem;color:var(--muted)}
+.alist{margin-top:30px;display:grid;gap:4px}
+.alist li{display:grid;grid-template-columns:auto 1fr;gap:16px;padding:14px 0;border-top:1px solid rgba(45,47,69,.7)}
+.alist li:first-child{border-top:0}
+.alist .ai{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:var(--card);border:1px solid var(--line);color:var(--violet-2)}
+.alist b{display:block;font-weight:700}
+.alist span{color:var(--muted);font-size:.92rem}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}
+.chip{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:rgba(26,29,46,.6);font-size:.84rem;color:var(--soft)}
+.chip .ico{width:15px;height:15px}
+
+/* ── mobile ── */
+.mobile-sec{position:relative;isolation:isolate;border-top:1px solid rgba(45,47,69,.6);border-bottom:1px solid rgba(45,47,69,.6);background:linear-gradient(180deg,#0d0f17,#0A0B10)}
+.mobile-sec::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(38% 55% at 28% 50%,rgba(139,92,246,.2),transparent 70%),radial-gradient(30% 40% at 85% 20%,rgba(16,185,129,.08),transparent 70%)}
+.phone-col{display:flex;flex-direction:column;align-items:center;gap:22px}
+.phone{position:relative;width:min(312px,82vw);padding:11px;border-radius:44px;background:linear-gradient(145deg,#2a2d40,#14161f);box-shadow:0 0 0 1px rgba(255,255,255,.08) inset,0 50px 100px -30px rgba(0,0,0,.95),0 0 80px -20px rgba(139,92,246,.35)}
+.phone::after{content:"";position:absolute;top:22px;left:50%;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#05060a;box-shadow:0 0 0 2px #1a1c27;z-index:2}
+.screen{position:relative;width:100%;aspect-ratio:1080/1920;border-radius:34px;overflow:hidden;background:#111217}
+.screen img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top;opacity:0;transform:scale(1.02);transition:opacity .6s var(--ease),transform .8s var(--ease)}
+.screen img.on{opacity:1;transform:none}
+.tabs{display:flex;gap:6px;padding:5px;border-radius:14px;background:rgba(26,29,46,.7);border:1px solid var(--line)}
+.tabs button{border:0;background:none;padding:8px 14px;border-radius:10px;font-weight:600;font-size:.88rem;color:var(--muted);cursor:pointer;transition:background .2s,color .2s}
+.tabs button[aria-selected="true"]{background:var(--violet);color:#fff}
+.steps{margin-top:32px;display:grid;gap:4px;counter-reset:s}
+.steps li{position:relative;display:grid;grid-template-columns:auto 1fr;gap:16px;padding:14px 0}
+.steps li::before{counter-increment:s;content:counter(s);width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:.9rem;color:var(--violet-3);background:rgba(139,92,246,.14);border:1px solid rgba(139,92,246,.45)}
+.steps li:not(:last-child)::after{content:"";position:absolute;left:17px;top:52px;bottom:-4px;width:1px;background:linear-gradient(var(--line-2),transparent)}
+.steps b{display:block;font-weight:700}
+.steps span{color:var(--muted);font-size:.93rem}
+.kbd{display:inline-block;padding:1px 7px;border-radius:6px;background:var(--card);border:1px solid var(--line-2);font-size:.84em;color:var(--text);white-space:nowrap}
+.mfeat{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:28px 0 30px}
+.mfeat li{display:flex;gap:10px;align-items:flex-start;padding:14px;border-radius:14px;background:rgba(26,29,46,.55);border:1px solid rgba(45,47,69,.8);font-size:.9rem;color:var(--soft)}
+.mfeat .ico{color:var(--violet-2);margin-top:2px}
+.mfeat b{display:block;color:var(--text);font-size:.95rem}
+@media (max-width:520px){.mfeat{grid-template-columns:1fr}}
+.small-note{margin-top:14px;font-size:.84rem;color:var(--muted)}
+
+/* ── network / privacy ── */
+.net{padding:12px;border-radius:24px;background:linear-gradient(180deg,#151827,#101220);border:1px solid var(--line)}
+.flow{display:grid;grid-template-columns:minmax(0,170px) minmax(0,1fr) minmax(0,170px);align-items:center;gap:14px;padding:18px 16px;border-radius:16px}
+.flow+.flow{border-top:1px solid rgba(45,47,69,.6);border-radius:0}
+.node{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;background:#1A1D2E;border:1px solid var(--line-2);font-weight:650;font-size:.92rem;min-width:0}
+.node .ico{color:var(--violet-2)}
+.node small{display:block;font-weight:500;font-size:.75rem;color:var(--muted)}
+.node.end{justify-content:flex-end;text-align:right}
+.node.end .ico{order:2}
+.link{position:relative;text-align:center;min-width:0}
+.link .wire{position:relative;height:2px;margin:10px 0;background:repeating-linear-gradient(90deg,var(--line-2) 0 6px,transparent 6px 12px)}
+.link .wire::after{content:"";position:absolute;top:50%;left:0;width:8px;height:8px;margin-top:-4px;border-radius:50%;background:var(--c,var(--violet-2));box-shadow:0 0 12px 2px var(--c,var(--violet-2));animation:travel 2.8s linear infinite}
+.link.both .wire::before{content:"";position:absolute;top:50%;right:0;width:8px;height:8px;margin-top:-4px;border-radius:50%;background:var(--c,var(--violet-2));box-shadow:0 0 12px 2px var(--c,var(--violet-2));animation:travel-back 2.8s linear infinite 1.4s}
+@keyframes travel{from{left:0}to{left:calc(100% - 8px)}}
+@keyframes travel-back{from{right:0}to{right:calc(100% - 8px)}}
+.link b{display:block;font-size:.88rem;font-weight:700}
+.link span{display:block;font-size:.8rem;color:var(--muted)}
+.flow.none .node{border-style:dashed;color:var(--muted);background:transparent}
+.flow.none .wire{background:none;border-top:2px dashed rgba(239,68,68,.35);height:0}
+.flow.none .wire::after{display:none}
+.flow.none .x{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:rgba(239,68,68,.15);color:var(--red-2);font-weight:800;font-size:.8rem;margin-bottom:4px}
+@media (max-width:720px){
+  .flow{grid-template-columns:1fr;gap:6px;padding:16px 8px}
+  .node,.node.end{justify-content:flex-start;text-align:left}
+  .node.end .ico{order:0}
+  .link{padding:0 8px}
+  .link .wire{width:2px;height:28px;margin:4px auto;background:repeating-linear-gradient(180deg,var(--line-2) 0 5px,transparent 5px 10px)}
+  .link .wire::after,.link.both .wire::before{display:none}
+  .flow.none .wire{border-top:0;border-left:2px dashed rgba(239,68,68,.35);height:28px;width:0}
+}
+.pgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:20px}
+@media (max-width:980px){.pgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:520px){.pgrid{grid-template-columns:minmax(0,1fr)}}
+.pitem{padding:22px;border-radius:18px;background:rgba(26,29,46,.55);border:1px solid var(--line)}
+.pitem .ico{width:24px;height:24px;color:var(--mint);margin-bottom:14px}
+.pitem b{display:block;font-size:1.02rem;margin-bottom:4px}
+.pitem span{color:var(--muted);font-size:.9rem}
+
+/* ── more features bento ── */
+.bento{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:980px){.bento{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:600px){.bento{grid-template-columns:minmax(0,1fr)}}
+.bc{position:relative;padding:24px;border-radius:20px;background:linear-gradient(180deg,rgba(26,29,46,.85),rgba(19,21,33,.85));border:1px solid var(--line);overflow:hidden}
+.bc .ico{width:24px;height:24px;color:var(--violet-2);margin-bottom:16px}
+.bc h3{font-size:1.06rem;font-weight:750;margin-bottom:6px;letter-spacing:-.01em}
+.bc p{color:var(--muted);font-size:.92rem}
+.bc.big{grid-row:span 2;display:flex;flex-direction:column}
+@media (max-width:980px){.bc.big{grid-row:auto}}
+.icons-demo{display:flex;gap:18px;align-items:flex-end;justify-content:center;margin:auto 0 0;padding:28px 0 6px}
+.icons-demo figure{display:flex;flex-direction:column;align-items:center;gap:10px;font-size:.78rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.big-ti{position:relative;width:64px;height:64px;border:4px solid #8B5CF6;background:rgba(139,92,246,.16);image-rendering:pixelated}
+.big-ti i{position:absolute;left:0;right:0;bottom:0}
+.tiny-row{display:flex;gap:8px;align-items:center;margin-top:12px;justify-content:center}
+.chart-demo{display:flex;align-items:flex-end;gap:6px;height:64px;margin-top:18px}
+.chart-demo i{flex:1;border-radius:4px 4px 2px 2px;background:linear-gradient(180deg,#A78BFA,#6D28D9);opacity:.85}
+.chart-demo i:last-child{background:linear-gradient(180deg,#FBBF24,#D97706)}
+.lang-demo{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px}
+.lang-demo span{padding:4px 10px;border-radius:8px;background:rgba(10,11,16,.6);border:1px solid var(--line);font-size:.84rem}
+
+/* ── install ── */
+.install-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:900px){.install-grid{grid-template-columns:minmax(0,1fr)}}
+.istep{position:relative;padding:26px;border-radius:20px;background:rgba(26,29,46,.6);border:1px solid var(--line)}
+.istep .n{font-size:.8rem;font-weight:800;color:var(--violet-2);letter-spacing:.12em}
+.istep h3{font-size:1.15rem;font-weight:750;margin:8px 0 6px}
+.istep p{color:var(--muted);font-size:.93rem}
+.istep a{color:var(--violet-2)}
+.req{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:14px;margin-top:14px}
+@media (max-width:900px){.req{grid-template-columns:minmax(0,1fr)}}
+.req-card{padding:24px 26px;border-radius:20px;border:1px solid var(--line);background:rgba(21,24,39,.6)}
+.req-card h3{font-size:1rem;font-weight:750;margin-bottom:12px}
+.req-card li{display:flex;gap:10px;align-items:flex-start;padding:5px 0;color:var(--soft);font-size:.93rem}
+.req-card li .ico{width:17px;height:17px;color:var(--green);margin-top:3px;stroke-width:2.3}
+.req-card a{color:var(--violet-2)}
+.code{position:relative;margin-top:4px;border-radius:14px;background:#07080c;border:1px solid var(--line);font-family:var(--mono);font-size:.84rem;color:#c9cfe6;overflow:auto}
+.code pre{margin:0;padding:16px 18px;line-height:1.75;white-space:pre}
+.code .c{color:#5A5F7A}
+.copy{position:absolute;top:8px;right:8px;border:1px solid var(--line-2);background:var(--card);border-radius:8px;padding:4px 10px;font-size:.76rem;font-weight:600;color:var(--soft);cursor:pointer;font-family:var(--font)}
+.copy:hover{color:var(--text)}
+
+/* ── faq ── */
+.faq{max-width:820px;margin:0 auto;display:grid;gap:10px}
+.faq details{border:1px solid var(--line);border-radius:16px;background:rgba(21,24,39,.6);transition:border-color .2s,background .2s}
+.faq details[open]{border-color:var(--line-2);background:rgba(26,29,46,.75)}
+.faq summary{cursor:pointer;list-style:none;padding:18px 22px;font-weight:700;display:flex;justify-content:space-between;align-items:center;gap:16px}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"";flex:none;width:10px;height:10px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg) translate(-2px,-2px);transition:transform .25s}
+.faq details[open] summary::after{transform:rotate(-135deg) translate(-2px,-2px)}
+.faq details p{padding:0 22px 20px;color:var(--soft);font-size:.95rem}
+.faq a{color:var(--violet-2)}
+
+/* ── final cta / footer ── */
+.final{position:relative;isolation:isolate;margin:0 auto;padding:72px 40px;border-radius:32px;text-align:center;overflow:hidden;border:1px solid rgba(139,92,246,.35);
+  background:radial-gradient(70% 90% at 50% 0%,rgba(139,92,246,.35),transparent 70%),radial-gradient(50% 60% at 100% 100%,rgba(245,158,11,.16),transparent 70%),#10111a}
+.final h2{max-width:16em;margin:0 auto}
+.final .lead{margin:16px auto 32px}
+.final .cta{justify-content:center}
+.bars-deco{display:flex;flex-direction:column;gap:10px;width:200px;margin:0 auto 34px}
+.bars-deco span{height:10px;border-radius:5px;background:#2D2F45;position:relative;overflow:hidden}
+.bars-deco span i{position:absolute;inset:0 auto 0 0;border-radius:5px}
+@media (max-width:600px){.final{padding:56px 20px;border-radius:24px}}
+footer{padding:64px 0 48px;color:var(--muted);font-size:.88rem}
+.foot{display:flex;flex-wrap:wrap;gap:24px 48px;justify-content:space-between;padding-top:32px;border-top:1px solid var(--line)}
+.foot-links{display:flex;flex-wrap:wrap;gap:8px 22px}
+.foot-links a{text-decoration:none}
+.foot-links a:hover{color:var(--text)}
+.fine{margin-top:20px;font-size:.8rem;color:var(--dim);max-width:60em}
+.fine a{color:var(--muted)}
+
+@media (max-width:640px){.wrap{padding:0 16px}}
+@media (max-width:520px){.cta .btn{flex:1 1 100%}}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation:none !important;transition:none !important}
+  .js .reveal,.js .stack .ncard{opacity:1;transform:none}
+}
+</style>
 </head>
 <body>
 
-<!-- HEADER -->
-<header>
-  <div class="header-inner">
-    <a href="#" class="logo-small">
-      <span class="icon">C</span>
-      Claude Usage Tray
-    </a>
-    <div class="header-links">
-      <a class="btn-xs" href="https://github.com/jeiel85/claude-usage-tray-windows/releases/latest">Download</a>
-      <a class="btn-xs" href="https://github.com/jeiel85/claude-usage-tray-windows">GitHub</a>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="logo" viewBox="0 0 108 108"><rect width="108" height="108" rx="24" fill="#0F1117"/><rect x="0.5" y="0.5" width="107" height="107" rx="23.5" fill="none" stroke="#2D2F45"/><rect x="28" y="33" width="52" height="8" rx="4" fill="#2D2F45"/><rect x="28" y="33" width="36" height="8" rx="4" fill="#8B5CF6"/><rect x="28" y="50" width="52" height="8" rx="4" fill="#2D2F45"/><rect x="28" y="50" width="21" height="8" rx="4" fill="#A78BFA"/><rect x="28" y="67" width="52" height="8" rx="4" fill="#2D2F45"/><rect x="28" y="67" width="47" height="8" rx="4" fill="#F59E0B"/></symbol>
+    <symbol id="i-dl" viewBox="0 0 24 24"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></symbol>
+    <symbol id="i-rain" viewBox="0 0 24 24"><path d="M7 16a5 5 0 1 1 1-9.9A6 6 0 0 1 19 9a4 4 0 0 1-1 7.9"/><path d="M8 19l-1 2M12 19l-1 2M16 19l-1 2"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></symbol>
+    <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M14.8 9.2c-.5-.8-1.5-1.2-2.8-1.2-1.7 0-2.8.8-2.8 2s1.1 1.6 2.8 2 2.8.8 2.8 2-1.1 2-2.8 2c-1.3 0-2.4-.5-2.9-1.3M12 6.5V8M12 16v1.5"/></symbol>
+    <symbol id="i-sync" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-15.4 6.4L3 16"/><path d="M3 12a9 9 0 0 1 15.4-6.4L21 8"/><path d="M21 3v5h-5M3 21v-5h5"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+    <symbol id="i-magnet" viewBox="0 0 24 24"><path d="M6 3v8a6 6 0 0 0 12 0V3h-4v8a2 2 0 0 1-4 0V3z"/><path d="M6 7h4M14 7h4"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="9" r="4"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+    <symbol id="i-hash" viewBox="0 0 24 24"><path d="M5 9h14M5 15h14M10 3 8 21M16 3l-2 18"/></symbol>
+    <symbol id="i-eyeoff" viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6 0 9.5 7 9.5 7a17 17 0 0 1-3 3.8M6.6 6.6C3.9 8.4 2.5 12 2.5 12S6 19 12 19a9.6 9.6 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></symbol>
+    <symbol id="i-pc" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></symbol>
+    <symbol id="i-relay" viewBox="0 0 24 24"><path d="M4 12h4l2-5 4 10 2-5h4"/></symbol>
+    <symbol id="i-qr" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></symbol>
+    <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01"/></symbol>
+    <symbol id="i-vol" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></symbol>
+    <symbol id="gh" viewBox="0 0 24 24"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.08-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.8 1.19 1.82 1.19 3.08 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></symbol>
+  </defs>
+</svg>
+
+<header class="nav" id="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top" aria-label="Claude Usage Tray"><svg aria-hidden="true"><use href="#logo"/></svg><span>Claude Usage Tray</span></a>
+    <nav class="nav-links" aria-label="Sections">
+      <a href="#features" data-i18n="navFeatures">기능</a>
+      <a href="#pace" data-i18n="navPace">페이스</a>
+      <a href="#mobile" data-i18n="navMobile">휴대폰 앱</a>
+      <a href="#privacy" data-i18n="navPrivacy">개인정보</a>
+      <a href="#install" data-i18n="navInstall">설치</a>
+    </nav>
+    <div class="nav-right">
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="ko" aria-pressed="true">KO</button>
+        <button type="button" data-lang="en" aria-pressed="false">EN</button>
+      </div>
+      <a class="icon-link" href="https://github.com/jeiel85/claude-usage-tray-windows" aria-label="GitHub"><svg aria-hidden="true"><use href="#gh"/></svg></a>
+      <a class="btn-sm" href="#install"><svg class="ico" aria-hidden="true"><use href="#i-dl"/></svg><span data-i18n="navDownload">다운로드</span></a>
     </div>
   </div>
 </header>
 
-<!-- HERO -->
+<main id="top">
+
+<!-- ═════════ HERO ═════════ -->
 <section class="hero">
-  <div class="app-icon">📊</div>
-  <h1>Claude Usage Tray</h1>
-  <p class="hero-sub">
-    Windows 시스템 트레이에서 Claude, Codex, OpenCode,<br>
-    Antigravity 사용량과 날씨 알림을 한눈에 확인하세요.
-  </p>
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <span class="pill"><span class="dot"></span><span data-i18n="pill">Windows · Android · 무료 오픈 소스</span><b class="ver" id="relVer" hidden></b></span>
+        <h1 data-i18n="h1">한도에 걸리기 전에,<br><span class="grad">먼저 보이게.</span></h1>
+        <p class="hero-sub" data-i18n="heroSub">Claude · Codex · Antigravity · OpenCode의 사용량과 초기화 시각, 소진 속도를 Windows 작업 표시줄 트레이 하나에 모았습니다. 자리를 비워도 휴대폰으로 알림이 옵니다.</p>
+        <div class="cta">
+          <a class="btn btn-primary" href="https://github.com/jeiel85/claude-usage-tray-windows/releases/latest/download/ClaudeUsageTray.exe">
+            <svg class="ico" aria-hidden="true"><use href="#i-dl"/></svg>
+            <span><span data-i18n="dlWin">Windows용 다운로드</span><small data-i18n="dlWinSub">.exe 하나 · 설치 없이 실행</small></span>
+          </a>
+          <a class="btn btn-ghost" href="#mobile">
+            <svg class="ico" aria-hidden="true"><use href="#i-phone"/></svg>
+            <span><span data-i18n="dlAndroid">Android 앱</span><small data-i18n="dlAndroidSub">QR 한 번으로 연결</small></span>
+          </a>
+        </div>
+        <ul class="meta-line">
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="meta1">Windows 10 이상</span></li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="meta2">API 키 입력 없음</span></li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="meta3">광고·추적 없음</span></li>
+        </ul>
+      </div>
 
-  <div class="cta-group">
-    <a class="btn-primary" href="https://github.com/jeiel85/claude-usage-tray-windows/releases/latest">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Download .exe
-    </a>
-    <a class="btn-secondary" href="https://github.com/jeiel85/claude-usage-tray-windows">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-      GitHub
-    </a>
-  </div>
-  <p class="cta-note">
-    Windows 10+ &nbsp;·&nbsp; .NET 9.0 Desktop Runtime 필요 &nbsp;·&nbsp; MIT License
-    &nbsp;&nbsp;
-    <a href="https://github.com/jeiel85/claude-usage-tray-windows/releases">모든 릴리즈 보기 →</a>
-  </p>
+      <div class="stage" aria-label="Preview of the tray popup" role="img" id="stage">
+        <div class="term" aria-hidden="true">
+          <div class="term-bar"><span class="term-tab">PowerShell</span><span class="term-ctl"><span>–</span><span>□</span><span>✕</span></span></div>
+<pre><span class="p">PS D:\work\shop&gt;</span> claude
+<span class="v">●</span> <span data-i18n="t1">결제 모듈 리팩터링 중…</span>
+<span class="v">●</span> Read src/payment/*.ts <span class="a">(14)</span>
+<span class="v">●</span> Edit src/payment/refund.ts
+<span class="v">●</span> Bash npm test
+  ✓ 128 passed
+<span class="v">●</span> <span data-i18n="t2">다음 단계 진행 중</span> <span class="cursor"></span></pre>
+        </div>
 
-  <div class="screenshot-wrap">
-    <img src="screenshot.png" alt="Claude Usage Tray 스크린샷" />
+        <div class="pop" aria-hidden="true">
+          <div class="pop-head">
+            <div class="pop-logo">A</div>
+            <div><div class="pop-title" data-i18n="popTitle">AI 에이전트 사용량</div><div class="pop-sub"><span data-i18n="popUpdated">업데이트</span> <span id="popTime">14:23:42</span></div></div>
+            <div class="pop-tools"><svg class="ico"><use href="#i-refresh"/></svg><svg class="ico"><use href="#i-gear"/></svg></div>
+          </div>
+          <div class="pop-body">
+            <div class="pop-sec" data-i18n="popQuota">API 할당량</div>
+            <div class="prov"><span class="mono" style="background:#8B5CF6">C</span><span class="prov-name">Claude</span><span class="badge">MAX</span><span class="prov-pct" style="color:#A78BFA" id="pClaude">0%</span></div>
+            <div class="win">
+              <div class="win-top"><span data-i18n="pop5h">5시간 윈도우</span><span class="win-right"><b id="p5">0%</b>2h 13m</span></div>
+              <div class="bar"><i id="b5"></i><span class="mk" style="left:56%"></span></div>
+            </div>
+            <div class="win">
+              <div class="win-top"><span data-i18n="pop7d">7일 윈도우</span><span class="win-right"><b id="p7">0%</b>3d 4h</span></div>
+              <div class="bar"><i id="b7"></i><span class="mk" style="left:54%"></span></div>
+            </div>
+            <div class="hr"></div>
+            <div class="tok-head"><span class="pop-sec" style="margin:0" data-i18n="popTokens">오늘의 토큰</span><span data-i18n="popSessions">세션 4개</span></div>
+            <div class="tiles">
+              <div class="tile"><span data-i18n="popIn">입력</span><b style="color:#A78BFA" id="tkIn">120.0K</b></div>
+              <div class="tile"><span data-i18n="popOut">출력</span><b style="color:#60A5FA" id="tkOut">34.0K</b></div>
+              <div class="tile"><span data-i18n="popCr">캐시 읽기</span><b style="color:#34D399" id="tkCr">2.5M</b></div>
+              <div class="tile"><span data-i18n="popCw">캐시 쓰기</span><b style="color:#FBBF24" id="tkCw">80.0K</b></div>
+            </div>
+            <div class="cost" id="tkCost">$4.21</div>
+            <div class="hr"></div>
+            <div class="prov"><span class="mono" style="background:#10B981">X</span><span class="prov-name">Codex</span><span class="prov-pct" style="color:#6EE7B7">37%</span></div>
+            <div class="prov"><span class="mono" style="background:#6366F1">A</span><span class="prov-name">Antigravity</span><span class="prov-pct" style="color:#A5B4FC">18%</span></div>
+            <div class="prov"><span class="mono" style="background:#F97316">O</span><span class="prov-name">OpenCode</span><span class="prov-pct" style="color:#FB923C">9%</span></div>
+          </div>
+          <div class="pop-foot"><span id="popVer">v1.67</span><span class="quit" data-i18n="popQuit">종료</span></div>
+        </div>
+
+        <div class="toast" id="toast" aria-hidden="true">
+          <span class="toast-tag" data-i18n="toastTag">사용량 경고</span>
+          <div class="toast-top"><svg><use href="#logo"/></svg><b data-i18n="toastApp">AI 사용량</b><span>· DESKTOP-STUDIO · <span data-i18n="toastNow">지금</span></span></div>
+          <div class="toast-title" data-i18n="toastTitle">Claude 5h 사용량 75%</div>
+          <div class="toast-body"><span id="toastBody">2h 13m 후 초기화 · 16:36</span></div>
+        </div>
+
+        <div class="taskbar" aria-hidden="true">
+          <div class="tb-apps">
+            <span style="background:linear-gradient(135deg,#FBBF24,#D97706)"></span>
+            <span style="background:linear-gradient(135deg,#60A5FA,#2563EB);border-radius:50%"></span>
+            <span class="on" style="background:#1d2030;box-shadow:inset 0 0 0 1px #3D4266"></span>
+            <span style="background:linear-gradient(135deg,#A78BFA,#6366F1)"></span>
+            <span style="background:linear-gradient(135deg,#34D399,#059669)"></span>
+          </div>
+          <div class="tray">
+            <svg class="ico"><use href="#i-up"/></svg>
+            <span class="ti-wrap"><span class="ti"><i id="trayFill"></i></span></span>
+            <svg class="ico"><use href="#i-wifi"/></svg>
+            <svg class="ico"><use href="#i-vol"/></svg>
+            <span class="clock"><span id="clkT">14:23</span><br><span id="clkD">2026-11-18</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats reveal">
+      <div><b>4</b><span data-i18n="st1">AI 도구를 한 화면에</span></div>
+      <div><b data-i18n="st2b">2분</b><span data-i18n="st2">기본 갱신 주기 (1–10분)</span></div>
+      <div><b>4</b><span data-i18n="st3">언어 · 한·英·日·中</span></div>
+      <div><b>0</b><span data-i18n="st4">개발자 서버 · 수집 없음</span></div>
+    </div>
   </div>
 </section>
 
-<!-- FEATURES -->
-<section class="features">
-  <p class="section-label">Features</p>
-  <h2 class="section-title">필요한 건 다 들어있어요</h2>
-  <div class="grid">
-    <div class="card">
-      <div class="card-icon">📊</div>
-      <h3>멀티 에이전트 사용량 추적</h3>
-      <p>Claude, Codex, OpenCode, Antigravity 상태를 시스템 트레이에서 함께 확인.</p>
+<!-- ═════════ PROVIDERS ═════════ -->
+<section id="features" class="sec-pad">
+  <div class="wrap">
+    <div class="head center reveal">
+      <p class="eyebrow" data-i18n="provEyebrow">지원 도구</p>
+      <h2 data-i18n="provH2">네 가지 AI 도구,<br>트레이 하나.</h2>
+      <p class="lead" data-i18n="provLead">Claude·Codex·Antigravity는 각 도구에 이미 로그인해 둔 정보를 그대로 읽습니다. API 키를 따로 넣을 필요가 없습니다.</p>
     </div>
-    <div class="card">
-      <div class="card-icon">🔔</div>
-      <h3>스마트 알림</h3>
-      <p>임계값 도달과 조기 소진 예상 시 Windows Toast 알림. ntfy.sh 스마트폰 푸시도 지원.</p>
+    <div class="prov-grid">
+      <article class="pcard reveal" style="--c:#8B5CF6;--c2:#A78BFA">
+        <div class="pc-top"><span class="pc-mono">C</span><div><h3>Claude</h3><p class="pc-plan">Pro · Max · Team</p></div></div>
+        <div class="mini">
+          <div><div class="mrow"><span data-i18n="w5h">5시간</span><em>52%</em></div><div class="mbar"><i style="--w:52%"></i><s style="--x:58%"></s></div></div>
+          <div><div class="mrow"><span data-i18n="w7d">7일</span><em>41%</em></div><div class="mbar"><i style="--w:41%"></i><s style="--x:54%"></s></div></div>
+        </div>
+        <p data-i18n="cClaude">5시간·7일 한도와 모델별 한도, 오늘 쓴 토큰(입력·출력·캐시)과 비용 참고치, 7일·24시간 추이까지.</p>
+      </article>
+      <article class="pcard reveal" style="--c:#10B981;--c2:#6EE7B7">
+        <div class="pc-top"><span class="pc-mono">X</span><div><h3>Codex</h3><p class="pc-plan">ChatGPT Plus · Pro</p></div></div>
+        <div class="mini">
+          <div><div class="mrow"><span data-i18n="wShort">단기</span><em>37%</em></div><div class="mbar"><i style="--w:37%"></i><s style="--x:30%"></s></div></div>
+          <div><div class="mrow"><span data-i18n="wLong">장기</span><em>60%</em></div><div class="mbar"><i style="--w:60%"></i><s style="--x:71%"></s></div></div>
+        </div>
+        <p data-i18n="cCodex">ChatGPT 요금제의 단기·장기 한도와 모델별 추가 한도, ChatGPT 이미지 생성 남은 횟수.</p>
+      </article>
+      <article class="pcard reveal" style="--c:#6366F1;--c2:#A5B4FC">
+        <div class="pc-top"><span class="pc-mono">A</span><div><h3>Antigravity</h3><p class="pc-plan" data-i18n="agPlan">Google 계정</p></div></div>
+        <div class="mini">
+          <div><div class="mrow"><span data-i18n="wGemW">Gemini · 주간</span><em>18%</em></div><div class="mbar"><i style="--w:18%"></i><s style="--x:40%"></s></div></div>
+          <div><div class="mrow"><span data-i18n="wGem5">Gemini · 5시간</span><em>7%</em></div><div class="mbar"><i style="--w:7%"></i><s style="--x:22%"></s></div></div>
+        </div>
+        <p data-i18n="cAg">Antigravity 앱의 Models &amp; Usage와 같은 주간·5시간 한도, 모델 한정 한도, Google AI 크레딧 잔액.</p>
+      </article>
+      <article class="pcard reveal" style="--c:#F97316;--c2:#FB923C">
+        <div class="pc-top"><span class="pc-mono">O</span><div><h3>OpenCode</h3><p class="pc-plan">Go · Go Plus</p></div></div>
+        <div class="mini">
+          <div><div class="mrow"><span data-i18n="wRoll">롤링</span><em>9%</em></div><div class="mbar"><i style="--w:9%"></i><s style="--x:35%"></s></div></div>
+          <div><div class="mrow"><span data-i18n="wMonth">월간</span><em>31%</em></div><div class="mbar"><i style="--w:31%"></i><s style="--x:48%"></s></div></div>
+        </div>
+        <p data-i18n="cOc">Go 요금제의 롤링·주간·월간 사용률과 한도 도달·재개 시각, 로컬 DB로 센 오늘의 토큰.</p>
+      </article>
     </div>
-    <div class="card">
-      <div class="card-icon">🔄</div>
-      <h3>자동 업데이트</h3>
-      <p>GitHub Releases를 감지해 배너 한 번 클릭으로 새 버전을 자동 교체·재시작.</p>
+    <p class="note-line reveal" data-i18n="provNote">쓰지 않는 도구는 설정에서 끄면 팝업에서 사라집니다.</p>
+  </div>
+</section>
+
+<!-- ═════════ PACE ═════════ -->
+<section id="pace" class="sec-pad" style="padding-top:24px">
+  <div class="wrap two">
+    <div class="reveal">
+      <p class="eyebrow" data-i18n="paceEyebrow">페이스</p>
+      <h2 data-i18n="paceH2">퍼센트보다 중요한 건,<br><span class="grad">속도.</span></h2>
+      <p class="lead" data-i18n="paceLead">같은 60%라도 창이 막 열렸다면 위험하고, 곧 초기화된다면 넉넉합니다. 그래서 모든 게이지에는 창이 흐른 만큼을 가리키는 흰 선이 있습니다.</p>
+      <ul class="checks">
+        <li><span class="swatch" aria-hidden="true"><i style="width:40%"></i><s style="left:62%"></s></span><span data-i18n="paceA"><b>막대가 선보다 뒤</b> — 지금 속도로는 초기화 때 한도가 남습니다.</span></li>
+        <li><span class="swatch" aria-hidden="true"><i style="width:78%"></i><s style="left:45%"></s></span><span data-i18n="paceB"><b>막대가 선을 앞섬</b> — 초기화 전에 바닥날 페이스입니다. 앱이 예상 소진 시각을 보여 주고, Claude 5시간 창은 미리 알림도 보냅니다.</span></li>
+      </ul>
     </div>
-    <div class="card">
-      <div class="card-icon">🌐</div>
-      <h3>다국어 지원</h3>
-      <p>한국어 · 中文 · 日本語 · English — 시스템 언어를 자동 감지해 표시.</p>
-    </div>
-    <div class="card">
-      <div class="card-icon">⚡</div>
-      <h3>설치 없음 · 단일 실행 파일</h3>
-      <p>.exe 하나로 실행. Windows 시작 시 자동 실행을 지원하며 .NET 9.0 Desktop Runtime이 필요.</p>
-    </div>
-    <div class="card">
-      <div class="card-icon">☁️</div>
-      <h3>날씨 알림</h3>
-      <p>설정한 위치의 현재 날씨, 예보, 특보를 트레이 툴팁과 알림 흐름에 함께 표시.</p>
+    <div class="pace-card reveal" id="paceCard">
+      <div class="pace-top">
+        <div class="seg" role="group" aria-label="Window">
+          <button type="button" aria-pressed="true" data-win="300" data-i18n="seg5">5시간 창</button>
+          <button type="button" aria-pressed="false" data-win="10080" data-i18n="seg7">7일 창</button>
+        </div>
+        <span class="status" id="paceStatus">—</span>
+      </div>
+      <div class="pace-gauge" aria-hidden="true">
+        <div class="pg-track"><i class="pg-fill" id="pgFill"></i><i class="pg-over" id="pgOver"></i><span class="pg-mk" id="pgMk" data-label="NOW"></span></div>
+        <div class="pg-scale"><span>0</span><span>25</span><span>50</span><span>75</span><span>100%</span></div>
+      </div>
+      <label class="rng"><span class="rng-top"><span data-i18n="rngU">사용량</span><b id="uVal">62%</b></span><input type="range" id="uIn" min="0" max="100" value="62"></label>
+      <label class="rng time"><span class="rng-top"><span data-i18n="rngT">창 경과 (흰 선)</span><b id="tVal">40%</b></span><input type="range" id="tIn" min="5" max="95" value="40"></label>
+      <p class="verdict" id="paceVerdict" aria-live="polite"></p>
+      <div class="pace-stats">
+        <div><span data-i18n="psReset">초기화까지</span><b id="psReset">—</b></div>
+        <div><span data-i18n="psRate">지금 속도</span><b id="psRate">—</b></div>
+        <div><span data-i18n="psProj">초기화 때 예상</span><b id="psProj">—</b></div>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- HOW TO INSTALL -->
-<section class="install">
-  <div class="install-box">
-    <p class="section-label" style="text-align:left; margin-bottom:6px;">How to install</p>
-    <h2 style="font-size:1.3rem; font-weight:700;">3단계면 끝</h2>
-    <div class="steps">
-      <div class="step">
-        <div class="step-num">1</div>
-        <div class="step-body">
-          <h4>다운로드</h4>
-          <p><a href="https://github.com/jeiel85/claude-usage-tray-windows/releases/latest" style="color:var(--purple-light);">Releases 페이지</a>에서 <code>ClaudeUsageTray.exe</code> 다운로드</p>
+<!-- ═════════ ALERTS ═════════ -->
+<section class="sec-pad alerts-sec" style="padding-top:24px">
+  <div class="wrap two">
+    <div class="stack reveal" aria-hidden="true">
+      <div class="ncard"><div class="n-top"><span class="d" style="background:#EF4444"></span><span data-i18n="n1tag">사용량 경고 · DESKTOP-STUDIO</span><time data-i18n="n1time">방금</time></div><div class="n-title" data-i18n="n1title">Claude 5h 사용량 90%</div><div class="n-body" data-i18n="n1body">2h 13m 후 초기화 (16:36)</div></div>
+      <div class="ncard"><div class="n-top"><span class="d" style="background:#F59E0B"></span><span data-i18n="n2tag">조기 소진 예상 · DESKTOP-STUDIO</span><time data-i18n="n2time">18분 전</time></div><div class="n-title" data-i18n="n2title">Claude 5h — 이 속도면 15:52경 소진</div><div class="n-body" data-i18n="n2body">초기화(16:36)보다 44분 먼저 바닥납니다</div></div>
+      <div class="ncard"><div class="n-top"><span class="d" style="background:#A78BFA"></span><span data-i18n="n3tag">할당량 초기화 · LAPTOP-TRAVEL</span><time data-i18n="n3time">어제</time></div><div class="n-title" data-i18n="n3title">Codex 사용량이 초기화되었습니다</div></div>
+      <div class="ncard"><div class="n-top"><span class="d" style="background:#60A5FA"></span><span data-i18n="n4tag">날씨 · DESKTOP-STUDIO</span><time data-i18n="n4time">어제</time></div><div class="n-title" data-i18n="n4title">내일 아침 비 소식</div><div class="n-body" data-i18n="n4body">07시부터 강수확률 80%</div></div>
+    </div>
+    <div class="reveal">
+      <p class="eyebrow" data-i18n="alEyebrow">알림</p>
+      <h2 data-i18n="alH2">막히기 전에,<br>먼저 알려 줍니다.</h2>
+      <ul class="alist">
+        <li><span class="ai"><svg class="ico"><use href="#i-bell"/></svg></span><div><b data-i18n="al1b">임계값 50 · 75 · 90 · 100%</b><span data-i18n="al1">받고 싶은 단계만 골라 켭니다.</span></div></li>
+        <li><span class="ai"><svg class="ico"><use href="#i-bolt"/></svg></span><div><b data-i18n="al2b">조기 소진 예상</b><span data-i18n="al2">초기화 전에 바닥날 페이스면 예상 시각과 함께 미리.</span></div></li>
+        <li><span class="ai"><svg class="ico"><use href="#i-stop"/></svg></span><div><b data-i18n="al3b">한도 도달 · 초기화</b><span data-i18n="al3">막혔을 때, 그리고 다시 쓸 수 있게 됐을 때 바로.</span></div></li>
+        <li><span class="ai"><svg class="ico"><use href="#i-rain"/></svg></span><div><b data-i18n="al4b">날씨 · 특보</b><span data-i18n="al4">설정한 위치의 비 소식과 기상 특보까지 덤으로.</span></div></li>
+      </ul>
+      <div class="chips">
+        <span class="chip"><svg class="ico"><use href="#i-pc"/></svg><span data-i18n="ch1">Windows 알림</span></span>
+        <span class="chip"><svg class="ico"><use href="#i-phone"/></svg><span data-i18n="ch2">휴대폰 앱</span></span>
+        <span class="chip"><svg class="ico"><use href="#i-relay"/></svg><span data-i18n="ch3">ntfy 토픽 (iPhone 등)</span></span>
+      </div>
+      <p class="small-note" data-i18n="alNote">PC 여러 대가 같은 사건을 알려도 휴대폰에는 한 번만 뜹니다.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════ MOBILE ═════════ -->
+<section id="mobile" class="sec-pad mobile-sec">
+  <div class="wrap two">
+    <div class="phone-col reveal">
+      <div class="phone">
+        <div class="screen" id="screen">
+          <img class="on" src="assets/phone-accounts.png" alt="휴대폰 앱 계정 화면: Claude 5시간 73%, 7일 41%, Opus 94%" data-i18n-alt="altAccounts" width="1080" height="1920">
+          <img src="assets/phone-pcs.png" alt="휴대폰 앱 PC 화면: 연결된 PC 세 대의 상태" data-i18n-alt="altPcs" width="1080" height="1920" loading="lazy">
+          <img src="assets/phone-alerts.png" alt="휴대폰 앱 알림센터: 사용량 경고, 날씨, 할당량 초기화" data-i18n-alt="altAlerts" width="1080" height="1920" loading="lazy">
         </div>
       </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <div class="step-body">
-          <h4>런타임 확인 후 실행</h4>
-          <p><a href="https://dotnet.microsoft.com/download/dotnet/9.0/runtime" style="color:var(--purple-light);">.NET 9.0 Desktop Runtime</a> 설치 후 Windows Defender 경고 시 <strong>추가 정보 → 실행</strong></p>
+      <div class="tabs" role="tablist" aria-label="Screens">
+        <button type="button" role="tab" aria-selected="true" data-i="0" data-i18n="tabAcc">계정</button>
+        <button type="button" role="tab" aria-selected="false" data-i="1" data-i18n="tabPc">PC</button>
+        <button type="button" role="tab" aria-selected="false" data-i="2" data-i18n="tabAl">알림센터</button>
+      </div>
+    </div>
+    <div class="reveal">
+      <p class="eyebrow" data-i18n="mEyebrow">Android 앱 · AI 사용량</p>
+      <h2 data-i18n="mH2">자리를 비워도,<br>한도는 <span class="grad">주머니 속에.</span></h2>
+      <p class="lead" data-i18n="mLead">QR 한 번이면 PC와 휴대폰이 연결됩니다. 집 PC와 회사 PC가 같은 계정이면 한 카드로 묶어 보여 주고, 다른 계정은 절대 섞지 않습니다.</p>
+      <ol class="steps">
+        <li><div><b data-i18n="ms1b">PC에서 QR 띄우기</b><span data-i18n="ms1">트레이 팝업 <span class="kbd">⚙ 설정</span> → <span class="kbd">연결</span> → <span class="kbd">휴대폰 연결… (QR 표시)</span></span></div></li>
+        <li><div><b data-i18n="ms2b">휴대폰으로 스캔</b><span data-i18n="ms2">앱의 <span class="kbd">+ PC 추가</span>로 찍습니다. 앱이 없으면 기본 카메라로 찍어도 설치 안내가 열립니다.</span></div></li>
+        <li><div><b data-i18n="ms3b">끝</b><span data-i18n="ms3">사용량은 바뀔 때마다 실시간으로, 알림도 자동으로 연결됩니다.</span></div></li>
+      </ol>
+      <ul class="mfeat">
+        <li><svg class="ico"><use href="#i-user"/></svg><div><b data-i18n="mf1b">계정 단위로 묶기</b><span data-i18n="mf1">PC 3대, 계정 2개면 카드 2장.</span></div></li>
+        <li><svg class="ico"><use href="#i-wifi"/></svg><div><b data-i18n="mf2b">밖에서도 연결</b><span data-i18n="mf2">같은 Wi-Fi · Tailscale · Cloudflare Tunnel.</span></div></li>
+        <li><svg class="ico"><use href="#i-bell"/></svg><div><b data-i18n="mf3b">알림센터</b><span data-i18n="mf3">지난 알림을 30일 동안 다시 보기.</span></div></li>
+        <li><svg class="ico"><use href="#i-sync"/></svg><div><b data-i18n="mf4b">앱 자동 업데이트</b><span data-i18n="mf4">새 버전을 받아 SHA-256 확인 후 설치.</span></div></li>
+      </ul>
+      <div class="cta">
+        <a class="btn btn-primary" href="https://github.com/jeiel85/claude-usage-tray-windows/releases/latest/download/ClaudeUsageTray-Mobile.apk">
+          <svg class="ico" aria-hidden="true"><use href="#i-dl"/></svg>
+          <span><span data-i18n="apk">Android 앱 받기</span><small data-i18n="apkSub">APK · Android 8.0 이상</small></span>
+        </a>
+      </div>
+      <p class="small-note" data-i18n="apkNote">Google Play 출시를 준비하고 있습니다. iPhone 앱은 없지만 ntfy 앱으로 알림은 받을 수 있습니다.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════ PRIVACY / NETWORK ═════════ -->
+<section id="privacy" class="sec-pad">
+  <div class="wrap">
+    <div class="head center reveal">
+      <p class="eyebrow" data-i18n="pvEyebrow">개인정보</p>
+      <h2 data-i18n="pvH2">중간 서버 없이,<br>내 기기끼리만.</h2>
+      <p class="lead" data-i18n="pvLead">휴대폰은 내가 QR로 연결한 PC에 직접 붙습니다. 개발자가 운영하는 서버도, 가입도, 수집도 없습니다.</p>
+    </div>
+    <div class="net reveal">
+      <div class="flow">
+        <div class="node"><svg class="ico"><use href="#i-pc"/></svg><div><span data-i18n="nodeHome">집 PC</span><small>DESKTOP-STUDIO</small></div></div>
+        <div class="link both" style="--c:#A78BFA"><b data-i18n="f1b">동기화 코드 하나로 직접 연결</b><div class="wire"></div><span data-i18n="f1">WebSocket · 또는 OneDrive 같은 공유 폴더</span></div>
+        <div class="node end"><svg class="ico"><use href="#i-pc"/></svg><div><span data-i18n="nodeWork">회사 PC</span><small>OFFICE-WS</small></div></div>
+      </div>
+      <div class="flow">
+        <div class="node"><svg class="ico"><use href="#i-pc"/></svg><div><span data-i18n="nodePc">PC</span><small data-i18n="nodePcSub">트레이 앱</small></div></div>
+        <div class="link" style="--c:#6EE7B7"><b data-i18n="f2b">실시간 사용량</b><div class="wire"></div><span data-i18n="f2">같은 Wi-Fi(인증서 고정 TLS) · Tailscale · Cloudflare Tunnel</span></div>
+        <div class="node end"><svg class="ico"><use href="#i-phone"/></svg><div><span data-i18n="nodePhone">휴대폰</span><small data-i18n="nodePhoneSub">AI 사용량 앱</small></div></div>
+      </div>
+      <div class="flow">
+        <div class="node"><svg class="ico"><use href="#i-pc"/></svg><div><span data-i18n="nodePc">PC</span><small data-i18n="nodePcSub">트레이 앱</small></div></div>
+        <div class="link" style="--c:#FBBF24"><b data-i18n="f3b">종단 암호화 알림</b><div class="wire"></div><span data-i18n="f3">RFC 8291 · ntfy 같은 푸시 중계는 내용을 읽지 못합니다</span></div>
+        <div class="node end"><svg class="ico"><use href="#i-phone"/></svg><div><span data-i18n="nodePhone">휴대폰</span><small data-i18n="nodePushSub">UnifiedPush</small></div></div>
+      </div>
+      <div class="flow none">
+        <div class="node"><svg class="ico"><use href="#i-server"/></svg><div><span data-i18n="nodeDev">개발자 서버</span></div></div>
+        <div class="link"><span class="x">✕</span><div class="wire"></div><span data-i18n="f4">없음 — 어떤 데이터도 받지 않습니다</span></div>
+        <div class="node end"><svg class="ico"><use href="#i-eyeoff"/></svg><div><span data-i18n="nodeAna">분석 · 광고</span></div></div>
+      </div>
+    </div>
+    <div class="pgrid">
+      <div class="pitem reveal"><svg class="ico"><use href="#i-hash"/></svg><b data-i18n="p1b">계정은 해시로</b><span data-i18n="p1">이메일·계정 ID 대신 SHA-256 해시만 보내 같은 계정을 묶습니다.</span></div>
+      <div class="pitem reveal"><svg class="ico"><use href="#i-lock"/></svg><b data-i18n="p2b">로그인 정보는 PC에</b><span data-i18n="p2">각 도구의 로그인 정보는 그 서비스의 사용량 조회에만 쓰고, 휴대폰으로 보내지 않습니다.</span></div>
+      <div class="pitem reveal"><svg class="ico"><use href="#i-qr"/></svg><b data-i18n="p3b">QR은 5분 · 1회용</b><span data-i18n="p3">연결 코드는 한 번 쓰면 끝나고, PC는 기기 토큰의 해시만 저장합니다.</span></div>
+      <div class="pitem reveal"><svg class="ico"><use href="#i-shield"/></svg><b data-i18n="p4b">모든 코드 공개</b><span data-i18n="p4">무엇을 하는지 GitHub에서 그대로 확인할 수 있습니다.</span></div>
+    </div>
+    <p class="note-line reveal"><a class="text-link" href="privacy/" data-i18n="pvLink">휴대폰 앱 개인정보처리방침 →</a></p>
+  </div>
+</section>
+
+<!-- ═════════ MORE ═════════ -->
+<section class="sec-pad" style="padding-top:24px">
+  <div class="wrap">
+    <div class="head center reveal">
+      <p class="eyebrow" data-i18n="moEyebrow">그리고</p>
+      <h2 data-i18n="moH2">작은 것까지 챙겼습니다.</h2>
+    </div>
+    <div class="bento">
+      <div class="bc big reveal">
+        <svg class="ico"><use href="#i-chart"/></svg>
+        <h3 data-i18n="b1h">트레이 아이콘이 곧 게이지</h3>
+        <p data-i18n="b1">작업 표시줄의 16px 아이콘이 사용량만큼 차오릅니다. 60%에서 주황, 85%에서 빨강. 팝업을 열지 않아도 압니다.</p>
+        <div class="icons-demo" aria-hidden="true">
+          <figure><span class="big-ti"><i style="height:35%;background:#8B5CF6"></i></span>35%</figure>
+          <figure><span class="big-ti"><i style="height:70%;background:#F59E0B"></i></span>70%</figure>
+          <figure><span class="big-ti"><i style="height:92%;background:#EF4444"></i></span>92%</figure>
         </div>
       </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <div class="step-body">
-          <h4>트레이 아이콘 클릭</h4>
-          <p>시스템 트레이에 <code>C</code> 아이콘이 나타나면 클릭해서 사용량 확인</p>
-        </div>
+      <div class="bc reveal">
+        <svg class="ico"><use href="#i-coin"/></svg>
+        <h3 data-i18n="b2h">오늘의 토큰과 비용</h3>
+        <p data-i18n="b2">입력·출력·캐시 읽기·캐시 쓰기를 색으로 나누고, 달러 비용 참고치로 환산합니다.</p>
+      </div>
+      <div class="bc reveal">
+        <svg class="ico"><use href="#i-chart"/></svg>
+        <h3 data-i18n="b3h">7일 · 24시간 추이</h3>
+        <p data-i18n="b3">어느 날, 어느 시간에 많이 썼는지 한눈에.</p>
+        <div class="chart-demo" aria-hidden="true"><i style="height:42%"></i><i style="height:66%"></i><i style="height:30%"></i><i style="height:84%"></i><i style="height:58%"></i><i style="height:22%"></i><i style="height:74%"></i></div>
+      </div>
+      <div class="bc reveal">
+        <svg class="ico"><use href="#i-user"/></svg>
+        <h3 data-i18n="b4h">지금 어느 계정인지</h3>
+        <p data-i18n="b4">개인 Max와 회사 Team을 오가도 헷갈리지 않게, 요금제 옆에 계정 이름을 표시합니다.</p>
+      </div>
+      <div class="bc reveal">
+        <svg class="ico"><use href="#i-shield"/></svg>
+        <h3 data-i18n="b5h">안전한 자동 업데이트</h3>
+        <p data-i18n="b5">새 버전을 받으면 SHA-256을 확인한 뒤 교체하고 다시 시작합니다.</p>
+      </div>
+      <div class="bc reveal">
+        <svg class="ico"><use href="#i-magnet"/></svg>
+        <h3 data-i18n="b6h">미니 화면 · 자석 정렬</h3>
+        <p data-i18n="b6">작게 띄워 두고, 끌면 화면 가장자리에 착 붙습니다.</p>
+      </div>
+      <div class="bc reveal">
+        <svg class="ico"><use href="#i-globe"/></svg>
+        <h3 data-i18n="b7h">4개 언어</h3>
+        <p data-i18n="b7">시스템 언어를 따르고, 설정에서 바로 바꿉니다.</p>
+        <div class="lang-demo" aria-hidden="true"><span>한국어</span><span>English</span><span>日本語</span><span>中文</span></div>
+      </div>
+      <div class="bc reveal">
+        <svg class="ico"><use href="#i-clock"/></svg>
+        <h3 data-i18n="b8h">마지막 10분은 초 단위로</h3>
+        <p data-i18n="b8">초기화가 10분 안으로 다가오면 9m 59s처럼 초까지 셉니다. 배경에서 1–10분마다 새로 고칩니다.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- FOOTER -->
+<!-- ═════════ INSTALL ═════════ -->
+<section id="install" class="sec-pad" style="padding-top:24px">
+  <div class="wrap">
+    <div class="head center reveal">
+      <p class="eyebrow" data-i18n="inEyebrow">설치</p>
+      <h2 data-i18n="inH2">1분이면 충분합니다.</h2>
+    </div>
+    <div class="install-grid">
+      <div class="istep reveal"><span class="n">STEP 1</span><h3 data-i18n="i1h">받기</h3><p data-i18n="i1"><a href="https://github.com/jeiel85/claude-usage-tray-windows/releases/latest/download/ClaudeUsageTray.exe">ClaudeUsageTray.exe</a> 하나면 됩니다. 설치 과정 없이 실행 파일 그대로.</p></div>
+      <div class="istep reveal"><span class="n">STEP 2</span><h3 data-i18n="i2h">실행</h3><p data-i18n="i2">SmartScreen 경고가 뜨면 <b>추가 정보 → 실행</b>. 앱이 반응하지 않으면 .NET 9 Desktop Runtime을 먼저 설치하세요.</p></div>
+      <div class="istep reveal"><span class="n">STEP 3</span><h3 data-i18n="i3h">트레이 아이콘 클릭</h3><p data-i18n="i3">작업 표시줄 오른쪽의 게이지 아이콘을 누르면 팝업이 열립니다. Windows 시작 시 자동 실행도 켤 수 있습니다.</p></div>
+    </div>
+    <div class="req">
+      <div class="req-card reveal">
+        <h3 data-i18n="reqH">필요한 것</h3>
+        <ul>
+          <li><svg class="ico"><use href="#i-check"/></svg><span data-i18n="r1">Windows 10 이상</span></li>
+          <li><svg class="ico"><use href="#i-check"/></svg><span data-i18n="r2"><a href="https://dotnet.microsoft.com/download/dotnet/9.0/runtime">.NET 9.0 Desktop Runtime</a> (없으면 앱이 실행되지 않습니다)</span></li>
+          <li><svg class="ico"><use href="#i-check"/></svg><span data-i18n="r3">쓰는 도구(Claude Code, Codex, Antigravity 등)에 로그인된 상태</span></li>
+          <li><svg class="ico"><use href="#i-check"/></svg><span data-i18n="r4">휴대폰 앱: Android 8.0 이상 · 알림은 ntfy 같은 UnifiedPush 앱</span></li>
+        </ul>
+      </div>
+      <div class="req-card reveal">
+        <h3 data-i18n="srcH">소스에서 빌드</h3>
+        <div class="code"><button class="copy" type="button" id="copyBtn" data-i18n="copy">복사</button><pre id="codeSrc"><span class="c"># .NET 9 SDK</span>
+git clone https://github.com/jeiel85/claude-usage-tray-windows
+cd claude-usage-tray-windows
+dotnet run --project ClaudeUsageTray</pre></div>
+        <p class="small-note"><a class="text-link" href="https://github.com/jeiel85/claude-usage-tray-windows/releases" data-i18n="allRel">모든 릴리스와 변경 내역 보기 →</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════ FAQ ═════════ -->
+<section class="sec-pad" style="padding-top:24px">
+  <div class="wrap">
+    <div class="head center reveal">
+      <p class="eyebrow">FAQ</p>
+      <h2 data-i18n="faqH2">자주 묻는 질문</h2>
+    </div>
+    <div class="faq reveal">
+      <details><summary data-i18n="q1">공식 앱인가요?</summary><p data-i18n="a1">아니요. Anthropic, OpenAI, Google과 관련 없는 개인 오픈 소스 프로젝트입니다. 각 도구가 공개하거나 앱에서 쓰는 사용량 정보를 읽어 보여 줍니다.</p></details>
+      <details><summary data-i18n="q2">제 로그인 정보는 안전한가요?</summary><p data-i18n="a2">앱은 각 도구가 PC에 저장해 둔 로그인 정보를 읽어 그 서비스의 사용량 조회에만 씁니다. 개발자 서버로 보내지 않고, 휴대폰에도 토큰이나 계정 ID를 보내지 않습니다. 코드는 모두 공개돼 있습니다.</p></details>
+      <details><summary data-i18n="q3">Windows가 "PC 보호" 경고를 띄워요.</summary><p data-i18n="a3">코드 서명 인증서가 없는 개인 프로젝트라 SmartScreen이 경고합니다. <b>추가 정보 → 실행</b>을 누르면 됩니다. 릴리스마다 SHA256.txt가 함께 올라가니 파일을 직접 확인할 수도 있습니다.</p></details>
+      <details><summary data-i18n="q4">집 PC와 회사 PC 사용량을 합쳐 볼 수 있나요?</summary><p data-i18n="a4">네. 설정 → 연결에서 한 PC의 동기화 코드를 다른 PC에 붙여 넣거나, OneDrive 같은 공유 폴더를 지정하면 같은 계정의 사용량이 합쳐집니다. Claude Code가 없는 PC에서도 그룹의 사용량을 볼 수 있습니다.</p></details>
+      <details><summary data-i18n="q5">밖에서도 휴대폰으로 볼 수 있나요?</summary><p data-i18n="a5">네. Tailscale을 쓰거나, 설정 → 연결에서 Cloudflare Tunnel을 켜면 됩니다. 포트 개방이나 방화벽 설정이 필요 없습니다.</p></details>
+      <details><summary data-i18n="q6">iPhone은요?</summary><p data-i18n="a6">휴대폰 앱은 지금 Android만 있습니다. iPhone에서는 ntfy 앱으로 토픽을 구독하면 같은 알림을 받을 수 있습니다(설정 → 알림 → ntfy).</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════ FINAL CTA ═════════ -->
+<section class="sec-pad" style="padding-top:24px">
+  <div class="wrap">
+    <div class="final reveal">
+      <div class="bars-deco" aria-hidden="true"><span><i style="width:70%;background:#8B5CF6"></i></span><span><i style="width:40%;background:#A78BFA"></i></span><span><i style="width:90%;background:#F59E0B"></i></span></div>
+      <h2 data-i18n="finH2">오늘 한도, 지금 얼마나 남았을까요?</h2>
+      <p class="lead" data-i18n="finLead">추측은 그만. 트레이를 한 번 보세요.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="https://github.com/jeiel85/claude-usage-tray-windows/releases/latest/download/ClaudeUsageTray.exe"><svg class="ico" aria-hidden="true"><use href="#i-dl"/></svg><span><span data-i18n="dlWin">Windows용 다운로드</span><small data-i18n="finWinSub">무료 · MIT 라이선스</small></span></a>
+        <a class="btn btn-ghost" href="https://github.com/jeiel85/claude-usage-tray-windows"><svg class="ico" aria-hidden="true" style="fill:currentColor;stroke:none"><use href="#gh"/></svg><span><span data-i18n="ghBtn">GitHub에서 보기</span><small data-i18n="ghSub">코드 · 이슈 · 변경 내역</small></span></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
 <footer>
-  <div class="footer-inner">
-    <div class="badge-row">
-      <img src="https://img.shields.io/github/v/release/jeiel85/claude-usage-tray-windows?style=flat-square&color=7c3aed" alt="release" />
-      <img src="https://img.shields.io/badge/platform-Windows%2010%2B-0078D4?style=flat-square&logo=windows" alt="platform" />
-      <img src="https://img.shields.io/badge/.NET-9.0-512BD4?style=flat-square&logo=dotnet" alt=".NET" />
-      <img src="https://img.shields.io/badge/license-MIT-10b981?style=flat-square" alt="MIT" />
+  <div class="wrap">
+    <div class="foot">
+      <a class="brand" href="#top"><svg aria-hidden="true"><use href="#logo"/></svg>Claude Usage Tray</a>
+      <nav class="foot-links" aria-label="Links">
+        <a href="https://github.com/jeiel85/claude-usage-tray-windows">GitHub</a>
+        <a href="https://github.com/jeiel85/claude-usage-tray-windows/releases" data-i18n="fRel">릴리스</a>
+        <a href="https://github.com/jeiel85/claude-usage-tray-windows/blob/master/CHANGELOG.md" data-i18n="fLog">변경 이력</a>
+        <a href="https://github.com/jeiel85/claude-usage-tray-windows/issues" data-i18n="fIssue">문제 신고</a>
+        <a href="privacy/" data-i18n="fPriv">개인정보처리방침</a>
+      </nav>
     </div>
-    <p class="footer-meta">
-      <a href="https://github.com/jeiel85/claude-usage-tray-windows">GitHub</a>
-      <span>·</span>
-      <a href="https://github.com/jeiel85/claude-usage-tray-windows/releases">Releases</a>
-      <span>·</span>
-      Inspired by <a href="https://jeremy-prt.github.io/claude-usage-mini/">claude-usage-mini</a> by @jeremy-prt
-      <span>·</span>
-      Not affiliated with Anthropic
-    </p>
+    <p class="fine" data-i18n="fine">Anthropic, OpenAI, Google과 관련 없는 개인 오픈 소스 프로젝트입니다. Claude, Codex, ChatGPT, Gemini, Antigravity 등은 각 회사의 상표입니다. <a href="https://github.com/jeremy-prt/claude-usage-mini">claude-usage-mini</a>(@jeremy-prt)에서 영감을 받았습니다.</p>
   </div>
 </footer>
 
+<script>
+(function () {
+  'use strict';
+  var REPO = 'jeiel85/claude-usage-tray-windows';
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ── i18n: Korean lives in the HTML; English replaces it ── */
+  var EN = {
+    navFeatures: 'Features', navPace: 'Pace', navMobile: 'Phone app', navPrivacy: 'Privacy', navInstall: 'Install', navDownload: 'Download',
+    pill: 'Windows · Android · Free &amp; open source',
+    h1: 'See the limit<br><span class="grad">before you hit it.</span>',
+    heroSub: 'Usage, reset times and burn rate for Claude, Codex, Antigravity and OpenCode — gathered into one icon in your Windows system tray. Step away and the alerts follow you to your phone.',
+    dlWin: 'Download for Windows', dlWinSub: 'One .exe · no installer',
+    dlAndroid: 'Android app', dlAndroidSub: 'Pairs with one QR scan',
+    meta1: 'Windows 10 or later', meta2: 'No API keys to paste', meta3: 'No ads, no tracking',
+    t1: 'Refactoring the payment module…', t2: 'Working on the next step',
+    popTitle: 'AI Agent Usage', popUpdated: 'Updated', popQuota: 'API Quota', pop5h: '5-Hour Window', pop7d: '7-Day Window',
+    popTokens: "Today's Tokens", popSessions: '4 sessions', popIn: 'Input', popOut: 'Output', popCr: 'Cache Read', popCw: 'Cache Write', popQuit: 'Quit',
+    toastTag: 'Usage alert', toastApp: 'AI Usage', toastNow: 'now', toastTitle: 'Claude 5h usage 75%',
+    st1: 'AI tools on one screen', st2b: '2 min', st2: 'default refresh (1–10 min)', st3: 'languages · KO·EN·JA·ZH', st4: 'developer servers · no data collected',
+    provEyebrow: 'Supported tools', provH2: 'Four AI tools,<br>one tray icon.',
+    provLead: 'Claude, Codex and Antigravity are read from the sign-in each tool already keeps on your PC. There are no API keys to paste.',
+    w5h: '5 hours', w7d: '7 days', wShort: 'Short', wLong: 'Long', agPlan: 'Google account', wGemW: 'Gemini · weekly', wGem5: 'Gemini · 5 hours', wRoll: 'Rolling', wMonth: 'Monthly',
+    cClaude: '5-hour and 7-day limits, per-model limits, today’s tokens (input, output, cache) with a cost estimate, and 7-day / 24-hour trends.',
+    cCodex: 'Short and long limits of your ChatGPT plan, extra per-model limits, and how many ChatGPT image generations you have left.',
+    cAg: 'The same weekly and 5-hour limits as the Antigravity app’s Models &amp; Usage screen, model-only limits and your Google AI credit balance.',
+    cOc: 'Rolling, weekly and monthly usage of the Go plan with limit and resume times, plus today’s tokens counted from the local database.',
+    provNote: 'Tools you don’t use can be switched off in Settings and disappear from the popup.',
+    paceEyebrow: 'Pace', paceH2: 'It’s not the percent.<br><span class="grad">It’s the pace.</span>',
+    paceLead: '60% is alarming if the window just opened and relaxed if it resets soon. That’s why every gauge carries a white line showing how much of the window has passed.',
+    paceA: '<b>Bar behind the line</b> — at this pace you’ll have quota left when it resets.',
+    paceB: '<b>Bar ahead of the line</b> — you’ll run out before the reset. The app shows when, and warns you ahead of time for Claude’s 5-hour window.',
+    seg5: '5-hour window', seg7: '7-day window', rngU: 'Usage', rngT: 'Window elapsed (white line)',
+    psReset: 'Until reset', psRate: 'Current pace', psProj: 'At reset',
+    alEyebrow: 'Alerts', alH2: 'Know before<br>you’re blocked.',
+    al1b: 'Thresholds 50 · 75 · 90 · 100%', al1: 'Turn on only the steps you care about.',
+    al2b: 'Early depletion', al2: 'If you’re on track to run out before the reset, you hear about it — with the expected time.',
+    al3b: 'Limit reached · reset', al3: 'When you get blocked, and the moment you can work again.',
+    al4b: 'Weather · warnings', al4: 'Rain and weather warnings for your location, as a bonus.',
+    ch1: 'Windows notifications', ch2: 'Phone app', ch3: 'ntfy topic (iPhone etc.)',
+    alNote: 'When several PCs report the same event, your phone shows it once.',
+    n1tag: 'Usage alert · DESKTOP-STUDIO', n1time: 'just now', n1title: 'Claude 5h usage 90%', n1body: 'Resets in 2h 13m (16:36)',
+    n2tag: 'Early depletion · DESKTOP-STUDIO', n2time: '18 min ago', n2title: 'Claude 5h — runs out around 15:52', n2body: '44 min before the reset at 16:36',
+    n3tag: 'Quota reset · LAPTOP-TRAVEL', n3time: 'yesterday', n3title: 'Codex usage has been reset',
+    n4tag: 'Weather · DESKTOP-STUDIO', n4time: 'yesterday', n4title: 'Rain tomorrow morning', n4body: '80% chance from 07:00',
+    tabAcc: 'Accounts', tabPc: 'PCs', tabAl: 'Alerts',
+    altAccounts: 'Phone app accounts screen: Claude 5-hour 73%, 7-day 41%, Opus 94%', altPcs: 'Phone app PCs screen: status of three paired PCs', altAlerts: 'Phone app notification center: usage alert, weather, quota reset',
+    mEyebrow: 'Android app · AI Usage', mH2: 'Away from your desk,<br>limits <span class="grad">in your pocket.</span>',
+    mLead: 'One QR scan pairs your PC and phone. If your home and work PCs share an account they show up as one card — and different accounts are never mixed.',
+    ms1b: 'Show the QR on your PC', ms1: 'Tray popup <span class="kbd">⚙ Settings</span> → <span class="kbd">Connect</span> → <span class="kbd">Connect phone… (show QR)</span>',
+    ms2b: 'Scan it with your phone', ms2: 'Tap <span class="kbd">+ Add PC</span> in the app. No app yet? The regular camera opens an install page.',
+    ms3b: 'Done', ms3: 'Usage streams in live as it changes, and alerts are connected automatically.',
+    mf1b: 'Grouped by account', mf1: '3 PCs on 2 accounts = 2 cards.', mf2b: 'Works away from home', mf2: 'Same Wi-Fi · Tailscale · Cloudflare Tunnel.',
+    mf3b: 'Notification center', mf3: 'Revisit the last 30 days of alerts.', mf4b: 'Self-updating', mf4: 'New versions are checked with SHA-256, then installed.',
+    apk: 'Get the Android app', apkSub: 'APK · Android 8.0+',
+    apkNote: 'A Google Play release is on the way. There’s no iPhone app, but you can still get the alerts through the ntfy app.',
+    pvEyebrow: 'Privacy', pvH2: 'No middleman.<br>Just your devices.',
+    pvLead: 'Your phone talks directly to the PCs you paired by QR. There’s no developer-run server, no sign-up and no data collection.',
+    nodeHome: 'Home PC', nodeWork: 'Work PC', nodePc: 'PC', nodePcSub: 'Tray app', nodePhone: 'Phone', nodePhoneSub: 'AI Usage app', nodePushSub: 'UnifiedPush', nodeDev: 'Developer server', nodeAna: 'Analytics · ads',
+    f1b: 'Paired directly with one sync code', f1: 'WebSocket · or a shared folder like OneDrive',
+    f2b: 'Live usage', f2: 'Same Wi-Fi (pinned TLS) · Tailscale · Cloudflare Tunnel',
+    f3b: 'End-to-end encrypted alerts', f3: 'RFC 8291 · push relays such as ntfy can’t read them',
+    f4: 'None — nothing is ever sent to us',
+    p1b: 'Accounts as hashes', p1: 'Only a SHA-256 hash is sent to group the same account — never your email or account ID.',
+    p2b: 'Sign-ins stay on the PC', p2: 'Each tool’s sign-in is used only to ask that service for usage, and never sent to your phone.',
+    p3b: 'QR codes: 5 minutes, single use', p3: 'A pairing code works once, and the PC stores only a hash of each device token.',
+    p4b: 'All code is open', p4: 'See exactly what it does on GitHub.',
+    pvLink: 'Phone app privacy policy →',
+    moEyebrow: 'And more', moH2: 'The small things, too.',
+    b1h: 'The tray icon is a gauge', b1: 'The 16px taskbar icon fills up with your usage — orange at 60%, red at 85%. You know without opening anything.',
+    b2h: 'Today’s tokens and cost', b2: 'Input, output, cache reads and cache writes in their own colors, with a dollar estimate.',
+    b3h: '7-day and 24-hour trends', b3: 'Which days and hours you used the most, at a glance.',
+    b4h: 'Which account am I on?', b4: 'Switching between a personal Max and a work Team plan? The account name sits next to the plan badge.',
+    b5h: 'Safe auto-update', b5: 'New versions are verified with SHA-256 before the app swaps itself and restarts.',
+    b6h: 'Mini view · snap to edges', b6: 'Keep a small view on screen; drag it and it snaps to the edge.',
+    b7h: 'Four languages', b7: 'Follows your system language, switchable in Settings.',
+    b8h: 'The last 10 minutes, to the second', b8: 'When a reset is under 10 minutes away it counts down like 9m 59s. Data refreshes in the background every 1–10 minutes.',
+    inEyebrow: 'Install', inH2: 'Up and running in a minute.',
+    i1h: 'Download', i1: '<a href="https://github.com/jeiel85/claude-usage-tray-windows/releases/latest/download/ClaudeUsageTray.exe">ClaudeUsageTray.exe</a> is all you need — a single file, no installer.',
+    i2h: 'Run it', i2: 'If SmartScreen warns you, choose <b>More info → Run anyway</b>. If nothing happens, install the .NET 9 Desktop Runtime first.',
+    i3h: 'Click the tray icon', i3: 'Click the gauge icon at the right of the taskbar to open the popup. You can also start it with Windows.',
+    reqH: 'Requirements', r1: 'Windows 10 or later',
+    r2: '<a href="https://dotnet.microsoft.com/download/dotnet/9.0/runtime">.NET 9.0 Desktop Runtime</a> (the app won’t start without it)',
+    r3: 'Signed in to the tools you use (Claude Code, Codex, Antigravity…)',
+    r4: 'Phone app: Android 8.0+ · alerts via a UnifiedPush app such as ntfy',
+    srcH: 'Build from source', copy: 'Copy', allRel: 'All releases and changes →',
+    faqH2: 'Questions',
+    q1: 'Is this an official app?', a1: 'No. It’s a personal open-source project with no connection to Anthropic, OpenAI or Google. It reads the usage information each tool exposes or uses in its own app.',
+    q2: 'Is my sign-in safe?', a2: 'The app reads the sign-in each tool keeps on your PC and uses it only to ask that service for your usage. Nothing goes to a developer server, and no tokens or account IDs are sent to your phone. All the code is public.',
+    q3: 'Windows says “Windows protected your PC”.', a3: 'It’s a personal project without a code-signing certificate, so SmartScreen warns. Choose <b>More info → Run anyway</b>. Every release ships a SHA256.txt so you can verify the file yourself.',
+    q4: 'Can I combine my home and work PCs?', a4: 'Yes. Paste one PC’s sync code into the other under Settings → Connect, or point both at a shared folder such as OneDrive, and usage for the same account is merged. Even a PC without Claude Code can show the group’s usage.',
+    q5: 'Can I check from my phone when I’m out?', a5: 'Yes — use Tailscale, or turn on Cloudflare Tunnel under Settings → Connect. No port forwarding or firewall changes needed.',
+    q6: 'What about iPhone?', a6: 'The phone app is Android-only for now. On iPhone you can subscribe to a topic in the ntfy app and get the same alerts (Settings → Alerts → ntfy).',
+    finH2: 'How much of today’s limit is left?', finLead: 'Stop guessing. Glance at the tray.', finWinSub: 'Free · MIT license',
+    ghBtn: 'View on GitHub', ghSub: 'Code · issues · changelog',
+    fRel: 'Releases', fLog: 'Changelog', fIssue: 'Report an issue', fPriv: 'Privacy policy',
+    fine: 'A personal open-source project, not affiliated with Anthropic, OpenAI or Google. Claude, Codex, ChatGPT, Gemini, Antigravity and others are trademarks of their respective owners. Inspired by <a href="https://github.com/jeremy-prt/claude-usage-mini">claude-usage-mini</a> by @jeremy-prt.'
+  };
+
+  var S = {
+    ko: {
+      title: 'Claude Usage Tray — AI 코딩 한도를 트레이에서 한눈에',
+      resetBody: function (d, t) { return d + ' 후 초기화 · ' + t; },
+      st: { safe: '여유', tight: '빠듯', over: '조기 소진', full: '한도 도달' },
+      full: '이미 한도에 닿았습니다. 초기화될 때까지 기다려야 합니다.',
+      safe: function (p) { return '이 속도면 초기화 때 약 <b>' + p + '%</b>. 여유 있습니다.'; },
+      tight: function (p) { return '이 속도면 초기화 때 약 <b>' + p + '%</b>. 빠듯하니 속도를 조금 늦추세요.'; },
+      over: function (a, b, w5) { return '이 속도면 <b>' + a + '</b> 뒤 바닥납니다 — 초기화보다 <b>' + b + '</b> 먼저.' + (w5 ? ' 앱은 이때 조기 소진 알림을 보냅니다.' : ' 앱은 팝업에 예상 소진 시각을 보여 줍니다.'); },
+      perH: function (x) { return x + '%<small>/시간</small>'; }, perD: function (x) { return x + '%<small>/일</small>'; },
+      now: '지금', copied: '복사됨'
+    },
+    en: {
+      title: 'Claude Usage Tray — your AI coding limits, in the Windows tray',
+      resetBody: function (d, t) { return 'Resets in ' + d + ' · ' + t; },
+      st: { safe: 'Comfortable', tight: 'Tight', over: 'Runs out early', full: 'Limit reached' },
+      full: 'Already at the limit — you’ll have to wait for the reset.',
+      safe: function (p) { return 'At this pace you’ll be at about <b>' + p + '%</b> when it resets. Plenty of room.'; },
+      tight: function (p) { return 'At this pace you’ll be at about <b>' + p + '%</b> when it resets. Cutting it close.'; },
+      over: function (a, b, w5) { return 'At this pace you run out in <b>' + a + '</b> — <b>' + b + '</b> before the reset.' + (w5 ? ' This is when the app sends an early-depletion alert.' : ' The app shows the expected time in the popup.'); },
+      perH: function (x) { return x + '%<small>/h</small>'; }, perD: function (x) { return x + '%<small>/day</small>'; },
+      now: 'now', copied: 'Copied'
+    }
+  };
+
+  var nodes = Array.prototype.slice.call(document.querySelectorAll('[data-i18n]'));
+  var KO = {};
+  nodes.forEach(function (n) { KO[n.getAttribute('data-i18n')] = n.innerHTML; });
+  var altNodes = Array.prototype.slice.call(document.querySelectorAll('[data-i18n-alt]'));
+  var KOALT = {};
+  altNodes.forEach(function (n) { KOALT[n.getAttribute('data-i18n-alt')] = n.alt; });
+  var lang = 'ko';
+
+  function store(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } }
+  function read(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+
+  function setLang(l) {
+    lang = l === 'en' ? 'en' : 'ko';
+    document.documentElement.lang = lang;
+    document.title = S[lang].title;
+    nodes.forEach(function (n) {
+      var k = n.getAttribute('data-i18n');
+      var v = lang === 'en' ? EN[k] : KO[k];
+      if (v != null) n.innerHTML = v;
+    });
+    altNodes.forEach(function (n) {
+      var k = n.getAttribute('data-i18n-alt');
+      n.alt = lang === 'en' ? (EN[k] || n.alt) : KOALT[k];
+    });
+    document.querySelectorAll('.lang button').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-lang') === lang));
+    });
+    tickClock(); renderToast(); renderPace();
+  }
+  document.querySelectorAll('.lang button').forEach(function (b) {
+    b.addEventListener('click', function () { var l = b.getAttribute('data-lang'); store('cut-lang', l); setLang(l); });
+  });
+
+  /* ── helpers ── */
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function hhmm(d) { return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function dur(min) {
+    min = Math.max(0, Math.round(min));
+    if (min < 60) return min + 'm';
+    if (min < 1440) return Math.floor(min / 60) + 'h ' + (min % 60) + 'm';
+    return Math.floor(min / 1440) + 'd ' + Math.floor((min % 1440) / 60) + 'h';
+  }
+
+  /* ── nav shadow ── */
+  var nav = $('nav');
+  function onScroll() { nav.classList.toggle('scrolled', window.scrollY > 8); }
+  window.addEventListener('scroll', onScroll, { passive: true }); onScroll();
+
+  /* ── hero: live popup ── */
+  var RESET_MIN = 133; // 2h 13m
+  function tickClock() {
+    var now = new Date();
+    $('clkT').textContent = hhmm(now);
+    $('clkD').textContent = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
+    $('popTime').textContent = hhmm(now) + ':' + pad(now.getSeconds());
+  }
+  function renderToast() {
+    var at = new Date(Date.now() + RESET_MIN * 60000);
+    $('toastBody').textContent = S[lang].resetBody(dur(RESET_MIN), hhmm(at));
+  }
+  var p5 = 0, p7 = 0;
+  function trayColor(p) { return p < 60 ? '#8B5CF6' : p < 85 ? '#F59E0B' : '#EF4444'; }
+  function renderPop() {
+    $('b5').style.width = p5 + '%'; $('p5').textContent = p5 + '%';
+    $('b7').style.width = p7 + '%'; $('p7').textContent = p7 + '%';
+    $('pClaude').textContent = p5 + '%';
+    var f = $('trayFill'); f.style.height = p5 + '%'; f.style.background = trayColor(p5);
+    if (p5 >= 75) $('toast').classList.add('show');
+  }
+  var tokIn = 120000, tokOut = 34000, tokCr = 2500000, tokCw = 80000;
+  function compact(n) { return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : (n / 1e3).toFixed(1) + 'K'; }
+  function renderTokens() {
+    $('tkIn').textContent = compact(tokIn); $('tkOut').textContent = compact(tokOut);
+    $('tkCr').textContent = compact(tokCr); $('tkCw').textContent = compact(tokCw);
+    var cost = (tokIn * 3 + tokOut * 15 + tokCr * 0.3 + tokCw * 3.75) / 1e6;
+    $('tkCost').textContent = '$' + cost.toFixed(2);
+  }
+  tickClock(); renderToast(); renderTokens();
+  if (reduce) { p5 = 76; p7 = 44; renderPop(); }
+  else {
+    setTimeout(function () {
+      p5 = 56; p7 = 41; renderPop();
+      setTimeout(function climb() {
+        if (p5 >= 76) return;
+        p5 += 1; if (p5 % 6 === 0) p7 += 1;
+        tokIn += 3100; tokOut += 900; tokCr += 61000; tokCw += 1900;
+        renderPop(); renderTokens(); tickClock();
+        setTimeout(climb, p5 < 74 ? 150 : 600);
+      }, 1000);
+    }, 500);
+  }
+  setInterval(tickClock, 1000);
+
+  /* ── pace demo ── */
+  var winMin = 300;
+  var uIn = $('uIn'), tIn = $('tIn');
+  function renderPace() {
+    var u = +uIn.value, t = +tIn.value / 100;
+    uIn.style.setProperty('--pct', u + '%');
+    tIn.style.setProperty('--pct', ((+tIn.value - 5) / 90 * 100) + '%');
+    var elapsed = t * winMin, remain = winMin - elapsed;
+    $('uVal').textContent = u + '%';
+    $('tVal').textContent = Math.round(t * 100) + '% · ' + dur(elapsed);
+    $('pgFill').style.width = Math.min(u, t * 100) + '%';
+    var over = $('pgOver');
+    if (u > t * 100) { over.style.left = (t * 100) + '%'; over.style.width = (u - t * 100) + '%'; }
+    else { over.style.width = '0'; }
+    $('pgMk').style.left = (t * 100) + '%';
+    $('pgMk').setAttribute('data-label', lang === 'en' ? 'NOW' : '지금');
+    var s = S[lang], st = $('paceStatus'), v = $('paceVerdict'), key;
+    var rate = u / elapsed; // % per minute
+    var proj = u / t;
+    $('psReset').textContent = dur(remain);
+    $('psRate').innerHTML = winMin === 300 ? s.perH((rate * 60).toFixed(1)) : s.perD((rate * 1440).toFixed(1));
+    if (u >= 100) {
+      key = 'full'; v.innerHTML = s.full; $('psProj').textContent = '100%';
+    } else if (proj <= 100) {
+      key = proj < 85 ? 'safe' : 'tight';
+      v.innerHTML = s[key](Math.round(proj));
+      $('psProj').textContent = Math.round(proj) + '%';
+    } else {
+      key = 'over';
+      var toFull = (100 - u) / rate;
+      v.innerHTML = s.over(dur(toFull), dur(remain - toFull), winMin === 300);
+      $('psProj').textContent = '100%+';
+    }
+    over.classList.toggle('red', key === 'over' || key === 'full');
+    st.className = 'status ' + key; st.textContent = s.st[key];
+  }
+  uIn.addEventListener('input', renderPace); tIn.addEventListener('input', renderPace);
+  document.querySelectorAll('.seg button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      winMin = +b.getAttribute('data-win');
+      document.querySelectorAll('.seg button').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+      renderPace();
+    });
+  });
+
+  /* ── phone screens ── */
+  var imgs = Array.prototype.slice.call(document.querySelectorAll('#screen img'));
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tabs button'));
+  var cur = 0, auto = !reduce, timer = null, phoneVisible = false;
+  function show(i) {
+    cur = i;
+    imgs.forEach(function (im, k) { im.classList.toggle('on', k === i); });
+    tabs.forEach(function (tb, k) { tb.setAttribute('aria-selected', String(k === i)); });
+  }
+  tabs.forEach(function (tb) {
+    tb.addEventListener('click', function () { auto = false; show(+tb.getAttribute('data-i')); });
+  });
+  function loop() {
+    clearTimeout(timer);
+    timer = setTimeout(function () { if (auto && phoneVisible) show((cur + 1) % imgs.length); loop(); }, 4200);
+  }
+  loop();
+
+  /* ── reveal on scroll ── */
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
+    document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
+    var po = new IntersectionObserver(function (es) { phoneVisible = es[0].isIntersecting; }, { threshold: 0.4 });
+    po.observe(document.querySelector('.phone'));
+  } else {
+    document.querySelectorAll('.reveal').forEach(function (el) { el.classList.add('in'); });
+    phoneVisible = true;
+  }
+
+  /* ── copy build commands ── */
+  $('copyBtn').addEventListener('click', function () {
+    var text = $('codeSrc').innerText.split('\n').filter(function (l) { return l.charAt(0) !== '#'; }).join('\n');
+    var btn = this;
+    function done() { btn.textContent = S[lang].copied; setTimeout(function () { btn.innerHTML = lang === 'en' ? EN.copy : KO.copy; }, 1600); }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () {});
+  });
+
+  /* ── latest version from GitHub (optional) ── */
+  if (window.fetch) {
+    fetch('https://api.github.com/repos/' + REPO + '/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j || !/^v\d+\.\d+\.\d+$/.test(j.tag_name || '')) return;
+        var v = $('relVer'); v.textContent = j.tag_name; v.hidden = false;
+        $('popVer').textContent = j.tag_name;
+      })
+      .catch(function () {});
+  }
+
+  /* ── language: saved choice → browser language ── */
+  var saved = read('cut-lang');
+  var nav0 = (navigator.languages && navigator.languages[0]) || navigator.language || 'ko';
+  setLang(saved || (/^ko\b/i.test(nav0) ? 'ko' : 'en'));
+})();
+</script>
 </body>
 </html>

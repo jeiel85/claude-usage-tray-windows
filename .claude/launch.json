@@ -6,6 +6,13 @@
       "runtimeExecutable": "dotnet",
       "runtimeArgs": ["run", "--project", "D:\\Project\\Usage\\ClaudeUsageTray"],
       "port": 0
+    },
+    {
+      "name": "docs (GitHub Pages)",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "4178", "--bind", "127.0.0.1", "--directory", "docs"],
+      "port": 4178,
+      "autoPort": false
     }
   ]
 }

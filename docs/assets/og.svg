@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Link preview image for the landing page (og:image, 1200x630). After editing, render og.png from this
+     file with headless Edge exactly like mobile/store/README.md does for the Play graphics, with the window
+     size set to 1200,630. (XML comments cannot hold two hyphens in a row, so the command lives there.) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <radialGradient id="g1" cx="0.18" cy="0.1" r="0.7"><stop offset="0" stop-color="#7C3AED" stop-opacity="0.55"/><stop offset="1" stop-color="#7C3AED" stop-opacity="0"/></radialGradient>
+    <radialGradient id="g2" cx="0.95" cy="1" r="0.6"><stop offset="0" stop-color="#F59E0B" stop-opacity="0.28"/><stop offset="1" stop-color="#F59E0B" stop-opacity="0"/></radialGradient>
+    <linearGradient id="hl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#C4B5FD"/><stop offset="0.45" stop-color="#A78BFA"/><stop offset="1" stop-color="#F59E0B"/></linearGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7C3AED"/><stop offset="1" stop-color="#A78BFA"/></linearGradient>
+    <linearGradient id="logoA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8B5CF6"/><stop offset="1" stop-color="#6366F1"/></linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#0A0B10"/>
+  <rect width="1200" height="630" fill="url(#g1)"/>
+  <rect width="1200" height="630" fill="url(#g2)"/>
+
+  <!-- brand -->
+  <g transform="translate(80,78)">
+    <rect width="56" height="56" rx="13" fill="#0F1117" stroke="#2D2F45"/>
+    <rect x="14" y="16" width="28" height="5" rx="2.5" fill="#2D2F45"/><rect x="14" y="16" width="19" height="5" rx="2.5" fill="#8B5CF6"/>
+    <rect x="14" y="26" width="28" height="5" rx="2.5" fill="#2D2F45"/><rect x="14" y="26" width="11" height="5" rx="2.5" fill="#A78BFA"/>
+    <rect x="14" y="36" width="28" height="5" rx="2.5" fill="#2D2F45"/><rect x="14" y="36" width="25" height="5" rx="2.5" fill="#F59E0B"/>
+  </g>
+  <g font-family="Pretendard,'Malgun Gothic','Apple SD Gothic Neo','Segoe UI',sans-serif">
+    <text x="152" y="116" font-size="30" font-weight="700" fill="#F1F5F9">Claude Usage Tray</text>
+    <text x="80" y="268" font-size="66" font-weight="800" fill="#F1F5F9" letter-spacing="-2">한도에 걸리기 전에,</text>
+    <text x="80" y="350" font-size="66" font-weight="800" fill="url(#hl)" letter-spacing="-2">먼저 보이게.</text>
+    <text x="82" y="430" font-size="25" fill="#B4BAD3">Claude · Codex · Antigravity · OpenCode</text>
+    <text x="82" y="470" font-size="25" fill="#B4BAD3">Windows 트레이 + Android 앱 · 무료 오픈 소스</text>
+    <text x="82" y="552" font-size="20" fill="#5A5F7A">jeiel85.github.io/claude-usage-tray-windows</text>
+  </g>
+
+  <!-- popup card -->
+  <g transform="translate(762,118)" font-family="Pretendard,'Malgun Gothic','Segoe UI',sans-serif">
+    <rect width="360" height="384" rx="18" fill="#0F1117" stroke="#2D2F45" stroke-width="1.5"/>
+    <path d="M18 0h324a18 18 0 0 1 18 18v42H0V18A18 18 0 0 1 18 0z" fill="#1A1D2E"/>
+    <rect x="18" y="16" width="28" height="28" rx="8" fill="url(#logoA)"/>
+    <text x="32" y="36" font-size="15" font-weight="800" fill="#fff" text-anchor="middle">A</text>
+    <text x="58" y="36" font-size="16" font-weight="700" fill="#F1F5F9">AI 에이전트 사용량</text>
+    <text x="22" y="92" font-size="14" font-weight="700" fill="#A78BFA">API 할당량</text>
+
+    <rect x="22" y="108" width="16" height="16" rx="4" fill="#8B5CF6"/><text x="30" y="120.5" font-size="10" font-weight="800" fill="#fff" text-anchor="middle">C</text>
+    <text x="46" y="121" font-size="15" font-weight="700" fill="#F1F5F9">Claude</text>
+    <text x="338" y="122" font-size="17" font-weight="800" fill="#A78BFA" text-anchor="end">76%</text>
+
+    <text x="38" y="155" font-size="13" fill="#F1F5F9">5시간 윈도우</text>
+    <text x="338" y="155" font-size="12" fill="#8B92B3" text-anchor="end"><tspan fill="#A78BFA" font-weight="800">76%</tspan>  2h 13m</text>
+    <rect x="38" y="164" width="300" height="5" rx="2.5" fill="#2D2F45"/><rect x="38" y="164" width="228" height="5" rx="2.5" fill="url(#bar)"/><rect x="205" y="160" width="2.5" height="13" rx="1" fill="#E2E8F0"/>
+
+    <text x="38" y="199" font-size="13" fill="#F1F5F9">7일 윈도우</text>
+    <text x="338" y="199" font-size="12" fill="#8B92B3" text-anchor="end"><tspan fill="#A78BFA" font-weight="800">44%</tspan>  3d 4h</text>
+    <rect x="38" y="208" width="300" height="5" rx="2.5" fill="#2D2F45"/><rect x="38" y="208" width="132" height="5" rx="2.5" fill="url(#bar)"/><rect x="199" y="204" width="2.5" height="13" rx="1" fill="#E2E8F0"/>
+
+    <rect x="22" y="236" width="316" height="1" fill="#2D2F45"/>
+
+    <rect x="22" y="258" width="16" height="16" rx="4" fill="#10B981"/><text x="30" y="270.5" font-size="10" font-weight="800" fill="#fff" text-anchor="middle">X</text>
+    <text x="46" y="271" font-size="15" font-weight="700" fill="#F1F5F9">Codex</text>
+    <text x="338" y="272" font-size="17" font-weight="800" fill="#6EE7B7" text-anchor="end">37%</text>
+    <rect x="22" y="298" width="16" height="16" rx="4" fill="#6366F1"/><text x="30" y="310.5" font-size="10" font-weight="800" fill="#fff" text-anchor="middle">A</text>
+    <text x="46" y="311" font-size="15" font-weight="700" fill="#F1F5F9">Antigravity</text>
+    <text x="338" y="312" font-size="17" font-weight="800" fill="#A5B4FC" text-anchor="end">18%</text>
+    <rect x="22" y="338" width="16" height="16" rx="4" fill="#F97316"/><text x="30" y="350.5" font-size="10" font-weight="800" fill="#fff" text-anchor="middle">O</text>
+    <text x="46" y="351" font-size="15" font-weight="700" fill="#F1F5F9">OpenCode</text>
+    <text x="338" y="352" font-size="17" font-weight="800" fill="#FB923C" text-anchor="end">9%</text>
+  </g>
+
+  <!-- phone alert -->
+  <g transform="translate(700,46)" font-family="Pretendard,'Malgun Gothic','Segoe UI',sans-serif">
+    <rect width="300" height="86" rx="18" fill="#1E2135" stroke="#3D4266"/>
+    <rect x="16" y="14" width="16" height="16" rx="4" fill="#0F1117" stroke="#2D2F45"/>
+    <rect x="20" y="18" width="8" height="2" rx="1" fill="#8B5CF6"/><rect x="20" y="21.5" width="5" height="2" rx="1" fill="#A78BFA"/><rect x="20" y="25" width="7" height="2" rx="1" fill="#F59E0B"/>
+    <text x="40" y="27" font-size="12" font-weight="600" fill="#C4B5FD">AI 사용량 <tspan fill="#8B92B3" font-weight="400">· 지금</tspan></text>
+    <circle cx="214" cy="23" r="3.5" fill="#F59E0B"/>
+    <text x="284" y="27" font-size="12" font-weight="700" fill="#F59E0B" text-anchor="end">사용량 경고</text>
+    <text x="16" y="55" font-size="15" font-weight="700" fill="#F1F5F9">Claude 5h 사용량 75%</text>
+    <text x="16" y="73" font-size="12" fill="#B4BAD3">2h 13m 후 초기화</text>
+  </g>
+</svg>
