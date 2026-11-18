@@ -3,7 +3,7 @@
 ![GitHub release](https://img.shields.io/github/v/release/jeiel85/claude-usage-tray-windows?style=flat-square&color=8B5CF6)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2B-0078D4?style=flat-square&logo=windows&logoColor=white)
 ![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?style=flat-square&logo=dotnet&logoColor=white)
-![License](https://img.shields.io/badge/license-MIT-10B981?style=flat-square)
+[![License](https://img.shields.io/badge/license-MIT-10B981?style=flat-square)](LICENSE)
 ![Built with Claude](https://img.shields.io/badge/built%20with-Claude%20AI-F59E0B?style=flat-square)
 
 Windows 시스템 트레이에서 Claude, Codex(ChatGPT), OpenCode, Antigravity AI 사용량과 날씨 알림을 함께 확인하는 통합 모니터링 앱입니다.
@@ -40,6 +40,7 @@ Windows 시스템 트레이에서 Claude, Codex(ChatGPT), OpenCode, Antigravity 
 - **변경 이력**: [CHANGELOG.md](CHANGELOG.md)
 
 ## 이슈
+- `개선` MIT LICENSE 파일 추가 (#295, 2026-11-19): README 배지와 랜딩 페이지(#289)는 MIT 라고 안내하지만 저장소에 `LICENSE` 파일이 없어 GitHub 가 라이선스를 인식하지 못하고, 안내와 실제가 다르다. 목표: 루트에 MIT `LICENSE`(저작권자 `jeiel85`, 2026)를 추가하고 README 라이선스 배지를 이 파일로 연결한다. 문서만 바뀌므로 앱 버전·릴리스는 올리지 않는다.
 - `개선` 보안 감사: 이 앱을 통한 PC 장악 가능성 점검 (#290, 2026-11-18): 휴대폰 서버·PC 동기화·공유 폴더·외부 프로세스·WebView2 에서 원격 코드 실행 경로는 없었다. 현실적 장악 경로는 자동 업데이트에 악성 exe 를 싣는 공급망뿐이다(같은 릴리스의 SHA256 은 출처를 증명하지 않는다). 목표: 릴리스 워크플로의 서드파티 Action 을 커밋 SHA 로 고정하고(v1.67.1 이후 #291), `v*` 태그 보호 규칙(관리자만 생성·이동·삭제), 페어링 잠금을 QR 이 떠 있는 동안·코드마다로, 동시 연결 수를 경로마다 따로, `/api/v1/info` 에 토큰 요구, 쓰이지 않는 Updater 프로젝트 삭제(v1.67.2). 업데이트 서명: 배포 PC 의 오프라인 ECDSA 키로 `버전+SHA-256` 에 서명한 `ClaudeUsageTray.exe.sig` 가 맞는 릴리스만 설치(v1.67.3, `docs/DECISIONS.md` D-1).
 - `개선` 랜딩 페이지 새 단장 — 휴대폰 앱·알림·동기화 반영, 한/영 (#289, 2026-11-18): GitHub Pages 랜딩(`docs/index.html`)은 v1.1x 시절의 Claude 전용 스크린샷과 기능 카드 6개뿐이라 휴대폰 앱(#220)·알림 자동 연결(#222)·PC 동기화(#223)·Cloudflare Tunnel(#225)·시간선(#269) 같은 이후 기능이 소개되지 않고, 휴대폰 APK를 받는 경로도 없다. 목표: 앱 팔레트 그대로 PC 팝업·트레이 아이콘을 HTML/CSS로 재현한 히어로(게이지·시간선이 움직임), 사용량·창 경과로 소진 시각을 보여 주는 페이스 데모(앱의 조기 소진 계산과 같은 식), 실제 휴대폰 스크린샷과 QR 연결 3단계, 연결 경로·개인정보(개발자 서버 없음·계정 해시·종단 암호화), 설치·FAQ, exe·APK 바로 받기. 한국어/영어 전환, 휴대폰 폭 대응, `prefers-reduced-motion` 존중. 외부 리소스는 웹 폰트와 최신 버전 표시용 GitHub API뿐이고 실패해도 페이지는 동작한다. 문서만 바뀌므로 앱 버전·릴리스는 올리지 않는다.
 - `버그` 휴대폰에서 PC를 지워도 PC의 '연결된 휴대폰' 목록에 옛 연결이 남음 (#285, 2026-11-18): 휴대폰의 PC 삭제는 `DELETE /api/v1/push`(알림 구독 해제)만 보내고 PC 쪽 페어링은 그대로 둔다. 구독이 비워진 옛 항목은 다시 연결해도 같은 푸시 주소 정리 규칙에 걸리지 않고, 앱을 새로 설치하면(예: v1.60.0 패키지명 변경) 푸시 주소가 달라 역시 남는다 — 같은 휴대폰이 두 번 보이고 옛 주소로도 알림이 나간다. PC↔PC 동기화도 이쪽에서 지운 PC가 상대 목록에 남는다. 목표: `DELETE /api/v1/pair`(Bearer, 요청한 기기 자신의 페어링 철회)를 추가하고, 휴대폰은 PC를 지울 때 이것을 먼저 보내고 옛 PC(405·404)면 지금처럼 푸시 해제로 대신한다. PC 동기화도 상대 PC를 지울 때 같은 요청을 보낸다. 이름·기종이 같다고 자동으로 지우지는 않는다(같은 기종·이름의 다른 휴대폰을 끊을 수 있음).
@@ -329,6 +330,9 @@ ntfy 의 토픽 이름은 **공개 URL의 일부**예요. 누구든 같은 이�
 - **Q. 알림이 늦게 와요.** A. ntfy 는 보통 1~2초 안에 도달합니다. 지연이 잦다면 스마트폰 배터리 최적화에서 ntfy 앱을 예외로 등록하세요.
 
 ---
+
+## 라이선스
+[MIT](LICENSE)
 
 ## 면책 조항
 이 앱은 공식 Anthropic 제품이 아닌 개인 프로젝트입니다. 표시되는 모든 수치는 로컬 로그와 API 응답을 기반으로 한 **참고용**이며, 실제 과금 데이터와는 차이가 있을 수 있습니다. 정확한 사용량은 각 서비스의 공식 대시보드에서 확인하시기 바랍니다.
