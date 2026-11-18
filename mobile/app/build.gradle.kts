@@ -146,6 +146,8 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("com.google.zxing:core:3.5.3")
+    // Play build only (#284): asks the Google Play app whether a newer version is out for this user. Play installs it.
+    "playImplementation"("com.google.android.play:app-update:2.1.0")
 
     testImplementation("junit:junit:4.13.2")
     // Real org.json on the JVM test classpath (android.jar only ships stubs).
