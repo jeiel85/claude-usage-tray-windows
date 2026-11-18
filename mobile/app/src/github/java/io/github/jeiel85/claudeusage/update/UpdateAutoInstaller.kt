@@ -67,8 +67,10 @@ internal object UpdateAutoInstaller {
                 preferences.setAutoInstallAttemptedVersionCode(manifest.versionCode)
                 return Outcome.Failed
             }
-            // 받는 동안 앱을 열었거나 설정을 껐을 수 있다.
-            if (isAppVisible() || !preferences.isEnabled() || !preferences.isAutoInstallEnabled()) return Outcome.Deferred
+            // 받는 동안 앱을 열었거나 설정을 껐거나, 앱에서 이 버전을 건너뛰었을 수 있다(Codex 리뷰). 아직 권하는 버전인지는
+            // 캐시로 다시 판단한다 — 방금 확인했으니 네트워크는 타지 않는다.
+            if (isAppVisible() || !preferences.isAutoInstallEnabled()) return Outcome.Deferred
+            if (UpdateRefresh.run(preferences)?.versionCode != manifest.versionCode) return Outcome.Deferred
             preferences.setAutoInstallAttemptedVersionCode(manifest.versionCode)
             preferences.setInstallingVersionCode(manifest.versionCode)
             commit(context, apk, manifest)

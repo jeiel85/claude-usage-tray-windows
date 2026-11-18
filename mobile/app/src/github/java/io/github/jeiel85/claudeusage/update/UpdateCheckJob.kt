@@ -61,7 +61,11 @@ class UpdateCheckJobService : JobService() {
                 offeredVersionCode = manifest.versionCode,
                 attemptedVersionCode = preferences.autoInstallAttemptedVersionCode(),
             )
-            if (tryAutoInstall && UpdateAutoInstaller.run(context, manifest, preferences) != UpdateAutoInstaller.Outcome.Failed) return
+            if (tryAutoInstall) {
+                if (UpdateAutoInstaller.run(context, manifest, preferences) != UpdateAutoInstaller.Outcome.Failed) return
+                // 받는 동안(블로킹) 사용자가 확인을 껐을 수 있다 — 끄기가 지운 알림을 되살리지 않는다(Codex 리뷰).
+                if (isStopped() || !preferences.isEnabled()) return
+            }
             notify(context, preferences, manifest)
         }
 
