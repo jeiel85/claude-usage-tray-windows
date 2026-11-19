@@ -46,6 +46,7 @@
 - 높이는 막대 스타일의 값(4)을 그대로 쓴다. `ProgressBar` 에 `Height` 를 직접 주지 않는다.
 - 막대는 높이 8 틀 안에 두고(`<Grid Height="8" Margin="0,4,0,0" ToolTip="{…PaceTip}">`), 같은 틀에 시간선 마커를 겹친다: 너비 1.5 · 높이 8 · `#E2E8F0` · 모서리 1, 위치는 `PercentToStar` 두 열.
 - 창 길이를 모르면 마커를 숨긴다(`HasTimeline`).
+- 값은 `Value` 가 아니라 `views:GaugeAnimation.Value="{Binding …}"` 로 묶는다 — 값이 바뀌면 막대가 차오른다(#322). 겹친 막대(페이스 오버레이)도 둘 다 이렇게 묶어야 같이 움직인다.
 
 **행 — 두 종류만 쓴다**
 
