@@ -182,6 +182,28 @@ public class UpdateService
     }
 
     /// <summary>
+    /// Input : 대화상자에 띄운 업데이트, 지금 다시 확인하는 함수(보통 <see cref="CheckForUpdateAsync"/>)
+    /// Output: 실제로 받을 업데이트
+    /// 핵심 로직: 확인 결과는 시작 시·24시간마다만 새로 고치므로, 찾아 둔 뒤 새 버전이 또 나왔는데 찾아 둔 것을 그대로 받으면 중간 버전을
+    ///           설치하고 재시작 직후 한 번 더 업데이트하게 된다(#300). 그래서 받기 직전에 다시 확인해 더 새 버전이면 그걸 고른다. 다시
+    ///           확인이 실패하면(네트워크·rate limit 등) 찾아 둔 것으로 진행한다 — 그것도 서명이 맞아야 설치되는 정상 릴리스라 확인 실패가
+    ///           설치를 막을 이유는 없다.
+    /// </summary>
+    internal static async Task<UpdateInfo> ResolveInstallTargetAsync(UpdateInfo offered, Func<Task<UpdateInfo?>> checkLatest)
+    {
+        UpdateInfo? latest;
+        try
+        {
+            latest = await checkLatest();
+        }
+        catch (Exception)
+        {
+            return offered;
+        }
+        return latest is not null && latest.version > offered.version ? latest : offered;
+    }
+
+    /// <summary>
     /// 새 exe 를 임시 폴더에 받고 업데이트 서명(<see cref="UpdateSignature"/>)을 확인한다. 서명이 맞지 않으면 받은 파일을 지우고 예외를 낸다.
     /// 서명은 <c>버전 + SHA-256</c> 에 대한 것이라 SHA256.txt 는 쓰지 않는다(그 파일은 서명 이전 버전과 손으로 받는 사람을 위해 남겨 둔다).
     /// 검증 없이 설치하는 경로는 없다 — 사용자가 직접 누른 경우도 마찬가지다(#290).

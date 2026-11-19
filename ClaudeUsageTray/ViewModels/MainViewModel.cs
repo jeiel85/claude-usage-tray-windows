@@ -499,11 +499,9 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private bool _isOpenCodeUsageEmpty = true;
 
     // IsClaudeSubscribed → ClaudeVm.IsSubscribed
-    private string _updateDownloadUrl = "";
-    private string _updateSignatureUrl = "";
-    private Version? _updateFullVersion;
-    private string _updateVersion = "";
-    private string _updateReleaseNotes = "";
+    // 마지막 확인에서 찾은 업데이트. 버전·주소·노트를 한 객체로 바꿔 끼워서, 다른 스레드의 확인이 중간에 덮어써도
+    // 서로 다른 버전의 값이 섞이지 않는다. 설치는 이 값을 그대로 쓰지 않고 받기 직전에 다시 확인한다(#300).
+    private volatile UpdateService.UpdateInfo? _availableUpdate;
     private bool _isUpdateDialogOpen = false;
     public string CurrentVersionLabel => $"v{UpdateService.CurrentVersion.ToString(3)}";
 
@@ -1013,8 +1011,9 @@ namespace ClaudeUsageTray.ViewModels;
     public async Task ManualCheckForUpdateAsync()
     {
         if (IsUpdating) return;
-        if (UpdateAvailable && TryShowCachedUpdateDialog()) return;
 
+        // 앞서 찾아 둔 업데이트가 있어도 다시 확인한다(#300). 캐시는 시작 시·24시간마다만 새로 고쳐서, 그 사이 나온
+        // 새 버전을 두고 옛 버전 대화상자를 열면 중간 버전을 설치하고 재시작 직후 또 업데이트하게 된다.
         UpdateCheckLabel = Loc.CheckingUpdate;
 
         UpdateService.UpdateInfo? result;
@@ -1025,6 +1024,7 @@ namespace ClaudeUsageTray.ViewModels;
         catch (UpdateCheckException uex)
         {
             RecordUpdateCheck(() => DescribeUpdateCheckError(uex));
+            if (await TryShowCachedUpdateDialogAsync()) return;
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
             {
                 UpdateCheckLabel = DescribeUpdateCheckError(uex);
@@ -1059,6 +1059,7 @@ namespace ClaudeUsageTray.ViewModels;
             // 분류되지 않은 예외 — 메시지 일부라도 노출
             var detail = Truncate(ex.Message);
             RecordUpdateCheck(() => $"{Loc.UpdateCheckFailed}: {detail}");
+            if (await TryShowCachedUpdateDialogAsync()) return;
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
             {
                 UpdateCheckLabel = $"{Loc.UpdateCheckFailed}: {detail}";
@@ -1186,7 +1187,7 @@ namespace ClaudeUsageTray.ViewModels;
             UpdateCheckLabel = UpdateLabel;
 
             if (showDialog)
-                ShowUpdateDialogWithCountdown(versionStr, _updateReleaseNotes);
+                ShowUpdateDialogWithCountdown(result);
         });
     }
 
@@ -1231,22 +1232,27 @@ namespace ClaudeUsageTray.ViewModels;
 
     private string StoreAvailableUpdate(UpdateService.UpdateInfo info)
     {
-        var versionStr = info.version.ToString(3);
-        _updateVersion = versionStr;
-        _updateReleaseNotes = info.releaseNotes;
-        _updateDownloadUrl = info.downloadUrl;
-        _updateSignatureUrl = info.signatureUrl;
-        _updateFullVersion = info.version;
-        return versionStr;
+        _availableUpdate = info;
+        return info.version.ToString(3);
     }
 
-    private bool TryShowCachedUpdateDialog()
+    /// <summary>
+    /// 확인이 실패했을 때 앞서 찾아 둔 업데이트가 있으면 그 대화상자를 연다. 오래된 캐시일 수 있지만 설치는 받기 직전에
+    /// 다시 확인하므로(#300) 그 사이 나온 새 버전을 놓치지 않는다. 열었으면 true(대화상자가 닫힌 뒤 돌아온다).
+    /// </summary>
+    private async Task<bool> TryShowCachedUpdateDialogAsync()
     {
-        if (string.IsNullOrWhiteSpace(_updateVersion) || string.IsNullOrWhiteSpace(_updateDownloadUrl))
-            return false;
+        var shown = false;
+        await OnUiThreadAsync(() =>
+        {
+            var cached = _availableUpdate;
+            if (!UpdateAvailable || cached is null) return;
 
-        ShowUpdateDialogWithCountdown(_updateVersion, _updateReleaseNotes);
-        return true;
+            shown = true;
+            UpdateCheckLabel = UpdateLabel;
+            ShowUpdateDialogWithCountdown(cached);
+        });
+        return shown;
     }
 
     /// <summary>
@@ -1275,27 +1281,34 @@ namespace ClaudeUsageTray.ViewModels;
         AppConstants.MaxAutoUpdateCountdownSeconds);
 
     /// <summary>업데이트 모달을 연다. 카운트다운 허용 여부는 <see cref="ResolveAutoUpdatePlan"/> 가 정한다.</summary>
-    private void ShowUpdateDialogWithCountdown(string version, string notes)
+    private void ShowUpdateDialogWithCountdown(UpdateService.UpdateInfo update)
     {
         var (seconds, notice) = ResolveAutoUpdatePlan(
-            autoRetryExhausted: _settingsService.Load().AutoUpdateAttemptedVersion == version,
+            autoRetryExhausted: _settingsService.Load().AutoUpdateAttemptedVersion == update.version.ToString(3),
             autoUpdateEnabled: AutoUpdateEnabled,
             countdownSeconds: AutoUpdateCountdownSeconds);
 
-        ShowUpdateDialog(version, notes, autoUpdateSeconds: seconds, notice: notice);
+        ShowUpdateDialog(update, autoUpdateSeconds: seconds, notice: notice);
     }
 
-    private void ShowUpdateDialog(string version, string notes, int autoUpdateSeconds, string? notice)
+    /// <summary>
+    /// 업데이트 대화상자를 연다. 설치할 버전은 이 대화상자가 가진 <paramref name="offered"/> 에서 출발한다 — 공용 캐시를 그때그때 읽으면
+    /// 대화상자가 열린 동안 주기 확인이 캐시를 바꿨을 때 화면의 버전과 실제로 받는 버전이 어긋났다(#300).
+    /// </summary>
+    private void ShowUpdateDialog(UpdateService.UpdateInfo offered, int autoUpdateSeconds, string? notice)
     {
         if (_isUpdateDialogOpen) return;
 
         try
         {
             _isUpdateDialogOpen = true;
+            // 받기 직전 재확인으로 더 새 버전으로 바뀌면 이 값도 따라 바뀐다. 설치가 실패해 버튼이 다시 열리면
+            // '건너뛰기'와 재시도는 화면에 보이는 그 버전을 대상으로 한다.
+            var current = offered;
             var dialog = new Views.UpdateDialog(
-                $"v{version}",
-                notes,
-                onSkip: () => SkipVersion(version),
+                $"v{offered.version.ToString(3)}",
+                offered.releaseNotes,
+                onSkip: () => SkipVersion(current.version.ToString(3)),
                 autoUpdateSeconds: autoUpdateSeconds);
 
             if (!string.IsNullOrEmpty(notice))
@@ -1303,28 +1316,42 @@ namespace ClaudeUsageTray.ViewModels;
 
             dialog.OnUpdateRequested += () =>
             {
-                // 카운트다운 만료로 시작된 자동 적용만 기록한다. 사용자가 직접 누른 경우는 실패해도
-                // 루프가 아니므로 표식을 남기지 않는다.
-                if (dialog.StartedAutomatically) RecordAutoUpdateAttempt(version);
+                var automatic = dialog.StartedAutomatically;
+                var requested = current;
 
                 _ = Task.Run(async () =>
                 {
                     try
                     {
                         IsUpdating = true;
+                        void Progress(int pc, string status)
+                        {
+                            dialog.UpdateProgress(pc, status);
+                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                UpdateProgress = pc;
+                                UpdateStatusText = status;
+                            });
+                        }
+
+                        // 찾아 둔 뒤 새 버전이 또 나왔으면 그걸 받는다 — 그대로 받으면 중간 버전을 설치하고 재시작 직후
+                        // 한 번 더 업데이트하게 된다(#300). 다시 확인이 실패하면 찾아 둔 버전으로 진행한다.
+                        Progress(0, Loc.CheckingUpdate);
+                        var target = await UpdateService.ResolveInstallTargetAsync(requested, _updater.CheckForUpdateAsync);
+                        if (target.version != requested.version)
+                        {
+                            current = target;
+                            dialog.ChangeVersion($"v{target.version.ToString(3)}", target.releaseNotes);
+                            await ApplyCheckResultAsync(target, showDialog: false);
+                        }
+
+                        // 카운트다운 만료로 시작된 자동 적용만, 실제로 받는 버전으로 기록한다. 사용자가 직접 누른 경우는
+                        // 실패해도 루프가 아니므로 표식을 남기지 않는다.
+                        if (automatic) RecordAutoUpdateAttempt(target.version.ToString(3));
+
                         // 서명이 맞지 않으면 서비스가 받은 파일을 지우고 거부한다 — 사용자가 직접 누른 경우도 같다(#290).
                         var tempPath = await _updater.DownloadAndPrepareUpdateAsync(
-                            _updateDownloadUrl, _updateSignatureUrl,
-                            _updateFullVersion ?? throw new InvalidOperationException(Loc.UpdateSignatureInvalid),
-                            onProgress: (pc, status) =>
-                            {
-                                dialog.UpdateProgress(pc, status);
-                                System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                                {
-                                    UpdateProgress = pc;
-                                    UpdateStatusText = status;
-                                });
-                            });
+                            target.downloadUrl, target.signatureUrl, target.version, onProgress: Progress);
 
                         dialog.UpdateProgress(100, "Restarting...");
                         await Task.Delay(500);
@@ -1357,15 +1384,6 @@ namespace ClaudeUsageTray.ViewModels;
         {
             _isUpdateDialogOpen = false;
         }
-    }
-
-    [RelayCommand]
-    public void StartUpdate()
-    {
-        if (IsUpdating) return;
-        if (TryShowCachedUpdateDialog()) return;
-
-        _ = ManualCheckForUpdateAsync();
     }
 
     public void SkipVersion(string version)
@@ -1564,12 +1582,6 @@ namespace ClaudeUsageTray.ViewModels;
             ntfyBody, priority: WeatherPriority.Forecast, tags: ["sunny"], clickUrl: clickUrl);
 
         return null;
-    }
-
-    [RelayCommand]
-    public void ApplyUpdate()
-    {
-        _ = ManualCheckForUpdateAsync();
     }
 
     public async Task RefreshAsync()

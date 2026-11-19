@@ -32,9 +32,7 @@ public partial class UpdateDialog : Window
         _onSkip = onSkip;
 
         // 카운트다운이 끝나면 사용자가 보고 있지 않아도 설치되므로, 어떤 버전인지 제목에 명시한다.
-        TitleText.Text    = string.IsNullOrWhiteSpace(version)
-            ? Loc.UpdateDialogTitle
-            : $"{Loc.UpdateDialogTitle} · {version}";
+        TitleText.Text    = FormatTitle(version);
         SkipBtn.Content   = Loc.SkipThisVersion;
         UpdateBtn.Content = Loc.UpdateNow;
         MinimizeBtn.ToolTip = Loc.MinimizeWindow;
@@ -59,6 +57,25 @@ public partial class UpdateDialog : Window
 
         // 창이 어떤 경로로 닫히든 타이머를 반드시 멈춘다 (닫힌 창에서 자동 적용되는 것을 방지).
         Closed += (_, _) => StopCountdown();
+    }
+
+    private static string FormatTitle(string version) => string.IsNullOrWhiteSpace(version)
+        ? Loc.UpdateDialogTitle
+        : $"{Loc.UpdateDialogTitle} · {version}";
+
+    /// <summary>
+    /// 받기 직전 재확인에서 더 새 버전이 나와 그걸 받게 되면(#300) 제목과 노트를 그 버전으로 바꾼다. 아무 스레드에서나 불러도 된다.
+    /// </summary>
+    public void ChangeVersion(string version, string releaseNotes)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            TitleText.Text = FormatTitle(version);
+            if (string.IsNullOrWhiteSpace(releaseNotes))
+                NotesRichText.Document = new FlowDocument(); // 옛 버전 노트를 남겨 두지 않는다
+            else
+                RenderMarkdown(releaseNotes);
+        });
     }
 
     private void OnCountdownTick(object? sender, EventArgs e)
