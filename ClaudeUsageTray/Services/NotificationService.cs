@@ -71,7 +71,8 @@ public class NotificationService
     }
 
     // eventAt: 로그에 찍힌 레이트 리밋 기록의 시각. 재시작 뒤 같은 기록을 다시 읽어도 같은 사건으로 알아보게 하는 기준이다.
-    public void ShowRateLimitAlert(string ntfyTopic, int priority = 2, string? accountId = null, DateTimeOffset? eventAt = null,
+    // 우선순위 4(warning): 작업이 멈춘 상태라 휴대폰에서 소리·진동으로 알린다(#297).
+    public void ShowRateLimitAlert(string ntfyTopic, int priority = 4, string? accountId = null, DateTimeOffset? eventAt = null,
         PushAccount? pushAccount = null)
     {
         var title = Loc.RateLimitTitle;
@@ -108,8 +109,9 @@ public class NotificationService
     }
 
     // dedupeKey: 날씨 알림이 PC 안에서 이미 쓰는 중복 방지 키(위치·날짜 포함). 없으면(테스트 알림) 중복 확인을 건너뛴다.
+    // priority: 호출부가 WeatherPriority 로 정한다 — 공식 특보만 휴대폰에서 소리·진동(#297).
     public void ShowWeatherAlert(string title, string body, string ntfyTopic,
-        string? ntfyMessage = null, int priority = 4, string[]? tags = null,
+        string? ntfyMessage = null, int priority = WeatherPriority.Official, string[]? tags = null,
         string? clickUrl = null, string? dedupeKey = null)
     {
         ShowBalloon(title, body);
@@ -299,4 +301,15 @@ internal static class AlertText
         if (resetAt is not { } at || at <= now) return null;
         return Loc.AlertResetsAt(UsageCalculator.FormatClockStamp(at, now), UsageCalculator.FormatRemaining(at - now));
     }
+}
+
+/// <summary>
+/// 날씨 알림의 ntfy 우선순위(#297). 휴대폰 앱은 4 이상(<see cref="PushPriority.Warning"/>)만 소리·진동으로 알린다 —
+/// 매일 예보와 조건 알림(비·폭염·한파·강풍)은 오늘 예보를 읽어 주는 정보라 조용히, 기관이 낸 특보만 울린다.
+/// </summary>
+public static class WeatherPriority
+{
+    public const int Forecast = 2;
+    public const int Condition = 3;
+    public const int Official = 4;
 }

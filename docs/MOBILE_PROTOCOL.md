@@ -122,7 +122,7 @@ QR로 PC를 연결하면 알림도 함께 연결됩니다. 토픽 이름을 정�
 | `schema` | 1 |
 | `id`, `pcId`, `pcName` | 알림 id, 보낸 PC. 앱은 페어링하지 않은 PC의 메시지를 버림 |
 | `category` | `usage`·`exhaustion`·`rate_limit`·`reset`·`weather`·`test`. 앱의 "받을 알림" 스위치 단위 |
-| `priority` | `info`·`warning`·`critical` |
+| `priority` | `info`·`warning`·`critical`. 앱은 `warning`·`critical` 만 소리·진동('중요 알림' 채널), `info` 는 조용히('일반 알림') 보입니다(#297). PC 는 사용량 90·100%·레이트 리밋·공식 기상 특보에만 `warning` 이상을 씁니다 |
 | `title`, `body` | 표시할 평문 |
 | `eventKey`, `eventToleranceSec` | 사건 키(예전 ntfy `sequence_id`, #175). 여러 PC가 같은 사건을 보내면 앱이 한 번만 띄움 — 접두사가 같고 시각 차가 허용 오차(+59초) 안이면 같은 사건 |
 | `clickUrl` | 날씨 알림의 예보 링크(https만) |

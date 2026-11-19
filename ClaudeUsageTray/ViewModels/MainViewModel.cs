@@ -1561,7 +1561,7 @@ namespace ClaudeUsageTray.ViewModels;
         var clickUrl = WeatherAlertService.BuildWeatherClickUrlPublic(loc);
 
         _notifier.ShowWeatherAlert(title, ntfyBody, ntfyTopic,
-            ntfyBody, tags: ["sunny"], clickUrl: clickUrl);
+            ntfyBody, priority: WeatherPriority.Forecast, tags: ["sunny"], clickUrl: clickUrl);
 
         return null;
     }

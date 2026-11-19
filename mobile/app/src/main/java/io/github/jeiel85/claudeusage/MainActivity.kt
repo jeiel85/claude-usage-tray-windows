@@ -27,6 +27,7 @@ import io.github.jeiel85.claudeusage.net.NetworkProbe
 import io.github.jeiel85.claudeusage.net.PairingLink
 import io.github.jeiel85.claudeusage.net.UsageApi
 import io.github.jeiel85.claudeusage.push.NotificationHistory
+import io.github.jeiel85.claudeusage.push.PushNotifier
 import io.github.jeiel85.claudeusage.push.PushRegistrar
 import io.github.jeiel85.claudeusage.push.PushState
 import io.github.jeiel85.claudeusage.ui.PushAutoSetup
@@ -62,6 +63,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         AppPrefs.load(this)
         NotificationHistory.load(this)
+        // Replace the old per-category channels now, not at the next alert, so Android's settings show the new two (#297).
+        PushNotifier.ensureChannels(this)
         pairingLink = if (savedInstanceState == null) intent.pairingLink() else savedInstanceState.getString(KEY_PAIRING_LINK)
         settingsOpen = savedInstanceState?.getBoolean(KEY_SETTINGS_OPEN) ?: false
         historyOpen = savedInstanceState?.getBoolean(KEY_HISTORY_OPEN) ?: false

@@ -24,7 +24,14 @@ object NotificationGroups {
     /** Whether a message of [category] should be dropped. [TEST] always passes. */
     fun isMuted(category: String, muted: Set<String>): Boolean = category != TEST && category in muted
 
-    /** String resource for a category's notification channel name (unknown categories share "other"). */
+    /**
+     * Whether an alert should sound and vibrate (#297). The PC marks what needs the user now as `warning` or
+     * `critical`: usage at 90/100%, a rate limit (work has stopped) and official weather warnings. Everything else
+     * (50/75%, resets, forecasts, early-exhaustion estimates, tests) lands quietly in the shade.
+     */
+    fun isUrgent(priority: String): Boolean = priority == "warning" || priority == "critical"
+
+    /** String resource for a category's label (unknown categories share "other"). */
     fun label(category: String): Int = ALL.firstOrNull { it.category == category }?.label
         ?: if (category == TEST) R.string.cat_test else R.string.cat_other
 }

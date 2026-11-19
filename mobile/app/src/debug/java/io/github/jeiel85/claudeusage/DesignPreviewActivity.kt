@@ -70,7 +70,7 @@ class DesignPreviewActivity : ComponentActivity() {
     private fun sampleAlerts(now: Long): List<PushMessage> = listOf(
         PushMessage("p1", "pc-desk", "DESKTOP-STUDIO", "usage", "critical", "Claude 90% · 5시간 한도", "15:30 초기화 · 2h 13m 남음", null, 0, null, now - 600_000,
             provider = "claude", accountHash = "a".repeat(64), accountLabel = "김민준 · Acme Corp"),
-        PushMessage("p2", "pc-desk", "DESKTOP-STUDIO", "weather", "warning", "내일 아침 비 소식", "07시부터 강수확률 80%", null, 0, "https://example.com", now - 5 * 3_600_000),
+        PushMessage("p2", "pc-desk", "DESKTOP-STUDIO", "weather", "info", "내일 아침 비 소식", "07시부터 강수확률 80%", null, 0, "https://example.com", now - 5 * 3_600_000),
         PushMessage("p3", "pc-laptop", "LAPTOP-TRAVEL", "reset", "info", "Codex 할당량 초기화됨", "이제 다시 Codex를 사용할 수 있습니다!", null, 0, null, now - 30 * 3_600_000,
             provider = "codex", accountHash = "b".repeat(64)),
     )

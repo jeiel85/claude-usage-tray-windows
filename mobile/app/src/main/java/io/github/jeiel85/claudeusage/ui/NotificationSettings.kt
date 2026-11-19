@@ -11,6 +11,7 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -199,6 +200,16 @@ fun NotificationSettings(store: PcStore, api: UsageApi) {
                             scope.launch { PushRegistrar.ensureAll(context.applicationContext, api, store) }
                         },
                     )
+                }
+                // Which kinds sound is decided by urgency, not by these switches (#297); say so and link the two channels.
+                Column {
+                    Text(stringResource(R.string.push_sound_hint), color = Palette.TextSoft, fontSize = 12.sp, lineHeight = 16.sp)
+                    TextButton(onClick = {
+                        PushNotifier.ensureChannels(context)
+                        openNotificationSettings(context)
+                    }, contentPadding = PaddingValues(0.dp)) {
+                        Text(stringResource(R.string.push_sound_settings), color = Palette.AccentLight)
+                    }
                 }
             }
         }
