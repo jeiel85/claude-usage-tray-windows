@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.72.2] - 2026-11-19
+
+<!-- ko -->
+### 개선
+- **게이지 막대가 값이 바뀌면 차오릅니다 (#322)** — 새로고침으로 사용률이 바뀌면 막대가 이전 길이에서 새 길이로 약 0.6초 동안 부드럽게 늘어나거나 줄어듭니다. 팝업이 닫혀 있는 동안 바뀐 값은 다음에 팝업을 열 때 움직여 보여 줍니다.
+  - 처음 열 때나 값이 그대로면 움직이지 않습니다. Windows 설정의 '애니메이션 효과'를 끄면 예전처럼 바로 바뀝니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Gauge bars now fill when the value changes (#322)** — When a refresh changes usage, each bar glides from its old length to the new one over about 0.6 s. Values that changed while the popup was closed animate the next time you open it.
+  - Bars don't move on first open or when nothing changed. Turning off Windows "Animation effects" keeps the old instant update.
+<!-- /en -->
+
 ## [1.72.1] - 2026-11-19
 
 <!-- ko -->
