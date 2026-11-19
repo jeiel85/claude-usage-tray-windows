@@ -3285,6 +3285,8 @@ namespace ClaudeUsageTray.ViewModels;
     partial void OnShowAntigravityThirdPartyQuotaChanged(bool value)
     {
         AntigravityVm.ShowThirdPartyQuota = value;
+        // 휴대폰도 다음 갱신을 기다리지 않고 바로 맞춘다(#304). 아직 조회 전이면 보낼 값이 없다.
+        if (AntigravityVm.LastSnapshot.HasData) PublishAntigravityMobile();
         // 화면 쪽 AntigravityHasData 는 보이는 행이 없으면 꺼져 있을 수 있다 — 켜면 다시 보여야 하므로 원본 상태를 본다.
         if (!AntigravityVm.HasData) return;   // 시작 시 설정을 읽는 시점 등 — 아직 그릴 값이 없다
 
@@ -3581,12 +3583,7 @@ namespace ClaudeUsageTray.ViewModels;
     /// </summary>
     private UsageSyncQuotaCandidates TrySyncAntigravityQuota()
     {
-        if (IsMobileProviderVisible(UsageProviderKind.Antigravity))
-        {
-            var mobileLocal = AntigravityVm.LastSnapshot;
-            PublishMobile(UsageProviderKind.Antigravity, null, "", () => CreateAntigravityQuotaSnapshot(mobileLocal), null,
-                mobileLocal.HasData ? "" : ClassifyProviderError(mobileLocal.ErrorMessage));
-        }
+        PublishAntigravityMobile();
         if (!IsAnySyncActive)
             return UsageSyncQuotaCandidates.None;
 
@@ -3612,6 +3609,33 @@ namespace ClaudeUsageTray.ViewModels;
 #endif
             return UsageSyncQuotaCandidates.None;
         }
+    }
+
+    /// <summary>
+    /// 이 PC 의 Antigravity 값을 휴대폰 피드에 넣는다. 공유 폴더·PC 직접 동기화와 달리 팝업과 같은 표시 규칙으로
+    /// 거른 값을 보낸다(#304) — 휴대폰은 받은 창을 모두 그리므로, 원본을 보내면 숨긴 Claude·GPT 창이 휴대폰에만 보인다.
+    /// 다른 PC 로는 원본을 그대로 보낸다: 받는 PC 가 자기 설정으로 거른다.
+    /// </summary>
+    private void PublishAntigravityMobile()
+    {
+        if (!IsMobileProviderVisible(UsageProviderKind.Antigravity)) return;
+        var mobileLocal = AntigravityVm.LastSnapshot;
+        var showThirdParty = ShowAntigravityThirdPartyQuota;
+        PublishMobile(UsageProviderKind.Antigravity, null, "",
+            () => CreateAntigravityMobileQuotaSnapshot(mobileLocal, showThirdParty), null,
+            mobileLocal.HasData ? "" : ClassifyProviderError(mobileLocal.ErrorMessage));
+    }
+
+    /// <summary>
+    /// 휴대폰에 보낼 Antigravity 할당량 — <see cref="CreateAntigravityQuotaSnapshot"/> 에서 팝업에 보이지 않는 창을 뺀 것.
+    /// 남는 창이 없어도 HasData 는 그대로 둔다: 쿼터 없이 보내면 피드가 직전 쿼터(숨기기 전의 Claude·GPT 창)를 이어 붙인다.
+    /// </summary>
+    internal static UsageSyncQuotaSnapshot? CreateAntigravityMobileQuotaSnapshot(AntigravitySnapshot snapshot, bool showThirdParty)
+    {
+        var quota = CreateAntigravityQuotaSnapshot(snapshot);
+        if (quota is null) return null;
+        quota.Models = [.. quota.Models.Where(m => AntigravityViewModel.IsDisplayedBucket(m.ModelId, showThirdParty))];
+        return quota;
     }
 
     /// <summary>
