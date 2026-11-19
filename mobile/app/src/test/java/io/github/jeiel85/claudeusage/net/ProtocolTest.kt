@@ -63,6 +63,33 @@ class ProtocolTest {
         assertNull(antigravity.quota)
     }
 
+    /**
+     * DeepSeek free API (100milionseek, #318): the PC sends its daily allowance as one short window with
+     * shortWindowMinutes 1440 — the same JSON HmsMobileFeedTests checks on the PC side.
+     */
+    @Test
+    fun deepseek_daily_allowance_parses_as_one_day_window() {
+        val s = UsageSnapshot.parse(
+            """
+            {"schema":1,"ts":"2026-11-14T03:00:00+00:00","pcId":"p","pcName":"HOME-PC","appVersion":"1.72.0",
+             "providers":[{"provider":"100milionseek","accountHash":"${"c".repeat(64)}","accountScope":"account",
+              "accountLabel":"","observedAt":"2026-11-14T03:00:00+00:00","errorKind":"",
+              "quota":{"hasData":true,"observedAtUtc":"2026-11-14T03:00:00+00:00","shortUsagePercent":0.25,
+               "shortResetAt":"2026-11-15T00:00:00+00:00","isShortResetEstimated":false,"longUsagePercent":0,
+               "extraUsageEnabled":false,"extraHasLimit":false,"extraCreditsLabel":"","planType":"",
+               "shortWindowMinutes":1440,"hasLongWindow":false,"tierName":"","paidTierName":"",
+               "models":[],"additionalQuotas":[]}}]}
+            """.trimIndent(),
+        )
+        val deepseek = s.providers.single()
+        assertEquals("100milionseek", deepseek.provider)
+        val gauge = deepseek.quota!!.gauges.single()
+        assertEquals(GaugeKind.SHORT, gauge.kind)
+        assertEquals(0.25, gauge.usage, 1e-9)
+        assertEquals(24 * 60, gauge.windowMinutes)
+        assertEquals(ms("2026-11-15T00:00:00+00:00"), gauge.resetAtMs)
+    }
+
     @Test
     fun pairing_link_fixture_decodes_to_an_offer() {
         val link = fixture("pairing-link.v1.txt").trim()

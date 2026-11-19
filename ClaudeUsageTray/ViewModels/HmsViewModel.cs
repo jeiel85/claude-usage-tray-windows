@@ -31,6 +31,27 @@ public sealed partial class HmsViewModel : ObservableObject
 
     public bool HasQuota => Rows.Count > 0;
 
+    /// <summary>마지막 조회 결과 — 휴대폰 피드에 실을 때 쓴다(#318). 아직 조회 전이면 null.</summary>
+    internal HmsReadResult? LastResult { get; private set; }
+
+    /// <summary>
+    /// 휴대폰에 보낼 일일 한도. 이번 조회가 성공했을 때만 만든다 — 실패면 null 을 보내, 피드가 같은 키로 읽은 직전 값을
+    /// 원래 관측 시각 그대로 이어 붙이게 한다(새 시각을 찍으면 낡은 값이 방금 값처럼 보인다).
+    /// 하루 창이라 short 창 하나(1440분)로 보낸다 — 휴대폰은 이름 없이 창 길이로 "1d" 라고 적는다.
+    /// </summary>
+    internal static Models.UsageSyncQuotaSnapshot? CreateMobileQuota(HmsReadResult? result, DateTimeOffset now) =>
+        result is { State: HmsReadState.Ok, Usage: { } usage } && usage.ResetAt > now
+            ? new Models.UsageSyncQuotaSnapshot
+            {
+                HasData = true,
+                ObservedAtUtc = now.ToUniversalTime(),
+                ShortUsagePercent = usage.UsagePercent,
+                ShortResetAt = usage.ResetAt,
+                ShortWindowMinutes = 24 * 60,
+                HasLongWindow = false,
+            }
+            : null;
+
     /// <summary>게이지나 안내 중 하나라도 그릴 것이 있는가 — 섹션을 보이는 근거다.</summary>
     public bool HasContent => HasQuota || Notice.Length > 0;
 
@@ -71,6 +92,7 @@ public sealed partial class HmsViewModel : ObservableObject
     /// </summary>
     internal void Apply(HmsReadResult result, DateTimeOffset now)
     {
+        LastResult = result;
         switch (result.State)
         {
             case HmsReadState.Ok when result.Usage != null:

@@ -30,7 +30,7 @@ public sealed class MobileUsageFeed
     /// </summary>
     public static readonly TimeSpan MaxAge = TimeSpan.FromHours(6);
 
-    private static readonly string[] Order = ["claude", "codex", "opencode", "antigravity"];
+    private static readonly string[] Order = ["claude", "codex", "opencode", HmsUsageService.MobileProvider, "antigravity"];
 
     private readonly object _gate = new();
     private readonly Dictionary<string, MobileFeedEntry> _entries = new(StringComparer.OrdinalIgnoreCase);
@@ -69,6 +69,15 @@ public sealed class MobileUsageFeed
             }
             _entries[entry.Provider] = entry;
             Notify();
+        }
+    }
+
+    /// <summary>provider 하나를 뺀다(DeepSeek 키를 지웠을 때, #318).</summary>
+    public void Remove(string provider)
+    {
+        lock (_gate)
+        {
+            if (_entries.Remove(provider)) Notify();
         }
     }
 

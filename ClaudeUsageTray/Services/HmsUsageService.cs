@@ -47,6 +47,11 @@ public sealed record HmsReadResult(HmsReadState State, HmsDailyUsage? Usage = nu
 public sealed class HmsUsageService : IDisposable
 {
     internal static readonly Uri BaseUri = new("https://100milionseek.top/");
+    /// <summary>
+    /// 휴대폰 피드의 provider 값(#318). 서비스 이름 그대로 — 업데이트하지 않은 휴대폰 앱도 카드 이름으로 알아보고,
+    /// 공식 DeepSeek API 를 나중에 따로 넣어도 겹치지 않는다.
+    /// </summary>
+    public const string MobileProvider = "100milionseek";
     internal const string LoginPath = "api/login";
     internal const string MePath = "api/me";
     internal const string SessionCookieName = "hm_session";
