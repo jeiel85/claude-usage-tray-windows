@@ -645,6 +645,76 @@ public sealed class AntigravityApplyQuotaTests
         Assert.Equal(expected, AntigravityViewModel.IsThirdPartyBucket(bucketId));
     }
 
+    private static AntigravitySnapshot MixedSnapshot()
+    {
+        var reset = DateTimeOffset.Now.AddHours(3);
+        return new AntigravitySnapshot
+        {
+            HasData = true,
+            TierName = "Google AI Pro",
+            Models =
+            [
+                new AntigravityModelQuota { ModelId = "gemini-5h",      TokenType = "5h",     RemainingFraction = 0.8, ResetTime = reset },
+                new AntigravityModelQuota { ModelId = "gemini-weekly",  TokenType = "weekly", RemainingFraction = 0.6, ResetTime = reset },
+                new AntigravityModelQuota { ModelId = "3p-5h",          TokenType = "5h",     RemainingFraction = 0.5, ResetTime = reset },
+                new AntigravityModelQuota { ModelId = "3p-weekly",      TokenType = "weekly", RemainingFraction = 0.4, ResetTime = reset },
+                new AntigravityModelQuota { ModelId = "chat_internal",  RemainingFraction = 1.0, ResetTime = reset },
+                new AntigravityModelQuota { ModelId = "tab_internal",   RemainingFraction = 1.0, ResetTime = reset },
+            ],
+        };
+    }
+
+    // #304: 휴대폰은 받은 창을 모두 그린다. "Claude·GPT 한도도 표시" 를 끈 PC 는 팝업처럼 휴대폰에도 Gemini 창만 보내야 한다.
+    [Fact]
+    public void MobileQuota_HidesClaudeGptAndInternalBuckets_WhenTheSettingIsOff()
+    {
+        var quota = MainViewModel.CreateAntigravityMobileQuotaSnapshot(MixedSnapshot(), showThirdParty: false);
+
+        Assert.NotNull(quota);
+        Assert.True(quota!.HasData);
+        Assert.Equal("Google AI Pro", quota.TierName);
+        Assert.Equal(["gemini-5h", "gemini-weekly"], quota.Models.Select(m => m.ModelId));
+    }
+
+    [Fact]
+    public void MobileQuota_KeepsClaudeGpt_WhenTheSettingIsOn_ButNeverInternalBuckets()
+    {
+        var quota = MainViewModel.CreateAntigravityMobileQuotaSnapshot(MixedSnapshot(), showThirdParty: true);
+
+        Assert.Equal(["gemini-5h", "gemini-weekly", "3p-5h", "3p-weekly"], quota!.Models.Select(m => m.ModelId));
+    }
+
+    // 다른 PC 는 자기 설정으로 거르므로 동기화용 스냅샷은 원본 그대로여야 한다 — Claude·GPT 를 켠 PC 가 값을 잃으면 안 된다.
+    [Fact]
+    public void SyncQuota_StillCarriesEveryBucket()
+    {
+        var quota = MainViewModel.CreateAntigravityQuotaSnapshot(MixedSnapshot());
+
+        Assert.Equal(6, quota!.Models.Length);
+    }
+
+    // 남는 창이 없을 때 쿼터를 비우면(null) 피드가 직전 쿼터를 이어 붙여 숨긴 창이 그대로 남는다.
+    [Fact]
+    public void MobileQuota_WithOnlyHiddenBuckets_StillHasData_SoTheFeedDoesNotCarryOldGauges()
+    {
+        var reset = DateTimeOffset.Now.AddHours(3);
+        var onlyThirdParty = new AntigravitySnapshot
+        {
+            HasData = true,
+            Models = [new AntigravityModelQuota { ModelId = "3p-5h", TokenType = "5h", RemainingFraction = 0.5, ResetTime = reset }],
+        };
+        var feed = new ClaudeUsageTray.Services.Mobile.MobileUsageFeed();
+        feed.Publish(new ClaudeUsageTray.Services.Mobile.MobileFeedEntry(UsageProviderKind.Antigravity, null, "",
+            DateTimeOffset.UtcNow, "", MainViewModel.CreateAntigravityMobileQuotaSnapshot(onlyThirdParty, showThirdParty: true), null));
+
+        feed.Publish(new ClaudeUsageTray.Services.Mobile.MobileFeedEntry(UsageProviderKind.Antigravity, null, "",
+            DateTimeOffset.UtcNow, "", MainViewModel.CreateAntigravityMobileQuotaSnapshot(onlyThirdParty, showThirdParty: false), null));
+
+        var sent = Assert.Single(feed.Current("pc-1"));
+        Assert.True(sent.Quota!.HasData);
+        Assert.Empty(sent.Quota.Models);
+    }
+
     [Theory]
     [InlineData("ko")]
     [InlineData("en")]

@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.68.2] - 2026-11-19
+
+<!-- ko -->
+### 수정
+- **휴대폰에도 PC와 같은 Antigravity 한도만 보입니다 (#304)** — 설정 > 트레이의 "Antigravity 의 Claude·GPT 한도도 표시" 를 꺼 두어도 휴대폰 앱에는 Claude·GPT 창이 그대로 보였습니다. 이제 휴대폰에도 PC 팝업과 같은 창만 보내고, 설정을 바꾸면 다음 갱신을 기다리지 않고 바로 반영됩니다. 다른 PC 와의 동기화에는 계속 전체 값을 보내므로 각 PC 는 자기 설정대로 보여 줍니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The phone now shows the same Antigravity limits as the PC (#304)** — With "Also show Antigravity's Claude·GPT limits" turned off under Settings > Tray, the phone app still showed the Claude·GPT windows. The phone now receives only the windows the PC popup shows, and changing the setting updates the phone right away instead of at the next refresh. Syncing with other PCs still sends every window, so each PC shows them by its own setting.
+<!-- /en -->
+
 ## [1.68.1] - 2026-11-19
 
 <!-- ko -->
