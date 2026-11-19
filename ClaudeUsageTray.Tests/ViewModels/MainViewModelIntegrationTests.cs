@@ -407,9 +407,7 @@ public class MainViewModelIntegrationTests : IDisposable
                 Assert.All(bars, bar => Assert.Same(popup.FindResource("AntigravityBarStyle"), bar.Style));
 
                 // 시간선 마커는 창 길이를 아는 행(주간)에만 보인다.
-                var markers = FindChildren<System.Windows.Controls.Border>(list)
-                    .Where(border => Math.Abs(border.Width - 1.5) < 0.01)
-                    .ToList();
+                var markers = FindChildren<ClaudeUsageTray.Views.TimelineMarker>(list).ToList();
                 Assert.Equal(2, markers.Count);
                 Assert.Equal(1, markers.Count(m => m.Visibility == System.Windows.Visibility.Visible));
                 Assert.Equal(1, markers.Count(m => m.Visibility == System.Windows.Visibility.Collapsed));
@@ -570,9 +568,7 @@ public class MainViewModelIntegrationTests : IDisposable
                 Assert.Equal(2, bars.Count);
                 Assert.All(bars, bar => Assert.Same(popup.FindResource("CodexBarStyle"), bar.Style));
 
-                var markers = FindChildren<System.Windows.Controls.Border>(list)
-                    .Where(border => Math.Abs(border.Width - 1.5) < 0.01)
-                    .ToList();
+                var markers = FindChildren<ClaudeUsageTray.Views.TimelineMarker>(list).ToList();
                 Assert.Equal(2, markers.Count);
                 Assert.All(markers, marker => Assert.Equal(System.Windows.Visibility.Visible, marker.Visibility));
 
@@ -623,9 +619,7 @@ public class MainViewModelIntegrationTests : IDisposable
                 Assert.Equal(2, bars.Count);
                 Assert.All(bars, bar => Assert.Same(popup.FindResource("UsageBarStyle"), bar.Style));
 
-                var markers = FindChildren<System.Windows.Controls.Border>(list)
-                    .Where(border => Math.Abs(border.Width - 1.5) < 0.01)
-                    .ToList();
+                var markers = FindChildren<ClaudeUsageTray.Views.TimelineMarker>(list).ToList();
                 Assert.Equal(2, markers.Count);
                 Assert.Equal(System.Windows.Visibility.Visible, markers[0].Visibility);
                 Assert.Equal(System.Windows.Visibility.Collapsed, markers[1].Visibility);

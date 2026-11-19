@@ -26,6 +26,8 @@
     <string name="pc_retrying">PCに届きません · %1$d秒後に再試行</string>
     <string name="pc_unauthorized">PCでこのスマホの接続が解除されました。削除して再接続してください。</string>
     <string name="pc_incompatible">バージョン不一致 — PCアプリとこのアプリを更新してください</string>
+    <string name="pc_outdated">PCアプリ v%1$s は古いバージョンです — そのPCで %2$s 以降に更新すると、通常の通知が鳴らなくなります</string>
+    <string name="auth_failed_note">%1$s: キーが拒否されました — そのPCの設定でキーを入れ直してください</string>
     <string name="pc_offline">未接続</string>
     <string name="pc_last_received">最終受信 %1$s</string>
     <string name="pc_providers">サービス %1$d件</string>

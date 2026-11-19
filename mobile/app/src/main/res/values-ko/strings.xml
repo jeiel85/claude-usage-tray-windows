@@ -26,6 +26,8 @@
     <string name="pc_retrying">PC에 닿지 않음 · %1$d초 후 재시도</string>
     <string name="pc_unauthorized">PC에서 이 휴대폰의 연결이 해제되었습니다. 지우고 다시 연결하세요.</string>
     <string name="pc_incompatible">버전 불일치 — PC 앱과 이 앱을 업데이트하세요</string>
+    <string name="pc_outdated">PC 앱 v%1$s 는 오래된 버전입니다 — 그 PC 에서 %2$s 이상으로 업데이트하면 일상 알림이 울리지 않습니다</string>
+    <string name="auth_failed_note">%1$s: 키가 거절됐습니다 — 그 PC 설정에서 키를 다시 넣어 주세요</string>
     <string name="pc_offline">연결 안 됨</string>
     <string name="pc_last_received">마지막 수신 %1$s</string>
     <string name="pc_providers">서비스 %1$d개</string>

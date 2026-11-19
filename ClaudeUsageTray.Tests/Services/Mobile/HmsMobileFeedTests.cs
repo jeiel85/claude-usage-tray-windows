@@ -50,6 +50,17 @@ public class HmsMobileFeedTests
         Assert.Null(HmsViewModel.CreateMobileQuota(null, Now));
     }
 
+    // #320: 키 거절과 일시 실패를 휴대폰이 가릴 수 있어야 "PC 에서 키를 다시 넣어 주세요" 를 보인다.
+    [Theory]
+    [InlineData(HmsReadState.Ok, "")]
+    [InlineData(HmsReadState.InvalidKey, "auth_failed")]
+    [InlineData(HmsReadState.Unavailable, "source_error")]
+    public void ErrorKind_SeparatesARejectedKeyFromATemporaryFailure(HmsReadState state, string expected)
+    {
+        Assert.Equal(expected, MainViewModel.HmsMobileErrorKind(state));
+        Assert.Equal("auth_failed", MobileProtocol.AuthFailedErrorKind);
+    }
+
     [Fact]
     public void Quota_IsNotSentAfterTheDayReset()
     {
@@ -69,6 +80,12 @@ public class HmsMobileFeedTests
         Assert.Equal(HmsUsageService.MobileProvider, kept.Provider);
         Assert.Equal("account", kept.AccountScope);
         Assert.Equal(0.25, kept.Quota!.ShortUsagePercent);
+
+        // 키가 거절되면(#320) 직전 값을 잇지 않는다 — PC 화면처럼 값을 버리고 안내만.
+        feed.Publish(new MobileFeedEntry(HmsUsageService.MobileProvider, "key-a", "", Now, "auth_failed", null, null));
+        var rejected = feed.Current("pc-a").Single();
+        Assert.Null(rejected.Quota);
+        Assert.Equal("auth_failed", rejected.ErrorKind);
 
         // 키를 바꾼 뒤 실패면 옛 키의 값을 새 키의 것처럼 보이지 않는다.
         feed.Publish(new MobileFeedEntry(HmsUsageService.MobileProvider, "key-b", "", Now, "source_error", null, null));

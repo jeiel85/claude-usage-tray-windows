@@ -157,6 +157,73 @@ public class HmsUsageServiceTests
         Assert.Equal("hm_session=session-2", handler.MeCookies[^1]);
     }
 
+    // #310: 메모리에서만 버리면 옛 세션이 사이트에 남는다 — 대시보드의 로그아웃과 같은 요청으로 닫는다.
+    [Fact]
+    public async Task ReadAsync_ClosesTheOldSessionWhenTheKeyChanges()
+    {
+        var handler = new FakeSite { ValidKey = null };
+        var key = "hms_one";
+        using var service = new HmsUsageService(() => key, handler);
+        await service.ReadAsync();
+
+        key = "hms_two";
+        Assert.Equal(HmsReadState.Ok, (await service.ReadAsync()).State);
+
+        Assert.Equal(["POST /api/login", "GET /api/me", "POST /api/logout", "POST /api/login", "GET /api/me"], handler.Requests);
+        Assert.Equal(["hm_session=session-1"], handler.LogoutCookies);
+        Assert.Equal(["{}"], handler.LogoutBodies);
+        Assert.Equal(["session-2"], handler.LiveSessions);
+    }
+
+    [Fact]
+    public async Task ReadAsync_ClosesTheSessionOnceWhenTheKeyIsDeleted()
+    {
+        var handler = new FakeSite();
+        string? key = "hms_key_1";
+        using var service = new HmsUsageService(() => key, handler);
+        await service.ReadAsync();
+
+        key = null;
+        Assert.Equal(HmsReadState.NoKey, (await service.ReadAsync()).State);
+        Assert.Equal(HmsReadState.NoKey, (await service.ReadAsync()).State);
+
+        Assert.Equal(["POST /api/login", "GET /api/me", "POST /api/logout"], handler.Requests);
+        Assert.Empty(handler.LiveSessions);
+    }
+
+    [Fact]
+    public async Task ReadAsync_FailedLogoutDoesNotBlockTheNewKey()
+    {
+        var handler = new FakeSite { ValidKey = null };
+        var key = "hms_one";
+        using var service = new HmsUsageService(() => key, handler);
+        await service.ReadAsync();
+
+        handler.LogoutThrows = true;
+        key = "hms_two";
+        Assert.Equal(HmsReadState.Ok, (await service.ReadAsync()).State);
+        Assert.Equal("hm_session=session-2", handler.MeCookies[^1]);
+
+        // 닫지 못한 옛 쿠키는 다시 쓰지 않는다 — 다음 키 변경에서 닫는 것은 지금 세션뿐이다.
+        handler.LogoutThrows = false;
+        key = "hms_three";
+        await service.ReadAsync();
+        Assert.Equal(["hm_session=session-2"], handler.LogoutCookies);
+    }
+
+    [Fact]
+    public async Task ReadAsync_ExpiredSessionIsNotLoggedOut()
+    {
+        // /api/me 가 401 이면 쿠키는 이미 죽었다 — 닫으러 갈 것이 없다.
+        var handler = new FakeSite();
+        using var service = new HmsUsageService(() => "hms_key_1", handler);
+        await service.ReadAsync();
+        handler.ExpireSessions();
+        await service.ReadAsync();
+
+        Assert.DoesNotContain("POST /api/logout", handler.Requests);
+    }
+
     [Theory]
     [InlineData(HttpStatusCode.InternalServerError)]
     [InlineData(HttpStatusCode.TooManyRequests)]
@@ -439,7 +506,11 @@ public class HmsUsageServiceTests
         public string? LoginBodyOverride { get; set; }
         public string MeBody { get; set; } = MeJson;
         public bool Throw { get; set; }
+        public bool LogoutThrows { get; set; }
         public List<string> Requests { get; } = [];
+        public List<string> LogoutCookies { get; } = [];
+        public List<string> LogoutBodies { get; } = [];
+        public IReadOnlyList<string> LiveSessions => [.. _liveSessions.Order(StringComparer.Ordinal)];
         public List<string> LoginBodies { get; } = [];
         public List<string> MeCookies { get; } = [];
 
@@ -468,6 +539,18 @@ public class HmsUsageServiceTests
                 _liveSessions.Add(session);
                 var ok = Json(HttpStatusCode.OK, """{"ok":true}""");
                 ok.Headers.Add("Set-Cookie", $"hm_session={session}; Path=/; HttpOnly; Secure; SameSite=Lax");
+                return ok;
+            }
+
+            if (request.RequestUri.AbsolutePath == "/api/logout")
+            {
+                if (LogoutThrows) throw new HttpRequestException("offline");
+                var cookie = request.Headers.TryGetValues("Cookie", out var values) ? values.Single() : "";
+                LogoutCookies.Add(cookie);
+                LogoutBodies.Add(await request.Content!.ReadAsStringAsync(ct));
+                if (cookie.StartsWith("hm_session=", StringComparison.Ordinal)) _liveSessions.Remove(cookie["hm_session=".Length..]);
+                var ok = Json(HttpStatusCode.OK, """{"ok":true}""");
+                ok.Headers.Add("Set-Cookie", "hm_session=; Path=/; Max-Age=0; SameSite=Strict; HttpOnly; Secure");
                 return ok;
             }
 

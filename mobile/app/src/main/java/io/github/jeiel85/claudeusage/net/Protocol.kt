@@ -248,6 +248,9 @@ data class ProviderUsage(
         const val SCOPE_ACCOUNT = "account"
         const val SCOPE_DEVICE = "device"
 
+        /** [errorKind]: the service rejected this PC's key or sign-in (#320) — only re-entering it on that PC helps. */
+        const val ERROR_AUTH_FAILED = "auth_failed"
+
         fun parse(o: JSONObject): ProviderUsage? {
             val provider = o.optString("provider").lowercase()
             val hash = o.optString("accountHash")

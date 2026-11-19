@@ -1862,11 +1862,21 @@ namespace ClaudeUsageTray.ViewModels;
                 break;
             case HmsMobileAction.Publish:
                 PublishMobile(HmsUsageService.MobileProvider, result!.KeyId, "",
-                    () => HmsViewModel.CreateMobileQuota(result, now), null,
-                    result.State == HmsReadState.Ok ? "" : "source_error");
+                    () => HmsViewModel.CreateMobileQuota(result, now), null, HmsMobileErrorKind(result.State));
                 break;
         }
     }
+
+    /// <summary>
+    /// 휴대폰 피드 <c>errorKind</c>(#320). 키 거절은 <see cref="MobileProtocol.AuthFailedErrorKind"/> 로 따로 보내 휴대폰 카드가
+    /// "PC 에서 키를 다시 넣어 주세요" 를 보인다 — 일시 실패(<c>source_error</c>)와 섞이면 값이 멈춘 이유를 알 수 없다.
+    /// </summary>
+    internal static string HmsMobileErrorKind(HmsReadState state) => state switch
+    {
+        HmsReadState.Ok => "",
+        HmsReadState.InvalidKey => MobileProtocol.AuthFailedErrorKind,
+        _ => "source_error",
+    };
 
     internal enum HmsMobileAction { Skip, Publish, Remove }
 

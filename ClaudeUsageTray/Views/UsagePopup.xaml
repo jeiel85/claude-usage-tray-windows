@@ -740,14 +740,7 @@
                                       ToolTip="{Binding ClaudeVm.ShortPaceTip}">
                                     <ProgressBar views:GaugeAnimation.Value="{Binding ClaudeVm.ShortPercent}" Maximum="1" Style="{StaticResource PaceOverBarStyle}" VerticalAlignment="Center"/>
                                     <ProgressBar views:GaugeAnimation.Value="{Binding ClaudeVm.ShortUsageCapped}" Maximum="1" Style="{StaticResource PaceUsageBarStyle}" VerticalAlignment="Center"/>
-                                    <Grid VerticalAlignment="Center" Height="8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="{Binding ClaudeVm.ShortTimePercent, Converter={StaticResource PercentToStar}}"/>
-                                            <ColumnDefinition Width="{Binding ClaudeVm.ShortTimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"
-                                                Visibility="{Binding ClaudeVm.HasShortTimeline, Converter={StaticResource BoolToVisibility}}"/>
-                                    </Grid>
+                                    <views:TimelineMarker Percent="{Binding ClaudeVm.ShortTimePercent}" Visibility="{Binding ClaudeVm.HasShortTimeline, Converter={StaticResource BoolToVisibility}}"/>
                                 </Grid>
                             </Grid>
                             <!-- 요약("42% 사용 · 잔량 58%")은 바로 위 줄과 같은 정보라 라벨 툴팁으로 옮겼다(#224) -->
@@ -776,14 +769,7 @@
                                       ToolTip="{Binding ClaudeVm.LongPaceTip}">
                                     <ProgressBar views:GaugeAnimation.Value="{Binding ClaudeVm.LongPercent}" Maximum="1" Style="{StaticResource PaceOverBarStyle}" VerticalAlignment="Center"/>
                                     <ProgressBar views:GaugeAnimation.Value="{Binding ClaudeVm.LongUsageCapped}" Maximum="1" Style="{StaticResource PaceUsageBarStyle}" VerticalAlignment="Center"/>
-                                    <Grid VerticalAlignment="Center" Height="8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="{Binding ClaudeVm.LongTimePercent, Converter={StaticResource PercentToStar}}"/>
-                                            <ColumnDefinition Width="{Binding ClaudeVm.LongTimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"
-                                                Visibility="{Binding ClaudeVm.HasLongTimeline, Converter={StaticResource BoolToVisibility}}"/>
-                                    </Grid>
+                                    <views:TimelineMarker Percent="{Binding ClaudeVm.LongTimePercent}" Visibility="{Binding ClaudeVm.HasLongTimeline, Converter={StaticResource BoolToVisibility}}"/>
                                 </Grid>
                             </Grid>
                             
@@ -810,14 +796,7 @@
                                             </Grid>
                                             <Grid Height="8" Margin="0,4,0,0" ToolTip="{Binding PaceTip}">
                                                 <ProgressBar views:GaugeAnimation.Key="{Binding AnimationKey, StringFormat='claude:{0}'}" views:GaugeAnimation.Value="{Binding UsagePercent}" Maximum="1" Style="{StaticResource UsageBarStyle}" VerticalAlignment="Center"/>
-                                                <Grid VerticalAlignment="Center" Height="8">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="{Binding TimePercent, Converter={StaticResource PercentToStar}}"/>
-                                                        <ColumnDefinition Width="{Binding TimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"
-                                                            Visibility="{Binding HasTimeline, Converter={StaticResource BoolToVisibility}}"/>
-                                                </Grid>
+                                                <views:TimelineMarker Percent="{Binding TimePercent}" Visibility="{Binding HasTimeline, Converter={StaticResource BoolToVisibility}}"/>
                                             </Grid>
                                             <TextBlock Text="{Binding Summary}" Foreground="#8B92B3" FontSize="10" Margin="0,3,0,0"/>
                                         </StackPanel>
@@ -1107,14 +1086,7 @@
                         <!-- 시간선 마커: 창 진행률 위치에 세로선. 창 길이는 응답의 window_minutes 기준. -->
                         <Grid Height="8" Margin="0,4,0,0" ToolTip="{Binding CodexShortPaceTip}">
                             <ProgressBar views:GaugeAnimation.Value="{Binding CodexPercent}" Maximum="1" Style="{StaticResource CodexBarStyle}" VerticalAlignment="Center"/>
-                            <Grid VerticalAlignment="Center" Height="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="{Binding CodexShortTimePercent, Converter={StaticResource PercentToStar}}"/>
-                                    <ColumnDefinition Width="{Binding CodexShortTimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
-                                </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"
-                                        Visibility="{Binding HasCodexShortTimeline, Converter={StaticResource BoolToVisibility}}"/>
-                            </Grid>
+                            <views:TimelineMarker Percent="{Binding CodexShortTimePercent}" Visibility="{Binding HasCodexShortTimeline, Converter={StaticResource BoolToVisibility}}"/>
                         </Grid>
                         <Border Height="10"/>
 
@@ -1134,14 +1106,7 @@
                             </Grid>
                             <Grid Height="8" Margin="0,4,0,0" ToolTip="{Binding CodexLongPaceTip}">
                                 <ProgressBar views:GaugeAnimation.Value="{Binding CodexLongPercent}" Maximum="1" Style="{StaticResource CodexBarStyle}" VerticalAlignment="Center"/>
-                                <Grid VerticalAlignment="Center" Height="8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="{Binding CodexLongTimePercent, Converter={StaticResource PercentToStar}}"/>
-                                        <ColumnDefinition Width="{Binding CodexLongTimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"
-                                            Visibility="{Binding HasCodexLongTimeline, Converter={StaticResource BoolToVisibility}}"/>
-                                </Grid>
+                                <views:TimelineMarker Percent="{Binding CodexLongTimePercent}" Visibility="{Binding HasCodexLongTimeline, Converter={StaticResource BoolToVisibility}}"/>
                             </Grid>
                         </StackPanel>
 
@@ -1166,14 +1131,7 @@
                                         </Grid>
                                         <Grid Height="8" Margin="0,4,0,0" ToolTip="{Binding PaceTip}">
                                             <ProgressBar views:GaugeAnimation.Key="{Binding AnimationKey, StringFormat='codex:{0}'}" views:GaugeAnimation.Value="{Binding UsagePercent}" Maximum="1" Style="{StaticResource CodexBarStyle}" VerticalAlignment="Center"/>
-                                            <Grid VerticalAlignment="Center" Height="8">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="{Binding TimePercent, Converter={StaticResource PercentToStar}}"/>
-                                                    <ColumnDefinition Width="{Binding TimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
-                                                </Grid.ColumnDefinitions>
-                                                <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"
-                                                        Visibility="{Binding HasTimeline, Converter={StaticResource BoolToVisibility}}"/>
-                                            </Grid>
+                                            <views:TimelineMarker Percent="{Binding TimePercent}" Visibility="{Binding HasTimeline, Converter={StaticResource BoolToVisibility}}"/>
                                         </Grid>
                                         <TextBlock Text="{Binding Summary}" Foreground="#8B92B3" FontSize="10" Margin="0,4,0,0"/>
                                     </StackPanel>
@@ -1291,14 +1249,7 @@
                                 </Grid>
                                 <Grid Height="8" Margin="0,4,0,0">
                                     <ProgressBar views:GaugeAnimation.Value="{Binding OpenCodeVm.RollingPercent}" Maximum="1" Style="{StaticResource OpenCodeBarStyle}" VerticalAlignment="Center"/>
-                                    <Grid VerticalAlignment="Center" Height="8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="{Binding OpenCodeVm.RollingTimePercent, Converter={StaticResource PercentToStar}}"/>
-                                            <ColumnDefinition Width="{Binding OpenCodeVm.RollingTimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Border x:Name="OpenCodeRollingTimelineMarker" Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"
-                                                Visibility="{Binding OpenCodeVm.HasRollingTimeline, Converter={StaticResource BoolToVisibility}}"/>
-                                    </Grid>
+                                    <views:TimelineMarker x:Name="OpenCodeRollingTimelineMarker" Percent="{Binding OpenCodeVm.RollingTimePercent}" Visibility="{Binding OpenCodeVm.HasRollingTimeline, Converter={StaticResource BoolToVisibility}}"/>
                                 </Grid>
                             </StackPanel>
 
@@ -1313,14 +1264,7 @@
                                 </Grid>
                                 <Grid Height="8" Margin="0,4,0,0">
                                     <ProgressBar views:GaugeAnimation.Value="{Binding OpenCodeVm.WeeklyPercent}" Maximum="1" Style="{StaticResource OpenCodeBarStyle}" VerticalAlignment="Center"/>
-                                    <Grid VerticalAlignment="Center" Height="8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="{Binding OpenCodeVm.WeeklyTimePercent, Converter={StaticResource PercentToStar}}"/>
-                                            <ColumnDefinition Width="{Binding OpenCodeVm.WeeklyTimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Border x:Name="OpenCodeWeeklyTimelineMarker" Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"
-                                                Visibility="{Binding OpenCodeVm.HasWeeklyTimeline, Converter={StaticResource BoolToVisibility}}"/>
-                                    </Grid>
+                                    <views:TimelineMarker x:Name="OpenCodeWeeklyTimelineMarker" Percent="{Binding OpenCodeVm.WeeklyTimePercent}" Visibility="{Binding OpenCodeVm.HasWeeklyTimeline, Converter={StaticResource BoolToVisibility}}"/>
                                 </Grid>
                             </StackPanel>
 
@@ -1335,14 +1279,7 @@
                                 </Grid>
                                 <Grid Height="8" Margin="0,4,0,0">
                                     <ProgressBar views:GaugeAnimation.Value="{Binding OpenCodeVm.MonthlyPercent}" Maximum="1" Style="{StaticResource OpenCodeBarStyle}" VerticalAlignment="Center"/>
-                                    <Grid VerticalAlignment="Center" Height="8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="{Binding OpenCodeVm.MonthlyTimePercent, Converter={StaticResource PercentToStar}}"/>
-                                            <ColumnDefinition Width="{Binding OpenCodeVm.MonthlyTimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Border x:Name="OpenCodeMonthlyTimelineMarker" Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"
-                                                Visibility="{Binding OpenCodeVm.HasMonthlyTimeline, Converter={StaticResource BoolToVisibility}}"/>
-                                    </Grid>
+                                    <views:TimelineMarker x:Name="OpenCodeMonthlyTimelineMarker" Percent="{Binding OpenCodeVm.MonthlyTimePercent}" Visibility="{Binding OpenCodeVm.HasMonthlyTimeline, Converter={StaticResource BoolToVisibility}}"/>
                                 </Grid>
                             </StackPanel>
                         </StackPanel>
@@ -1474,14 +1411,7 @@
                                             </Grid>
                                             <Grid Height="8" Margin="0,4,0,0" ToolTip="{Binding PaceTip}">
                                                 <ProgressBar views:GaugeAnimation.Key="{Binding AnimationKey, StringFormat='hms:{0}'}" views:GaugeAnimation.Value="{Binding UsagePercent, Mode=OneWay}" Maximum="1" Style="{StaticResource DeepSeekBarStyle}" VerticalAlignment="Center"/>
-                                                <Grid VerticalAlignment="Center" Height="8">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="{Binding TimePercent, Converter={StaticResource PercentToStar}}"/>
-                                                        <ColumnDefinition Width="{Binding TimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"
-                                                            Visibility="{Binding HasTimeline, Converter={StaticResource BoolToVisibility}}"/>
-                                                </Grid>
+                                                <views:TimelineMarker Percent="{Binding TimePercent}" Visibility="{Binding HasTimeline, Converter={StaticResource BoolToVisibility}}"/>
                                             </Grid>
                                             <TextBlock Text="{Binding Summary}" Foreground="#8B92B3" FontSize="10" Margin="0,4,0,0" TextWrapping="Wrap"/>
                                         </StackPanel>
@@ -1544,14 +1474,7 @@
                                             <!-- 시간선 마커: 창 진행률 위치에 세로선 (주간 7일 / 5시간 창 기준) -->
                                             <Grid Height="8" Margin="0,4,0,0" ToolTip="{Binding PaceTip}">
                                                 <ProgressBar views:GaugeAnimation.Key="{Binding AnimationKey, StringFormat='antigravity:{0}'}" views:GaugeAnimation.Value="{Binding UsagePercent}" Maximum="1" Style="{StaticResource AntigravityBarStyle}" VerticalAlignment="Center"/>
-                                                <Grid VerticalAlignment="Center" Height="8">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="{Binding TimePercent, Converter={StaticResource PercentToStar}}"/>
-                                                        <ColumnDefinition Width="{Binding TimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"
-                                                            Visibility="{Binding HasTimeline, Converter={StaticResource BoolToVisibility}}"/>
-                                                </Grid>
+                                                <views:TimelineMarker Percent="{Binding TimePercent}" Visibility="{Binding HasTimeline, Converter={StaticResource BoolToVisibility}}"/>
                                             </Grid>
                                             <!-- 요약 한 줄 — Codex·Claude 게이지 아래와 같은 자리·같은 문구 형식 -->
                                             <TextBlock Text="{Binding Summary}" Foreground="#8B92B3" FontSize="10" Margin="0,4,0,10"/>

@@ -7,6 +7,7 @@ import io.github.jeiel85.claudeusage.net.Quota
 import io.github.jeiel85.claudeusage.net.TodayTotals
 import io.github.jeiel85.claudeusage.net.UsageSnapshot
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -155,6 +156,29 @@ class AccountAggregatorTest {
         assertEquals(5, cards.size)
         val shown = cards.filter(AccountAggregator::hasUsage).map { "${it.provider}|${it.key.substringAfter('|').take(1)}" }
         assertEquals(listOf("claude|a", "claude|b", "codex|a"), shown)
+    }
+
+    /**
+     * #320: a PC whose key the service rejected sends errorKind "auth_failed" and no value. The card stays visible
+     * and names that PC — otherwise it vanished (no gauge) or looked merely stale, with no hint of what to fix.
+     */
+    @Test
+    fun rejected_key_keeps_the_card_and_names_the_pc() {
+        fun rejected(hash: String) = ProviderUsage("100milionseek", hash, ProviderUsage.SCOPE_ACCOUNT, "", now, "auth_failed", null, null)
+        fun failed(hash: String) = ProviderUsage("100milionseek", hash, ProviderUsage.SCOPE_ACCOUNT, "", now, "source_error", null, null)
+        val cards = AccountAggregator.aggregate(todayDate = TODAY, nowMs = now, pcs = listOf(
+            pc("p1", "HOME", rejected(hashA)),
+            pc("p2", "WORK", usage(hashA, now - 60_000, quota(0.5, now - 60_000), provider = "100milionseek")),
+            pc("p3", "LAPTOP", failed(hashB)),
+        ))
+        val withA = cards.single { it.key.endsWith(hashA) }
+        assertEquals(listOf("HOME"), AccountAggregator.authFailedOn(withA).map { it.pcName })
+        assertTrue(AccountAggregator.hasUsage(withA))
+
+        // Only a rejection is something to fix: a temporary failure with nothing to show stays hidden.
+        val withB = cards.single { it.key.endsWith(hashB) }
+        assertTrue(AccountAggregator.authFailedOn(withB).isEmpty())
+        assertFalse(AccountAggregator.hasUsage(withB))
     }
 }
 

@@ -118,7 +118,17 @@ object AccountAggregator {
 
     /**
      * Input : an aggregated card
-     * Output: whether it has anything to show — a gauge, today's tokens or an extra-credits line (#326)
+     * Output: the PCs whose latest report says the service rejected their key (#320), in card order
+     * Key logic: the PC drops the value then (it will not come back until the key is entered again), so the card
+     * says which PC needs attention instead of looking merely stale.
+     */
+    fun authFailedOn(card: AccountCard): List<AccountDevice> =
+        card.devices.filter { it.errorKind == ProviderUsage.ERROR_AUTH_FAILED }
+
+    /**
+     * Input : an aggregated card
+     * Output: whether it has anything to show — a gauge, today's tokens, an extra-credits line (#326) or a
+     *         rejected key to fix (#320)
      * Key logic: a card with none of these (a provider the PC sees but cannot read: signed-out OpenCode,
      * Antigravity without quota) is only "no quota yet" plus PC chips, so the Accounts tab leaves it out.
      * The PCs tab still lists every PC.
@@ -126,7 +136,8 @@ object AccountAggregator {
     fun hasUsage(card: AccountCard): Boolean =
         card.gauges.isNotEmpty() ||
             (card.today?.totalTokens ?: 0L) > 0L ||
-            !card.quota?.extraCreditsLabel.isNullOrBlank()
+            !card.quota?.extraCreditsLabel.isNullOrBlank() ||
+            authFailedOn(card).isNotEmpty()
 
     /** The bar the summary chip shows: the most used window of the card (what will run out first). */
     fun headline(card: AccountCard): Gauge? = card.gauges.maxByOrNull { it.usage }

@@ -26,6 +26,8 @@
     <string name="pc_retrying">Can\'t reach the PC · retry in %1$d s</string>
     <string name="pc_unauthorized">This phone was disconnected on the PC. Remove it and pair again.</string>
     <string name="pc_incompatible">Version mismatch — update the PC app and this app</string>
+    <string name="pc_outdated">PC app v%1$s is out of date — update it to %2$s or later on that PC so routine alerts stop ringing</string>
+    <string name="auth_failed_note">%1$s: the key was rejected — enter it again in that PC\'s settings</string>
     <string name="pc_offline">Not connected</string>
     <string name="pc_last_received">last update %1$s</string>
     <string name="pc_providers">%1$d services</string>
