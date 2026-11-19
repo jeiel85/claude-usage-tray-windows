@@ -80,6 +80,12 @@
     <string name="cat_weather_desc">PCで有効なら予報・警報</string>
     <string name="cat_test">テスト</string>
     <string name="cat_other">その他</string>
+    <string name="channel_urgent">重要な通知</string>
+    <string name="channel_urgent_desc">使用量 90・100%、レート制限、気象警報 — 音・バイブあり</string>
+    <string name="channel_quiet">その他の通知</string>
+    <string name="channel_quiet_desc">それ以外の通知 — 音・バイブなし</string>
+    <string name="push_sound_hint">重要な通知(使用量 90・100%、レート制限、気象警報)だけ音とバイブで知らせます。それ以外は通知欄に静かに届きます。</string>
+    <string name="push_sound_settings">音の設定</string>
 
     <string name="legacy_app_title">以前のバージョンのアプリがまだインストールされています</string>
     <string name="legacy_app_body">このアプリが以前のアプリに代わりますが、以前のアプリを更新したりデータを引き継いだりはできません。両方がペアリングされていると通知が2回届きます。ここでPCを再接続してから、以前のアプリを削除してください。</string>

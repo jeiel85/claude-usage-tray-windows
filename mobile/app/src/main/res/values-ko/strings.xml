@@ -80,6 +80,12 @@
     <string name="cat_weather_desc">PC에서 켰다면 예보·특보</string>
     <string name="cat_test">테스트</string>
     <string name="cat_other">기타</string>
+    <string name="channel_urgent">중요 알림</string>
+    <string name="channel_urgent_desc">사용량 90·100%, 레이트 리밋, 기상 특보 — 소리·진동</string>
+    <string name="channel_quiet">일반 알림</string>
+    <string name="channel_quiet_desc">그 밖의 알림 — 소리·진동 없음</string>
+    <string name="push_sound_hint">중요한 알림(사용량 90·100%, 레이트 리밋, 기상 특보)만 소리·진동이 납니다. 나머지는 알림창에 조용히 쌓입니다.</string>
+    <string name="push_sound_settings">소리 설정</string>
 
     <string name="legacy_app_title">이전 버전 앱이 아직 설치돼 있습니다</string>
     <string name="legacy_app_body">이 앱이 이전 앱을 대신하지만, 이전 앱을 업데이트하거나 데이터를 옮겨 오지는 못합니다. 두 앱이 모두 페어링돼 있으면 알림이 두 번 옵니다. 여기서 PC를 다시 연결한 뒤 이전 앱을 삭제하세요.</string>

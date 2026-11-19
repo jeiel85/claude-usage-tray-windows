@@ -112,6 +112,7 @@ git fetch origin && git pull origin master && git status
 ## 📜 최근 변경 이력 요약
 *상세 내용은 [CHANGELOG.md](./CHANGELOG.md) 참조*
 
+- **v1.68.0**: 휴대폰 알림 중요도 분리(#297) — 휴대폰은 종류별 채널(`cut.<category>`) 대신 `cut.alert.urgent`(HIGH, 소리·진동)·`cut.alert.quiet`(LOW) 두 채널, 고르는 기준은 메시지 `priority` 뿐(`NotificationGroups.isUrgent`: `warning`·`critical`). 채널 중요도는 만든 뒤 앱이 못 바꾸므로 옛 채널은 `PushNotifier.ensureChannels`(앱 시작·알림마다)가 지운다 — 새 채널 id 는 `cut.` 뒤에 점을 넣어 옛 패턴(`isLegacyChannel`)과 겹치지 않게 한다. 종류별 끄기는 앱 '받을 알림'(PC 가 건너뜀). 그래서 "울리는 알림" 은 PC 가 정한다: 사용량 90·100%, 레이트 리밋(4), 공식 기상 특보(`WeatherPriority.Official`)만 4 이상 — 새 알림을 추가할 때 우선순위를 이 기준으로 고른다(`AlertPriorityTests`).
 - **v1.67.1**: 상대가 지운 페어링 철회(#285) — `DELETE /api/v1/pair`(Bearer, 토큰의 기기 자신만 `Revoke`). 휴대폰 `MainActivity.removePc` → `UsageApi.forget`(405·404 옛 PC면 `DELETE /api/v1/push` 로 대신), PC 동기화 `PeerSyncClient.Remove` 도 상대 PC 에 보낸다(최선 노력, 목록은 바로 지움). 안 보내면 상대 목록에 옛 항목이 남아 다시 연결 시 같은 기기가 두 번 보였다(옛 항목은 `SetPushSubscription` 의 같은 엔드포인트 정리에 안 걸림: 푸시 해제로 비었거나 재설치로 주소가 다름). 이름·기종으로 자동 정리는 하지 않는다(같은 기종·이름의 다른 휴대폰). 휴대폰 단위 테스트는 `mockwebserver`(`ForgetPcTest`).
 - **v1.67.3**: 업데이트 서명(#290, `docs/DECISIONS.md` D-1) — `UpdateService.SelectUpdate` 는 exe 와 `ClaudeUsageTray.exe.sig` 가 모두 있는 가장 새 릴리스만 고르고, `DownloadAndPrepareUpdateAsync(url, sigUrl, version, …)` 는 `UpdateSignature.Verify`(ECDSA P-256, 메시지 `claude-usage-tray-update/v1
 <x.y.z>
