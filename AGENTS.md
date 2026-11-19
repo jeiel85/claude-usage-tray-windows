@@ -31,6 +31,10 @@ git fetch origin && git pull origin master && git status
 - 모든 새 문자열은 `LocalizationService.cs`에 4개 언어(ko, zh, ja, en)를 모두 추가한다.
 - `Loc.Name` 패턴을 유지한다.
 
+### 3-1. 화면 디자인
+- 팝업·설정 창에 공급자 섹션·게이지·안내 줄·입력 칸을 넣거나 고칠 때는 **먼저 [`docs/UI_GUIDELINES.md`](docs/UI_GUIDELINES.md) 를 읽고 그 규칙(색·막대 높이·주 게이지/목록 행·안내 줄·설정 탭 스크롤)을 따른다.** 새 패턴이 필요하면 같은 PR 에서 문서를 고친다.
+- 화면을 바꾸면 `UiSnapshotTests` 로 렌더해 눈으로 확인한다(문서 7절).
+
 ### 4. 품질 및 안정성
 - 사용하지 않는 변수/경고를 방치하지 않는다.
 - `IDisposable` 리소스는 반드시 정리한다.
@@ -112,6 +116,7 @@ git fetch origin && git pull origin master && git status
 ## 📜 최근 변경 이력 요약
 *상세 내용은 [CHANGELOG.md](./CHANGELOG.md) 참조*
 
+- **v1.71.1**: UI 규칙 문서화(#316) — `docs/UI_GUIDELINES.md`. DeepSeek 게이지가 `ProgressBar` 에 `Height="8"` 을 직접 줘 두 배 두꺼웠고(막대 높이는 스타일 값 4만 쓴다), 섹션 주 게이지인데 목록 행 규칙(말줄임)이라 이름이 잘렸다 → 주 게이지 규칙(이름 Auto 열, 초기화만 줄바꿈), `WindowRowLayoutTests.DeepSeekGaugeRow_*` 가 4개 언어 배치와 막대 높이를 본다(템플릿 안 행은 시각 트리에서 찾음). 설정 탭 내용은 모두 `ScrollViewer` 안(`SettingsHmsKeySaveTests.EveryTab_ScrollsInsteadOfClipping`) — 트레이·알림 탭에 없어 키 칸이 들어가자 아래가 잘렸다.
 - **v1.71.0**: Claude 계정 별명 PC 간 동기화(#313) — 별명마다 바꾼 시각을 둔다(`AccountAliasEntry`, 지운 것은 Alias "" 기록; 설정은 v1.70.0 모양의 `ClaudeAccountAliases` + `ClaudeAccountAliasUpdatedAt`). `UsageSyncSnapshot.AccountAlias`(선택 필드 `accountAlias: {keyHash, alias, updatedAtUtc}`, 스키마 버전 그대로)를 `TrySyncClaudeUsage` 가 싣고(`ClaudeSyncAlias` — 기록이 없으면 null, "없음" 으로 남의 별명을 지우지 않게), 모은 스냅샷에서 `AccountAlias.PickSynced`(자기 별명 키 해시 `ClaudeAliasKeyHash` 와 같고 자기 기기가 아닌 것) → `Wins`(더 최근 시각, 같으면 문자열 순서로 모든 PC 가 같은 값) 면 UI 스레드에서 적용·저장(`AdoptSyncedClaudeAlias`). 스냅샷 계정 해시는 조직 단위라 키 해시로 팀 조직의 다른 사람을 거른다. 따른 별명은 다음 갱신 스냅샷부터 다시 나간다.
 - **v1.70.1**: 새로고침 UI 정지·DeepSeek 분리(#311) — `CodexViewModel`·`OpenCodeViewModel` 은 스냅샷을 `Task.Run` 으로 읽는다: `await` 뒤 이어짐은 UI 스레드로 돌아오므로 API 응답 뒤의 동기 로그 스캔(이 PC 11~17초)이 화면을 붙잡았다(새로고침 한 번에 UI 최대 정지 14.2초 → 0.1초, DispatcherTimer 간격으로 측정). 새 공급자 읽기도 무거우면 같은 방식으로. DeepSeek 은 `HmsViewModel`(`MainViewModel.HmsVm`) 독립 섹션 — 펼침 키 `MainViewModel.HmsFocusKey`("hms", `UsageProviderKind` 아님: 트레이 기준·표시 목록에 넣지 않음, 키가 있을 때만 유효). 섹션 표시는 `HmsVm.HasContent`(게이지 또는 안내). 설정 키 칸은 [저장] 버튼·Enter 로만 저장한다.
 - **v1.70.0**: Claude 계정 별명(#307) — 설정 `ClaudeAccountAliases`(키 = 휴대폰 계정 키 `orgUuid|accountUuid`, `BuildClaudeMobileAccountKey`)에 계정마다 따로 저장, `AccountAlias`(20자, `PcName.Clean` 규칙)로 정리. 있으면 팝업 배지·휴대폰 피드 `accountLabel`(`ClaudeMobileAccountLabel`)·앱 푸시 `accountLabel` 에 이름 대신 쓰고, `AppPushSender.Build` 가 `PushAccount.Alias` 로 제목 앞에 `[별명] ` 을 붙인다(`AlertText.WithAccountAlias`) — Android 12+ 헤드업·접힌 알림은 subText(계정 이름)를 안 보여 줘서. 휴대폰 앱 변경 없음. 평문 ntfy·Windows 풍선에는 넣지 않는다. 설정 창 칸은 LostFocus·Enter 와 창이 숨을 때(`IsVisibleChanged` — 바깥 클릭으로 숨으면 LostFocus 가 오지 않음) 저장한다. 다른 PC 로 동기화되지 않는다(PC 마다 설정).

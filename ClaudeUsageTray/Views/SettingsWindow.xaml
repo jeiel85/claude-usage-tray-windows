@@ -520,6 +520,9 @@
                     <!-- ===== TAB 2: 트레이 ===== -->
                     <TabItem x:Name="TabTray" Style="{StaticResource DarkTabItem}">
                         <Border Style="{StaticResource TabCard}">
+                            <!-- 내용이 창 상한을 넘으면 마지막 항목이 조용히 잘린다 — 일반 탭과 같이 스크롤을 둔다
+                                 (DeepSeek 키 칸이 들어가며 트레이 탭 아래쪽이 잘렸다, #316). -->
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel>
                                 <TextBlock x:Name="LblTrayDisplayMode" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
                                 <ComboBox x:Name="CmbTrayDisplayMode" Style="{StaticResource DarkCombo}" Margin="0,0,0,8" SelectionChanged="Setting_Changed">
@@ -631,12 +634,16 @@
                                 </Grid>
                                 <TextBlock x:Name="LblUsagePanelOpacityHint" Foreground="#5A5F7A" FontSize="11" Margin="2,0,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
+                            </ScrollViewer>
                         </Border>
                     </TabItem>
 
                     <!-- ===== TAB 3: 알림 ===== -->
                     <TabItem x:Name="TabAlerts" Style="{StaticResource DarkTabItem}">
                         <Border Style="{StaticResource TabCard}">
+                            <!-- 내용이 창 상한을 넘으면 마지막 항목이 조용히 잘린다 — 일반 탭과 같이 스크롤을 둔다
+                                 (DeepSeek 키 칸이 들어가며 트레이 탭 아래쪽이 잘렸다, #316). -->
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel>
                                 <TextBlock x:Name="LblThresholds" Style="{StaticResource SectionLabel}" Margin="0,0,0,8"/>
                                 <CheckBox x:Name="ChkRateLimit"  Style="{StaticResource CheckStyle}" Click="Setting_Changed"/>
@@ -676,6 +683,7 @@
                                 <TextBlock x:Name="LblStep2"    Visibility="Collapsed"/>
                                 <TextBlock x:Name="LblStep3"    Visibility="Collapsed"/>
                             </StackPanel>
+                            </ScrollViewer>
                         </Border>
                     </TabItem>
 
