@@ -84,6 +84,7 @@ import io.github.jeiel85.claudeusage.domain.AccountAggregator
 import io.github.jeiel85.claudeusage.domain.AccountCard
 import io.github.jeiel85.claudeusage.domain.PcConnection
 import io.github.jeiel85.claudeusage.domain.PcStatus
+import io.github.jeiel85.claudeusage.domain.PcVersions
 import io.github.jeiel85.claudeusage.net.Gauge
 import io.github.jeiel85.claudeusage.net.GaugeKind
 import io.github.jeiel85.claudeusage.push.NotificationHistory
@@ -308,10 +309,19 @@ private fun AccountCardView(card: AccountCard, now: Long) {
                 }
             }
 
+            val authFailed = AccountAggregator.authFailedOn(card)
             if (card.gauges.isEmpty()) {
-                Text(stringResource(R.string.no_quota), color = Palette.TextDim, fontSize = 12.sp)
+                // A rejected key says why there is nothing better than "no quota yet" does.
+                if (authFailed.isEmpty()) Text(stringResource(R.string.no_quota), color = Palette.TextDim, fontSize = 12.sp)
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(14.dp)) { card.gauges.forEach { GaugeRow(it, now) } }
+            }
+            if (authFailed.isNotEmpty()) {
+                Text(
+                    stringResource(R.string.auth_failed_note, authFailed.joinToString(", ") { it.pcName }),
+                    color = Palette.Warn,
+                    fontSize = 12.sp,
+                )
             }
             card.quota?.extraCreditsLabel?.takeIf { it.isNotBlank() }?.let {
                 Text(it, color = Palette.TextSoft, fontSize = 12.sp)
@@ -467,6 +477,14 @@ private fun PcRow(s: PcStatus, now: Long, onRemove: (String) -> Unit, onRename: 
                     s.snapshot?.appVersion?.takeIf { it.isNotBlank() }?.let { add("v$it") }
                 }
                 if (parts.isNotEmpty()) Text(parts.joinToString(" · "), color = Palette.TextDim, fontSize = 12.sp)
+                // #299: an old PC rings for routine alerts no matter what this app does — only updating the PC helps.
+                s.snapshot?.appVersion?.takeIf { PcVersions.isOutdated(it) }?.let {
+                    Text(
+                        stringResource(R.string.pc_outdated, it, PcVersions.RECOMMENDED_MIN),
+                        color = Palette.Warn,
+                        fontSize = 12.sp,
+                    )
+                }
             }
             Box {
                 IconButton(onClick = { menu = true }, modifier = Modifier.offset(x = 8.dp, y = (-8).dp)) {

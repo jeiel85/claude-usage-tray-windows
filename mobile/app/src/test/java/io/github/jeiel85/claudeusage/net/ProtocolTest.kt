@@ -1,5 +1,7 @@
 package io.github.jeiel85.claudeusage.net
 
+import io.github.jeiel85.claudeusage.domain.AccountAggregator
+import io.github.jeiel85.claudeusage.domain.PcView
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -85,6 +87,38 @@ class ProtocolTest {
         assertEquals("100milionseek", deepseek.provider)
         val gauge = deepseek.quota!!.gauges.single()
         assertEquals(GaugeKind.SHORT, gauge.kind)
+        assertEquals(0.25, gauge.usage, 1e-9)
+        assertEquals(24 * 60, gauge.windowMinutes)
+        assertEquals(ms("2026-11-15T00:00:00+00:00"), gauge.resetAtMs)
+    }
+
+    /**
+     * The PC→phone path for real (#320): usage-snapshot.served.v1.json is the first /api/v1/live frame of a paired
+     * PC server whose feed got its values from the PC's own producers (MobileServedSnapshotTests). Parsing it and
+     * grouping it into account cards is what the Accounts tab does with a live frame — so a new provider that the PC
+     * starts sending is checked to become a card without pairing a phone.
+     */
+    @Test
+    fun served_live_frame_becomes_account_cards() {
+        val s = UsageSnapshot.parse(fixture("usage-snapshot.served.v1.json"))
+        assertEquals("HOME-PC", s.pcName)
+        val now = ms("2026-11-14T03:00:00+00:00")
+        val cards = AccountAggregator.aggregate(
+            listOf(PcView(s.pcId, s.pcName, true, s, now)), now, todayDate = "2026-11-14",
+        )
+        assertEquals(listOf("claude", "100milionseek"), cards.map { it.provider })
+        assertTrue(cards.all(AccountAggregator::hasUsage))
+
+        val claude = cards[0]
+        assertEquals("김민준 · Acme Corp", claude.label)
+        assertEquals("max", claude.planType)
+        assertEquals(listOf(GaugeKind.SHORT, GaugeKind.LONG), claude.gauges.map { it.kind })
+        assertEquals(2_734_000L, claude.today?.totalTokens)
+
+        val deepseek = cards[1]
+        assertTrue(deepseek.accountScoped)
+        assertTrue(AccountAggregator.authFailedOn(deepseek).isEmpty())
+        val gauge = deepseek.gauges.single()
         assertEquals(0.25, gauge.usage, 1e-9)
         assertEquals(24 * 60, gauge.windowMinutes)
         assertEquals(ms("2026-11-15T00:00:00+00:00"), gauge.resetAtMs)

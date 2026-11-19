@@ -46,6 +46,9 @@ public sealed record HmsReadResult(HmsReadState State, HmsDailyUsage? Usage = nu
 /// 확인이 실패하면(5xx·429·네트워크·형식 변경) 다음 시도까지 1·2·4·8·16·30분씩 쉰다 — 사이트 장애 동안
 /// 매 폴링마다 로그인·조회를 두드리지 않기 위해서다(#310). 429 의 <c>Retry-After</c> 가 더 길면 그걸 따른다(상한 1시간).
 /// 성공하거나 키가 바뀌면 바로 처음부터 다시 시도한다.
+/// 키를 바꾸거나 지우면 다음 조회 때 옛 쿠키로 <c>POST /api/logout</c> 을 보내 사이트의 세션도 닫는다(#310, 대시보드의
+/// 로그아웃 버튼과 같은 요청). 메모리에서만 버리면 그 세션이 사이트에 남는다. 앱을 끌 때는 닫지 않는다 — 종료 중 네트워크를
+/// 기다리지 않기 위해서이고, 쿠키를 디스크에 두지 않으므로 그 세션은 사이트의 만료에 맡긴다.
 /// </remarks>
 public sealed class HmsUsageService : IDisposable
 {
@@ -57,6 +60,7 @@ public sealed class HmsUsageService : IDisposable
     public const string MobileProvider = "100milionseek";
     internal const string LoginPath = "api/login";
     internal const string MePath = "api/me";
+    internal const string LogoutPath = "api/logout";
     internal const string SessionCookieName = "hm_session";
     /// <summary>대시보드와 같은 브라우저 UA — 기본 .NET UA 는 Cloudflare 가 막을 수 있다.</summary>
     private const string BrowserUserAgent =
@@ -114,12 +118,12 @@ public sealed class HmsUsageService : IDisposable
         {
             if (string.IsNullOrEmpty(key))
             {
-                ForgetSession();
+                await CloseSessionAsync(ct);
                 _rejectedKey = null;
                 ForgetFailures();
                 return new HmsReadResult(HmsReadState.NoKey);
             }
-            if (!string.Equals(key, _sessionKey, StringComparison.Ordinal)) ForgetSession();
+            if (!string.Equals(key, _sessionKey, StringComparison.Ordinal)) await CloseSessionAsync(ct);
             if (string.Equals(key, _rejectedKey, StringComparison.Ordinal))
                 return new HmsReadResult(HmsReadState.InvalidKey, KeyId: keyId);
             if (!string.Equals(key, _failedKey, StringComparison.Ordinal)) ForgetFailures();
@@ -243,6 +247,30 @@ public sealed class HmsUsageService : IDisposable
     {
         _sessionKey = null;
         _sessionCookie = null;
+    }
+
+    /// <summary>
+    /// 키가 바뀌거나 지워졌을 때 옛 세션을 사이트에서 닫는다(#310). 최선 노력이다 — 실패해도(오프라인·사이트 장애) 조회를
+    /// 막지 않고 세션은 사이트의 만료에 맡긴다(고치기 전과 같은 상태). 옛 쿠키는 결과와 상관없이 다시 쓰지 않는다.
+    /// </summary>
+    private async Task CloseSessionAsync(CancellationToken ct)
+    {
+        var cookie = _sessionCookie;
+        ForgetSession();
+        if (cookie == null) return;
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, LogoutPath)
+            {
+                Content = new StringContent("{}", Encoding.UTF8, "application/json"),
+            };
+            request.Headers.Add("Cookie", $"{SessionCookieName}={cookie}");
+            using var response = await _http.SendAsync(request, ct);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
+        {
+            // 위 설명대로 버린다 — 닫지 못한 세션은 사이트가 만료시킨다.
+        }
     }
 
     /// <summary>

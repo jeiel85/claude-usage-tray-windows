@@ -3,6 +3,26 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.72.6] - 2026-11-20
+
+<!-- ko -->
+### 개선
+- **하드닝 3차: 휴대폰 키 거절 표시·PC 버전 안내·DeepSeek 세션 정리 (#320 #299 #310 #237)**
+  - 휴대폰 앱: DeepSeek 키가 거절되면 카드에 어느 PC 에서 키를 다시 넣어야 하는지 보입니다(전에는 값만 멈춰 이유를 알 수 없었습니다). PC 는 키 거절을 일시 실패와 구분해 보냅니다.
+  - 휴대폰 앱 PC 탭: v1.68.0 보다 오래된 PC 에 업데이트 안내를 보입니다 — 그런 PC 는 날씨 예보 같은 일상 알림도 휴대폰에서 울립니다.
+  - DeepSeek(100milionseek) 키를 바꾸거나 지우면 사이트의 이전 로그인 세션도 닫습니다.
+  - 팝업 게이지의 시간선 마커를 한 요소로 묶었습니다(보이는 모양은 같습니다). PC 서버가 실제로 보내는 실시간 데이터를 휴대폰 파서로 읽는 테스트를 넣었습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Hardening, round 3: rejected key on the phone, PC version notice, DeepSeek session cleanup (#320 #299 #310 #237)**
+  - Phone app: when the DeepSeek key is rejected, the card says which PC needs the key entered again (before, the value just stopped with no reason). The PC now reports a rejected key apart from a temporary failure.
+  - Phone app PCs tab: PCs older than v1.68.0 get an update notice — such PCs make even routine alerts like weather forecasts ring on the phone.
+  - Changing or removing the DeepSeek (100milionseek) key now also closes the previous sign-in session on the site.
+  - The time marker on popup gauges is now a single shared element (it looks the same). A new test reads what the PC server actually sends live with the phone's parser.
+<!-- /en -->
+
 ## [1.72.5] - 2026-11-20
 
 <!-- ko -->

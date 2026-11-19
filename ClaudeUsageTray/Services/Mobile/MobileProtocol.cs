@@ -28,6 +28,12 @@ public static class MobileProtocol
     /// <summary>QR 오퍼를 이 앱 것으로 알아보는 표시 필드(<c>"cu": 1</c>). Homebase QR 의 <c>hb</c> 와 같은 역할.</summary>
     public const int OfferMarker = 1;
 
+    /// <summary>
+    /// 사용량 피드 <c>errorKind</c>: 서비스가 이 PC 의 키·로그인을 거절했다(#320) — 사용자가 PC 에서 다시 넣어야 풀린다.
+    /// 휴대폰은 이 값일 때 카드에 그 안내를 보인다(다른 값은 일시 실패로 보고 표시하지 않는다).
+    /// </summary>
+    public const string AuthFailedErrorKind = "auth_failed";
+
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,

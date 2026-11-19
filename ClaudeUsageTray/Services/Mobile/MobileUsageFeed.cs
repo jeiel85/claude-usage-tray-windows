@@ -51,6 +51,8 @@ public sealed class MobileUsageFeed
     ///           UsageSyncService.CreateSnapshot 이 채운다) 여기서 새로 받은 쿼터에 이번 관측 시각을 찍는다. 찍지 않으면
     ///           이어 붙인 쿼터가 실패할 때마다 "방금 관측" 으로 보이고, MaxAge 판정도 매번 연장되며, 휴대폰은 다른 PC 의
     ///           더 새로운 성공 값보다 이 낡은 값을 고른다(Codex 리뷰 P2).
+    ///           키·로그인 거절(<see cref="MobileProtocol.AuthFailedErrorKind"/>, #320)은 잇지 않는다 — 일시 실패가 아니라
+    ///           다시 넣기 전까지 값이 오지 않는 상태라, PC 화면처럼 값을 버리고 휴대폰은 안내만 보인다.
     /// </summary>
     public void Publish(MobileFeedEntry entry)
     {
@@ -60,6 +62,7 @@ public sealed class MobileUsageFeed
                 fresh.ObservedAtUtc = entry.ObservedAt.ToUniversalTime();
 
             if (entry.Quota is not { HasData: true }
+                && !string.Equals(entry.ErrorKind, MobileProtocol.AuthFailedErrorKind, StringComparison.Ordinal)
                 && _entries.TryGetValue(entry.Provider, out var previous)
                 && previous.Quota is { HasData: true, ObservedAtUtc: { } previousObservedAt } previousQuota
                 && string.Equals(previous.AccountKey, entry.AccountKey, StringComparison.Ordinal)

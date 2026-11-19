@@ -75,4 +75,40 @@ public class PopupGaugeBindingRuleTests
             .Where(s => (string?)s.Attribute("Property") == "Value");
         Assert.Empty(valueSetters);
     }
+
+    /// <summary>
+    /// #237: 시간선 마커는 <c>views:TimelineMarker</c> 하나로 그린다. 게이지마다 열 두 개짜리 Grid 를 복사하던 때는
+    /// 한 곳만 고치면 나머지가 어긋났다. 막대가 있는 틀(높이 8)마다 마커가 하나씩 있는지도 본다.
+    /// </summary>
+    [Fact]
+    public void TimelineMarkers_UseTheSharedElement()
+    {
+        var text = File.ReadAllText(PopupXamlPath());
+        Assert.DoesNotContain("ConverterParameter=inverse", text);
+        Assert.DoesNotContain("Background=\"#E2E8F0\"", text);
+
+        var doc = XDocument.Load(PopupXamlPath(), LoadOptions.SetLineInfo);
+        const string ViewsNs = "clr-namespace:ClaudeUsageTray.Views";
+        var markers = doc.Descendants(XName.Get("TimelineMarker", ViewsNs)).ToList();
+        Assert.NotEmpty(markers);
+
+        // 막대 틀(높이 8 Grid 에 ProgressBar)마다 마커가 정확히 하나.
+        var frames = doc.Descendants(XName.Get("Grid", WpfNs))
+            .Where(g => (string?)g.Attribute("Height") == "8" && g.Elements(XName.Get("ProgressBar", WpfNs)).Any());
+        foreach (var frame in frames)
+        {
+            var line = ((System.Xml.IXmlLineInfo)frame).LineNumber;
+            Assert.True(frame.Elements(XName.Get("TimelineMarker", ViewsNs)).Count() == 1,
+                $"UsagePopup.xaml:{line} gauge frame needs exactly one views:TimelineMarker");
+        }
+        foreach (var marker in markers)
+        {
+            var line = ((System.Xml.IXmlLineInfo)marker).LineNumber;
+            Assert.NotNull(marker.Attribute("Percent"));
+            Assert.True(((string?)marker.Attribute("Visibility"))?.Contains("BoolToVisibility") == true,
+                $"UsagePopup.xaml:{line} TimelineMarker must hide when the window length is unknown");
+            Assert.True(marker.Parent?.Elements(XName.Get("ProgressBar", WpfNs)).Any() == true,
+                $"UsagePopup.xaml:{line} TimelineMarker is not overlaid on a bar");
+        }
+    }
 }

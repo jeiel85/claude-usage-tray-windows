@@ -3,6 +3,9 @@
 휴대폰 앱(`mobile/`)과 각 PC의 트레이 앱 사이 계약입니다. 구조는 [Homebase](https://github.com/jeiel85/homebase)의
 Mobile Protocol v1(`docs/MOBILE_PROTOCOL.md`, DECISIONS M-1~M-25)을 따릅니다. 형식은 [`mobile-protocol/`](mobile-protocol/)의
 픽스처로 고정하며, .NET(`MobileProtocolGoldenTests`)과 Kotlin(`ProtocolTest`)이 같은 파일을 검증합니다.
+[`usage-snapshot.served.v1.json`](mobile-protocol/usage-snapshot.served.v1.json)은 손으로 만든 객체가 아니라, 페어링한 PC 서버가
+`/api/v1/live` 로 실제로 보낸 첫 프레임입니다(`MobileServedSnapshotTests`, #320 — 공급자 쪽 쿼터 생성 → 피드 → 서버). 휴대폰
+`ProtocolTest.served_live_frame_becomes_account_cards` 가 이 파일을 계정 카드로 묶어, 새 공급자가 휴대폰을 연결하지 않고도 카드가 되는지 봅니다.
 의도적으로 형식을 바꿀 때는 `CUT_UPDATE_GOLDEN=1 dotnet test`로 픽스처를 다시 쓰고, 호환이 깨지면 `schema`를 올립니다.
 
 ## 전체 구조
@@ -100,7 +103,8 @@ https://jeiel85.github.io/claude-usage-tray-windows/pair/#<base64url(UTF-8 JSON 
 | `providers[].provider` | `claude`·`codex`·`opencode`·`antigravity`·`100milionseek`. `100milionseek` 은 DeepSeek 무료 API 의 일일 토큰 한도(#318): 계정 키는 API 키 지문(`accountScope` `account`), 쿼터는 short 창 하나(`shortUsagePercent`·`shortResetAt`=UTC 자정·`shortWindowMinutes` 1440), `today` 없음. 앱은 이름 "DeepSeek" 으로 보여 준다(모르는 provider 도 같은 경로로 그려지므로 예전 앱은 "100milionseek" 카드) |
 | `providers[].accountHash`, `accountScope` | 위 "계정 묶기" 참고(`account`·`device`) |
 | `providers[].accountLabel` | 표시 이름. Claude는 사용자가 PC 설정에서 붙인 계정 별명(#307), 없으면 "이름 · 팀 조직"(`~/.claude.json`), Codex는 이름(`~/.codex/auth.json` id_token의 `name`, 이메일 꼴이면 생략·64자 제한, #266). 이메일·UUID는 넣지 않음 |
-| `providers[].observedAt`, `errorKind` | 이 PC가 마지막으로 조회한 시각, 실패 종류 |
+| `providers[].observedAt`, `errorKind` | 이 PC가 마지막으로 조회한 시각, 실패 종류(빈 값 = 성공). `auth_failed`(#320, 지금은 DeepSeek 키 거절)는 PC에서 키·로그인을 다시 넣어야 풀리는 상태 — 피드는 직전 쿼터를 잇지 않고, 앱은 카드에 "그 PC 설정에서 키를 다시 넣어 주세요"와 PC 이름을 보입니다(값이 없어도 카드를 숨기지 않음). 그 밖의 값(`source_error`·`api_error` 등)은 일시 실패로 보고 앱이 따로 표시하지 않습니다 |
+| `appVersion` 안내 | 앱 PC 탭은 `appVersion` 이 `PcVersions.RECOMMENDED_MIN`(1.68.0) 보다 낮은 PC에 업데이트 안내를 보입니다(#299) — 그 전 PC는 날씨 예보 같은 일상 알림도 `warning` 으로 보내 휴대폰에서 울립니다. 읽을 수 없는 버전은 안내하지 않습니다 |
 | `providers[].quota` | 다중 PC 동기화와 같은 `UsageSyncQuotaSnapshot`(사용률은 0~1 비율) |
 | `providers[].today` | 오늘 이 PC의 토큰·세션·요청 수와 그 PC의 현지 날짜 `date`(없으면 생략). 앱은 휴대폰의 오늘 날짜와 같은 것만 더함 — 밤새 꺼진 PC의 어제 합계가 섞이지 않게 |
 
