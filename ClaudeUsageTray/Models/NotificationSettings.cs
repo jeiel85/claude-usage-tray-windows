@@ -151,6 +151,11 @@ public class NotificationSettings
     /// 설정 파일이 동기화·백업되어도 다른 PC·사용자는 풀 수 없다. 비어 있으면 Quick Tunnel.
     /// </summary>
     public string MobileCloudflareTokenProtected { get; set; } = "";
+    /// <summary>
+    /// 100milionseek(DeepSeek 무료 API) 키(#306). 터널 토큰과 같이 DPAPI(현재 사용자) base64 로만 저장한다.
+    /// 비어 있으면 일일 한도를 조회하지 않는다.
+    /// </summary>
+    public string HmsApiKeyProtected { get; set; } = "";
     /// <summary>cloudflared.exe 경로. 비우면 설치 폴더·PATH 에서 찾는다(파일에서만 바꾼다).</summary>
     public string MobileCloudflaredPath { get; set; } = "";
 

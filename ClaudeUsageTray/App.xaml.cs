@@ -19,6 +19,7 @@ public partial class App : Application
     private MainViewModel? _vm;
     private UsagePopup? _popup;
     private OpenCodeWebUsageService? _openCodeWebUsage;
+    private HmsUsageService? _hmsUsage;
 
     // Menu item references for status updates
     private ToolStripMenuItem? _claudeStatusItem;
@@ -89,6 +90,8 @@ public partial class App : Application
         var codexMonitor = new CodexUsageMonitor();
         var openCodeMonitor = new OpenCodeUsageMonitor();
         _openCodeWebUsage = new OpenCodeWebUsageService();
+        // 키는 설정 화면이 바꾸는 즉시 다음 조회에 반영되도록 ViewModel 의 현재 값을 그때그때 푼다(#306).
+        _hmsUsage = new HmsUsageService(() => Services.Mobile.MobileSecret.Unprotect(_vm?.HmsApiKeyProtected));
         var antigravityMonitor = new AntigravityUsageMonitor();
         var notifier = new NotificationService(() => _trayIcon);
         var updater = new UpdateService();
@@ -104,7 +107,7 @@ public partial class App : Application
 
         _vm = new MainViewModel(apiService, credService, sessionMonitor, codexMonitor,
             openCodeMonitor, antigravityMonitor, notifier, settingsService, updater, history, usageSync, weather, weatherAlert,
-            _openCodeWebUsage);
+            _openCodeWebUsage, hmsUsage: _hmsUsage);
         // 휴대폰 앱 푸시(#222): 앱이 QR 로 연결되면 알림이 토픽 없이 휴대폰 앱으로 간다.
         notifier.AppPush = _vm.Mobile;
         notifier.SendsPhoneAlerts = () => _vm?.NtfySendFromThisPc ?? true;
@@ -425,6 +428,7 @@ public partial class App : Application
         _vm?.Dispose();
         _popup?.Dispose();
         _openCodeWebUsage?.Dispose();
+        _hmsUsage?.Dispose();
 
         if (_trayIcon != null)
         {
