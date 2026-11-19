@@ -26,6 +26,29 @@ public sealed class UsageSyncSnapshot
     public UsageSyncLocalTotals LocalTotals { get; set; } = new();
     public string ErrorKind { get; set; } = "";
     public string Source { get; set; } = "local";
+
+    /// <summary>
+    /// 보낸 PC 가 지금 계정에 붙인 별명(#313, Claude 만). 그 PC 에 별명 기록이 없으면 null — 예전 PC 의 스냅샷에도 없다.
+    /// 필드 추가라 <see cref="UsageSyncSchema.CurrentVersion"/> 은 올리지 않는다(예전 PC 는 무시한다).
+    /// </summary>
+    public UsageSyncAccountAlias? AccountAlias { get; set; }
+}
+
+/// <summary>
+/// PC 간 동기화로 주고받는 계정 별명(#313). 받는 PC 는 <c>KeyHash</c> 가 자기 별명 키의 해시와 같을 때만,
+/// 더 최근에 바뀐 쪽을 따른다(<see cref="Services.AccountAlias.Wins"/>). 스냅샷의 <c>AccountHash</c> 는 조직 단위라
+/// 팀 조직에서는 다른 사람의 스냅샷도 같은 묶음으로 오기 때문에 키 해시를 따로 싣는다.
+/// </summary>
+public sealed class UsageSyncAccountAlias
+{
+    /// <summary>별명 키(Claude <c>orgUuid|accountUuid</c>)의 해시 — <c>UsageSyncService.BuildAccountHash("claude", 키)</c>.</summary>
+    public string KeyHash { get; set; } = "";
+
+    /// <summary>별명. 빈 문자열이면 그 PC 에서 별명을 지웠다는 뜻이다.</summary>
+    public string Alias { get; set; } = "";
+
+    /// <summary>별명을 바꾼 시각(UTC). v1.70.0 에서 넣고 그 뒤 바꾸지 않은 별명은 가장 옛 시각.</summary>
+    public DateTimeOffset UpdatedAtUtc { get; set; }
 }
 
 /// <summary>

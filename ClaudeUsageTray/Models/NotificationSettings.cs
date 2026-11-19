@@ -137,6 +137,12 @@ public class NotificationSettings
     /// </summary>
     public Dictionary<string, string> ClaudeAccountAliases { get; set; } = new();
 
+    /// <summary>
+    /// 별명을 바꾼 시각(UTC, #313). 키는 <see cref="ClaudeAccountAliases"/> 와 같고, 지운 별명도 시각이 남는다 —
+    /// PC 간 동기화에서 더 최근에 바꾼 쪽을 따르는 기준이다. 키가 없던 v1.70.0 파일은 빈 사전(가장 옛 시각으로 친다).
+    /// </summary>
+    public Dictionary<string, DateTimeOffset> ClaudeAccountAliasUpdatedAt { get; set; } = new();
+
     // 휴대폰 앱 연동(#220). 기본은 꺼짐 — 켜야 이 PC 가 휴대폰용 포트를 연다.
     public bool MobileEnabled { get; set; } = false;
     /// <summary>같은 Wi-Fi·유선 LAN 경로(TLS 핀 고정).</summary>

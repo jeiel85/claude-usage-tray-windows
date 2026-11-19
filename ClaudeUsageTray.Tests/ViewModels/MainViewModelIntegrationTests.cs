@@ -1012,6 +1012,120 @@ public class MainViewModelIntegrationTests : IDisposable
         });
     }
 
+    // PC 간 동기화(#313): 같은 계정을 보는 다른 PC 가 더 최근에 바꾼 별명(지운 것 포함)을 이 PC 도 따른다.
+    // 공유 폴더 동기화로 "다른 PC" 의 스냅샷을 흉내 낸다 — PC 직접 동기화도 같은 스냅샷을 주고받는다.
+    [Fact]
+    public async Task ClaudeAccountAlias_FollowsANewerChangeFromAnotherPc()
+    {
+        await WpfTestHost.RunAsync(async () =>
+        {
+            SignIn(TeamOrg);
+            var folder = Path.Combine(_dir, "sync");
+            Directory.CreateDirectory(folder);
+            var aliasKey = $"{TeamOrg}|{AccountUuid}";
+            var otherPc = new UsageSyncService(Path.Combine(_dir, "other-pc"), deviceName: "PC-A");
+            void OtherPcSays(string alias, DateTimeOffset at)
+            {
+                var snapshot = otherPc.CreateSnapshot(UsageProviderKind.Claude, TeamOrg, null, new UsageSyncLocalTotals());
+                snapshot.AccountAlias = new UsageSyncAccountAlias
+                {
+                    KeyHash = MainViewModel.ClaudeAliasKeyHash(aliasKey),
+                    Alias = alias,
+                    UpdatedAtUtc = at,
+                };
+                otherPc.WriteSnapshot(folder, snapshot);
+            }
+            async Task RefreshAndApply(MainViewModel model)
+            {
+                await model.RefreshAsync();
+                // 다른 PC 의 별명은 UI 스레드에 올려 적용하므로 한 번 비운다.
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(
+                    () => { }, System.Windows.Threading.DispatcherPriority.Background);
+            }
+
+            var vm = CreateViewModel();
+            try
+            {
+                vm.UsageSyncEnabled = true;
+                vm.UsageSyncFolderPath = folder;
+
+                OtherPcSays("회사", DateTimeOffset.UtcNow);
+                await RefreshAndApply(vm);
+                Assert.Equal("회사", vm.ClaudeAccountAlias);
+                Assert.Equal(" · 회사", vm.ClaudeAccountBadgeText);
+                // 따른 별명은 이 PC 설정에도 저장되고(다음 실행에도 남는다), 이 PC 의 스냅샷으로 다시 나간다(가십).
+                var saved = new SettingsService(Path.Combine(_dir, "claude-usage-tray.json")).Load();
+                Assert.Equal("회사", saved.ClaudeAccountAliases[aliasKey]);
+                Assert.True(saved.ClaudeAccountAliasUpdatedAt.ContainsKey(aliasKey));
+                await RefreshAndApply(vm);
+                Assert.Equal("회사", ReadOwnClaudeSnapshot(folder).AccountAlias?.Alias);
+
+                // 이 PC 에서 나중에 바꾼 별명은 다른 PC 의 더 옛 기록에 밀리지 않는다.
+                Assert.True(vm.SetClaudeAccountAlias("개인"));
+                OtherPcSays("회사", DateTimeOffset.UtcNow.AddHours(-1));
+                await RefreshAndApply(vm);
+                Assert.Equal("개인", vm.ClaudeAccountAlias);
+
+                // 다른 PC 가 더 나중에 지우면 이 PC 도 지운다 — 원래 계정 이름으로 돌아간다.
+                OtherPcSays("", DateTimeOffset.UtcNow.AddMinutes(1));
+                await RefreshAndApply(vm);
+                Assert.Equal("", vm.ClaudeAccountAlias);
+                Assert.Equal(" · 김민준 · Acme Corp", vm.ClaudeAccountBadgeText);
+            }
+            finally
+            {
+                vm.Dispose();
+            }
+        });
+    }
+
+    // 같은 팀 조직의 다른 사람이 붙인 별명은 따르지 않는다 — 동기화 묶음(조직 해시)은 같아도 별명 키가 다르다.
+    [Fact]
+    public async Task ClaudeAccountAlias_IgnoresAnotherPersonInTheSameOrganization()
+    {
+        await WpfTestHost.RunAsync(async () =>
+        {
+            SignIn(TeamOrg);
+            var folder = Path.Combine(_dir, "sync");
+            Directory.CreateDirectory(folder);
+            var otherPerson = new UsageSyncService(Path.Combine(_dir, "colleague-pc"), deviceName: "COLLEAGUE");
+            var snapshot = otherPerson.CreateSnapshot(UsageProviderKind.Claude, TeamOrg, null, new UsageSyncLocalTotals());
+            snapshot.AccountAlias = new UsageSyncAccountAlias
+            {
+                KeyHash = MainViewModel.ClaudeAliasKeyHash($"{TeamOrg}|00000000-0000-0000-0000-0000000000c9"),
+                Alias = "동료",
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+            };
+            otherPerson.WriteSnapshot(folder, snapshot);
+
+            var vm = CreateViewModel();
+            try
+            {
+                vm.UsageSyncEnabled = true;
+                vm.UsageSyncFolderPath = folder;
+                await vm.RefreshAsync();
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(
+                    () => { }, System.Windows.Threading.DispatcherPriority.Background);
+
+                Assert.Equal("", vm.ClaudeAccountAlias);
+                // 별명 기록이 없는 PC 는 동기화에 별명을 싣지 않는다 — "없음" 으로 다른 PC 의 별명을 지우지 않게.
+                Assert.Null(ReadOwnClaudeSnapshot(folder).AccountAlias);
+            }
+            finally
+            {
+                vm.Dispose();
+            }
+        });
+    }
+
+    /// <summary>공유 폴더에서 이 테스트 VM(앱 데이터 폴더 _dir/appdata)이 쓴 오늘 Claude 스냅샷.</summary>
+    private UsageSyncSnapshot ReadOwnClaudeSnapshot(string folder)
+    {
+        var mine = new UsageSyncService(Path.Combine(_dir, "appdata"));
+        var read = mine.ReadSnapshots(folder, UsageProviderKind.Claude, TeamOrg, DateOnly.FromDateTime(DateTime.Now));
+        return Assert.Single(read.Snapshots, s => s.DeviceId == mine.DeviceId);
+    }
+
     // 자동 설치를 끄면 대기 시간 슬라이더는 의미가 없으므로 함께 비활성화된다.
     // (ElementName 바인딩은 깨져도 예외 없이 조용히 false 로 남으므로 실제 상태로 확인한다.)
     [Theory]

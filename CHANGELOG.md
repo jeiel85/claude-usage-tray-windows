@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.71.0] - 2026-11-19
+
+<!-- ko -->
+### 개선
+- **Claude 계정 별명이 PC 끼리 맞춰집니다 (#313)** — 같은 계정을 여러 PC 에서 쓸 때, 한 PC 에서 별명을 넣거나 바꾸거나 지우면 PC 동기화(직접 동기화·공유 폴더)로 연결된 다른 PC 도 다음 갱신 때 같은 별명을 씁니다. 지금까지는 PC 마다 따로라, 한 PC 에만 넣으면 휴대폰 계정 카드 이름이 별명과 원래 이름을 오가고 알림 제목의 `[별명]` 도 붙었다 안 붙었다 했습니다.
+- 여러 PC 에서 다르게 넣었으면 가장 나중에 바꾼 별명을 따릅니다. 같은 팀 조직의 다른 사람이 붙인 별명은 따르지 않습니다.
+- PC 동기화를 켜지 않았으면 지금처럼 PC 마다 따로입니다. 다른 PC 가 v1.71.0 이전 버전이면 별명을 주고받지 않습니다(동기화 자체는 그대로 됩니다).
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Claude account nicknames now stay the same across your PCs (#313)** — When several PCs watch the same account, setting, changing or clearing the nickname on one PC is picked up by the other PCs linked by PC sync (direct sync or a shared folder) at their next refresh. Until now each PC kept its own, so setting it on just one PC made the phone's account card switch between the nickname and the account name, and the `[nickname]` in alert titles came and went.
+- If PCs were given different nicknames, the most recent change wins. Nicknames set by other people in the same team organization are not picked up.
+- Without PC sync, each PC still keeps its own. PCs on versions before v1.71.0 don't exchange nicknames (sync itself still works).
+<!-- /en -->
+
 ## [1.70.1] - 2026-11-19
 
 <!-- ko -->
