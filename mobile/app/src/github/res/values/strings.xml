@@ -20,6 +20,8 @@
     <string name="update_notification_text">Tap to see what changed and install.</string>
     <string name="update_channel_name">App updates</string>
     <string name="update_channel_description">New versions of this app and updates installed in the background</string>
+    <string name="update_action_channel_name">Update needs your OK</string>
+    <string name="update_action_channel_description">Asks you to confirm an update the app could not install by itself</string>
     <string name="update_dialog_title">Update</string>
     <string name="update_dialog_offer">Download and install Claude Usage %1$s (%2$s)?</string>
     <string name="update_dialog_notes">What\'s new</string>

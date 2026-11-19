@@ -1,5 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Markup;
+using System.Windows.Media;
+using ClaudeUsageTray.ViewModels;
 using ClaudeUsageTray.Tests.ViewModels;
 using ClaudeUsageTray.Views;
 using Xunit;
@@ -163,6 +166,123 @@ public class GaugeAnimationTests
                 Assert.False(IsAnimated(bar));
             }
             finally { window.Close(); }
+        });
+    }
+
+    // 목록 행(#325): 새로고침이 항목을 새로 만들면 막대도 새것이다. 같은 이름의 막대가 보였던 길이에서 출발해야 한다.
+    private const string RowTemplate = """
+        <DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                      xmlns:views="clr-namespace:ClaudeUsageTray.Views;assembly=ClaudeUsageTray">
+            <ProgressBar Maximum="1" Width="200" Height="4"
+                         views:GaugeAnimation.Key="{Binding AnimationKey, StringFormat='test:{0}'}"
+                         views:GaugeAnimation.Value="{Binding UsagePercent}"/>
+        </DataTemplate>
+        """;
+
+    private static (Window window, ItemsControl list) HostList(params QuotaGaugeRow[] rows)
+    {
+        var list = new ItemsControl
+        {
+            ItemTemplate = (DataTemplate)XamlReader.Parse(RowTemplate),
+            ItemsSource = rows,
+        };
+        var window = new Window
+        {
+            Content = list, Width = 240, Height = 120, Left = -10000, Top = -10000,
+            ShowInTaskbar = false, WindowStyle = WindowStyle.None,
+        };
+        return (window, list);
+    }
+
+    private static QuotaGaugeRow Row(string key, double percent) =>
+        new() { Key = key, UsagePercent = percent, Window = TimeSpan.FromDays(7) };
+
+    private static ProgressBar BarAt(ItemsControl list, int index)
+    {
+        list.UpdateLayout();
+        var container = (DependencyObject)list.ItemContainerGenerator.ContainerFromIndex(index);
+        return FindBar(container) ?? throw new InvalidOperationException("막대를 찾지 못함");
+
+        static ProgressBar? FindBar(DependencyObject node)
+        {
+            if (node is ProgressBar bar) return bar;
+            for (var i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++)
+                if (FindBar(VisualTreeHelper.GetChild(node, i)) is { } found) return found;
+            return null;
+        }
+    }
+
+    [Fact]
+    public async Task RecreatedRowWhileVisible_FillsFromItsPreviousLength()
+    {
+        await RunWithAnimations(true, async () =>
+        {
+            GaugeAnimation.ForgetKeys();
+            var (window, list) = HostList(Row("weekly", 0.2));
+            window.Show();
+            try
+            {
+                var oldBar = BarAt(list, 0);
+                Assert.Equal(0.2, oldBar.Value, 6);
+
+                list.ItemsSource = new[] { Row("weekly", 0.8) };
+                var bar = BarAt(list, 0);
+
+                Assert.NotSame(oldBar, bar);
+                Assert.True(IsAnimated(bar));
+                Assert.True(bar.Value < 0.8 - 1e-3, $"0.2 에서 출발해야 한다: {bar.Value}");
+
+                await Task.Delay(GaugeAnimation.FillDuration.TimeSpan + TimeSpan.FromMilliseconds(400));
+                Assert.Equal(0.8, bar.Value, 6);
+                Assert.False(IsAnimated(bar));
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Fact]
+    public async Task RecreatedRowWhileHidden_FillsWhenShownAgain()
+    {
+        await RunWithAnimations(true, () =>
+        {
+            GaugeAnimation.ForgetKeys();
+            var (window, list) = HostList(Row("weekly", 0.3));
+            window.Show();
+            try
+            {
+                BarAt(list, 0);
+                window.Hide();
+                list.ItemsSource = new[] { Row("weekly", 0.9) };
+
+                window.Show();
+                var bar = BarAt(list, 0);
+                Assert.True(IsAnimated(bar));
+                Assert.True(bar.Value < 0.9 - 1e-3, $"0.3 에서 출발해야 한다: {bar.Value}");
+            }
+            finally { window.Close(); }
+            return Task.CompletedTask;
+        });
+    }
+
+    [Fact]
+    public async Task RowWithAnotherName_DoesNotInheritALength()
+    {
+        await RunWithAnimations(true, () =>
+        {
+            GaugeAnimation.ForgetKeys();
+            var (window, list) = HostList(Row("weekly", 0.2));
+            window.Show();
+            try
+            {
+                BarAt(list, 0);
+                list.ItemsSource = new[] { Row("five-hour", 0.8) };
+                var bar = BarAt(list, 0);
+
+                Assert.False(IsAnimated(bar));
+                Assert.Equal(0.8, bar.Value, 6);
+            }
+            finally { window.Close(); }
+            return Task.CompletedTask;
         });
     }
 }

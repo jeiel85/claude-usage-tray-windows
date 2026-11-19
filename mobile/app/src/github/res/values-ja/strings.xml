@@ -20,6 +20,8 @@
     <string name="update_notification_text">タップして変更内容を確認し、インストールしてください。</string>
     <string name="update_channel_name">アプリの更新</string>
     <string name="update_channel_description">このアプリの新しいバージョンと、バックグラウンドでインストールした更新をお知らせします</string>
+    <string name="update_action_channel_name">更新の確認が必要</string>
+    <string name="update_action_channel_description">アプリが自動でインストールできなかった更新の確認をお願いします</string>
     <string name="update_dialog_title">更新</string>
     <string name="update_dialog_offer">Claude Usage %1$s (%2$s) をダウンロードしてインストールしますか?</string>
     <string name="update_dialog_notes">変更内容を見る</string>

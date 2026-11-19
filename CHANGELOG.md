@@ -3,6 +3,26 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.72.5] - 2026-11-20
+
+<!-- ko -->
+### 개선
+- **하드닝 2차: 목록 막대 차오름·Codex 로그 스캔 비용·휴대폰 업데이트 알림 소리 (#325 #314 #299)**
+  - Antigravity·Codex 추가 한도·Claude 모델 한도·DeepSeek 처럼 목록으로 그리는 막대도 새로고침 뒤 이전 길이에서 차오릅니다(전에는 행이 새로 만들어져 바로 바뀌었습니다).
+  - Codex 세션 로그는 바뀐 파일만 다시 읽습니다. 이 PC(로그 1,251개·11GB)에서 새로고침마다 걸리던 로그 스캔이 17초에서 0.2초로 줄었고, 결과는 전부 읽을 때와 같습니다.
+  - 휴대폰 앱(GitHub·Play): 업데이트 알림 중 소리를 내는 것은 사용자가 눌러야 진행되는 "설치 확인"뿐이고, "새 버전"·"업데이트했습니다"는 조용히 옵니다. 옛 업데이트 알림 채널은 새 채널로 바뀌며, 옛 채널을 꺼 두었다면 새 채널도 꺼진 채로 만들어집니다.
+  - 새로고침 중 UI 가 멈추지 않는지(느린 읽기를 UI 스레드 밖에서 하는지) 재는 테스트를 넣었습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Hardening, round 2: list bar fill, Codex log scan cost, phone update notification sound (#325 #314 #299)**
+  - Bars drawn as lists (Antigravity, Codex additional limits, Claude model limits, DeepSeek) now also fill from their previous length after a refresh (previously the rows were rebuilt and jumped to the new length).
+  - Codex session logs are read again only when a file changed. On this PC (1,251 logs, 11 GB) the scan on every refresh went from 17 s to 0.2 s, with the same result as reading everything.
+  - Phone app (GitHub and Play): among update notifications only "confirm the install", which waits for you, makes a sound; "new version" and "updated" arrive silently. The old update channel is replaced by new ones, created switched off if you had switched the old one off.
+  - A new test checks that the UI keeps responding during a refresh (slow reads stay off the UI thread).
+<!-- /en -->
+
 ## [1.72.4] - 2026-11-19
 
 <!-- ko -->

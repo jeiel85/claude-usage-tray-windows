@@ -6,7 +6,7 @@ namespace ClaudeUsageTray.ViewModels;
 
 public partial class CodexViewModel : ObservableObject
 {
-    private readonly CodexUsageMonitor _monitor;
+    private readonly Func<Task<ProviderUsageSnapshot>> _readSnapshot;
     private readonly HistoryService _history;
     // 알림용 "이전 값" 은 표시용 Percent 와 분리한다 — 조회 실패 때의 0% 가 기준선을 무너뜨리지 않게 하기 위함.
     private readonly QuotaAlertBaseline _alertBaseline = new();
@@ -52,8 +52,14 @@ public partial class CodexViewModel : ObservableObject
     public ProviderUsageSnapshot LastSnapshot { get; private set; } = new();
 
     public CodexViewModel(CodexUsageMonitor monitor, HistoryService history)
+        : this(() => monitor.GetTodaySnapshotAsync(), history)
     {
-        _monitor = monitor;
+    }
+
+    /// <summary>테스트용: 스냅샷 읽기를 바꿔 끼운다(느린 읽기가 UI 스레드를 붙잡지 않는지, #314).</summary>
+    internal CodexViewModel(Func<Task<ProviderUsageSnapshot>> readSnapshot, HistoryService history)
+    {
+        _readSnapshot = readSnapshot;
         _history = history;
     }
 
@@ -66,7 +72,7 @@ public partial class CodexViewModel : ObservableObject
         {
             // 스레드 풀에서 읽는다 — API 응답 뒤의 로컬 로그 스캔(이 PC 실측 11~17초)이 UI 스레드에서 돌면
             // 새로고침(설정 저장·주기 갱신)마다 팝업·설정 창이 응답 없음 직전까지 멈췄다.
-            var snapshot = await Task.Run(() => _monitor.GetTodaySnapshotAsync());
+            var snapshot = await Task.Run(_readSnapshot);
             LastSnapshot = snapshot;
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {

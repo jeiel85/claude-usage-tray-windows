@@ -21,6 +21,9 @@ internal object AppUpdates {
         UpdateCheckScheduler.sync(context)
     }
 
+    /** Activity start: replace the old loud update channel now, so Android's settings show the new ones (#299). */
+    fun ensureChannels(context: Context) = UpdateNotifier.ensureChannels(context)
+
     /** A new intent for the running activity. True when it opens the update dialog, which lives on the home screen. */
     @Suppress("UNUSED_PARAMETER") // the play build opens the store with it
     fun onNewIntent(context: Context, intent: Intent): Boolean {

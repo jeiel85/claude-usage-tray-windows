@@ -20,6 +20,8 @@
     <string name="update_notification_text">点击查看更新内容并安装。</string>
     <string name="update_channel_name">应用更新</string>
     <string name="update_channel_description">通知本应用的新版本和在后台安装的更新</string>
+    <string name="update_action_channel_name">更新需要确认</string>
+    <string name="update_action_channel_description">应用无法自行安装更新时，请你确认</string>
     <string name="update_dialog_title">更新</string>
     <string name="update_dialog_offer">下载并安装 Claude Usage %1$s (%2$s)?</string>
     <string name="update_dialog_notes">查看更新内容</string>

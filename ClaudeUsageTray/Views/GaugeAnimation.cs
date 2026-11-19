@@ -16,6 +16,11 @@ namespace ClaudeUsageTray.Views;
 /// <item>처음 받은 값, 한 번도 보인 적 없는 막대, Windows '애니메이션 효과'가 꺼진 경우는 움직이지 않는다.</item>
 /// </list>
 /// 페이스 오버레이처럼 겹친 막대는 같은 시간·곡선이라 함께 움직인다.
+/// <para>
+/// 목록(<c>ItemsControl</c>) 행은 새로고침 때 항목이 새로 만들어져 막대도 새것이 된다. 그런 막대는
+/// <c>views:GaugeAnimation.Key</c> 에 행마다 다른 이름을 주면, 같은 이름의 막대가 마지막으로 보였던 길이에서
+/// 출발한다(#325). 이름은 목록마다 앞말을 붙여 다른 목록과 겹치지 않게 한다.
+/// </para>
 /// </summary>
 public static class GaugeAnimation
 {
@@ -39,6 +44,19 @@ public static class GaugeAnimation
     private static readonly DependencyProperty GenerationProperty = DependencyProperty.RegisterAttached(
         "Generation", typeof(int), typeof(GaugeAnimation), new PropertyMetadata(0));
 
+    /// <summary>다시 만들어지는 목록 행 막대의 이름. 같은 이름의 막대가 마지막으로 보였던 길이를 이어 받는다.</summary>
+    public static readonly DependencyProperty KeyProperty = DependencyProperty.RegisterAttached(
+        "Key", typeof(string), typeof(GaugeAnimation), new PropertyMetadata(null, OnKeyChanged));
+
+    public static string? GetKey(DependencyObject element) => (string?)element.GetValue(KeyProperty);
+
+    public static void SetKey(DependencyObject element, string? value) => element.SetValue(KeyProperty, value);
+
+    // 이름 → 그 이름의 막대가 보이는 동안 마지막으로 정해진 값(UI 스레드에서만 쓴다).
+    // 숨을 때가 아니라 보이는 동안 기록한다 — 행을 바꿀 때 옛 막대의 '숨음' 알림이 새 막대가 보인 뒤에 와서
+    // 숨을 때 기록하면 새 막대가 이어 받지 못했다(실측). 항목은 목록 행 수(한도·창 몇 개)만큼이라 따로 비우지 않는다.
+    private static readonly Dictionary<string, double> LastShownByKey = new(StringComparer.Ordinal);
+
     private static readonly DependencyProperty HookedProperty = DependencyProperty.RegisterAttached(
         "Hooked", typeof(bool), typeof(GaugeAnimation), new PropertyMetadata(false));
 
@@ -61,6 +79,18 @@ public static class GaugeAnimation
         if (double.IsNaN(target)) target = 0;
 
         var first = double.IsNaN((double)e.OldValue);
+        if (first)
+        {
+            // 새로 만든 목록 행 막대: 같은 이름의 막대가 보였던 길이가 있으면 거기서 출발한다.
+            SeedFromKey(bar);
+            var lastShown = (double)bar.GetValue(LastShownProperty);
+            if (bar.IsVisible && AnimationsEnabled && !double.IsNaN(lastShown))
+            {
+                Animate(bar, lastShown, target);
+                return;
+            }
+        }
+
         if (first || !bar.IsVisible || !AnimationsEnabled)
         {
             SetInstant(bar, target);
@@ -94,6 +124,35 @@ public static class GaugeAnimation
         Animate(bar, lastShown, target);
     }
 
+    private static void OnKeyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        // 템플릿 안에서는 값이 이름보다 먼저 묶인다(실측) — 이름이 들어온 이 때 이어 받고, 지금 값을 기록한다.
+        if (d is not RangeBase bar) return;
+
+        var seeded = !double.IsNaN((double)bar.GetValue(LastShownProperty));
+        SeedFromKey(bar);
+        var target = Coerce(bar, GetValue(bar));
+        if (double.IsNaN(target)) return;
+
+        var lastShown = (double)bar.GetValue(LastShownProperty);
+        if (!seeded && !double.IsNaN(lastShown) && bar.IsVisible && AnimationsEnabled)
+        {
+            Animate(bar, lastShown, target);
+            return;
+        }
+        RememberShown(bar, target);
+    }
+
+    private static void SeedFromKey(RangeBase bar)
+    {
+        if (!double.IsNaN((double)bar.GetValue(LastShownProperty))) return;
+        if (GetKey(bar) is { Length: > 0 } key && LastShownByKey.TryGetValue(key, out var remembered))
+            bar.SetValue(LastShownProperty, remembered);
+    }
+
+    /// <summary>테스트용: 이름별 기록을 비운다.</summary>
+    internal static void ForgetKeys() => LastShownByKey.Clear();
+
     private static void Animate(RangeBase bar, double from, double to)
     {
         from = Coerce(bar, from);
@@ -104,6 +163,7 @@ public static class GaugeAnimation
             return;
         }
 
+        RememberShown(bar, to);
         var generation = (int)bar.GetValue(GenerationProperty) + 1;
         bar.SetValue(GenerationProperty, generation);
 
@@ -128,6 +188,12 @@ public static class GaugeAnimation
         bar.SetValue(GenerationProperty, (int)bar.GetValue(GenerationProperty) + 1);
         bar.BeginAnimation(RangeBase.ValueProperty, null);
         bar.Value = value;
+        RememberShown(bar, value);
+    }
+
+    private static void RememberShown(RangeBase bar, double value)
+    {
+        if (bar.IsVisible && GetKey(bar) is { Length: > 0 } key) LastShownByKey[key] = value;
     }
 
     private static double Coerce(RangeBase bar, double value) =>
