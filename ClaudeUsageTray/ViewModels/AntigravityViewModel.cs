@@ -133,10 +133,7 @@ public partial class AntigravityViewModel : ObservableObject
             // 리셋됐을 수 있다 — remainingFraction 은 리셋 전 값이라 실제보다 적게 남은 것처럼
             // 보인다. 리셋 시각이 이미 지난 행은 다음 실제 조회 전까지 아예 숨긴다.
             if (m.ResetTime <= now) continue;
-            if (m.ModelId.StartsWith("chat_", StringComparison.Ordinal) ||
-                m.ModelId.StartsWith("tab_",  StringComparison.Ordinal))
-                continue;
-            if (!ShowThirdPartyQuota && IsThirdPartyBucket(m.ModelId))
+            if (!IsDisplayedBucket(m.ModelId, ShowThirdPartyQuota))
                 continue;
 
             double used = Math.Clamp(1.0 - m.RemainingFraction, 0.0, 1.0);
@@ -189,6 +186,18 @@ public partial class AntigravityViewModel : ObservableObject
     partial void OnShowThirdPartyQuotaChanged(bool value)
     {
         if (HasData && _appliedQuota.Count > 0) RebuildRows();
+    }
+
+    /// <summary>
+    /// 사용자에게 보여 줄 버킷인가 — 팝업 행과 휴대폰 피드(#304)가 같이 쓰는 규칙이다.
+    /// 내부 버킷(chat_·tab_)은 늘 빼고, Claude·GPT 그룹(3p)은 설정을 켰을 때만 보인다.
+    /// </summary>
+    internal static bool IsDisplayedBucket(string modelId, bool showThirdParty)
+    {
+        if (modelId.StartsWith("chat_", StringComparison.Ordinal) ||
+            modelId.StartsWith("tab_",  StringComparison.Ordinal))
+            return false;
+        return showThirdParty || !IsThirdPartyBucket(modelId);
     }
 
     /// <summary>
