@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.72.1] - 2026-11-19
+
+<!-- ko -->
+### 개선
+- **팝업의 DeepSeek 섹션 이름을 "DeepSeek" 으로 줄였습니다 (#321)** — "DeepSeek 무료 API" 가 다른 공급자 줄보다 길어 어색했습니다. 휴대폰 카드와 같은 이름입니다. 설정의 키 칸은 어떤 키인지 알 수 있게 "DeepSeek (100milionseek) API 키" 로 바꿨습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **The popup's DeepSeek section is now just "DeepSeek" (#321)** — "DeepSeek free API" was longer than the other provider rows. It now matches the phone card. The settings field reads "DeepSeek (100milionseek) API key" so it is clear which key goes there.
+<!-- /en -->
+
 ## [1.72.0] - 2026-11-19
 
 <!-- ko -->
