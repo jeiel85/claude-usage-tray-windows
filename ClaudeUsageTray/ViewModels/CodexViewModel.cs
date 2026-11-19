@@ -64,7 +64,9 @@ public partial class CodexViewModel : ObservableObject
     {
         try
         {
-            var snapshot = await _monitor.GetTodaySnapshotAsync();
+            // 스레드 풀에서 읽는다 — API 응답 뒤의 로컬 로그 스캔(이 PC 실측 11~17초)이 UI 스레드에서 돌면
+            // 새로고침(설정 저장·주기 갱신)마다 팝업·설정 창이 응답 없음 직전까지 멈췄다.
+            var snapshot = await Task.Run(() => _monitor.GetTodaySnapshotAsync());
             LastSnapshot = snapshot;
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {

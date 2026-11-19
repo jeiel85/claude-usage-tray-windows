@@ -3026,16 +3026,31 @@ public static class Loc
 
     // ── 100milionseek(DeepSeek 무료 API) 일일 한도 (#306) ──
 
-    /// <summary>
-    /// OpenCode 상세의 게이지 이름. 초기화 문구와 한 줄을 나눠 써서, 서비스 이름(100milionseek)까지 넣으면
-    /// 잘린다 — 서비스 이름은 설정 칸과 안내 문구에 있다.
-    /// </summary>
+    /// <summary>팝업의 DeepSeek 섹션 이름(#311) — OpenCode 와 별도 줄.</summary>
+    public static string HmsSectionTitle => Lang switch
+    {
+        "ko" => "DeepSeek 무료 API",
+        "zh" => "DeepSeek 免费 API",
+        "ja" => "DeepSeek 無料 API",
+        _ => "DeepSeek free API"
+    };
+
+    /// <summary>섹션 안 게이지 이름. 초기화 문구와 한 줄을 나눠 쓰므로 짧게 둔다.</summary>
     public static string HmsDailyLabel => Lang switch
     {
-        "ko" => "DeepSeek 무료 · 오늘",
-        "zh" => "DeepSeek 免费 · 今日",
-        "ja" => "DeepSeek 無料 · 今日",
-        _ => "DeepSeek free · today"
+        "ko" => "오늘 토큰 한도",
+        "zh" => "今日令牌额度",
+        "ja" => "今日のトークン上限",
+        _ => "Today's token allowance"
+    };
+
+    /// <summary>섹션 하단 출처 안내.</summary>
+    public static string HmsSourceNote => Lang switch
+    {
+        "ko" => "100milionseek.top 에서 API 키로 읽음 · 매일 UTC 자정 초기화",
+        "zh" => "通过 API 密钥从 100milionseek.top 读取 · 每天 UTC 零点重置",
+        "ja" => "100milionseek.top から API キーで取得 · 毎日 UTC 0 時にリセット",
+        _ => "Read from 100milionseek.top with your API key · resets daily at UTC midnight"
     };
 
     /// <summary>게이지 아래 한 줄 — "32.3M / 400.0M 사용 · 281회".</summary>
@@ -3082,10 +3097,27 @@ public static class Loc
 
     public static string HmsKeyHint => Lang switch
     {
-        "ko" => "넣으면 OpenCode 상세에 오늘 토큰 한도를 보여 줍니다. 키는 암호화해 이 PC 에만 저장하고 100milionseek.top 에만 보냅니다.",
-        "zh" => "填写后会在 OpenCode 详情中显示今日令牌额度。密钥加密后仅保存在本机，只发送到 100milionseek.top。",
-        "ja" => "入力すると OpenCode の詳細に今日のトークン上限を表示します。キーは暗号化してこの PC にのみ保存し、100milionseek.top にだけ送ります。",
-        _ => "Shows today's token allowance in the OpenCode details. The key is encrypted, stored only on this PC, and sent only to 100milionseek.top."
+        "ko" => "키를 붙여넣고 [저장]을 누르면 팝업에 'DeepSeek 무료 API' 줄이 생겨 오늘 토큰 한도를 보여 줍니다. 키는 암호화해 이 PC 에만 저장하고 100milionseek.top 에만 보냅니다.",
+        "zh" => "粘贴密钥并点击 [保存] 后，弹窗中会出现“DeepSeek 免费 API”一行，显示今日令牌额度。密钥加密后仅保存在本机，只发送到 100milionseek.top。",
+        "ja" => "キーを貼り付けて [保存] を押すと、ポップアップに「DeepSeek 無料 API」の行が現れ今日のトークン上限を表示します。キーは暗号化してこの PC にのみ保存し、100milionseek.top にだけ送ります。",
+        _ => "Paste the key and press [Save] — a 'DeepSeek free API' row appears in the popup with today's token allowance. The key is encrypted, stored only on this PC, and sent only to 100milionseek.top."
+    };
+
+    public static string HmsKeySave => Lang switch
+    {
+        "ko" => "저장",
+        "zh" => "保存",
+        "ja" => "保存",
+        _ => "Save"
+    };
+
+    /// <summary>저장 직후 한 번 — 다음 조회가 끝나면 팝업에 나타난다는 것을 알려 준다.</summary>
+    public static string HmsKeyJustSaved => Lang switch
+    {
+        "ko" => "저장했습니다. 잠시 뒤 팝업의 'DeepSeek 무료 API' 줄에 나타납니다.",
+        "zh" => "已保存。稍后会出现在弹窗的“DeepSeek 免费 API”一行中。",
+        "ja" => "保存しました。まもなくポップアップの「DeepSeek 無料 API」の行に表示されます。",
+        _ => "Saved. It will appear in the popup's 'DeepSeek free API' row shortly."
     };
 
     public static string HmsKeySaved => Lang switch

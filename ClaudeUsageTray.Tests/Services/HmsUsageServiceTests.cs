@@ -8,6 +8,8 @@ using Xunit;
 namespace ClaudeUsageTray.Tests.Services;
 
 /// <summary>100milionseek 일일 한도 조회(#306) — 로그인·쿠키 재사용·재로그인·키 거절·형식 변경.</summary>
+// 언어를 바꾸는 테스트가 있어 같은 전역(Loc)을 쓰는 다른 테스트와 나란히 돌지 않게 한다.
+[Collection("WpfTests")]
 public class HmsUsageServiceTests
 {
     // 2026-11-19 실제 /api/me 응답의 모양(값·이메일은 바꿈).
@@ -198,12 +200,12 @@ public class HmsUsageServiceTests
     }
 
     [Fact]
-    public void BuildHmsRow_DescribesTheDailyWindow()
+    public void BuildRow_DescribesTheDailyWindow()
     {
         var now = new DateTimeOffset(2026, 11, 19, 12, 0, 0, TimeSpan.Zero);
         var usage = HmsUsageService.ParseMe(MeJson)!;
 
-        var row = OpenCodeViewModel.BuildHmsRow(usage, now, showAbsoluteResetTime: false);
+        var row = HmsViewModel.BuildRow(usage, now, showAbsoluteResetTime: false);
 
         Assert.Equal("hms:daily", row.Key);
         Assert.Equal(usage.UsagePercent, row.UsagePercent);
@@ -216,15 +218,15 @@ public class HmsUsageServiceTests
     }
 
     [Fact]
-    public void BuildHmsRow_OmitsBonusOnceItEnded()
+    public void BuildRow_OmitsBonusOnceItEnded()
     {
         var now = new DateTimeOffset(2026, 11, 19, 12, 0, 0, TimeSpan.Zero);
         var withBonus = new HmsDailyUsage(1, 10, 9, 1, now.AddHours(12), now.AddHours(3));
         var ended = withBonus with { BonusEndsAt = now.AddHours(-1) };
 
         var bonusText = Loc.HmsBonusEnds(UsageCalculator.FormatClockStamp(now.AddHours(3), now));
-        Assert.Contains(bonusText, OpenCodeViewModel.BuildHmsRow(withBonus, now, false).Summary);
-        Assert.Equal(Loc.HmsSummary("1", "10", 1), OpenCodeViewModel.BuildHmsRow(ended, now, false).Summary);
+        Assert.Contains(bonusText, HmsViewModel.BuildRow(withBonus, now, false).Summary);
+        Assert.Equal(Loc.HmsSummary("1", "10", 1), HmsViewModel.BuildRow(ended, now, false).Summary);
     }
 
     [Fact]
@@ -246,37 +248,86 @@ public class HmsUsageServiceTests
 
     // 리뷰 지적(#308): 키를 B 로 바꾼 직후 조회가 실패하면 A 의 사용량이 B 의 값처럼 남아 있었다.
     [Fact]
-    public void ApplyHms_DropsUsageFromAPreviousKeyWhenTheNewKeyFails()
+    public void Apply_DropsUsageFromAPreviousKeyWhenTheNewKeyFails()
     {
         var now = new DateTimeOffset(2026, 11, 19, 12, 0, 0, TimeSpan.Zero);
         var usage = HmsUsageService.ParseMe(MeJson)!;
-        var vm = new OpenCodeViewModel(new OpenCodeUsageMonitor(), new HistoryService());
+        var vm = new HmsViewModel();
 
-        vm.ApplyHms(new HmsReadResult(HmsReadState.Ok, usage, "key-a"), now);
-        vm.ApplyHms(new HmsReadResult(HmsReadState.Unavailable, KeyId: "key-a"), now);
-        Assert.True(vm.HasHmsQuota);
-        Assert.Equal(Loc.HmsUnavailable, vm.HmsNotice);
+        vm.Apply(new HmsReadResult(HmsReadState.Ok, usage, "key-a"), now);
+        vm.Apply(new HmsReadResult(HmsReadState.Unavailable, KeyId: "key-a"), now);
+        Assert.True(vm.HasQuota);
+        Assert.Equal(Loc.HmsUnavailable, vm.Notice);
 
-        vm.ApplyHms(new HmsReadResult(HmsReadState.Unavailable, KeyId: "key-b"), now);
-        Assert.False(vm.HasHmsQuota);
-        Assert.Equal(Loc.HmsUnavailable, vm.HmsNotice);
+        vm.Apply(new HmsReadResult(HmsReadState.Unavailable, KeyId: "key-b"), now);
+        Assert.False(vm.HasQuota);
+        Assert.Equal(Loc.HmsUnavailable, vm.Notice);
     }
 
     // 리뷰 지적(#308): 안내만 있고 값이 없을 때도 섹션을 숨기면 안내를 볼 수 없다.
+    // 섹션은 HasContent 로 보이고, 접힌 줄은 값 대신 "—" 를 보인다(#311).
     [Theory]
     [InlineData(HmsReadState.InvalidKey, true)]
     [InlineData(HmsReadState.Unavailable, true)]
     [InlineData(HmsReadState.NoKey, false)]
-    public void HmsNoticeAlone_KeepsTheOpenCodeSectionVisible(HmsReadState state, bool expected)
+    public void NoticeAlone_KeepsTheSectionVisible(HmsReadState state, bool expected)
     {
-        var vm = new OpenCodeViewModel(new OpenCodeUsageMonitor(), new HistoryService());
-        vm.ApplyHms(new HmsReadResult(state, KeyId: state == HmsReadState.NoKey ? null : "key-a"), DateTimeOffset.UtcNow);
+        var vm = new HmsViewModel();
+        vm.Apply(new HmsReadResult(state, KeyId: state == HmsReadState.NoKey ? null : "key-a"), DateTimeOffset.UtcNow);
 
-        Assert.False(vm.HasHmsQuota);
-        Assert.Equal(expected, vm.HasHmsContent);
-        Assert.Equal(expected, MainViewModel.IsOpenCodeSectionActive(
-            isEnabled: true, hideInactive: true, requestCount: 0, hasPeriodUsage: false,
-            hasWebQuota: false, hasStaleSyncedQuota: false, hasError: false, hasHmsContent: vm.HasHmsContent));
+        Assert.False(vm.HasQuota);
+        Assert.Equal(expected, vm.HasContent);
+        Assert.Equal("—", vm.PercentLabel);
+    }
+
+    [Fact]
+    public void Section_ShowsPercentOnTheCollapsedRow()
+    {
+        var now = new DateTimeOffset(2026, 11, 19, 12, 0, 0, TimeSpan.Zero);
+        var vm = new HmsViewModel();
+        vm.Apply(new HmsReadResult(HmsReadState.Ok,
+            new HmsDailyUsage(100, 400, 300, 1, now.AddHours(12), null), "key-a"), now);
+
+        Assert.True(vm.HasContent);
+        Assert.Equal(0.25, vm.Percent);
+        Assert.Equal(0.25.ToString("P0"), vm.PercentLabel);
+    }
+
+    [Fact]
+    public void UpdateTimeProgress_DropsYesterdaysValueAfterUtcMidnight()
+    {
+        var now = new DateTimeOffset(2026, 11, 19, 23, 59, 0, TimeSpan.Zero);
+        var vm = new HmsViewModel();
+        vm.Apply(new HmsReadResult(HmsReadState.Ok,
+            new HmsDailyUsage(100, 400, 300, 1, now.AddMinutes(1), null), "key-a"), now);
+        Assert.True(vm.HasQuota);
+
+        vm.UpdateTimeProgress(now.AddMinutes(2));
+
+        Assert.False(vm.HasQuota);
+    }
+
+    [Fact]
+    public void RefreshLanguage_RebuildsNoticeInTheNewLanguage()
+    {
+        var vm = new HmsViewModel();
+        var previous = Loc.CurrentLang;
+        try
+        {
+            Loc.SetLanguage("en");
+            vm.Apply(new HmsReadResult(HmsReadState.InvalidKey, KeyId: "key-a"), DateTimeOffset.UtcNow);
+            var english = vm.Notice;
+
+            Loc.SetLanguage("ko");
+            vm.RefreshLanguage();
+
+            Assert.Equal(Loc.HmsInvalidKey, vm.Notice);
+            Assert.NotEqual(english, vm.Notice);
+        }
+        finally
+        {
+            Loc.SetLanguage(previous);
+        }
     }
 
     /// <summary>대시보드 내부 API 를 흉내 낸다 — 로그인마다 새 세션 쿠키, 만료시키면 /api/me 가 401.</summary>

@@ -224,6 +224,36 @@
             </Setter>
         </Style>
 
+        <!-- DeepSeek(100milionseek) 바 (#311) — DeepSeek 파랑 -->
+        <Style x:Key="DeepSeekBarStyle" TargetType="ProgressBar">
+            <Setter Property="Height" Value="4"/>
+            <Setter Property="Background" Value="#2D2F45"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid>
+                            <Border Background="{TemplateBinding Background}" CornerRadius="2"/>
+                            <Border x:Name="PART_Track" CornerRadius="2"/>
+                            <Border x:Name="PART_Indicator" HorizontalAlignment="Left" CornerRadius="2">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="#93C5FD" Offset="0"/>
+                                        <GradientStop Color="#4D6BFE" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Value" Value="0">
+                                <Setter TargetName="PART_Indicator" Property="Visibility" Value="Collapsed"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="SectionLabel" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="Bold"/>
@@ -540,6 +570,24 @@
                                        Foreground="#FB923C" FontSize="11" FontWeight="SemiBold"
                                        VerticalAlignment="Center"
                                        Visibility="{Binding OpenCodeVm.NeedsWebLogin, Converter={StaticResource BoolToVisibility}}"/>
+                        </Grid>
+
+                        <!-- DeepSeek(100milionseek) 일일 한도 (#311) — 값이 있을 때만 -->
+                        <Grid Margin="0,0,0,5"
+                              Visibility="{Binding HmsVm.HasQuota, Converter={StaticResource BoolToVisibility}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="DeepSeek" Foreground="#93C5FD" FontSize="11" FontWeight="SemiBold"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            <ProgressBar Grid.Column="1" Value="{Binding HmsVm.Percent, Mode=OneWay}" Maximum="1"
+                                         Style="{StaticResource DeepSeekBarStyle}" VerticalAlignment="Center"
+                                         Margin="8,0,8,0"/>
+                            <TextBlock Grid.Column="2" Text="{Binding HmsVm.PercentLabel}"
+                                       Foreground="#93C5FD" FontSize="11" FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
                         </Grid>
 
                         <Grid Visibility="{Binding AntigravityHasData, Converter={StaticResource BoolToVisibility}}">
@@ -1325,46 +1373,6 @@
                                        Visibility="{Binding OpenCodeVm.BillingLabel, Converter={StaticResource StringToVisibility}}"/>
                         </StackPanel>
 
-                        <!-- 100milionseek(DeepSeek 무료 API) 일일 한도 (#306) — 설정에 키가 있을 때만 한 줄.
-                             행 구조는 Codex 추가 한도 목록과 같고 색은 OpenCode. -->
-                        <ItemsControl x:Name="HmsGaugeList" ItemsSource="{Binding OpenCodeVm.HmsRows}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <StackPanel Margin="0,0,0,10">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Foreground="#F1F5F9" FontSize="10.5"
-                                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
-                                                       ToolTip="{Binding DisplayName}"/>
-                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="6,0,0,0">
-                                                <TextBlock Text="{Binding UsagePercent, StringFormat={}{0:P0}}" Foreground="#FB923C" FontSize="11" FontWeight="Bold"/>
-                                                <TextBlock Text="{Binding ResetAtLabel}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0"/>
-                                            </StackPanel>
-                                        </Grid>
-                                        <Grid Height="8" Margin="0,4,0,0" ToolTip="{Binding PaceTip}">
-                                            <ProgressBar Value="{Binding UsagePercent}" Maximum="1" Style="{StaticResource OpenCodeBarStyle}" VerticalAlignment="Center"/>
-                                            <Grid VerticalAlignment="Center" Height="8">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="{Binding TimePercent, Converter={StaticResource PercentToStar}}"/>
-                                                    <ColumnDefinition Width="{Binding TimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
-                                                </Grid.ColumnDefinitions>
-                                                <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"
-                                                        Visibility="{Binding HasTimeline, Converter={StaticResource BoolToVisibility}}"/>
-                                            </Grid>
-                                        </Grid>
-                                        <TextBlock Text="{Binding Summary}" Foreground="#8B92B3" FontSize="10" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <TextBlock x:Name="HmsNoticeLine" Text="{Binding OpenCodeVm.HmsNotice}"
-                                   Foreground="#8B92B3" FontSize="10" FontStyle="Italic"
-                                   TextWrapping="Wrap" Margin="0,0,0,10"
-                                   Visibility="{Binding OpenCodeVm.HmsNotice, Converter={StaticResource StringToVisibility}}"/>
-
                         <StackPanel Margin="0,0,0,10" Visibility="{Binding OpenCodeVm.ShowWebLoginButton, Converter={StaticResource BoolToVisibility}}">
                             <Button Click="OpenCodeWebLogin_Click" HorizontalAlignment="Left" Padding="10,5"
                                     Background="#9A3412" Foreground="#FFEDD5" BorderBrush="#C2410C" BorderThickness="1"
@@ -1423,6 +1431,65 @@
 
                         <TextBlock Text="{Binding OpenCodeNote}" Foreground="#5A5F7A" FontSize="10" Margin="0,8,0,0"/>
                         <TextBlock Text="{Binding OpenCodeErrorMessage}" Foreground="#EF4444" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0" Visibility="{Binding OpenCodeHasError, Converter={StaticResource BoolToVisibility}}"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- DeepSeek(100milionseek) Section (#311) — OpenCode 에서 쓰지만 집계 대상은 그 API 계정이라
+                         OpenCode(로그인·Go 할당량)와 따로 둔다. 키가 없으면 그릴 것이 없어 숨는다. -->
+                    <StackPanel x:Name="HmsSection" Margin="0,0,0,8" Visibility="{Binding HmsVm.HasContent, Converter={StaticResource BoolToVisibility}}">
+                        <Button Click="HmsFocus_Click" Style="{StaticResource AgentRowBtn}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Width="12" Height="12" CornerRadius="2" Background="#4D6BFE" Margin="0,0,8,0" VerticalAlignment="Center">
+                                    <TextBlock Text="D" Foreground="White" FontSize="8" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="{Binding LblHmsSection}" Foreground="#F1F5F9" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="{Binding HmsVm.PercentLabel}" Foreground="#93C5FD" FontSize="13" FontWeight="Bold" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Button>
+
+                        <StackPanel Margin="10,6,10,0" Visibility="{Binding IsHmsFocused, Converter={StaticResource BoolToVisibility}}">
+                            <ItemsControl x:Name="HmsGaugeList" ItemsSource="{Binding HmsVm.Rows}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="0,0,0,10">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Foreground="#F1F5F9" FontSize="10.5"
+                                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                                           ToolTip="{Binding DisplayName}"/>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="6,0,0,0">
+                                                    <TextBlock Text="{Binding UsagePercent, StringFormat={}{0:P0}}" Foreground="#93C5FD" FontSize="11" FontWeight="Bold"/>
+                                                    <TextBlock Text="{Binding ResetAtLabel}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0"/>
+                                                </StackPanel>
+                                            </Grid>
+                                            <Grid Height="8" Margin="0,4,0,0" ToolTip="{Binding PaceTip}">
+                                                <ProgressBar Value="{Binding UsagePercent, Mode=OneWay}" Maximum="1" Height="8" Style="{StaticResource DeepSeekBarStyle}" VerticalAlignment="Center"/>
+                                                <Grid VerticalAlignment="Center" Height="8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="{Binding TimePercent, Converter={StaticResource PercentToStar}}"/>
+                                                        <ColumnDefinition Width="{Binding TimePercent, Converter={StaticResource PercentToStar}, ConverterParameter=inverse}"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Grid.Column="0" HorizontalAlignment="Right" Width="1.5" Height="8" Background="#E2E8F0" CornerRadius="1"
+                                                            Visibility="{Binding HasTimeline, Converter={StaticResource BoolToVisibility}}"/>
+                                                </Grid>
+                                            </Grid>
+                                            <TextBlock Text="{Binding Summary}" Foreground="#8B92B3" FontSize="10" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock x:Name="HmsNoticeLine" Text="{Binding HmsVm.Notice}"
+                                       Foreground="#FBBF24" FontSize="10" TextWrapping="Wrap" Margin="0,0,0,8"
+                                       Visibility="{Binding HmsVm.Notice, Converter={StaticResource StringToVisibility}}"/>
+                            <TextBlock Text="{Binding HmsVm.SourceNote}" Foreground="#5A5F7A" FontSize="10" TextWrapping="Wrap"/>
                         </StackPanel>
                     </StackPanel>
 

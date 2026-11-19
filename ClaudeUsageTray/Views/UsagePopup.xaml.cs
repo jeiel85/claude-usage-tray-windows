@@ -453,6 +453,7 @@ public partial class UsagePopup : Window, IDisposable
             await _vm.RefreshAsync();
     }
     private void AntigravityFocus_Click(object sender, RoutedEventArgs e) => SetFocusedProvider(Models.UsageProviderKind.Antigravity);
+    private void HmsFocus_Click(object sender, RoutedEventArgs e) => SetFocusedProvider(MainViewModel.HmsFocusKey);
 
     private void SetFocusedProvider(string provider)
     {
