@@ -36,6 +36,9 @@ import io.github.jeiel85.claudeusage.ui.SettingsScreen
  * `--ez deepseek true` adds a DeepSeek free API (100milionseek, #318) card to the first sample PC. It is parsed from the
  * same JSON the PC sends (one short window of 1440 minutes), so this checks the real parsing path, not a hand-made
  * gauge. Kept out of [SampleData]: the in-app sample tour shouldn't advertise a temporary third-party service.
+ *
+ * `--ez unread true` adds a signed-out OpenCode entry (no quota, no tokens) to the first sample PC — the Accounts tab
+ * must leave it out (#326) while the PCs tab still lists that PC.
  */
 class DesignPreviewActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -52,7 +55,8 @@ class DesignPreviewActivity : ComponentActivity() {
         val screen = intent.getStringExtra("screen") ?: "accounts"
         if (screen == "notify") sampleAlerts(now).forEach { PushNotifier.show(this, it) }
         val sample = if (screen == "empty") emptyMap() else SampleData.status(now)
-        val status = if (intent.getBooleanExtra("deepseek", false)) withDeepSeek(sample, now) else sample
+        val withExtra = if (intent.getBooleanExtra("deepseek", false)) withDeepSeek(sample, now) else sample
+        val status = if (intent.getBooleanExtra("unread", false)) withUnreadProvider(withExtra, now) else withExtra
         val store = PcStore(this)
         val api = UsageApi(networks = NetworkProbe(this)::current)
         setContent {
@@ -93,6 +97,18 @@ class DesignPreviewActivity : ComponentActivity() {
         )
         val deepseek = ProviderUsage.parse(json) ?: return status
         return status + (pcId to first.copy(snapshot = snapshot.copy(providers = snapshot.providers + deepseek)))
+    }
+
+    /** A provider the PC sees but cannot read, as the PC sends it: no quota, no today totals, device scope. */
+    private fun withUnreadProvider(status: Map<String, PcStatus>, now: Long): Map<String, PcStatus> {
+        val (pcId, first) = status.entries.firstOrNull()?.toPair() ?: return status
+        val snapshot = first.snapshot ?: return status
+        val observed = java.time.Instant.ofEpochMilli(now).atOffset(java.time.ZoneOffset.UTC)
+        val json = JSONObject(
+            """{"provider":"opencode","accountHash":"${"f".repeat(64)}","accountScope":"device","accountLabel":"","observedAt":"$observed","errorKind":""}""",
+        )
+        val unread = ProviderUsage.parse(json) ?: return status
+        return status + (pcId to first.copy(snapshot = snapshot.copy(providers = snapshot.providers + unread)))
     }
 
     private fun sampleAlerts(now: Long): List<PushMessage> = listOf(

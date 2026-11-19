@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.72.3] - 2026-11-19
+
+<!-- ko -->
+### 개선
+- **휴대폰 앱: 보여 줄 사용량이 없는 계정 카드를 숨깁니다 (#326)** — 로그인되지 않은 OpenCode 나 할당량을 읽지 못한 Antigravity 처럼 게이지도 오늘 토큰도 없는 카드가 "아직 서버 할당량 정보가 없습니다" 한 줄로 자리를 차지하던 것을 '계정' 탭에서 뺐습니다. 사용률이 0% 인 게이지는 그대로 보입니다.
+  - 'PC' 탭에는 모든 PC가 그대로 나옵니다. 카드가 하나도 남지 않으면 "PC에서 사용량을 기다리는 중…" 안내가 나옵니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Phone app: account cards with nothing to show are hidden (#326)** — Cards with no gauge and no tokens today (a signed-out OpenCode, Antigravity without quota data) used to take up space with just "No quota data from the server yet". The Accounts tab now leaves them out. A gauge at 0% still shows.
+  - The PCs tab still lists every PC. If no card is left, the "Waiting for usage from your PCs…" hint appears.
+<!-- /en -->
+
 ## [1.72.2] - 2026-11-19
 
 <!-- ko -->

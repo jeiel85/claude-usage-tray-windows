@@ -134,6 +134,27 @@ class AccountAggregatorTest {
         val expired = Quota(true, now - 10, "", listOf(Gauge(GaugeKind.SHORT, "", 0.9, now - 1, 300)), "")
         val card = AccountAggregator.aggregate(todayDate = TODAY, nowMs = now, pcs = listOf(pc("p1", "HOME", usage(hashA, now, expired)))).single()
         assertEquals(0.0, card.gauges.single().usage, 0.0)
+        // A window at 0% is still something to show: only cards with nothing at all are hidden (#326).
+        assertTrue(AccountAggregator.hasUsage(card))
+    }
+
+    @Test
+    fun cards_without_gauges_tokens_or_credits_are_hidden() {
+        val noData = quota(0.0, now, hasData = false)
+        val credits = Quota(true, now, "", emptyList(), "$5.00 extra")
+        val cards = AccountAggregator.aggregate(todayDate = TODAY, nowMs = now, pcs = listOf(
+            pc(
+                "p1", "HOME",
+                usage(hashA, now, quota(0.4, now), provider = "claude"),
+                usage(hashA, now, null, provider = "opencode", scope = ProviderUsage.SCOPE_DEVICE),
+                usage(hashA, now, noData, provider = "antigravity", scope = ProviderUsage.SCOPE_DEVICE),
+                usage(hashA, now, null, tokens = 20, provider = "codex"),
+                usage(hashB, now, credits, provider = "claude"),
+            ),
+        ))
+        assertEquals(5, cards.size)
+        val shown = cards.filter(AccountAggregator::hasUsage).map { "${it.provider}|${it.key.substringAfter('|').take(1)}" }
+        assertEquals(listOf("claude|a", "claude|b", "codex|a"), shown)
     }
 }
 

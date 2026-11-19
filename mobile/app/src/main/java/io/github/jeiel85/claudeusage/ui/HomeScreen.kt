@@ -129,7 +129,8 @@ fun HomeScreen(
         }
     }
     val pcs = status.values.sortedBy { it.pc.displayName.lowercase() }
-    val cards = remember(status, now) { AccountAggregator.aggregate(pcs.map { it.toView() }, now) }
+    // Cards with nothing to show (no gauge, no tokens today) stay off the Accounts tab (#326).
+    val cards = remember(status, now) { AccountAggregator.aggregate(pcs.map { it.toView() }, now).filter(AccountAggregator::hasUsage) }
     val live = pcs.count { it.connection == PcConnection.LIVE }
 
     Column(Modifier.fillMaxSize().background(Palette.Bg).statusBarsPadding()) {
