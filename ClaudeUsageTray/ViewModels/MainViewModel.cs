@@ -425,6 +425,8 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private string _pcAlias = "";
     /// <summary>DPAPI 로 감싼 터널 토큰(<see cref="Services.Mobile.MobileSecret"/>). 원문은 메모리에도 들고 있지 않는다.</summary>
     [ObservableProperty] private string _mobileCloudflareTokenProtected = "";
+    /// <summary>DPAPI 로 감싼 100milionseek 키(#306). 원문은 조회할 때만 풀어 쓴다.</summary>
+    [ObservableProperty] private string _hmsApiKeyProtected = "";
 
     /// <summary>휴대폰 연동(서버·페어링·사용량 피드). 설정 창의 "휴대폰 연결" 창이 이것을 쓴다.</summary>
     public MobileLinkService Mobile { get; } = new();
@@ -605,7 +607,8 @@ namespace ClaudeUsageTray.ViewModels;
                          UsageSyncService usageSync,
                          WeatherService weather, WeatherAlertService weatherAlert,
                          OpenCodeWebUsageService? openCodeWebUsage = null,
-                         ClaudeAccountProfileReader? claudeAccount = null)
+                         ClaudeAccountProfileReader? claudeAccount = null,
+                         HmsUsageService? hmsUsage = null)
     {
         _api = api;
         _credentials = credentials;
@@ -624,7 +627,7 @@ namespace ClaudeUsageTray.ViewModels;
 
         AntigravityVm = new AntigravityViewModel(antigravity);
         WeatherVm = new WeatherViewModel(weather, weatherAlert);
-        OpenCodeVm = new OpenCodeViewModel(openCode, history, openCodeWebUsage);
+        OpenCodeVm = new OpenCodeViewModel(openCode, history, openCodeWebUsage, hmsUsage);
         CodexVm = new CodexViewModel(codex, history);
         ClaudeVm = new ClaudeViewModel();
 
@@ -712,6 +715,7 @@ namespace ClaudeUsageTray.ViewModels;
         MobileCloudflare = s.MobileCloudflare;
         MobileCloudflareHostname = s.MobileCloudflareHostname ?? "";
         MobileCloudflareTokenProtected = s.MobileCloudflareTokenProtected ?? "";
+        HmsApiKeyProtected = s.HmsApiKeyProtected ?? "";
         PcAlias = PcName.Clean(s.PcAlias, PcName.MaxAliasLength);
         // 지금 계정의 별명은 아래 UpdateClaudeSubscription 이 계정을 읽은 뒤 고른다.
         _claudeAccountAliases = AccountAlias.Normalize(s.ClaudeAccountAliases);
@@ -1011,6 +1015,7 @@ namespace ClaudeUsageTray.ViewModels;
             MobileCloudflare   = MobileCloudflare,
             MobileCloudflareHostname       = MobileCloudflareHostname,
             MobileCloudflareTokenProtected = MobileCloudflareTokenProtected,
+            HmsApiKeyProtected = HmsApiKeyProtected,
             PcAlias            = PcName.Clean(PcAlias, PcName.MaxAliasLength),
             ClaudeAccountAliases = new Dictionary<string, string>(_claudeAccountAliases, StringComparer.Ordinal),
             // 파일에서만 바꾸는 값은 디스크 값을 보존한다.
@@ -1709,7 +1714,8 @@ namespace ClaudeUsageTray.ViewModels;
             HasLiveCodexQuota(), _isCodexSubscribed, CodexHasError);
         IsOpenCodeActive = IsOpenCodeSectionActive(
             IsOpenCodeEnabled, hideInactive, _lastOpenCodeRequestCount, _openCodeHasPeriodUsage,
-            OpenCodeVm.HasWebQuota, OpenCodeVm.HasStaleSyncedQuota, OpenCodeHasError);
+            OpenCodeVm.HasWebQuota, OpenCodeVm.HasStaleSyncedQuota, OpenCodeHasError,
+            OpenCodeVm.HasHmsContent);
 
         ClaudeVm.IsUsageEmpty = TodayInputTokens + TodayOutputTokens == 0;
         IsCodexUsageEmpty = !_codexHasTokenData;
@@ -2512,13 +2518,17 @@ namespace ClaudeUsageTray.ViewModels;
         bool hasPeriodUsage,
         bool hasWebQuota,
         bool hasStaleSyncedQuota,
-        bool hasError) =>
+        bool hasError,
+        bool hasHmsContent = false) =>
         isEnabled && (!hideInactive
             || requestCount > 0
             || hasPeriodUsage
             || hasWebQuota
             || hasStaleSyncedQuota
-            || hasError);
+            || hasError
+            // 100milionseek 는 OpenCode 밖(다른 클라이언트)에서 쓸 수도 있다 — 한도 값이나 키 거절·조회 실패 안내가
+            // 있으면 섹션을 보인다(#306). 안내가 섹션 안에 있어 섹션이 숨으면 사용자가 볼 길이 없다.
+            || hasHmsContent);
 
     private async Task RefreshClaudeAsync()
     {

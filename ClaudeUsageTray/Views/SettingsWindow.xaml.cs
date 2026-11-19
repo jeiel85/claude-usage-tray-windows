@@ -204,6 +204,10 @@ public partial class SettingsWindow : Window, IDisposable
         ChkVisibleCodex.Content             = "Codex";
         ChkVisibleOpenCode.Content          = "OpenCode";
         ChkVisibleAntigravity.Content       = "Antigravity";
+        LblHmsKey.Text                      = Loc.HmsKeyTitle;
+        LblHmsKeyHint.Text                  = Loc.HmsKeyHint;
+        BtnHmsKeyClear.Content              = Loc.HmsKeyClear;
+        UpdateHmsKeyStatus();
 
         // v1.27.0 표시 옵션 토글
         LblDisplayOptions.Text              = Loc.DisplayOptionsSection;
@@ -449,6 +453,13 @@ public partial class SettingsWindow : Window, IDisposable
             _vm.MobileCloudflareTokenProtected = Services.Mobile.MobileSecret.Protect(newToken);
             PwdCloudflareToken.Clear();
         }
+        // 100milionseek 키(#306)도 같은 규칙 — 칸은 저장값을 다시 보여 주지 않고, 지우기는 전용 버튼으로.
+        if (PwdHmsKey.Password.Trim() is { Length: > 0 } newHmsKey)
+        {
+            _vm.HmsApiKeyProtected = Services.Mobile.MobileSecret.Protect(newHmsKey);
+            PwdHmsKey.Clear();
+        }
+        UpdateHmsKeyStatus();
 
         if (CmbTrayDisplayMode.SelectedItem is ComboBoxItem modeItem)
             _vm.TrayDisplayMode = modeItem.Tag?.ToString() ?? UsageProviderKind.Auto;
@@ -600,6 +611,33 @@ public partial class SettingsWindow : Window, IDisposable
         if (e.Key != System.Windows.Input.Key.Enter) return;
         CommitClaudeAccountAlias(sender, e);
         e.Handled = true;
+    }
+
+    private void UpdateHmsKeyStatus()
+    {
+        var saved = !string.IsNullOrEmpty(_vm.HmsApiKeyProtected);
+        LblHmsKeySaved.Text = saved ? Loc.HmsKeySaved : "";
+        BtnHmsKeyClear.Visibility = saved ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>새 키를 넣었을 때만 저장한다 — 빈 칸을 지나가기만 해서는 저장·새로고침하지 않는다.</summary>
+    private void HmsKey_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (PwdHmsKey.Password.Trim().Length > 0) Setting_Changed(sender, e);
+    }
+
+    private void HmsKey_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != System.Windows.Input.Key.Enter) return;
+        HmsKey_LostFocus(sender, e);
+        e.Handled = true;
+    }
+
+    private void BtnHmsKeyClear_Click(object sender, RoutedEventArgs e)
+    {
+        _vm.HmsApiKeyProtected = "";
+        PwdHmsKey.Clear();
+        Setting_Changed(sender, e);
     }
 
     private void BtnCloudflareTokenClear_Click(object sender, RoutedEventArgs e)

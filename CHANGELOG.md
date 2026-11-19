@@ -3,7 +3,7 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
-## [1.69.0] - 2026-11-19
+## [1.70.0] - 2026-11-19
 
 <!-- ko -->
 ### 추가
@@ -19,6 +19,22 @@
 - Phone app alerts now start with `[nickname]` (e.g. `[Work] Claude 90% · 5h limit`). Until now the account name was only in the alert's subtext, which isn't shown when an alert pops up on screen or is collapsed. No phone app update needed.
 - The popup's plan badge line and the phone's account cards also show the nickname instead of the account name; the popup tooltip still shows the account name. Clear it to go back to the account name.
 - Like other account details, the nickname is not sent to plain ntfy topics. If several PCs watch the same account, set the nickname on each of them.
+<!-- /en -->
+
+## [1.69.0] - 2026-11-19
+
+<!-- ko -->
+### 추가
+- **DeepSeek 무료 API(100milionseek) 오늘 토큰 한도 표시 (#306)** — 설정 > 트레이에 100milionseek API 키를 넣으면 OpenCode 상세에 "DeepSeek 무료 · 오늘" 게이지가 생깁니다. 사용률, 초기화 시각(UTC 자정 = 한국 시각 오전 9시), 시간선, 사용량·한도·요청 수, 보너스 한도가 끝나는 시각을 보여 줍니다.
+  - 키는 암호화해 이 PC 에만 저장하고 100milionseek.top 에만 보냅니다. 키를 넣지 않으면 아무것도 보이지 않습니다.
+  - 사이트 대시보드가 쓰는 비공개 API 를 읽으므로, 사이트가 바뀌면 "잠시 못 읽었습니다" 안내가 뜰 수 있습니다. 키가 바뀌었거나 지워졌으면 다시 넣으라고 알려 줍니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Today's token allowance for the DeepSeek free API (100milionseek) (#306)** — Enter your 100milionseek API key under Settings > Tray and the OpenCode details gain a "DeepSeek free · today" gauge: usage, reset time (UTC midnight), timeline marker, tokens used / allowance / requests, and when the bonus allowance ends.
+  - The key is encrypted, stored only on this PC, and sent only to 100milionseek.top. Without a key nothing is shown.
+  - It reads the private API behind the site's dashboard, so a site change may show "Couldn't read" until it is updated. If the key is rotated or deleted, you are asked to enter it again.
 <!-- /en -->
 
 ## [1.68.2] - 2026-11-19

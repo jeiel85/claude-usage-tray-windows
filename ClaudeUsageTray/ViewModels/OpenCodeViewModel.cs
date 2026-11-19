@@ -95,21 +95,50 @@ public partial class OpenCodeViewModel : ObservableObject
     public string WebLoginLabel => IsWebLoginRunning ? Loc.OpenCodeConnectingWeb : Loc.OpenCodeConnectWeb;
 
     public OpenCodeViewModel(OpenCodeUsageMonitor monitor, HistoryService history,
-        OpenCodeWebUsageService? webUsage = null)
+        OpenCodeWebUsageService? webUsage = null, HmsUsageService? hmsUsage = null)
     {
         _monitor = monitor;
         _history = history;
         _webUsage = webUsage;
+        _hmsUsage = hmsUsage;
     }
+
+    // ── 100milionseek(DeepSeek 무료 API) 일일 한도 (#306) ──
+    private readonly HmsUsageService? _hmsUsage;
+    /// <summary>마지막으로 읽은 일일 한도. 확인이 잠시 실패해도 그날 창이 끝나기 전까지는 이 값을 보여 준다.</summary>
+    private HmsDailyUsage? _lastHms;
+    /// <summary><see cref="_lastHms"/> 를 읽은 키의 지문. 키를 바꾼 뒤에는 옛 키의 값을 이어 보여 주지 않는다.</summary>
+    private string? _lastHmsKeyId;
+
+    /// <summary>일일 게이지 — 값이 있으면 한 줄, 없으면 비어 있어 아무것도 그리지 않는다.</summary>
+    [ObservableProperty] private IReadOnlyList<QuotaGaugeRow> _hmsRows = [];
+    /// <summary>키 거절·확인 실패 안내. 정상이거나 키가 없으면 빈 문자열.</summary>
+    [ObservableProperty] private string _hmsNotice = "";
+
+    public bool HasHmsQuota => HmsRows.Count > 0;
+
+    /// <summary>게이지나 안내 중 하나라도 그릴 것이 있는가 — OpenCode 섹션을 숨기지 않을 이유가 된다.</summary>
+    public bool HasHmsContent => HasHmsQuota || HmsNotice.Length > 0;
+
+    partial void OnHmsRowsChanged(IReadOnlyList<QuotaGaugeRow> value)
+    {
+        OnPropertyChanged(nameof(HasHmsQuota));
+        OnPropertyChanged(nameof(HasHmsContent));
+    }
+
+    partial void OnHmsNoticeChanged(string value) => OnPropertyChanged(nameof(HasHmsContent));
 
     public async Task RefreshAsync()
     {
         try
         {
             var snapshot = _monitor.GetTodaySnapshot();
+            // OpenCode 콘솔(WebView2)과 100milionseek(HTTP)는 서로 기다릴 이유가 없어 같이 읽는다.
+            var hmsTask = _hmsUsage?.ReadAsync() ?? Task.FromResult(new HmsReadResult(HmsReadState.NoKey));
             var read = _webUsage == null
                 ? OpenCodeWebReadResult.NotAttempted
                 : await _webUsage.TryGetUsageAsync();
+            var hms = await hmsTask;
             var webUsage = read.Usage;
             if (snapshot.OpenCodeDetails != null) snapshot.OpenCodeDetails.WebUsage = webUsage;
             LastSnapshot = snapshot;
@@ -137,6 +166,7 @@ public partial class OpenCodeViewModel : ObservableObject
                     : snapshot.ErrorMessage ?? "";
                 ApplyWebUsage(webUsage);
                 ApplyWebSessionState(read.State, _webUsage?.HasSavedSession == true, read.Inactive);
+                ApplyHms(hms, DateTimeOffset.Now);
                 QuotaStatusLabel = webUsage != null ? Loc.OpenCodeOfficialQuota : FormatQuotaStatus(snapshot.OpenCodeDetails);
                 Note = webUsage != null ? Loc.ProviderOpenCodeWebNote : Loc.ProviderOpenCodeNote;
                 _authPlanLabel = PlanLabels.OpenCode(_monitor.GetPlanProviderId());
@@ -364,8 +394,68 @@ public partial class OpenCodeViewModel : ObservableObject
     private static string FormatUsd(decimal value) =>
         (value < 0 ? "-$" : "$") + Math.Abs(value).ToString("#,0.00", CultureInfo.InvariantCulture);
 
+    /// <summary>
+    /// 읽은 결과를 게이지·안내로 옮긴다. 키가 없으면 모두 비우고, 거절되면 값을 버리고 안내만,
+    /// 잠시 실패하면 그날 창이 남은 마지막 값을 안내와 함께 유지한다.
+    /// </summary>
+    internal void ApplyHms(HmsReadResult result, DateTimeOffset now)
+    {
+        switch (result.State)
+        {
+            case HmsReadState.Ok when result.Usage != null:
+                _lastHms = result.Usage;
+                _lastHmsKeyId = result.KeyId;
+                HmsNotice = "";
+                break;
+            case HmsReadState.InvalidKey:
+                _lastHms = null;
+                HmsNotice = Loc.HmsInvalidKey;
+                break;
+            case HmsReadState.NoKey:
+                _lastHms = null;
+                HmsNotice = "";
+                break;
+            default:
+                HmsNotice = Loc.HmsUnavailable;
+                // 키를 바꾼 직후 실패했다면 남은 값은 옛 키의 것이다 — 새 키의 값처럼 보이지 않게 버린다.
+                if (!string.Equals(result.KeyId, _lastHmsKeyId, StringComparison.Ordinal)) _lastHms = null;
+                break;
+        }
+        if (_lastHms is { } usage && usage.ResetAt <= now) _lastHms = null;
+        HmsRows = _lastHms is { } current ? [BuildHmsRow(current, now, ShowAbsoluteResetTime)] : [];
+    }
+
+    internal static QuotaGaugeRow BuildHmsRow(HmsDailyUsage usage, DateTimeOffset now, bool showAbsoluteResetTime)
+    {
+        var summary = Loc.HmsSummary(
+            UsageCalculator.FormatTokenShort(usage.Used), UsageCalculator.FormatTokenShort(usage.Limit), usage.Requests);
+        if (usage.BonusEndsAt is { } bonusEnds && bonusEnds > now)
+            summary += " · " + Loc.HmsBonusEnds(UsageCalculator.FormatClockStamp(bonusEnds, now));
+        var row = new QuotaGaugeRow
+        {
+            Key = "hms:daily",
+            DisplayName = Loc.HmsDailyLabel,
+            UsagePercent = usage.UsagePercent,
+            Summary = summary,
+            ResetAt = usage.ResetAt,
+            // 하루 한도는 UTC 자정마다 새로 시작한다.
+            Window = TimeSpan.FromDays(1),
+        };
+        row.UpdateTimeProgress(now, showAbsoluteResetTime);
+        return row;
+    }
+
     public void UpdateTimeProgress(DateTimeOffset now)
     {
+        if (_lastHms is { } hms && hms.ResetAt <= now)
+        {
+            // 자정(UTC)이 지나면 어제 값이다 — 다음 조회가 새 값을 가져올 때까지 게이지를 내린다.
+            _lastHms = null;
+            HmsRows = [];
+        }
+        foreach (var row in HmsRows)
+            row.UpdateTimeProgress(now, ShowAbsoluteResetTime);
+
         if (_currentWebUsage == null) return;
         var timeline = CalculateTimeProgress(_currentWebUsage, now);
         HasRollingTimeline = timeline.Rolling.HasValue;
@@ -408,7 +498,12 @@ public partial class OpenCodeViewModel : ObservableObject
     partial void OnIsWebLoginRunningChanged(bool value) => OnPropertyChanged(nameof(WebLoginLabel));
 
     /// <summary>토글 즉시 반영 — API 재호출 없이 현재 값에서 라벨만 다시 포맷한다.</summary>
-    partial void OnShowAbsoluteResetTimeChanged(bool value) => ApplyWebUsage(_currentWebUsage);
+    partial void OnShowAbsoluteResetTimeChanged(bool value)
+    {
+        ApplyWebUsage(_currentWebUsage);
+        foreach (var row in HmsRows)
+            row.UpdateTimeProgress(DateTimeOffset.Now, value);
+    }
 
     public void RefreshLocalizedLabels()
     {

@@ -3024,6 +3024,86 @@ public static class Loc
         _ => "Clear token"
     };
 
+    // ── 100milionseek(DeepSeek 무료 API) 일일 한도 (#306) ──
+
+    /// <summary>
+    /// OpenCode 상세의 게이지 이름. 초기화 문구와 한 줄을 나눠 써서, 서비스 이름(100milionseek)까지 넣으면
+    /// 잘린다 — 서비스 이름은 설정 칸과 안내 문구에 있다.
+    /// </summary>
+    public static string HmsDailyLabel => Lang switch
+    {
+        "ko" => "DeepSeek 무료 · 오늘",
+        "zh" => "DeepSeek 免费 · 今日",
+        "ja" => "DeepSeek 無料 · 今日",
+        _ => "DeepSeek free · today"
+    };
+
+    /// <summary>게이지 아래 한 줄 — "32.3M / 400.0M 사용 · 281회".</summary>
+    public static string HmsSummary(string used, string limit, long requests) => Lang switch
+    {
+        "ko" => $"{used} / {limit} 사용 · {requests:N0}회",
+        "zh" => $"已用 {used} / {limit} · {requests:N0} 次",
+        "ja" => $"{used} / {limit} 使用 · {requests:N0} 回",
+        _ => $"{used} / {limit} used · {requests:N0} req"
+    };
+
+    /// <summary>보너스 한도가 끝나는 시각 — 끝나면 하루 한도가 줄어든다.</summary>
+    public static string HmsBonusEnds(string when) => Lang switch
+    {
+        "ko" => $"보너스 한도 {when}까지",
+        "zh" => $"奖励额度至 {when}",
+        "ja" => $"ボーナス枠は {when} まで",
+        _ => $"bonus allowance until {when}"
+    };
+
+    public static string HmsInvalidKey => Lang switch
+    {
+        "ko" => "100milionseek 가 API 키를 거절했습니다 · 설정에서 키를 다시 넣어 주세요",
+        "zh" => "100milionseek 拒绝了 API 密钥 · 请在设置中重新输入",
+        "ja" => "100milionseek が API キーを拒否しました · 設定でキーを入れ直してください",
+        _ => "100milionseek rejected the API key · enter it again in Settings"
+    };
+
+    public static string HmsUnavailable => Lang switch
+    {
+        "ko" => "100milionseek 사용량을 잠시 못 읽었습니다 · 곧 다시 시도",
+        "zh" => "暂时无法读取 100milionseek 使用量 · 稍后重试",
+        "ja" => "100milionseek の使用量を一時的に読めません · まもなく再試行",
+        _ => "Couldn't read 100milionseek usage · retrying soon"
+    };
+
+    public static string HmsKeyTitle => Lang switch
+    {
+        "ko" => "DeepSeek 무료 API (100milionseek) 키",
+        "zh" => "DeepSeek 免费 API (100milionseek) 密钥",
+        "ja" => "DeepSeek 無料 API (100milionseek) キー",
+        _ => "DeepSeek free API (100milionseek) key"
+    };
+
+    public static string HmsKeyHint => Lang switch
+    {
+        "ko" => "넣으면 OpenCode 상세에 오늘 토큰 한도를 보여 줍니다. 키는 암호화해 이 PC 에만 저장하고 100milionseek.top 에만 보냅니다.",
+        "zh" => "填写后会在 OpenCode 详情中显示今日令牌额度。密钥加密后仅保存在本机，只发送到 100milionseek.top。",
+        "ja" => "入力すると OpenCode の詳細に今日のトークン上限を表示します。キーは暗号化してこの PC にのみ保存し、100milionseek.top にだけ送ります。",
+        _ => "Shows today's token allowance in the OpenCode details. The key is encrypted, stored only on this PC, and sent only to 100milionseek.top."
+    };
+
+    public static string HmsKeySaved => Lang switch
+    {
+        "ko" => "저장된 키가 있습니다(암호화됨). 새로 넣으면 바뀝니다.",
+        "zh" => "已保存密钥(已加密)。输入新密钥即可替换。",
+        "ja" => "保存済みのキーがあります(暗号化済み)。新しく入力すると置き換わります。",
+        _ => "A key is saved (encrypted). Enter a new one to replace it."
+    };
+
+    public static string HmsKeyClear => Lang switch
+    {
+        "ko" => "키 지우기",
+        "zh" => "清除密钥",
+        "ja" => "キーを消去",
+        _ => "Clear key"
+    };
+
     public static string CloudflareQuickSuffix => Lang switch
     {
         "ko" => "임시 주소",
