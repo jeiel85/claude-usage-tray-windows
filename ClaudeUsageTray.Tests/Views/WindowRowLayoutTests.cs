@@ -226,6 +226,53 @@ public class WindowRowLayoutTests : IDisposable
             $"{prefix} reset spills below the row: {Bottom(reset):F1} > {row.ActualHeight:F1}");
     }
 
+    // OpenCode Go 공식 할당량 행(#237). 예전에는 라벨이 * 열이라 #234 와 같은 이유로 긴 초기화 문구에 눌릴 수 있었다.
+    [Theory]
+    [MemberData(nameof(Cases))]
+    public async Task OpenCodeQuotaRows_LabelPercentAndResetDoNotOverlap(string lang, bool estimated)
+    {
+        var originalLang = Loc.CurrentLang;
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            try
+            {
+                Loc.SetLanguage(lang);
+                vm.HideInactiveProviders = false;
+                vm.IsOpenCodeActive = true;
+                vm.FocusedProvider = UsageProviderKind.OpenCode;
+                var now = LateNight;
+                vm.OpenCodeVm.ApplySyncedWebUsage(new OpenCodeWebUsage
+                {
+                    ObservedAtUtc = DateTimeOffset.UtcNow,
+                    Rolling = new OpenCodeQuotaWindow { UsagePercent = 1, ResetAt = now.AddHours(4).AddMinutes(59) },
+                    Weekly = new OpenCodeQuotaWindow { UsagePercent = 1, ResetAt = now.AddDays(6).AddHours(23) },
+                    Monthly = new OpenCodeQuotaWindow { UsagePercent = 1, ResetAt = now.AddDays(29).AddHours(23) },
+                });
+                // 가장 긴 문구(절대 시각 + 추정 표기)로 덮어쓴다.
+                var o = vm.OpenCodeVm;
+                o.RollingResetLabel = UsageCalculator.FormatResetLabel(now.AddHours(4).AddMinutes(59), estimated, true, now);
+                o.WeeklyResetLabel = UsageCalculator.FormatResetLabel(now.AddDays(6).AddHours(23), estimated, true, now);
+                o.MonthlyResetLabel = UsageCalculator.FormatResetLabel(now.AddDays(29).AddHours(23), estimated, true, now);
+
+                using var popup = new UsagePopup(vm);
+                popup.Left = -10000;
+                popup.Show();
+                popup.UpdateLayout();
+
+                AssertRowFits(popup, "OpenCodeRolling", requireSingleLine: false);
+                AssertRowFits(popup, "OpenCodeWeekly", requireSingleLine: false);
+                AssertRowFits(popup, "OpenCodeMonthly", requireSingleLine: false);
+                popup.Hide();
+            }
+            finally
+            {
+                Loc.SetLanguage(originalLang);
+                vm.Dispose();
+            }
+        });
+    }
+
     // DeepSeek(100milionseek) 섹션의 주 게이지(#316). 템플릿 안의 행이라 FindName 대신 시각 트리에서 찾는다.
     // 막대도 다른 게이지와 같은 높이(스타일 값 4)인지 본다 — v1.70.1 은 Height="8" 로 덮어써 두 배 두꺼웠다.
     [Theory]

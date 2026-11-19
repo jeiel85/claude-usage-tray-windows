@@ -25,86 +25,95 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$repo = 'jeiel85/claude-usage-tray-windows'
-$assetName = 'ClaudeUsageTray.exe.sig'
-
-if ($Tag -notmatch '^v(\d+\.\d+\.\d+)$') { throw "태그는 v1.2.3 형식이어야 합니다: $Tag" }
-$version = [Version]$Matches[1]
-
-if (-not $KeyDir) {
-    $common = git -C $PSScriptRoot rev-parse --path-format=absolute --git-common-dir
-    $KeyDir = Join-Path (Split-Path $common -Parent) '.keystore'
-}
-$pemPath = Join-Path $KeyDir 'update-signing.pem'
-$propsPath = Join-Path $KeyDir 'update-signing.properties'
-foreach ($p in $pemPath, $propsPath) {
-    if (-not (Test-Path -LiteralPath $p)) { throw "서명 키가 없습니다: $p (백업: G:\내 드라이브\모바일 앱 개발\Claude Usage Tray\릴리즈 키스토어)" }
-}
-
-# 1. 릴리스와 자산을 올린 쪽
-$release = gh api "repos/$repo/releases/tags/$Tag" | ConvertFrom-Json
-if ($release.assets | Where-Object name -eq $assetName) { throw "$Tag 에는 이미 서명이 있습니다." }
-$exeAsset = $release.assets | Where-Object name -eq 'ClaudeUsageTray.exe'
-$shaAsset = $release.assets | Where-Object name -eq 'SHA256.txt'
-if (-not $exeAsset -or -not $shaAsset) { throw "$Tag 에 ClaudeUsageTray.exe 또는 SHA256.txt 가 없습니다." }
-foreach ($a in $exeAsset, $shaAsset) {
-    if ($a.uploader.login -ne 'github-actions[bot]') { throw "$($a.name) 을 올린 것이 CI 가 아닙니다($($a.uploader.login)). 서명하지 않습니다." }
-}
-
-# 2. 태그 커밋이 master 에 있는가
-git -C $PSScriptRoot fetch -q origin master --tags
-$tagCommit = (git -C $PSScriptRoot rev-parse "$Tag^{commit}").Trim()
-git -C $PSScriptRoot merge-base --is-ancestor $tagCommit origin/master
-if ($LASTEXITCODE -ne 0) { throw "$Tag($tagCommit) 가 origin/master 에 없습니다. 서명하지 않습니다." }
-
-$work = Join-Path ([IO.Path]::GetTempPath()) "cut-sign-$([Guid]::NewGuid().ToString('N'))"
-New-Item -ItemType Directory $work | Out-Null
-$key = $null
+# gh·git 의 출력은 UTF-8 이다. 콘솔이 UTF-8 이 아니면(bash 에서 pwsh -File 로 부를 때 등) 한글 릴리스 노트가 깨져
+# ConvertFrom-Json 이 실패했다(#310). 콘솔 인코딩은 콘솔 전체 설정이라 끝나면 되돌린다.
+$previousOutputEncoding = [Console]::OutputEncoding
+[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
 try {
-    # 3. 해시
-    gh release download $Tag -R $repo -p 'ClaudeUsageTray.exe' -p 'SHA256.txt' -D $work
-    if ($LASTEXITCODE -ne 0) { throw "자산을 내려받지 못했습니다." }
-    $sha = (Get-FileHash -LiteralPath (Join-Path $work 'ClaudeUsageTray.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
-    $ciSha = (Get-Content -LiteralPath (Join-Path $work 'SHA256.txt') -Raw).Trim().Split(' ')[0].ToLowerInvariant()
-    if ($sha -ne $ciSha) { throw "exe 해시($sha)가 SHA256.txt($ciSha)와 다릅니다. 서명하지 않습니다." }
+    $repo = 'jeiel85/claude-usage-tray-windows'
+    $assetName = 'ClaudeUsageTray.exe.sig'
 
-    # 4. 키 ↔ 앱에 내장된 공개키
-    $password = ((Get-Content -LiteralPath $propsPath) | Where-Object { $_ -match '^password=' } | Select-Object -First 1) -replace '^password=', ''
-    if (-not $password) { throw "update-signing.properties 에 password= 줄이 없습니다." }
-    $key = [System.Security.Cryptography.ECDsa]::Create()
-    $key.ImportFromEncryptedPem((Get-Content -LiteralPath $pemPath -Raw), $password)
-    Remove-Variable password
-    # 이 서명을 확인할 쪽은 이 버전을 업데이트로 받을 앱, 즉 직전 버전이다. 그래서 직전 버전 태그가 내장한 공개키와 맞춘다 —
-    # 키를 바꾸는 릴리스(새 공개키를 내장)는 옛 키로 서명해야 기존 설치본이 받는다(DECISIONS D-1, Codex 리뷰 P2).
-    # 직전 태그가 서명 도입 전이면(받는 앱이 서명을 보지 않음) 이 태그가 내장한 키와 맞춘다.
-    $previous = git -C $PSScriptRoot tag --list 'v*' --sort=-v:refname |
-        Where-Object { $_ -match '^v(\d+\.\d+\.\d+)$' -and [Version]$Matches[1] -lt $version } | Select-Object -First 1
-    $trusted = $null
-    foreach ($ref in @($previous, $tagCommit) | Where-Object { $_ }) {
-        $source = git -C $PSScriptRoot show "${ref}:ClaudeUsageTray/Services/UpdateSignature.cs" 2>$null
-        if ($LASTEXITCODE -eq 0) { $trusted = $ref; break }
+    if ($Tag -notmatch '^v(\d+\.\d+\.\d+)$') { throw "태그는 v1.2.3 형식이어야 합니다: $Tag" }
+    $version = [Version]$Matches[1]
+
+    if (-not $KeyDir) {
+        $common = git -C $PSScriptRoot rev-parse --path-format=absolute --git-common-dir
+        $KeyDir = Join-Path (Split-Path $common -Parent) '.keystore'
     }
-    if (-not $trusted) { throw "$Tag 와 직전 태그($previous) 어디에도 UpdateSignature.cs 가 없습니다." }
-    $embedded = (($source -join "`n") -replace '(?s).*-----BEGIN PUBLIC KEY-----(.*?)-----END PUBLIC KEY-----.*', '$1') -replace '\s', ''
-    $mine = ($key.ExportSubjectPublicKeyInfoPem() -replace '-----(BEGIN|END) PUBLIC KEY-----', '') -replace '\s', ''
-    if ($embedded -ne $mine) { throw "이 키는 $trusted 의 앱이 내장한 공개키와 짝이 아닙니다 — 그 앱은 이 서명을 거부합니다." }
+    $pemPath = Join-Path $KeyDir 'update-signing.pem'
+    $propsPath = Join-Path $KeyDir 'update-signing.properties'
+    foreach ($p in $pemPath, $propsPath) {
+        if (-not (Test-Path -LiteralPath $p)) { throw "서명 키가 없습니다: $p (백업: G:\내 드라이브\모바일 앱 개발\Claude Usage Tray\릴리즈 키스토어)" }
+    }
 
-    # 서명 — UpdateSignature.Message 와 같은 바이트
-    $message = [Text.Encoding]::UTF8.GetBytes("claude-usage-tray-update/v1`n$($version.ToString(3))`n$sha`n")
-    $signature = $key.SignData($message, [System.Security.Cryptography.HashAlgorithmName]::SHA256,
-        [System.Security.Cryptography.DSASignatureFormat]::IeeeP1363FixedFieldConcatenation)
-    $pub = [System.Security.Cryptography.ECDsa]::Create()
-    $pub.ImportFromPem($key.ExportSubjectPublicKeyInfoPem())
-    if (-not $pub.VerifyData($message, $signature, [System.Security.Cryptography.HashAlgorithmName]::SHA256,
-            [System.Security.Cryptography.DSASignatureFormat]::IeeeP1363FixedFieldConcatenation)) { throw "서명 자체 검증 실패" }
+    # 1. 릴리스와 자산을 올린 쪽
+    $release = gh api "repos/$repo/releases/tags/$Tag" | ConvertFrom-Json
+    if ($release.assets | Where-Object name -eq $assetName) { throw "$Tag 에는 이미 서명이 있습니다." }
+    $exeAsset = $release.assets | Where-Object name -eq 'ClaudeUsageTray.exe'
+    $shaAsset = $release.assets | Where-Object name -eq 'SHA256.txt'
+    if (-not $exeAsset -or -not $shaAsset) { throw "$Tag 에 ClaudeUsageTray.exe 또는 SHA256.txt 가 없습니다." }
+    foreach ($a in $exeAsset, $shaAsset) {
+        if ($a.uploader.login -ne 'github-actions[bot]') { throw "$($a.name) 을 올린 것이 CI 가 아닙니다($($a.uploader.login)). 서명하지 않습니다." }
+    }
 
-    $sigPath = Join-Path $work $assetName
-    Set-Content -LiteralPath $sigPath -Value ([Convert]::ToBase64String($signature)) -Encoding ascii -NoNewline
-    gh release upload $Tag $sigPath -R $repo
-    if ($LASTEXITCODE -ne 0) { throw "서명을 올리지 못했습니다." }
-    Write-Host "서명함: $Tag (v$($version.ToString(3)), sha256 $sha, 커밋 $tagCommit)"
+    # 2. 태그 커밋이 master 에 있는가
+    git -C $PSScriptRoot fetch -q origin master --tags
+    $tagCommit = (git -C $PSScriptRoot rev-parse "$Tag^{commit}").Trim()
+    git -C $PSScriptRoot merge-base --is-ancestor $tagCommit origin/master
+    if ($LASTEXITCODE -ne 0) { throw "$Tag($tagCommit) 가 origin/master 에 없습니다. 서명하지 않습니다." }
+
+    $work = Join-Path ([IO.Path]::GetTempPath()) "cut-sign-$([Guid]::NewGuid().ToString('N'))"
+    New-Item -ItemType Directory $work | Out-Null
+    $key = $null
+    try {
+        # 3. 해시
+        gh release download $Tag -R $repo -p 'ClaudeUsageTray.exe' -p 'SHA256.txt' -D $work
+        if ($LASTEXITCODE -ne 0) { throw "자산을 내려받지 못했습니다." }
+        $sha = (Get-FileHash -LiteralPath (Join-Path $work 'ClaudeUsageTray.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
+        $ciSha = (Get-Content -LiteralPath (Join-Path $work 'SHA256.txt') -Raw).Trim().Split(' ')[0].ToLowerInvariant()
+        if ($sha -ne $ciSha) { throw "exe 해시($sha)가 SHA256.txt($ciSha)와 다릅니다. 서명하지 않습니다." }
+
+        # 4. 키 ↔ 앱에 내장된 공개키
+        $password = ((Get-Content -LiteralPath $propsPath) | Where-Object { $_ -match '^password=' } | Select-Object -First 1) -replace '^password=', ''
+        if (-not $password) { throw "update-signing.properties 에 password= 줄이 없습니다." }
+        $key = [System.Security.Cryptography.ECDsa]::Create()
+        $key.ImportFromEncryptedPem((Get-Content -LiteralPath $pemPath -Raw), $password)
+        Remove-Variable password
+        # 이 서명을 확인할 쪽은 이 버전을 업데이트로 받을 앱, 즉 직전 버전이다. 그래서 직전 버전 태그가 내장한 공개키와 맞춘다 —
+        # 키를 바꾸는 릴리스(새 공개키를 내장)는 옛 키로 서명해야 기존 설치본이 받는다(DECISIONS D-1, Codex 리뷰 P2).
+        # 직전 태그가 서명 도입 전이면(받는 앱이 서명을 보지 않음) 이 태그가 내장한 키와 맞춘다.
+        $previous = git -C $PSScriptRoot tag --list 'v*' --sort=-v:refname |
+            Where-Object { $_ -match '^v(\d+\.\d+\.\d+)$' -and [Version]$Matches[1] -lt $version } | Select-Object -First 1
+        $trusted = $null
+        foreach ($ref in @($previous, $tagCommit) | Where-Object { $_ }) {
+            $source = git -C $PSScriptRoot show "${ref}:ClaudeUsageTray/Services/UpdateSignature.cs" 2>$null
+            if ($LASTEXITCODE -eq 0) { $trusted = $ref; break }
+        }
+        if (-not $trusted) { throw "$Tag 와 직전 태그($previous) 어디에도 UpdateSignature.cs 가 없습니다." }
+        $embedded = (($source -join "`n") -replace '(?s).*-----BEGIN PUBLIC KEY-----(.*?)-----END PUBLIC KEY-----.*', '$1') -replace '\s', ''
+        $mine = ($key.ExportSubjectPublicKeyInfoPem() -replace '-----(BEGIN|END) PUBLIC KEY-----', '') -replace '\s', ''
+        if ($embedded -ne $mine) { throw "이 키는 $trusted 의 앱이 내장한 공개키와 짝이 아닙니다 — 그 앱은 이 서명을 거부합니다." }
+
+        # 서명 — UpdateSignature.Message 와 같은 바이트
+        $message = [Text.Encoding]::UTF8.GetBytes("claude-usage-tray-update/v1`n$($version.ToString(3))`n$sha`n")
+        $signature = $key.SignData($message, [System.Security.Cryptography.HashAlgorithmName]::SHA256,
+            [System.Security.Cryptography.DSASignatureFormat]::IeeeP1363FixedFieldConcatenation)
+        $pub = [System.Security.Cryptography.ECDsa]::Create()
+        $pub.ImportFromPem($key.ExportSubjectPublicKeyInfoPem())
+        if (-not $pub.VerifyData($message, $signature, [System.Security.Cryptography.HashAlgorithmName]::SHA256,
+                [System.Security.Cryptography.DSASignatureFormat]::IeeeP1363FixedFieldConcatenation)) { throw "서명 자체 검증 실패" }
+
+        $sigPath = Join-Path $work $assetName
+        Set-Content -LiteralPath $sigPath -Value ([Convert]::ToBase64String($signature)) -Encoding ascii -NoNewline
+        gh release upload $Tag $sigPath -R $repo
+        if ($LASTEXITCODE -ne 0) { throw "서명을 올리지 못했습니다." }
+        Write-Host "서명함: $Tag (v$($version.ToString(3)), sha256 $sha, 커밋 $tagCommit)"
+    }
+    finally {
+        if ($key) { $key.Dispose() }
+        Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }
 finally {
-    if ($key) { $key.Dispose() }
-    Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
+    [Console]::OutputEncoding = $previousOutputEncoding
 }

@@ -109,9 +109,10 @@ public class NotificationService
     }
 
     // dedupeKey: 날씨 알림이 PC 안에서 이미 쓰는 중복 방지 키(위치·날짜 포함). 없으면(테스트 알림) 중복 확인을 건너뛴다.
-    // priority: 호출부가 WeatherPriority 로 정한다 — 공식 특보만 휴대폰에서 소리·진동(#297).
-    public void ShowWeatherAlert(string title, string body, string ntfyTopic,
-        string? ntfyMessage = null, int priority = WeatherPriority.Official, string[]? tags = null,
+    // priority: 호출부가 WeatherPriority 로 정한다 — 공식 특보만 휴대폰에서 소리·진동(#297). 기본값을 두지 않는다:
+    // 예전 기본값(Official)이면 새 호출부가 빠뜨렸을 때 정보성 알림이 휴대폰에서 울렸다(#299).
+    public void ShowWeatherAlert(string title, string body, string ntfyTopic, int priority,
+        string? ntfyMessage = null, string[]? tags = null,
         string? clickUrl = null, string? dedupeKey = null)
     {
         ShowBalloon(title, body);

@@ -3,6 +3,30 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.72.4] - 2026-11-19
+
+<!-- ko -->
+### 개선
+- **하드닝: 새로고침 겹침·DeepSeek 재시도·OpenCode 행 배치·알림 우선순위 (#325 #314 #310 #299 #237)**
+  - 주기 갱신·설정 저장·수동 새로고침이 겹쳐도 사용량 읽기는 한 번만 돕니다. 도는 중에 들어온 요청은 끝난 뒤 한 번 더 읽어 바뀐 설정을 반영합니다(전에는 Codex 로그 스캔·OpenCode DB 읽기가 동시에 두 번 돌고, 먼저 끝난 쪽이 로딩 표시를 껐습니다).
+  - DeepSeek(100milionseek) 확인이 실패하면(서버 오류·429·네트워크) 다음 시도까지 1·2·4·8·16·30분씩 쉬고, 429 의 `Retry-After` 가 더 길면 그만큼(최대 1시간) 기다립니다. 성공하거나 키를 바꾸면 바로 다시 시도합니다.
+  - OpenCode 공식 할당량(롤링·주간·월간) 행이 Claude·Codex 행과 같은 규칙을 씁니다 — 라벨은 줄어들지 않고, 공간이 모자라면 초기화 문구만 오른쪽 정렬로 줄바꿈합니다.
+  - 언어를 바꾸면 OpenCode·Codex 섹션 아래 안내 문구도 바로 새 언어로 바뀝니다(전에는 다음 새로고침까지 이전 언어).
+  - 날씨 알림은 호출부마다 우선순위를 반드시 정하게 했고(빠뜨리면 휴대폰이 울리던 기본값 제거), 예보·조건 알림은 조용히·공식 특보만 울리는지 실제 경로로 확인하는 테스트를 넣었습니다.
+  - 팝업 막대가 모두 차오름 애니메이션으로 묶였는지 보는 테스트, 키가 없을 때 통과 대신 '건너뜀'으로 보이는 DeepSeek 실물 테스트, 콘솔이 UTF-8 이 아니어도 한글 릴리스 노트에서 깨지지 않는 서명 스크립트(`tools/sign-release.ps1`).
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Hardening: overlapping refreshes, DeepSeek retries, OpenCode row layout, alert priorities (#325 #314 #310 #299 #237)**
+  - Periodic, settings-save and manual refreshes no longer read usage twice at the same time. A request that arrives during a refresh runs once more afterwards so new settings still apply (previously the Codex log scan and OpenCode DB read could run twice in parallel, and the first to finish turned the loading indicator off).
+  - When the DeepSeek (100milionseek) check fails (server error, 429, network), the next try waits 1, 2, 4, 8, 16, then 30 minutes; a longer `Retry-After` on 429 is honoured (up to 1 hour). Success or a new key retries right away.
+  - OpenCode official quota rows (rolling, weekly, monthly) follow the same rule as the Claude and Codex rows: the label never shrinks, and only the reset text wraps, right-aligned, when space runs out.
+  - Changing the language now updates the notes under the OpenCode and Codex sections immediately (previously they kept the old language until the next refresh).
+  - Weather alerts must now state their priority at every call site (the default that made the phone ring when omitted is gone), and a test runs the real alert path to check that forecasts and condition alerts stay quiet while only official warnings ring.
+  - New tests check that every popup bar is bound through the fill animation; the live DeepSeek test now shows as skipped instead of passing when no key is set; the signing script (`tools/sign-release.ps1`) no longer breaks on Korean release notes when the console is not UTF-8.
+<!-- /en -->
+
 ## [1.72.3] - 2026-11-19
 
 <!-- ko -->

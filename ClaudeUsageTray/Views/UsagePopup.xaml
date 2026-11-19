@@ -1280,13 +1280,14 @@
                         <StackPanel x:Name="OpenCodeQuotaGauges" Margin="0,0,0,10"
                                     Visibility="{Binding OpenCodeVm.HasWebQuota, Converter={StaticResource BoolToVisibility}}">
                             <StackPanel x:Name="OpenCodeRollingGauge" Margin="0,0,0,10">
+                                <!-- 라벨은 Auto 열이라 눌리지 않는다. 남는 폭이 모자라면 초기화 문구만 오른쪽 정렬로 줄바꿈(#234, #237) -->
                                 <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding OpenCodeVm.RollingTitle}" Foreground="#F1F5F9" FontSize="10.5"/>
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                        <TextBlock Text="{Binding OpenCodeVm.RollingPercent, StringFormat={}{0:P0}}" Foreground="#FB923C" FontSize="11" FontWeight="Bold"/>
-                                        <TextBlock Text="{Binding OpenCodeVm.RollingResetLabel}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0"/>
-                                    </StackPanel>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="OpenCodeRollingLabel" Text="{Binding OpenCodeVm.RollingTitle}" Foreground="#F1F5F9" FontSize="10.5"/>
+                                    <DockPanel Grid.Column="1" HorizontalAlignment="Right" Margin="8,0,0,0">
+                                        <TextBlock x:Name="OpenCodeRollingPercent" DockPanel.Dock="Left" Text="{Binding OpenCodeVm.RollingPercent, StringFormat={}{0:P0}}" Foreground="#FB923C" FontSize="11" FontWeight="Bold"/>
+                                        <TextBlock x:Name="OpenCodeRollingReset" Text="{Binding OpenCodeVm.RollingResetLabel}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0" TextWrapping="Wrap" TextAlignment="Right"/>
+                                    </DockPanel>
                                 </Grid>
                                 <Grid Height="8" Margin="0,4,0,0">
                                     <ProgressBar views:GaugeAnimation.Value="{Binding OpenCodeVm.RollingPercent}" Maximum="1" Style="{StaticResource OpenCodeBarStyle}" VerticalAlignment="Center"/>
@@ -1303,12 +1304,12 @@
 
                             <StackPanel x:Name="OpenCodeWeeklyGauge" Margin="0,0,0,10">
                                 <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding OpenCodeVm.WeeklyTitle}" Foreground="#F1F5F9" FontSize="10.5"/>
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                        <TextBlock Text="{Binding OpenCodeVm.WeeklyPercent, StringFormat={}{0:P0}}" Foreground="#FB923C" FontSize="11" FontWeight="Bold"/>
-                                        <TextBlock Text="{Binding OpenCodeVm.WeeklyResetLabel}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0"/>
-                                    </StackPanel>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="OpenCodeWeeklyLabel" Text="{Binding OpenCodeVm.WeeklyTitle}" Foreground="#F1F5F9" FontSize="10.5"/>
+                                    <DockPanel Grid.Column="1" HorizontalAlignment="Right" Margin="8,0,0,0">
+                                        <TextBlock x:Name="OpenCodeWeeklyPercent" DockPanel.Dock="Left" Text="{Binding OpenCodeVm.WeeklyPercent, StringFormat={}{0:P0}}" Foreground="#FB923C" FontSize="11" FontWeight="Bold"/>
+                                        <TextBlock x:Name="OpenCodeWeeklyReset" Text="{Binding OpenCodeVm.WeeklyResetLabel}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0" TextWrapping="Wrap" TextAlignment="Right"/>
+                                    </DockPanel>
                                 </Grid>
                                 <Grid Height="8" Margin="0,4,0,0">
                                     <ProgressBar views:GaugeAnimation.Value="{Binding OpenCodeVm.WeeklyPercent}" Maximum="1" Style="{StaticResource OpenCodeBarStyle}" VerticalAlignment="Center"/>
@@ -1325,12 +1326,12 @@
 
                             <StackPanel x:Name="OpenCodeMonthlyGauge">
                                 <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding OpenCodeVm.MonthlyTitle}" Foreground="#F1F5F9" FontSize="10.5"/>
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                        <TextBlock Text="{Binding OpenCodeVm.MonthlyPercent, StringFormat={}{0:P0}}" Foreground="#FB923C" FontSize="11" FontWeight="Bold"/>
-                                        <TextBlock Text="{Binding OpenCodeVm.MonthlyResetLabel}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0"/>
-                                    </StackPanel>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="OpenCodeMonthlyLabel" Text="{Binding OpenCodeVm.MonthlyTitle}" Foreground="#F1F5F9" FontSize="10.5"/>
+                                    <DockPanel Grid.Column="1" HorizontalAlignment="Right" Margin="8,0,0,0">
+                                        <TextBlock x:Name="OpenCodeMonthlyPercent" DockPanel.Dock="Left" Text="{Binding OpenCodeVm.MonthlyPercent, StringFormat={}{0:P0}}" Foreground="#FB923C" FontSize="11" FontWeight="Bold"/>
+                                        <TextBlock x:Name="OpenCodeMonthlyReset" Text="{Binding OpenCodeVm.MonthlyResetLabel}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0" TextWrapping="Wrap" TextAlignment="Right"/>
+                                    </DockPanel>
                                 </Grid>
                                 <Grid Height="8" Margin="0,4,0,0">
                                     <ProgressBar views:GaugeAnimation.Value="{Binding OpenCodeVm.MonthlyPercent}" Maximum="1" Style="{StaticResource OpenCodeBarStyle}" VerticalAlignment="Center"/>

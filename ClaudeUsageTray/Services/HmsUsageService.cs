@@ -43,6 +43,9 @@ public sealed record HmsReadResult(HmsReadState State, HmsDailyUsage? Usage = nu
 /// <c>/api/me</c> 는 Bearer 키를 받지 않는다(2026-11-19 확인, 401 <c>not_signed_in</c>).
 /// 조회할 때마다 로그인하면 사이트에 세션이 쌓이므로 쿠키는 메모리에 두고 401 일 때만 다시 로그인한다.
 /// 키는 사이트 자신에게만 보내고 로그·오류 문구에 남기지 않는다.
+/// 확인이 실패하면(5xx·429·네트워크·형식 변경) 다음 시도까지 1·2·4·8·16·30분씩 쉰다 — 사이트 장애 동안
+/// 매 폴링마다 로그인·조회를 두드리지 않기 위해서다(#310). 429 의 <c>Retry-After</c> 가 더 길면 그걸 따른다(상한 1시간).
+/// 성공하거나 키가 바뀌면 바로 처음부터 다시 시도한다.
 /// </remarks>
 public sealed class HmsUsageService : IDisposable
 {
@@ -58,6 +61,10 @@ public sealed class HmsUsageService : IDisposable
     /// <summary>대시보드와 같은 브라우저 UA — 기본 .NET UA 는 Cloudflare 가 막을 수 있다.</summary>
     private const string BrowserUserAgent =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+    /// <summary>재시도 간격 상한. 하루 한도라 이보다 오래 쉬면 오늘 값을 너무 늦게 본다.</summary>
+    internal static readonly TimeSpan MaxRetryDelay = TimeSpan.FromMinutes(30);
+    /// <summary>사이트가 <c>Retry-After</c> 로 더 오래 쉬라고 해도 이 이상은 기다리지 않는다.</summary>
+    internal static readonly TimeSpan MaxServerRetryAfter = TimeSpan.FromHours(1);
 
     private readonly Func<string?> _keyProvider;
     private readonly HttpClient _http;
@@ -67,14 +74,22 @@ public sealed class HmsUsageService : IDisposable
     private string? _sessionCookie;
     /// <summary>사이트가 거절한 키. 같은 키로는 로그인을 다시 두드리지 않는다.</summary>
     private string? _rejectedKey;
+    private readonly Func<DateTimeOffset> _clock;
+    /// <summary>실패가 이어진 키와 횟수·다음 시도 시각. 키가 바뀌면 버린다.</summary>
+    private string? _failedKey;
+    private int _consecutiveFailures;
+    private DateTimeOffset _retryAt;
+    /// <summary>이번 시도에서 사이트가 429 와 함께 준 <c>Retry-After</c>.</summary>
+    private TimeSpan? _serverRetryAfter;
 
     public HmsUsageService(Func<string?> keyProvider) : this(keyProvider, new HttpClientHandler())
     {
     }
 
-    internal HmsUsageService(Func<string?> keyProvider, HttpMessageHandler handler)
+    internal HmsUsageService(Func<string?> keyProvider, HttpMessageHandler handler, Func<DateTimeOffset>? clock = null)
     {
         _keyProvider = keyProvider;
+        _clock = clock ?? (() => DateTimeOffset.UtcNow);
         if (handler is HttpClientHandler clientHandler)
         {
             // 쿠키는 직접 다룬다 — 세션 쿠키 하나만 보내고, 키가 바뀌면 바로 버리기 위해서다.
@@ -101,46 +116,93 @@ public sealed class HmsUsageService : IDisposable
             {
                 ForgetSession();
                 _rejectedKey = null;
+                ForgetFailures();
                 return new HmsReadResult(HmsReadState.NoKey);
             }
             if (!string.Equals(key, _sessionKey, StringComparison.Ordinal)) ForgetSession();
             if (string.Equals(key, _rejectedKey, StringComparison.Ordinal))
                 return new HmsReadResult(HmsReadState.InvalidKey, KeyId: keyId);
+            if (!string.Equals(key, _failedKey, StringComparison.Ordinal)) ForgetFailures();
+            else if (_clock() < _retryAt) return new HmsReadResult(HmsReadState.Unavailable, KeyId: keyId);
 
-            // 저장된 쿠키가 만료됐으면 한 번만 다시 로그인한다.
-            for (var attempt = 0; attempt < 2; attempt++)
+            _serverRetryAfter = null;
+            if (await ReadOnceAsync(key, ct) is { } usage)
             {
-                if (_sessionCookie == null)
-                {
-                    var login = await LoginAsync(key, ct);
-                    if (login != HmsReadState.Ok) return new HmsReadResult(login, KeyId: keyId);
-                }
-
-                using var request = new HttpRequestMessage(HttpMethod.Get, MePath);
-                request.Headers.Add("Cookie", $"{SessionCookieName}={_sessionCookie}");
-                using var response = await _http.SendAsync(request, ct);
-                if (response.StatusCode == HttpStatusCode.Unauthorized)
-                {
-                    ForgetSession();
-                    continue;
-                }
-                if (!response.IsSuccessStatusCode) return new HmsReadResult(HmsReadState.Unavailable, KeyId: keyId);
-
-                var usage = ParseMe(await response.Content.ReadAsStringAsync(ct));
-                return usage == null
-                    ? new HmsReadResult(HmsReadState.Unavailable, KeyId: keyId)
-                    : new HmsReadResult(HmsReadState.Ok, usage, keyId);
+                ForgetFailures();
+                return new HmsReadResult(HmsReadState.Ok, usage, keyId);
             }
+            if (string.Equals(key, _rejectedKey, StringComparison.Ordinal))
+                return new HmsReadResult(HmsReadState.InvalidKey, KeyId: keyId);
+            RegisterFailure(key);
             return new HmsReadResult(HmsReadState.Unavailable, KeyId: keyId);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
         {
+            RegisterFailure(key!);
             return new HmsReadResult(HmsReadState.Unavailable, KeyId: keyId);
         }
         finally
         {
             _gate.Release();
         }
+    }
+
+    /// <summary>로그인(필요하면)과 <c>/api/me</c> 한 번. 못 읽었으면 null — 키 거절이면 <see cref="_rejectedKey"/> 가 남는다.</summary>
+    private async Task<HmsDailyUsage?> ReadOnceAsync(string key, CancellationToken ct)
+    {
+        // 저장된 쿠키가 만료됐으면 한 번만 다시 로그인한다.
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            if (_sessionCookie == null && await LoginAsync(key, ct) != HmsReadState.Ok) return null;
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, MePath);
+            request.Headers.Add("Cookie", $"{SessionCookieName}={_sessionCookie}");
+            using var response = await _http.SendAsync(request, ct);
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                ForgetSession();
+                continue;
+            }
+            if (!response.IsSuccessStatusCode)
+            {
+                NoteRetryAfter(response);
+                return null;
+            }
+            return ParseMe(await response.Content.ReadAsStringAsync(ct));
+        }
+        return null;
+    }
+
+    /// <summary>실패를 세고 다음 시도 시각을 잡는다.</summary>
+    private void RegisterFailure(string key)
+    {
+        _failedKey = key;
+        _consecutiveFailures++;
+        _retryAt = _clock() + RetryDelayFor(_consecutiveFailures, _serverRetryAfter);
+    }
+
+    private void ForgetFailures()
+    {
+        _failedKey = null;
+        _consecutiveFailures = 0;
+        _retryAt = default;
+    }
+
+    /// <summary>n 번째 연속 실패 뒤의 대기 — 1·2·4·8·16·30분. 사이트가 더 길게 쉬라고 했으면 그만큼(상한 1시간).</summary>
+    internal static TimeSpan RetryDelayFor(int consecutiveFailures, TimeSpan? serverRetryAfter = null)
+    {
+        var minutes = Math.Min(1 << Math.Clamp(consecutiveFailures - 1, 0, 5), MaxRetryDelay.TotalMinutes);
+        var backoff = TimeSpan.FromMinutes(minutes);
+        if (serverRetryAfter is not { } server || server <= backoff) return backoff;
+        return server < MaxServerRetryAfter ? server : MaxServerRetryAfter;
+    }
+
+    private void NoteRetryAfter(HttpResponseMessage response)
+    {
+        if (response.StatusCode != HttpStatusCode.TooManyRequests) return;
+        var retryAfter = response.Headers.RetryAfter;
+        if (retryAfter?.Delta is { } delta) _serverRetryAfter = delta;
+        else if (retryAfter?.Date is { } date) _serverRetryAfter = date - _clock();
     }
 
     private async Task<HmsReadState> LoginAsync(string key, CancellationToken ct)
@@ -157,7 +219,11 @@ public sealed class HmsUsageService : IDisposable
             _rejectedKey = key;
             return HmsReadState.InvalidKey;
         }
-        if (!response.IsSuccessStatusCode) return HmsReadState.Unavailable;
+        if (!response.IsSuccessStatusCode)
+        {
+            NoteRetryAfter(response);
+            return HmsReadState.Unavailable;
+        }
 
         var cookie = response.Headers.TryGetValues("Set-Cookie", out var values)
             ? FindSessionCookie(values)
