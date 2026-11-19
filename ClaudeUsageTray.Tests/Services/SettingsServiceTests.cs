@@ -42,6 +42,22 @@ public class SettingsServiceTests : IDisposable
         Assert.False(File.Exists(_path));
     }
 
+    // 계정 별명(#307)은 계정 키마다 저장되고, 키가 없던 예전 파일은 빈 사전으로 읽힌다.
+    [Fact]
+    public void ClaudeAccountAliases_RoundTripAndDefaultToEmpty()
+    {
+        new SettingsService(_path).Save(new NotificationSettings
+        {
+            ClaudeAccountAliases = new() { ["org-1|acct"] = "개인", ["org-2|acct"] = "회사" },
+        });
+        var loaded = new SettingsService(_path).Load();
+        Assert.Equal("개인", loaded.ClaudeAccountAliases["org-1|acct"]);
+        Assert.Equal("회사", loaded.ClaudeAccountAliases["org-2|acct"]);
+
+        File.WriteAllText(_path, """{ "PcAlias": "집" }""");
+        Assert.Empty(new SettingsService(_path).Load().ClaudeAccountAliases);
+    }
+
     // 이관은 읽을 때마다 메모리에서만 적용되고, 파일은 다음 저장 때 새 형식으로 바뀐다.
     [Fact]
     public void Load_MigratesALegacyFileWithoutRewritingIt()

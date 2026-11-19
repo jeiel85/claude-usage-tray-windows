@@ -657,6 +657,10 @@
                                 <TextBlock x:Name="LblPcAlias" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
                                 <TextBox x:Name="TxtPcAlias" Style="{StaticResource DarkTextBox}" Padding="10,7" MaxLength="32" LostFocus="PcAlias_LostFocus" KeyDown="PcAlias_KeyDown"/>
                                 <TextBlock x:Name="LblPcAliasHint" Foreground="#5A5F7A" FontSize="11" TextWrapping="Wrap" Margin="2,4,0,0"/>
+                                <!-- Claude 계정 별명 (#307) — 지금 로그인한 계정에 붙는다. 휴대폰 앱 알림 제목 앞에 [별명] 으로 보인다 -->
+                                <TextBlock x:Name="LblClaudeAccountAlias" Style="{StaticResource SectionLabel}" Margin="0,12,0,6"/>
+                                <TextBox x:Name="TxtClaudeAccountAlias" Style="{StaticResource DarkTextBox}" Padding="10,7" MaxLength="20" LostFocus="ClaudeAccountAlias_LostFocus" KeyDown="ClaudeAccountAlias_KeyDown"/>
+                                <TextBlock x:Name="LblClaudeAccountAliasHint" Foreground="#5A5F7A" FontSize="11" TextWrapping="Wrap" Margin="2,4,0,0"/>
                                 <Border Height="1" Background="#2D2F45" Margin="0,12,0,10"/>
                                 <TextBlock x:Name="LblMobileTitle" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
                                 <CheckBox x:Name="ChkMobileEnabled" Style="{StaticResource CheckStyle}" Margin="0,0,0,4" Click="Setting_Changed"/>

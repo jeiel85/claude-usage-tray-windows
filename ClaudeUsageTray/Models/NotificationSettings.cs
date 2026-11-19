@@ -130,6 +130,13 @@ public class NotificationSettings
     /// </summary>
     public string PcAlias { get; set; } = "";
 
+    /// <summary>
+    /// Claude 계정 별명(#307). 키는 휴대폰 계정 카드와 같은 Claude 계정 키(<c>orgUuid|accountUuid</c>) — 계정마다 따로 붙어,
+    /// 계정을 바꾸면 그 계정의 별명이 쓰인다. 있으면 PC 팝업 배지·휴대폰 계정 카드·앱 푸시의 계정 이름 대신 쓰고,
+    /// 앱 푸시 제목 앞에 "[별명]" 으로 붙인다(<see cref="Services.AccountAlias"/>). 키가 없던 예전 파일은 빈 사전.
+    /// </summary>
+    public Dictionary<string, string> ClaudeAccountAliases { get; set; } = new();
+
     // 휴대폰 앱 연동(#220). 기본은 꺼짐 — 켜야 이 PC 가 휴대폰용 포트를 연다.
     public bool MobileEnabled { get; set; } = false;
     /// <summary>같은 Wi-Fi·유선 LAN 경로(TLS 핀 고정).</summary>

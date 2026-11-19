@@ -280,6 +280,18 @@ internal static class AlertText
     public static string UsageTitle(string agent, string window, int percent) => Loc.UsageAlertTitle(agent, window, percent);
 
     /// <summary>
+    /// 휴대폰 앱 푸시 제목 앞에 계정 별명을 붙인다(#307): "[회사] Claude 90% · 5시간 한도".
+    /// 계정 이름은 알림의 보조 문구에도 있지만 Android 12 이상은 화면 위로 뜨는 알림·접힌 알림에서 보조 문구를 보여 주지
+    /// 않는다 — 제목 맨 앞이 알림이 뜰 때 늘 보이는 자리다(Android 16 은 제목을 끝에서부터 자른다).
+    /// 별명이 없으면 제목 그대로. 평문 ntfy 토픽·Windows 풍선에는 쓰지 않는다(앱 푸시에만, <c>AppPushSender.Build</c>).
+    /// </summary>
+    public static string WithAccountAlias(string title, string? alias)
+    {
+        var clean = AccountAlias.Clean(alias);
+        return clean.Length == 0 ? title : $"[{clean}] {title}";
+    }
+
+    /// <summary>
     /// Input : 임계값(%), 창의 서버 리셋 시각(모르면 null), 리셋 시각을 모를 때 쓸 팝업 라벨(" · 약 3h 후 초기화(예상)" 꼴), 지금
     /// Output: 본문
     /// 핵심 로직: 리셋 시각이 앞으로 있으면 "15:30 초기화 · 3h 12m 남음". 없으면 팝업 라벨에서 앞의 구분점을 떼어 쓰고,

@@ -127,15 +127,20 @@ public sealed class AppPushSender
     /// <summary>
     /// 계정이 있으면 사용량 피드와 같은 규칙(<see cref="MobileAccountHash.For"/>)으로 해시한다 — 계정 키를 모르면
     /// 이 PC 의 pcId 를 섞은 "device" 해시가 되어, 피드에서 이 PC 만의 카드와 같은 값이 된다.
+    /// 계정 별명(#307)이 있으면 계정 이름 대신 싣고 제목 앞에 "[별명]" 을 붙인다 — 휴대폰은 계정 이름을 보조 문구에
+    /// 두는데, 화면 위로 뜨는 알림에서는 보조 문구가 보이지 않는다(<see cref="AlertText.WithAccountAlias"/>).
+    /// 이 PC 가 보내는 제목만 바꾸므로 휴대폰 앱을 업데이트하지 않아도 보인다.
     /// </summary>
     public PushMessage Build(string category, string title, string? body, int ntfyPriority, string? eventKey,
         TimeSpan eventTolerance, string? clickUrl, PushAccount? account = null)
     {
         var provider = account?.Provider.Trim().ToLowerInvariant();
         var hash = string.IsNullOrEmpty(provider) ? null : MobileAccountHash.For(provider, account!.AccountKey, _devices.PcId).Hash;
+        var alias = string.IsNullOrEmpty(hash) ? "" : AccountAlias.Clean(account?.Alias);
+        if (alias.Length > 0) title = AlertText.WithAccountAlias(title, alias);
         // 계정 이름은 한 줄·64자로 줄인다 — PushPayload.Serialize 는 넘칠 때 본문·제목만 줄이므로, 비정상적으로 긴
         // 이름이 그대로 실리면 알림이 통째로 버려진다(#265). 보조 문구 한 줄에 들어가는 이름이라 PC 이름과 같은 규칙을 쓴다.
-        var label = PcName.Clean(account?.Label, MaxAccountLabelLength);
+        var label = alias.Length > 0 ? alias : PcName.Clean(account?.Label, MaxAccountLabelLength);
         return new(MobileProtocol.Schema,
             Guid.NewGuid().ToString("N"),
             _devices.PcId,

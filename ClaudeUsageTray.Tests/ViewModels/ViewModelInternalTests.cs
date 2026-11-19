@@ -614,6 +614,26 @@ public class UsageSyncQuotaPolicyTests
     }
 
     [Theory]
+    // 별명(#307)을 보이고 있으면 툴팁에 원래 계정 이름을 덧붙인다 — 별명만으로는 어느 로그인인지 확인할 수 없다.
+    [InlineData("회사", "김민준 · Acme Corp", "Claude Team 5x · 회사 (김민준 · Acme Corp)")]
+    // 별명이 없으면 지금처럼 배지 문구 그대로.
+    [InlineData("", "김민준 · Acme Corp", "Claude Team 5x · 김민준 · Acme Corp")]
+    // 계정 이름을 모르면 괄호 없이 별명만.
+    [InlineData("회사", "", "Claude Team 5x · 회사")]
+    public void ClaudeBadgeToolTip_KeepsTheAccountNameBehindAnAlias(string alias, string label, string expected)
+    {
+        var badge = MainViewModel.ComposeClaudeBadge(true, "Claude Team 5x", true, AccountAlias.Display(alias, label));
+        Assert.Equal(expected, MainViewModel.ComposeClaudeBadgeToolTip(badge, alias, label));
+    }
+
+    [Fact]
+    public void ClaudeBadgeToolTip_IsNullWhenTheAccountIsHidden()
+    {
+        var badge = MainViewModel.ComposeClaudeBadge(true, "Claude Team 5x", false, "회사");
+        Assert.Null(MainViewModel.ComposeClaudeBadgeToolTip(badge, "회사", "김민준"));
+    }
+
+    [Theory]
     [InlineData("max", true)]
     [InlineData("pro", true)]
     [InlineData("team", true)]
