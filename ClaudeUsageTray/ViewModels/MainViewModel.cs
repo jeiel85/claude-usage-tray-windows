@@ -1058,7 +1058,7 @@ namespace ClaudeUsageTray.ViewModels;
         PcName.SetAlias(settings.PcAlias);
         try
         {
-            Mobile.Feed.Retain(settings.VisibleProviders);
+            Mobile.Feed.Retain(MobileFeedProviders(settings));
             Mobile.Apply(settings);
         }
         catch (Exception ex)
@@ -1680,7 +1680,7 @@ namespace ClaudeUsageTray.ViewModels;
                 RefreshCodexInternalAsync(),
                 RefreshOpenCodeInternalAsync(),
                 RefreshAntigravityInternalAsync(),
-                HmsVm.RefreshAsync()
+                RefreshHmsAsync()
             };
 
             if (WeatherEnabled)
@@ -1823,6 +1823,34 @@ namespace ClaudeUsageTray.ViewModels;
         models.Any(m => m.Window is { } window && window <= TimeSpan.FromHours(5) && m.UsagePercent > 0);
 
     /// <summary>화면에서 켠 provider 만 휴대폰에 보낸다 — 사용자가 숨긴 provider 를 휴대폰에서 다시 보지 않게.</summary>
+    /// <summary>
+    /// 휴대폰 피드에 남길 provider — 화면에서 켠 공급자 + 키가 있으면 DeepSeek(100milionseek, #318).
+    /// DeepSeek 은 표시 목록 체크박스가 없는 임시 섹션이라 키 유무로 정한다(키를 지우면 휴대폰에서도 바로 빠진다).
+    /// </summary>
+    internal static IReadOnlyCollection<string> MobileFeedProviders(NotificationSettings settings) =>
+        string.IsNullOrEmpty(settings.HmsApiKeyProtected)
+            ? settings.VisibleProviders
+            : [.. settings.VisibleProviders, HmsUsageService.MobileProvider];
+
+    /// <summary>DeepSeek(100milionseek) 일일 한도를 읽고 휴대폰 피드에 싣는다(#318).</summary>
+    private async Task RefreshHmsAsync()
+    {
+        await HmsVm.RefreshAsync();
+        PublishHmsMobile(HmsVm.LastResult, DateTimeOffset.Now);
+    }
+
+    /// <summary>
+    /// 키가 없으면 보내지 않는다(설정 저장 때 <see cref="MobileFeedProviders"/> 가 피드에서 뺀다).
+    /// 계정 키는 API 키의 지문 — 여러 PC 가 같은 키를 쓰면 휴대폰에서 카드 하나로 묶이고, 키 원문은 나가지 않는다.
+    /// </summary>
+    private void PublishHmsMobile(HmsReadResult? result, DateTimeOffset now)
+    {
+        if (result is null || result.State == HmsReadState.NoKey) return;
+        PublishMobile(HmsUsageService.MobileProvider, result.KeyId, "",
+            () => HmsViewModel.CreateMobileQuota(result, now), null,
+            result.State == HmsReadState.Ok ? "" : "source_error");
+    }
+
     private bool IsMobileProviderVisible(string provider) => provider switch
     {
         UsageProviderKind.Claude => IsClaudeEnabled,

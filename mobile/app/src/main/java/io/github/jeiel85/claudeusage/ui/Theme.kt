@@ -41,6 +41,8 @@ object Palette {
         "claude" -> Color(0xFFE08A6A)
         "codex" -> Color(0xFF34D399)
         "opencode" -> Color(0xFFF472B6)
+        // DeepSeek 무료 API(100milionseek, #318) — PC 팝업과 같은 DeepSeek 파랑.
+        "100milionseek" -> Color(0xFF7C93FF)
         "antigravity" -> Color(0xFF60A5FA)
         else -> AccentLight
     }
@@ -74,6 +76,8 @@ fun providerName(provider: String): String = when (provider) {
     "claude" -> "Claude"
     "codex" -> "Codex"
     "opencode" -> "OpenCode"
+    // 피드의 provider 값은 중계 서비스 이름이지만 사용자가 아는 이름은 모델 쪽이다(#318).
+    "100milionseek" -> "DeepSeek"
     "antigravity" -> "Antigravity"
     else -> provider.replaceFirstChar { it.uppercase() }
 }

@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.72.0] - 2026-11-19
+
+<!-- ko -->
+### 추가
+- **휴대폰 앱에서도 DeepSeek 무료 API 한도를 볼 수 있습니다 (#318)** — PC 설정에 100milionseek 키를 넣어 두면, 휴대폰 홈의 계정 목록에 "DeepSeek" 카드가 생겨 오늘 토큰 사용률과 초기화까지 남은 시간(UTC 자정 = 한국 시각 오전 9시)을 보여 줍니다. 여러 PC 가 같은 키를 쓰면 카드 하나로 묶입니다.
+  - 휴대폰 앱을 이번 버전으로 업데이트하지 않아도 카드는 보이지만, 이름이 "100milionseek" 으로 나옵니다.
+  - PC 에서 키를 지우면 휴대폰에서도 바로 사라집니다. 키 자체는 휴대폰으로 보내지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **The phone app now shows the DeepSeek free API allowance too (#318)** — With your 100milionseek key saved on the PC, the phone's account list gains a "DeepSeek" card with today's token usage and the time left until it resets (UTC midnight). PCs that use the same key share one card.
+  - Phones that haven't updated to this version still show the card, named "100milionseek".
+  - Removing the key on the PC removes the card from the phone right away. The key itself is never sent to the phone.
+<!-- /en -->
+
 ## [1.71.1] - 2026-11-19
 
 <!-- ko -->

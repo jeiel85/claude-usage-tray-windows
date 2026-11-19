@@ -30,7 +30,7 @@ public sealed class MobileUsageFeed
     /// </summary>
     public static readonly TimeSpan MaxAge = TimeSpan.FromHours(6);
 
-    private static readonly string[] Order = ["claude", "codex", "opencode", "antigravity"];
+    private static readonly string[] Order = ["claude", "codex", "opencode", HmsUsageService.MobileProvider, "antigravity"];
 
     private readonly object _gate = new();
     private readonly Dictionary<string, MobileFeedEntry> _entries = new(StringComparer.OrdinalIgnoreCase);

@@ -8,7 +8,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.ui.graphics.toArgb
 import io.github.jeiel85.claudeusage.data.AppPrefs
 import io.github.jeiel85.claudeusage.data.PcStore
+import io.github.jeiel85.claudeusage.domain.PcStatus
 import io.github.jeiel85.claudeusage.domain.SampleData
+import io.github.jeiel85.claudeusage.net.ProviderUsage
+import org.json.JSONObject
 import io.github.jeiel85.claudeusage.net.NetworkProbe
 import io.github.jeiel85.claudeusage.net.UsageApi
 import io.github.jeiel85.claudeusage.push.NotificationHistory
@@ -29,6 +32,10 @@ import io.github.jeiel85.claudeusage.ui.SettingsScreen
  *
  * `notify` also posts the sample alerts as real Android notifications (needs the notification permission), to check
  * how they read in the shade.
+ *
+ * `--ez deepseek true` adds a DeepSeek free API (100milionseek, #318) card to the first sample PC. It is parsed from the
+ * same JSON the PC sends (one short window of 1440 minutes), so this checks the real parsing path, not a hand-made
+ * gauge. Kept out of [SampleData]: the in-app sample tour shouldn't advertise a temporary third-party service.
  */
 class DesignPreviewActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,7 +51,8 @@ class DesignPreviewActivity : ComponentActivity() {
 
         val screen = intent.getStringExtra("screen") ?: "accounts"
         if (screen == "notify") sampleAlerts(now).forEach { PushNotifier.show(this, it) }
-        val status = if (screen == "empty") emptyMap() else SampleData.status(now)
+        val sample = if (screen == "empty") emptyMap() else SampleData.status(now)
+        val status = if (intent.getBooleanExtra("deepseek", false)) withDeepSeek(sample, now) else sample
         val store = PcStore(this)
         val api = UsageApi(networks = NetworkProbe(this)::current)
         setContent {
@@ -65,6 +73,26 @@ class DesignPreviewActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun withDeepSeek(status: Map<String, PcStatus>, now: Long): Map<String, PcStatus> {
+        val (pcId, first) = status.entries.firstOrNull()?.toPair() ?: return status
+        val snapshot = first.snapshot ?: return status
+        val resetAt = java.time.Instant.ofEpochMilli(now).atOffset(java.time.ZoneOffset.UTC)
+            .toLocalDate().plusDays(1).atStartOfDay().atOffset(java.time.ZoneOffset.UTC)
+        val observed = java.time.Instant.ofEpochMilli(now).atOffset(java.time.ZoneOffset.UTC)
+        val json = JSONObject(
+            """
+            {"provider":"100milionseek","accountHash":"${"d".repeat(64)}","accountScope":"account","accountLabel":"",
+             "observedAt":"$observed","errorKind":"",
+             "quota":{"hasData":true,"observedAtUtc":"$observed","shortUsagePercent":0.2,"shortResetAt":"$resetAt",
+              "isShortResetEstimated":false,"longUsagePercent":0,"extraUsageEnabled":false,"extraHasLimit":false,
+              "extraCreditsLabel":"","planType":"","shortWindowMinutes":1440,"hasLongWindow":false,"tierName":"",
+              "paidTierName":"","models":[],"additionalQuotas":[]}}
+            """.trimIndent(),
+        )
+        val deepseek = ProviderUsage.parse(json) ?: return status
+        return status + (pcId to first.copy(snapshot = snapshot.copy(providers = snapshot.providers + deepseek)))
     }
 
     private fun sampleAlerts(now: Long): List<PushMessage> = listOf(

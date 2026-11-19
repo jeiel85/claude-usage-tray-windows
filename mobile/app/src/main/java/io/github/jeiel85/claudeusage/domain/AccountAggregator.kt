@@ -48,7 +48,7 @@ data class AccountCard(
 
 object AccountAggregator {
 
-    private val PROVIDER_ORDER = listOf("claude", "codex", "opencode", "antigravity")
+    private val PROVIDER_ORDER = listOf("claude", "codex", "opencode", "100milionseek", "antigravity")
 
     /**
      * Input : every paired PC with its latest snapshot, and the current time

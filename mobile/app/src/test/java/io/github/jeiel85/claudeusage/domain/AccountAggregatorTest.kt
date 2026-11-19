@@ -113,6 +113,23 @@ class AccountAggregatorTest {
     }
 
     @Test
+    fun deepseek_card_sits_between_opencode_and_antigravity() {
+        val cards = AccountAggregator.aggregate(todayDate = TODAY, nowMs = now, pcs =
+            listOf(
+                pc(
+                    "p1", "HOME",
+                    usage("1".repeat(64), now, null, provider = "antigravity"),
+                    usage("2".repeat(64), now, null, provider = "100milionseek"),
+                    usage("3".repeat(64), now, null, provider = "opencode"),
+                    usage("4".repeat(64), now, null, provider = "claude"),
+                ),
+            ),
+        )
+        assertEquals(listOf("claude", "opencode", "100milionseek", "antigravity"), cards.map { it.provider })
+        assertEquals("DeepSeek", io.github.jeiel85.claudeusage.ui.providerName("100milionseek"))
+    }
+
+    @Test
     fun passed_reset_is_shown_as_zero() {
         val expired = Quota(true, now - 10, "", listOf(Gauge(GaugeKind.SHORT, "", 0.9, now - 1, 300)), "")
         val card = AccountAggregator.aggregate(todayDate = TODAY, nowMs = now, pcs = listOf(pc("p1", "HOME", usage(hashA, now, expired)))).single()

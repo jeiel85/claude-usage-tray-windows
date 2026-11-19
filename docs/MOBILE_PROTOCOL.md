@@ -96,8 +96,8 @@ https://jeiel85.github.io/claude-usage-tray-windows/pair/#<base64url(UTF-8 JSON 
 |---|---|
 | `schema` | 1. 다르면 앱은 반쪽 파싱하지 않고 "버전 불일치"로 멈춤 |
 | `ts`, `pcId`, `pcName`, `appVersion` | 보낸 PC. `pcName`은 PC 설정의 'PC 이름'(비우면 컴퓨터 이름)이라 바뀔 수 있습니다 — 앱은 받을 때마다 저장된 이름을 갱신합니다(#271). PC 구분은 `pcId`로만 합니다 |
-| `providers[]` | 화면에서 켠 provider만, 6시간 안에 관측한 것만 |
-| `providers[].provider` | `claude`·`codex`·`opencode`·`antigravity` |
+| `providers[]` | 화면에서 켠 provider(DeepSeek 은 키가 저장돼 있을 때)만, 6시간 안에 관측한 것만 |
+| `providers[].provider` | `claude`·`codex`·`opencode`·`antigravity`·`100milionseek`. `100milionseek` 은 DeepSeek 무료 API 의 일일 토큰 한도(#318): 계정 키는 API 키 지문(`accountScope` `account`), 쿼터는 short 창 하나(`shortUsagePercent`·`shortResetAt`=UTC 자정·`shortWindowMinutes` 1440), `today` 없음. 앱은 이름 "DeepSeek" 으로 보여 준다(모르는 provider 도 같은 경로로 그려지므로 예전 앱은 "100milionseek" 카드) |
 | `providers[].accountHash`, `accountScope` | 위 "계정 묶기" 참고(`account`·`device`) |
 | `providers[].accountLabel` | 표시 이름. Claude는 사용자가 PC 설정에서 붙인 계정 별명(#307), 없으면 "이름 · 팀 조직"(`~/.claude.json`), Codex는 이름(`~/.codex/auth.json` id_token의 `name`, 이메일 꼴이면 생략·64자 제한, #266). 이메일·UUID는 넣지 않음 |
 | `providers[].observedAt`, `errorKind` | 이 PC가 마지막으로 조회한 시각, 실패 종류 |
