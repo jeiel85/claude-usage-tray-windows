@@ -2645,13 +2645,13 @@ public static class Loc
         return Lang switch
         {
             "ko" => (account.Length > 0 ? $"지금 로그인한 계정({account})에만 붙습니다. " : "지금 로그인한 계정에만 붙습니다. ")
-                    + "휴대폰 앱 알림 제목 앞에 [별명]으로 보이고, 팝업·휴대폰 계정 카드에는 계정 이름 대신 보입니다. 비우면 계정 이름을 씁니다.",
+                    + "휴대폰 앱 알림 제목 앞에 [별명]으로 보이고, 팝업·휴대폰 계정 카드에는 계정 이름 대신 보입니다. PC 동기화로 연결된 다른 PC 도 같은 별명을 씁니다. 비우면 계정 이름을 씁니다.",
             "zh" => (account.Length > 0 ? $"仅用于当前登录的账户（{account}）。" : "仅用于当前登录的账户。")
-                    + "手机应用通知标题前会显示 [别名]，弹出窗口和手机账户卡片会用它代替账户名称。留空则使用账户名称。",
+                    + "手机应用通知标题前会显示 [别名]，弹出窗口和手机账户卡片会用它代替账户名称。通过电脑同步连接的其他电脑也会使用同一别名。留空则使用账户名称。",
             "ja" => (account.Length > 0 ? $"いまログインしているアカウント（{account}）にだけ付きます。" : "いまログインしているアカウントにだけ付きます。")
-                    + "スマホアプリの通知タイトルの先頭に [別名] と表示され、ポップアップとスマホのアカウントカードではアカウント名の代わりに表示されます。空欄ならアカウント名を使います。",
+                    + "スマホアプリの通知タイトルの先頭に [別名] と表示され、ポップアップとスマホのアカウントカードではアカウント名の代わりに表示されます。PC同期でつながった他のPCも同じ別名を使います。空欄ならアカウント名を使います。",
             _ => (account.Length > 0 ? $"Applies only to the account you're signed in to ({account}). " : "Applies only to the account you're signed in to. ")
-                 + "Phone app alerts start with [nickname], and the popup and phone account cards show it instead of the account name. Leave empty to use the account name."
+                 + "Phone app alerts start with [nickname], and the popup and phone account cards show it instead of the account name. PCs linked by PC sync use the same nickname. Leave empty to use the account name."
         };
     }
 

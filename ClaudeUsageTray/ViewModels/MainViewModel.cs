@@ -194,8 +194,9 @@ namespace ClaudeUsageTray.ViewModels;
     private bool _showClaudeAccount = true;
 
     // Claude 계정 별명(#307). 키는 휴대폰 계정 카드와 같은 Claude 계정 키(BuildClaudeMobileAccountKey).
-    // 갱신·알림 경로가 백그라운드 스레드에서 읽으므로 고쳐 쓰지 않고 새 사전으로 통째 바꾼다(AccountAlias.With).
-    private volatile IReadOnlyDictionary<string, string> _claudeAccountAliases = new Dictionary<string, string>();
+    // 갱신·알림·동기화 경로가 백그라운드 스레드에서 읽으므로 고쳐 쓰지 않고 새 사전으로 통째 바꾼다(AccountAlias.With).
+    // 바꾼 시각도 함께 둔다 — PC 간 동기화에서 더 최근에 바꾼 쪽을 따른다(#313). 지운 별명은 Alias "" 기록으로 남는다.
+    private volatile IReadOnlyDictionary<string, AccountAliasEntry> _claudeAccountAliases = new Dictionary<string, AccountAliasEntry>();
 
     /// <summary>지금 로그인한 Claude 계정의 별명(설정 칸). 계정이 바뀌면 그 계정의 별명으로 바뀐다. 없으면 "".</summary>
     [ObservableProperty]
@@ -728,7 +729,7 @@ namespace ClaudeUsageTray.ViewModels;
         HmsApiKeyProtected = s.HmsApiKeyProtected ?? "";
         PcAlias = PcName.Clean(s.PcAlias, PcName.MaxAliasLength);
         // 지금 계정의 별명은 아래 UpdateClaudeSubscription 이 계정을 읽은 뒤 고른다.
-        _claudeAccountAliases = AccountAlias.Normalize(s.ClaudeAccountAliases);
+        _claudeAccountAliases = AccountAlias.FromSettings(s.ClaudeAccountAliases, s.ClaudeAccountAliasUpdatedAt);
         TrayDisplayMode =UsageProviderKind.IsValid(s.TrayDisplayMode) ? s.TrayDisplayMode : UsageProviderKind.Auto;
         HideInactiveProviders = s.HideInactiveProviders;
 
@@ -937,7 +938,7 @@ namespace ClaudeUsageTray.ViewModels;
         if (key is null) return false;
         var clean = AccountAlias.Clean(alias);
         if (clean == AccountAlias.Find(_claudeAccountAliases, key)) return false;
-        _claudeAccountAliases = AccountAlias.With(_claudeAccountAliases, key, clean);
+        _claudeAccountAliases = AccountAlias.With(_claudeAccountAliases, key, clean, DateTimeOffset.UtcNow);
         ClaudeAccountAlias = clean;
         return true;
     }
@@ -961,6 +962,7 @@ namespace ClaudeUsageTray.ViewModels;
         if (Threshold100) thresholds.Add(100);
 
         var visibleProviders = new List<string>();
+        var (claudeAliases, claudeAliasTimes) = AccountAlias.ToSettings(_claudeAccountAliases);
         if (IsClaudeEnabled)   visibleProviders.Add(UsageProviderKind.Claude);
         if (IsCodexEnabled)    visibleProviders.Add(UsageProviderKind.Codex);
         if (IsOpenCodeEnabled) visibleProviders.Add(UsageProviderKind.OpenCode);
@@ -1032,7 +1034,8 @@ namespace ClaudeUsageTray.ViewModels;
             MobileCloudflareTokenProtected = MobileCloudflareTokenProtected,
             HmsApiKeyProtected = HmsApiKeyProtected,
             PcAlias            = PcName.Clean(PcAlias, PcName.MaxAliasLength),
-            ClaudeAccountAliases = new Dictionary<string, string>(_claudeAccountAliases, StringComparer.Ordinal),
+            ClaudeAccountAliases = claudeAliases,
+            ClaudeAccountAliasUpdatedAt = claudeAliasTimes,
             // 파일에서만 바꾸는 값은 디스크 값을 보존한다.
             MobilePort         = existing.MobilePort,
             MobileBindLoopback = existing.MobileBindLoopback,
@@ -1843,6 +1846,52 @@ namespace ClaudeUsageTray.ViewModels;
     private string? CurrentClaudeMobileAccountKey() =>
         BuildClaudeMobileAccountKey(CurrentClaudeOrgUuid(), _claudeAccount.GetAccountUuid());
 
+    /// <summary>
+    /// PC 간 동기화에 실을 이 계정의 별명 기록(#313). 별명 키를 모르거나(로그아웃) 이 PC 에 기록이 없으면 null —
+    /// 한 번도 넣지 않은 PC 가 "없음" 을 보내 다른 PC 의 별명을 지우지 않게 한다. 지운 기록은 Alias "" 로 나간다.
+    /// </summary>
+    private UsageSyncAccountAlias? ClaudeSyncAlias(string? mobileAccountKey) =>
+        AccountAlias.Entry(_claudeAccountAliases, mobileAccountKey) is { } entry
+            ? new UsageSyncAccountAlias
+            {
+                KeyHash = ClaudeAliasKeyHash(mobileAccountKey!),
+                Alias = entry.Alias,
+                UpdatedAtUtc = entry.UpdatedAtUtc,
+            }
+            : null;
+
+    /// <summary>
+    /// 별명 키의 해시. 동기화 스냅샷의 계정 해시는 조직 단위라, 팀 조직에서 다른 사람의 별명을 따르지 않게 이것으로 다시 가른다.
+    /// </summary>
+    internal static string ClaudeAliasKeyHash(string mobileAccountKey) =>
+        UsageSyncService.BuildAccountHash(UsageProviderKind.Claude, mobileAccountKey);
+
+    /// <summary>
+    /// Input : 지금 계정의 별명 키, 동기화로 모은 스냅샷(이 PC 것 포함)
+    /// Output: 없음(다른 PC 의 더 최근 별명이면 이 PC 에도 적용·저장)
+    /// 핵심 로직: 같은 계정을 보는 다른 PC 가 더 최근에 바꾼 별명(지운 것 포함)을 따른다(#313). 갱신은 백그라운드에서 돌므로
+    ///           적용은 UI 스레드에서, 그 사이 이 PC 에서 바꿨거나 계정이 바뀌었을 수 있어 그곳에서 다시 판단한다.
+    ///           휴대폰 계정 카드는 다음 갱신 때 새 이름으로 간다.
+    /// </summary>
+    internal void AdoptSyncedClaudeAlias(string? mobileAccountKey, IEnumerable<UsageSyncSnapshot> snapshots)
+    {
+        if (mobileAccountKey is null) return;
+        var incoming = AccountAlias.PickSynced(snapshots, ClaudeAliasKeyHash(mobileAccountKey), _usageSync.DeviceId);
+        if (incoming is null || !AccountAlias.Wins(incoming, AccountAlias.Entry(_claudeAccountAliases, mobileAccountKey))) return;
+
+        void Apply()
+        {
+            if (!AccountAlias.Wins(incoming, AccountAlias.Entry(_claudeAccountAliases, mobileAccountKey))) return;
+            _claudeAccountAliases = AccountAlias.Adopt(_claudeAccountAliases, mobileAccountKey, incoming);
+            if (CurrentClaudeMobileAccountKey() == mobileAccountKey)
+                ClaudeAccountAlias = AccountAlias.Find(_claudeAccountAliases, mobileAccountKey);
+            SaveSettings();
+        }
+
+        if (System.Windows.Application.Current?.Dispatcher is { } dispatcher) _ = dispatcher.InvokeAsync(Apply);
+        else Apply();
+    }
+
     /// <summary>휴대폰 계정 카드에 보낼 Claude 계정 이름 — 그 계정의 별명(#307)이 있으면 별명, 없으면 프로필 이름.</summary>
     internal string ClaudeMobileAccountLabel(string? mobileAccountKey) =>
         AccountAlias.Display(AccountAlias.Find(_claudeAccountAliases, mobileAccountKey), _claudeAccount.GetLabel());
@@ -1986,9 +2035,9 @@ namespace ClaudeUsageTray.ViewModels;
         out UsageSyncMergedLocalTotals? mergedTotals)
     {
         mergedTotals = null;
+        var mobileKey = BuildClaudeMobileAccountKey(accountKey, _claudeAccount.GetAccountUuid());
         if (IsMobileProviderVisible(UsageProviderKind.Claude))
         {
-            var mobileKey = BuildClaudeMobileAccountKey(accountKey, _claudeAccount.GetAccountUuid());
             PublishMobile(UsageProviderKind.Claude, mobileKey, ClaudeMobileAccountLabel(mobileKey),
                 () => CreateClaudeQuotaSnapshot(usage, modelLimits), CreateLocalTotals(sessionStats), errorKind);
         }
@@ -2003,10 +2052,13 @@ namespace ClaudeUsageTray.ViewModels;
                 CreateClaudeQuotaSnapshot(usage, modelLimits),
                 CreateLocalTotals(sessionStats),
                 errorKind);
+            // 이 계정의 별명 기록(#313)을 같이 보낸다 — 같은 계정을 보는 다른 PC 가 따른다.
+            snapshot.AccountAlias = ClaudeSyncAlias(mobileKey);
             var today = DateOnly.FromDateTime(DateTime.Now);
             // Claude Code 에 로그인하지 않은 PC(계정 키 없음)도 그룹의 다른 PC 가 본 계정을 보여 준다(#223).
             var (todaySnapshots, quotaPool) = GatherSyncSnapshots(snapshot, UsageProviderKind.Claude, accountKey, today,
                 fallbackToAnyAccount: true);
+            AdoptSyncedClaudeAlias(mobileKey, quotaPool);
             mergedTotals = _usageSync.MergeLocalTotals(todaySnapshots, UsageSyncLocalTtl);
             // 신선한 값과 최후 폴백(로컬 API 가 실패/쿨다운 중일 때만 쓴다)을 함께 고른다.
             // 선택 규칙은 모든 provider 가 UsageSyncService.SelectQuotaCandidates 하나를 공유한다.

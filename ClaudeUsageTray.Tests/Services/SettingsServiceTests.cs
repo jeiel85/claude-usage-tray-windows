@@ -46,16 +46,21 @@ public class SettingsServiceTests : IDisposable
     [Fact]
     public void ClaudeAccountAliases_RoundTripAndDefaultToEmpty()
     {
+        var changedAt = new DateTimeOffset(2026, 11, 19, 3, 0, 0, TimeSpan.Zero);
         new SettingsService(_path).Save(new NotificationSettings
         {
             ClaudeAccountAliases = new() { ["org-1|acct"] = "개인", ["org-2|acct"] = "회사" },
+            // 바꾼 시각(#313) — 지운 별명(org-3)도 시각만 남는다.
+            ClaudeAccountAliasUpdatedAt = new() { ["org-2|acct"] = changedAt, ["org-3|acct"] = changedAt },
         });
         var loaded = new SettingsService(_path).Load();
         Assert.Equal("개인", loaded.ClaudeAccountAliases["org-1|acct"]);
         Assert.Equal("회사", loaded.ClaudeAccountAliases["org-2|acct"]);
+        Assert.Equal(changedAt, loaded.ClaudeAccountAliasUpdatedAt["org-3|acct"]);
 
         File.WriteAllText(_path, """{ "PcAlias": "집" }""");
         Assert.Empty(new SettingsService(_path).Load().ClaudeAccountAliases);
+        Assert.Empty(new SettingsService(_path).Load().ClaudeAccountAliasUpdatedAt);
     }
 
     // 이관은 읽을 때마다 메모리에서만 적용되고, 파일은 다음 저장 때 새 형식으로 바뀐다.

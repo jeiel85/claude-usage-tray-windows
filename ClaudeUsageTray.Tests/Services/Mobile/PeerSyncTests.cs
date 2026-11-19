@@ -39,6 +39,30 @@ public class PeerSyncTests : IDisposable
         };
     }
 
+    // 계정 별명(#313)은 스냅샷의 선택 필드로 PC 직접 동기화 프레임을 그대로 지난다. 별명이 없는 스냅샷은 필드 자체를
+    // 싣지 않고(예전 PC 와 같은 모양), 예전 PC 가 보낸 프레임은 별명 없이 읽힌다.
+    [Fact]
+    public void SyncFrameCarriesTheAccountAlias()
+    {
+        var at = new DateTimeOffset(2026, 11, 19, 3, 0, 0, TimeSpan.Zero);
+        var withAlias = Snapshot("pc-a", "A", "claude", "org", 0.1);
+        withAlias.AccountAlias = new UsageSyncAccountAlias { KeyHash = "abc", Alias = "회사", UpdatedAtUtc = at };
+        var withoutAlias = Snapshot("pc-b", "B", "claude", "org", 0.2);
+        var bytes = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(
+            new SyncFrame(MobileProtocol.Schema, SyncFrame.FrameKind, "pc-a", "A", [withAlias, withoutAlias]), MobileProtocol.Json);
+
+        var json = System.Text.Encoding.UTF8.GetString(bytes);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(json, "\"accountAlias\""));
+
+        var hub = new PeerSyncHub();
+        hub.PublishLocal(Snapshot("me", "ME", "claude", "org", 0.0));
+        Assert.NotNull(PeerSyncClient.ApplyFrame(hub, bytes));
+        var read = hub.Read("claude", UsageSyncService.BuildAccountHash("claude", "org"), DateOnly.FromDateTime(DateTime.Now));
+        var a = read.Single(s => s.DeviceId == "pc-a").AccountAlias!;
+        Assert.Equal(("abc", "회사", at), (a.KeyHash, a.Alias, a.UpdatedAtUtc));
+        Assert.Null(read.Single(s => s.DeviceId == "pc-b").AccountAlias);
+    }
+
     [Fact]
     public void HubKeepsNewestPerDeviceAndIgnoresItsOwnEcho()
     {
