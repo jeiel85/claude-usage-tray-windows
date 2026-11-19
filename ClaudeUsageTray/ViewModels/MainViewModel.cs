@@ -1657,7 +1657,7 @@ namespace ClaudeUsageTray.ViewModels;
         IsOpenCodeActive = IsOpenCodeSectionActive(
             IsOpenCodeEnabled, hideInactive, _lastOpenCodeRequestCount, _openCodeHasPeriodUsage,
             OpenCodeVm.HasWebQuota, OpenCodeVm.HasStaleSyncedQuota, OpenCodeHasError,
-            OpenCodeVm.HasHmsQuota);
+            OpenCodeVm.HasHmsContent);
 
         ClaudeVm.IsUsageEmpty = TodayInputTokens + TodayOutputTokens == 0;
         IsCodexUsageEmpty = !_codexHasTokenData;
@@ -2447,15 +2447,16 @@ namespace ClaudeUsageTray.ViewModels;
         bool hasWebQuota,
         bool hasStaleSyncedQuota,
         bool hasError,
-        bool hasHmsQuota = false) =>
+        bool hasHmsContent = false) =>
         isEnabled && (!hideInactive
             || requestCount > 0
             || hasPeriodUsage
             || hasWebQuota
             || hasStaleSyncedQuota
             || hasError
-            // 100milionseek 는 OpenCode 밖(다른 클라이언트)에서 쓸 수도 있다 — 한도 값이 있으면 섹션을 보인다(#306).
-            || hasHmsQuota);
+            // 100milionseek 는 OpenCode 밖(다른 클라이언트)에서 쓸 수도 있다 — 한도 값이나 키 거절·조회 실패 안내가
+            // 있으면 섹션을 보인다(#306). 안내가 섹션 안에 있어 섹션이 숨으면 사용자가 볼 길이 없다.
+            || hasHmsContent);
 
     private async Task RefreshClaudeAsync()
     {

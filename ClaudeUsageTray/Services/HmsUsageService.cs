@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
@@ -29,7 +30,9 @@ public enum HmsReadState
     Unavailable,
 }
 
-public sealed record HmsReadResult(HmsReadState State, HmsDailyUsage? Usage = null);
+/// <param name="KeyId">읽을 때 쓴 키의 지문(<see cref="HmsUsageService.KeyFingerprint"/>). 키가 없으면 null.
+/// 화면이 마지막 값을 이어 보여 줄 때 같은 키의 값인지 가리는 데 쓴다 — 키 원문은 담지 않는다.</param>
+public sealed record HmsReadResult(HmsReadState State, HmsDailyUsage? Usage = null, string? KeyId = null);
 
 /// <summary>
 /// OpenCode 에서 쓰는 무료 DeepSeek 중계 API(100milionseek.top)의 오늘 토큰 한도를 읽는다(#306).
@@ -85,6 +88,7 @@ public sealed class HmsUsageService : IDisposable
     public async Task<HmsReadResult> ReadAsync(CancellationToken ct = default)
     {
         var key = _keyProvider()?.Trim();
+        var keyId = string.IsNullOrEmpty(key) ? null : KeyFingerprint(key);
         await _gate.WaitAsync(ct);
         try
         {
@@ -96,7 +100,7 @@ public sealed class HmsUsageService : IDisposable
             }
             if (!string.Equals(key, _sessionKey, StringComparison.Ordinal)) ForgetSession();
             if (string.Equals(key, _rejectedKey, StringComparison.Ordinal))
-                return new HmsReadResult(HmsReadState.InvalidKey);
+                return new HmsReadResult(HmsReadState.InvalidKey, KeyId: keyId);
 
             // 저장된 쿠키가 만료됐으면 한 번만 다시 로그인한다.
             for (var attempt = 0; attempt < 2; attempt++)
@@ -104,7 +108,7 @@ public sealed class HmsUsageService : IDisposable
                 if (_sessionCookie == null)
                 {
                     var login = await LoginAsync(key, ct);
-                    if (login != HmsReadState.Ok) return new HmsReadResult(login);
+                    if (login != HmsReadState.Ok) return new HmsReadResult(login, KeyId: keyId);
                 }
 
                 using var request = new HttpRequestMessage(HttpMethod.Get, MePath);
@@ -115,18 +119,18 @@ public sealed class HmsUsageService : IDisposable
                     ForgetSession();
                     continue;
                 }
-                if (!response.IsSuccessStatusCode) return new HmsReadResult(HmsReadState.Unavailable);
+                if (!response.IsSuccessStatusCode) return new HmsReadResult(HmsReadState.Unavailable, KeyId: keyId);
 
                 var usage = ParseMe(await response.Content.ReadAsStringAsync(ct));
                 return usage == null
-                    ? new HmsReadResult(HmsReadState.Unavailable)
-                    : new HmsReadResult(HmsReadState.Ok, usage);
+                    ? new HmsReadResult(HmsReadState.Unavailable, KeyId: keyId)
+                    : new HmsReadResult(HmsReadState.Ok, usage, keyId);
             }
-            return new HmsReadResult(HmsReadState.Unavailable);
+            return new HmsReadResult(HmsReadState.Unavailable, KeyId: keyId);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
         {
-            return new HmsReadResult(HmsReadState.Unavailable);
+            return new HmsReadResult(HmsReadState.Unavailable, KeyId: keyId);
         }
         finally
         {
@@ -159,6 +163,10 @@ public sealed class HmsUsageService : IDisposable
         _sessionCookie = cookie;
         return HmsReadState.Ok;
     }
+
+    /// <summary>키를 구별하기 위한 짧은 지문(SHA-256 앞 16자리). 키 원문을 메모리 밖 상태로 퍼뜨리지 않으려고 쓴다.</summary>
+    internal static string KeyFingerprint(string key) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(key)))[..16];
 
     private void ForgetSession()
     {

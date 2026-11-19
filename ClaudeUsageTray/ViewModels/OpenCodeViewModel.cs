@@ -107,6 +107,8 @@ public partial class OpenCodeViewModel : ObservableObject
     private readonly HmsUsageService? _hmsUsage;
     /// <summary>마지막으로 읽은 일일 한도. 확인이 잠시 실패해도 그날 창이 끝나기 전까지는 이 값을 보여 준다.</summary>
     private HmsDailyUsage? _lastHms;
+    /// <summary><see cref="_lastHms"/> 를 읽은 키의 지문. 키를 바꾼 뒤에는 옛 키의 값을 이어 보여 주지 않는다.</summary>
+    private string? _lastHmsKeyId;
 
     /// <summary>일일 게이지 — 값이 있으면 한 줄, 없으면 비어 있어 아무것도 그리지 않는다.</summary>
     [ObservableProperty] private IReadOnlyList<QuotaGaugeRow> _hmsRows = [];
@@ -115,7 +117,16 @@ public partial class OpenCodeViewModel : ObservableObject
 
     public bool HasHmsQuota => HmsRows.Count > 0;
 
-    partial void OnHmsRowsChanged(IReadOnlyList<QuotaGaugeRow> value) => OnPropertyChanged(nameof(HasHmsQuota));
+    /// <summary>게이지나 안내 중 하나라도 그릴 것이 있는가 — OpenCode 섹션을 숨기지 않을 이유가 된다.</summary>
+    public bool HasHmsContent => HasHmsQuota || HmsNotice.Length > 0;
+
+    partial void OnHmsRowsChanged(IReadOnlyList<QuotaGaugeRow> value)
+    {
+        OnPropertyChanged(nameof(HasHmsQuota));
+        OnPropertyChanged(nameof(HasHmsContent));
+    }
+
+    partial void OnHmsNoticeChanged(string value) => OnPropertyChanged(nameof(HasHmsContent));
 
     public async Task RefreshAsync()
     {
@@ -393,6 +404,7 @@ public partial class OpenCodeViewModel : ObservableObject
         {
             case HmsReadState.Ok when result.Usage != null:
                 _lastHms = result.Usage;
+                _lastHmsKeyId = result.KeyId;
                 HmsNotice = "";
                 break;
             case HmsReadState.InvalidKey:
@@ -405,6 +417,8 @@ public partial class OpenCodeViewModel : ObservableObject
                 break;
             default:
                 HmsNotice = Loc.HmsUnavailable;
+                // 키를 바꾼 직후 실패했다면 남은 값은 옛 키의 것이다 — 새 키의 값처럼 보이지 않게 버린다.
+                if (!string.Equals(result.KeyId, _lastHmsKeyId, StringComparison.Ordinal)) _lastHms = null;
                 break;
         }
         if (_lastHms is { } usage && usage.ResetAt <= now) _lastHms = null;

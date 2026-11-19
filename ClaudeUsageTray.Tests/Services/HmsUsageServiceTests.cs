@@ -227,6 +227,58 @@ public class HmsUsageServiceTests
         Assert.Equal(Loc.HmsSummary("1", "10", 1), OpenCodeViewModel.BuildHmsRow(ended, now, false).Summary);
     }
 
+    [Fact]
+    public async Task ReadAsync_TagsResultsWithAFingerprintOfTheKey()
+    {
+        var handler = new FakeSite { ValidKey = null, Throw = false };
+        var key = "hms_one";
+        using var service = new HmsUsageService(() => key, handler);
+
+        var first = await service.ReadAsync();
+        key = "hms_two";
+        var second = await service.ReadAsync();
+
+        Assert.Equal(HmsUsageService.KeyFingerprint("hms_one"), first.KeyId);
+        Assert.Equal(HmsUsageService.KeyFingerprint("hms_two"), second.KeyId);
+        Assert.NotEqual(first.KeyId, second.KeyId);
+        Assert.DoesNotContain("hms_one", first.KeyId);
+    }
+
+    // 리뷰 지적(#308): 키를 B 로 바꾼 직후 조회가 실패하면 A 의 사용량이 B 의 값처럼 남아 있었다.
+    [Fact]
+    public void ApplyHms_DropsUsageFromAPreviousKeyWhenTheNewKeyFails()
+    {
+        var now = new DateTimeOffset(2026, 11, 19, 12, 0, 0, TimeSpan.Zero);
+        var usage = HmsUsageService.ParseMe(MeJson)!;
+        var vm = new OpenCodeViewModel(new OpenCodeUsageMonitor(), new HistoryService());
+
+        vm.ApplyHms(new HmsReadResult(HmsReadState.Ok, usage, "key-a"), now);
+        vm.ApplyHms(new HmsReadResult(HmsReadState.Unavailable, KeyId: "key-a"), now);
+        Assert.True(vm.HasHmsQuota);
+        Assert.Equal(Loc.HmsUnavailable, vm.HmsNotice);
+
+        vm.ApplyHms(new HmsReadResult(HmsReadState.Unavailable, KeyId: "key-b"), now);
+        Assert.False(vm.HasHmsQuota);
+        Assert.Equal(Loc.HmsUnavailable, vm.HmsNotice);
+    }
+
+    // 리뷰 지적(#308): 안내만 있고 값이 없을 때도 섹션을 숨기면 안내를 볼 수 없다.
+    [Theory]
+    [InlineData(HmsReadState.InvalidKey, true)]
+    [InlineData(HmsReadState.Unavailable, true)]
+    [InlineData(HmsReadState.NoKey, false)]
+    public void HmsNoticeAlone_KeepsTheOpenCodeSectionVisible(HmsReadState state, bool expected)
+    {
+        var vm = new OpenCodeViewModel(new OpenCodeUsageMonitor(), new HistoryService());
+        vm.ApplyHms(new HmsReadResult(state, KeyId: state == HmsReadState.NoKey ? null : "key-a"), DateTimeOffset.UtcNow);
+
+        Assert.False(vm.HasHmsQuota);
+        Assert.Equal(expected, vm.HasHmsContent);
+        Assert.Equal(expected, MainViewModel.IsOpenCodeSectionActive(
+            isEnabled: true, hideInactive: true, requestCount: 0, hasPeriodUsage: false,
+            hasWebQuota: false, hasStaleSyncedQuota: false, hasError: false, hasHmsContent: vm.HasHmsContent));
+    }
+
     /// <summary>대시보드 내부 API 를 흉내 낸다 — 로그인마다 새 세션 쿠키, 만료시키면 /api/me 가 401.</summary>
     private sealed class FakeSite : HttpMessageHandler
     {
