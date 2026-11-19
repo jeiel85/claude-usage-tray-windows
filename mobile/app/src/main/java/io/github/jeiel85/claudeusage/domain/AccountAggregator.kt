@@ -116,6 +116,18 @@ object AccountAggregator {
     fun localDate(nowMs: Long): String =
         java.time.Instant.ofEpochMilli(nowMs).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()
 
+    /**
+     * Input : an aggregated card
+     * Output: whether it has anything to show — a gauge, today's tokens or an extra-credits line (#326)
+     * Key logic: a card with none of these (a provider the PC sees but cannot read: signed-out OpenCode,
+     * Antigravity without quota) is only "no quota yet" plus PC chips, so the Accounts tab leaves it out.
+     * The PCs tab still lists every PC.
+     */
+    fun hasUsage(card: AccountCard): Boolean =
+        card.gauges.isNotEmpty() ||
+            (card.today?.totalTokens ?: 0L) > 0L ||
+            !card.quota?.extraCreditsLabel.isNullOrBlank()
+
     /** The bar the summary chip shows: the most used window of the card (what will run out first). */
     fun headline(card: AccountCard): Gauge? = card.gauges.maxByOrNull { it.usage }
 }
