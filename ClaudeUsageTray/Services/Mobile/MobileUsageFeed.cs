@@ -72,6 +72,15 @@ public sealed class MobileUsageFeed
         }
     }
 
+    /// <summary>provider 하나를 뺀다(DeepSeek 키를 지웠을 때, #318).</summary>
+    public void Remove(string provider)
+    {
+        lock (_gate)
+        {
+            if (_entries.Remove(provider)) Notify();
+        }
+    }
+
     /// <summary>켜진 provider 만 남긴다(설정에서 끈 provider 를 휴대폰에서 바로 지우려고).</summary>
     public void Retain(IReadOnlyCollection<string> providers)
     {

@@ -101,6 +101,28 @@ public class HmsMobileFeedTests
         Assert.Empty(feed.Current("pc-a"));
     }
 
+    // #319 리뷰: 조회 중에 키를 지우거나 바꾸면 늦게 끝난 옛 키의 결과가 휴대폰 카드를 되살렸다.
+    [Fact]
+    public void LateResultForADeletedOrReplacedKeyIsNotPublished()
+    {
+        Assert.Equal(MainViewModel.HmsMobileAction.Publish, MainViewModel.DecideHmsMobile(Ok(1, "key-a"), "key-a"));
+        Assert.Equal(MainViewModel.HmsMobileAction.Publish,
+            MainViewModel.DecideHmsMobile(new HmsReadResult(HmsReadState.Unavailable, KeyId: "key-a"), "key-a"));
+
+        // 키를 지웠다: 늦게 온 성공 결과도 싣지 않고 카드를 뺀다.
+        Assert.Equal(MainViewModel.HmsMobileAction.Remove, MainViewModel.DecideHmsMobile(Ok(1, "key-a"), null));
+        // 키를 바꿨다: 옛 키의 결과는 건너뛴다(다음 조회가 새 키로 싣는다).
+        Assert.Equal(MainViewModel.HmsMobileAction.Skip, MainViewModel.DecideHmsMobile(Ok(1, "key-a"), "key-b"));
+        Assert.Equal(MainViewModel.HmsMobileAction.Remove,
+            MainViewModel.DecideHmsMobile(new HmsReadResult(HmsReadState.NoKey), "key-a"));
+        Assert.Equal(MainViewModel.HmsMobileAction.Skip, MainViewModel.DecideHmsMobile(null, "key-a"));
+
+        var feed = new MobileUsageFeed(new FixedTime(Now));
+        feed.Publish(new MobileFeedEntry(HmsUsageService.MobileProvider, "key-a", "", Now, "", null, null));
+        feed.Remove(HmsUsageService.MobileProvider);
+        Assert.Empty(feed.Current("pc-a"));
+    }
+
     private sealed class FixedTime(DateTimeOffset now) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => now;

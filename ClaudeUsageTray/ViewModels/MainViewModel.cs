@@ -1840,16 +1840,41 @@ namespace ClaudeUsageTray.ViewModels;
     }
 
     /// <summary>
-    /// 키가 없으면 보내지 않는다(설정 저장 때 <see cref="MobileFeedProviders"/> 가 피드에서 뺀다).
     /// 계정 키는 API 키의 지문 — 여러 PC 가 같은 키를 쓰면 휴대폰에서 카드 하나로 묶이고, 키 원문은 나가지 않는다.
+    /// 싣기 직전에 지금 저장된 키를 다시 본다(#319 리뷰): 조회 중에 키를 지우거나 바꾸면 늦게 끝난 옛 키의 결과가
+    /// 설정 저장 때 뺀 카드를 되살렸다(그 뒤 키 없는 조회는 아무것도 안 하므로 최대 6시간 남았다).
     /// </summary>
     private void PublishHmsMobile(HmsReadResult? result, DateTimeOffset now)
     {
-        if (result is null || result.State == HmsReadState.NoKey) return;
-        PublishMobile(HmsUsageService.MobileProvider, result.KeyId, "",
-            () => HmsViewModel.CreateMobileQuota(result, now), null,
-            result.State == HmsReadState.Ok ? "" : "source_error");
+        switch (DecideHmsMobile(result, CurrentHmsKeyId()))
+        {
+            case HmsMobileAction.Remove:
+                Mobile.Feed.Remove(HmsUsageService.MobileProvider);
+                break;
+            case HmsMobileAction.Publish:
+                PublishMobile(HmsUsageService.MobileProvider, result!.KeyId, "",
+                    () => HmsViewModel.CreateMobileQuota(result, now), null,
+                    result.State == HmsReadState.Ok ? "" : "source_error");
+                break;
+        }
     }
+
+    internal enum HmsMobileAction { Skip, Publish, Remove }
+
+    /// <summary>
+    /// 키가 없으면(지금 설정 기준) 피드에서 뺀다. 결과가 지금 키의 것이 아니면(조회 중에 키가 바뀜) 건너뛴다 —
+    /// 다음 조회가 새 키로 싣는다.
+    /// </summary>
+    internal static HmsMobileAction DecideHmsMobile(HmsReadResult? result, string? currentKeyId)
+    {
+        if (currentKeyId is null || result?.State == HmsReadState.NoKey) return HmsMobileAction.Remove;
+        if (result is null || !string.Equals(result.KeyId, currentKeyId, StringComparison.Ordinal)) return HmsMobileAction.Skip;
+        return HmsMobileAction.Publish;
+    }
+
+    /// <summary>지금 저장된 DeepSeek 키의 지문. 키가 없거나 풀 수 없으면 null.</summary>
+    private string? CurrentHmsKeyId() =>
+        MobileSecret.Unprotect(HmsApiKeyProtected)?.Trim() is { Length: > 0 } key ? HmsUsageService.KeyFingerprint(key) : null;
 
     private bool IsMobileProviderVisible(string provider) => provider switch
     {
