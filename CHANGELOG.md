@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.68.1] - 2026-11-19
+
+<!-- ko -->
+### 수정
+- **새 버전이 연달아 나와도 업데이트는 한 번만 합니다 (#300)** — 트레이에 띄워 둔 채로 새 버전을 찾아 둔 뒤 그다음 버전이 또 나오면, 찾아 둔 버전을 설치하고 재시작하자마자 다음 버전으로 한 번 더 업데이트했습니다. 이제 받기 직전에 한 번 더 확인해 가장 새 버전을 바로 받습니다. 업데이트 창의 버전과 변경 내역도 그 버전으로 바뀝니다. 다시 확인하지 못하면(네트워크·GitHub 제한) 찾아 둔 버전을 그대로 받습니다.
+- 버전을 눌러 확인할 때도 앞서 찾아 둔 결과를 쓰지 않고 실제로 다시 확인합니다. 확인에 실패하면 찾아 둔 업데이트 창을 엽니다.
+- 업데이트 창이 열려 있는 동안 주기 확인이 새 버전을 찾으면, 창에는 옛 버전이 보이는데 실제로는 새 버전을 받던 문제도 함께 고쳤습니다.
+- 새 버전이 나온 직후 서명이 올라오기 전 몇 분 동안은 여전히 바로 앞 버전을 받습니다. 서명된 업데이트만 설치하기 때문입니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Back-to-back releases now update only once (#300)** — If the tray had already found a new version and another one came out before you installed it, the app installed the one it had found and then updated again right after restarting. It now checks again just before downloading and goes straight to the newest version; the update window's version and notes switch to it. If that check fails (network, GitHub limits), it installs the version it had found.
+- Clicking the version to check for updates now really checks again instead of reusing the earlier result. If the check fails, the update window for the version already found opens.
+- Also fixed: when the periodic check found a newer version while the update window was open, the window showed the old version but downloaded the new one.
+- For a few minutes after a release, before its signature is uploaded, you still get the version before it, because only signed updates are installed.
+<!-- /en -->
+
 ## [1.68.0] - 2026-11-19
 
 <!-- ko -->

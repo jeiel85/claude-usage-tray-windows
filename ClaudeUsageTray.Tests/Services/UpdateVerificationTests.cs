@@ -1,5 +1,6 @@
 using System.IO;
 using System.Net;
+using System.Net.Http;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
@@ -96,6 +97,75 @@ public class UpdateVerificationTests
         Assert.Null(UpdateService.SelectUpdate(releases, new Version(1, 50, 0)));
     }
 
+    // #300: 1.41.0 을 찾아 둔 뒤 1.42.0 이 나왔으면 받기 직전 재확인이 1.42.0 을 골라야 한다. 아니면 1.41.0 을 설치하고
+    // 재시작 직후 시작 시 확인이 1.42.0 을 찾아 한 번 더 업데이트한다.
+    [Fact]
+    public async Task InstallTarget_MovesToTheNewerRelease_PublishedAfterTheOfferWasCached()
+    {
+        var current = new Version(1, 40, 0);
+        var offered = UpdateService.SelectUpdate(Releases(Release("v1.41.0", sig: true, notes: "forty-one")), current)!;
+        var latest = UpdateService.SelectUpdate(Releases(
+            Release("v1.42.0", sig: true, notes: "forty-two"),
+            Release("v1.41.0", sig: true, notes: "forty-one")), current);
+
+        var target = await UpdateService.ResolveInstallTargetAsync(offered, () => Task.FromResult(latest));
+
+        Assert.Equal(new Version(1, 42, 0), target.version);
+        Assert.EndsWith("/v1.42.0/ClaudeUsageTray.exe", target.downloadUrl);
+        Assert.EndsWith("/v1.42.0/" + UpdateSignature.AssetName, target.signatureUrl);
+        Assert.Contains("forty-two", target.releaseNotes);
+        Assert.Contains("forty-one", target.releaseNotes); // 건너뛰는 중간 버전의 변경도 노트에 남는다
+    }
+
+    // 새 버전이 아직 서명 전이면(CI 릴리스와 sign-release.ps1 사이) 찾아 둔 버전을 그대로 받는다 — 서명된 것만 설치한다(D-1).
+    [Fact]
+    public async Task InstallTarget_KeepsTheOffer_WhenTheNewerReleaseIsNotSignedYet()
+    {
+        var current = new Version(1, 40, 0);
+        var offered = UpdateService.SelectUpdate(Releases(Release("v1.41.0", sig: true)), current)!;
+        var latest = UpdateService.SelectUpdate(Releases(
+            Release("v1.42.0", sig: false),
+            Release("v1.41.0", sig: true)), current);
+
+        var target = await UpdateService.ResolveInstallTargetAsync(offered, () => Task.FromResult(latest));
+
+        Assert.Same(offered, target);
+    }
+
+    [Theory]
+    [InlineData(null)]       // 다시 확인하니 받을 것이 없음(릴리스가 내려간 경우 등)
+    [InlineData("1.41.0")]   // 같은 버전
+    [InlineData("1.40.5")]   // 더 옛 버전
+    public async Task InstallTarget_KeepsTheOffer_WhenTheRecheckFindsNothingNewer(string? recheckedVersion)
+    {
+        var offered = Info("1.41.0");
+        var rechecked = recheckedVersion is null ? null : Info(recheckedVersion);
+
+        var target = await UpdateService.ResolveInstallTargetAsync(offered, () => Task.FromResult(rechecked));
+
+        Assert.Same(offered, target);
+    }
+
+    // 재확인 실패는 설치를 막지 않는다 — 찾아 둔 버전도 서명이 맞아야 설치되는 정상 릴리스다.
+    public static TheoryData<Exception> RecheckFailures => new()
+    {
+        new UpdateCheckException("rate limited", UpdateCheckErrorKind.RateLimit, statusCode: 403),
+        new UpdateCheckException("timeout", UpdateCheckErrorKind.Timeout),
+        new HttpRequestException("offline"),
+        new JsonException("broken body"),
+    };
+
+    [Theory]
+    [MemberData(nameof(RecheckFailures))]
+    public async Task InstallTarget_FallsBackToTheOffer_WhenTheRecheckFails(Exception failure)
+    {
+        var offered = Info("1.41.0");
+
+        var target = await UpdateService.ResolveInstallTargetAsync(offered, () => Task.FromException<UpdateService.UpdateInfo?>(failure));
+
+        Assert.Same(offered, target);
+    }
+
     [Fact]
     public void AutoUpdatePlan_DisablesCountdown_WhenPreviousAutoAttemptFailed()
     {
@@ -138,6 +208,12 @@ public class UpdateVerificationTests
     private static (int seconds, string? notice) Plan(
         bool autoRetryExhausted = false, bool autoUpdateEnabled = true, int countdownSeconds = 60) =>
         MainViewModel.ResolveAutoUpdatePlan(autoRetryExhausted, autoUpdateEnabled, countdownSeconds);
+
+    private static UpdateService.UpdateInfo Info(string version) => new(
+        Version.Parse(version),
+        $"https://example.invalid/v{version}/ClaudeUsageTray.exe",
+        $"https://example.invalid/v{version}/{UpdateSignature.AssetName}",
+        $"## v{version}");
 
     private static HashSet<string> TempUpdateFiles() =>
         Directory.GetFiles(Path.GetTempPath(), "ClaudeUsageTray_new_*.exe").ToHashSet(StringComparer.OrdinalIgnoreCase);
