@@ -1,5 +1,6 @@
 package io.github.jeiel85.claudeusage.push
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -31,4 +32,16 @@ class AlertUrgencyTest {
         listOf(PushNotifier.URGENT_CHANNEL, PushNotifier.QUIET_CHANNEL, "cut.app.update", "miscellaneous", "usage")
             .forEach { assertFalse(it, PushNotifier.isLegacyChannel(it)) }
     }
+
+    @Test
+    fun blocked_legacy_channels_become_in_app_mutes() {
+        val none = android.app.NotificationManager.IMPORTANCE_NONE
+        val high = android.app.NotificationManager.IMPORTANCE_HIGH
+        val muted = PushNotifier.blockedCategories(
+            listOf("cut.weather" to none, "cut.usage" to high, "cut.test" to none, "cut.unknown" to none, "cut.alert.quiet" to none),
+        )
+        // test can't be muted and unknown kinds have no switch; only real, blocked kinds carry over.
+        assertEquals(setOf("weather"), muted)
+    }
 }
+

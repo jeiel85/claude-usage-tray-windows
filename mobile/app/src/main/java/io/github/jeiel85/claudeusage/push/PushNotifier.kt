@@ -76,11 +76,16 @@ object PushNotifier {
     /**
      * Creates the two alert channels and deletes the per-category ones (`cut.usage`, `cut.weather`, …) that versions
      * before #297 made. Those were all high or default importance — so everything vibrated — and an app can't lower
-     * a channel's importance once created, so they are replaced, not changed. Safe to call repeatedly.
+     * a channel's importance once created, so they are replaced, not changed. A kind the user had blocked in
+     * Android's settings becomes an in-app mute first (the PC learns it at the next registration), so deleting the
+     * channel doesn't bring those alerts back. Safe to call repeatedly.
      */
     fun ensureChannels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)
-        nm.notificationChannels.map { it.id }.filter(::isLegacyChannel).forEach(nm::deleteNotificationChannel)
+        val legacy = nm.notificationChannels.filter { isLegacyChannel(it.id) }
+        val blocked = blockedCategories(legacy.map { it.id to it.importance })
+        if (blocked.isNotEmpty()) PushState(context).apply { mutedCategories = mutedCategories + blocked }
+        legacy.forEach { nm.deleteNotificationChannel(it.id) }
         nm.createNotificationChannels(
             listOf(
                 NotificationChannel(URGENT_CHANNEL, context.getString(R.string.channel_urgent), NotificationManager.IMPORTANCE_HIGH).apply {
@@ -101,4 +106,11 @@ object PushNotifier {
      * unlike the current ids ([URGENT_CHANNEL], [QUIET_CHANNEL], the update channel `cut.app.update`).
      */
     internal fun isLegacyChannel(id: String): Boolean = id.startsWith("cut.") && '.' !in id.removePrefix("cut.")
+
+    /** Kinds whose pre-#297 channel the user had turned off (importance NONE), as app categories the user can mute. */
+    internal fun blockedCategories(legacy: List<Pair<String, Int>>): Set<String> = legacy
+        .filter { (id, importance) -> isLegacyChannel(id) && importance == NotificationManager.IMPORTANCE_NONE }
+        .map { (id, _) -> id.removePrefix("cut.") }
+        .filter { category -> NotificationGroups.ALL.any { it.category == category } }
+        .toSet()
 }

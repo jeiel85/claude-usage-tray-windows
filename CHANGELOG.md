@@ -10,7 +10,7 @@
 - **휴대폰 알림은 중요한 것만 소리·진동으로 알립니다 (#297)** — 지금까지는 50% 도달, 매일 날씨 예보까지 PC에서 오는 알림이 모두 진동했습니다. 이제 바로 봐야 하는 알림만 소리·진동을 내고, 나머지는 알림창과 상태 표시줄에 조용히 쌓입니다.
   - **소리·진동:** 사용량 90%·100%, 레이트 리밋(작업이 멈춤), 공식 기상 특보
   - **조용히:** 사용량 50·75%, 조기 소진 예측, 할당량 초기화, 날씨 매일 예보와 비·폭염·한파·강풍 알림, 테스트
-  - 휴대폰 앱의 알림 채널이 종류별 6개에서 **'중요 알림'·'일반 알림'** 두 개로 바뀝니다. 설정 → 받을 알림 아래 '소리 설정'에서 각각의 소리를 바꿀 수 있습니다. Android 설정에서 종류별 채널을 꺼 두었다면 그 설정은 사라지니, 받지 않을 종류는 앱의 '받을 알림' 스위치로 꺼 주세요.
+  - 휴대폰 앱의 알림 채널이 종류별 6개에서 **'중요 알림'·'일반 알림'** 두 개로 바뀝니다. 설정 → 받을 알림 아래 '소리 설정'에서 각각의 소리를 바꿀 수 있습니다. Android 설정에서 꺼 둔 종류(예: 날씨)는 앱의 '받을 알림'에서 꺼진 것으로 옮겨집니다.
   - PC도 같은 기준으로 보냅니다(레이트 리밋은 중요, 날씨 예보·조건 알림은 낮은 우선순위). ntfy 토픽으로 받는 경우에도 그대로 적용됩니다. PC와 휴대폰 앱을 모두 이 버전으로 올려야 합니다.
 <!-- /ko -->
 
@@ -19,7 +19,7 @@
 - **Phone alerts only sound and vibrate when they matter (#297)** — Until now every alert from the PC vibrated, down to 50% usage and the daily weather forecast. Now only alerts that need you right away make a sound and vibrate; the rest arrive quietly in the shade and status bar.
   - **Sound and vibration:** usage at 90% and 100%, rate limits (work has stopped), official weather warnings
   - **Quiet:** usage at 50 / 75%, early-exhaustion estimates, quota resets, the daily forecast and rain / heat / cold / wind alerts, tests
-  - The phone app's notification channels change from six per-kind channels to two: **Important alerts** and **Other alerts**. Change the sound of each from Settings → Notifications to receive → Sound settings. If you had turned off a per-kind channel in Android's settings, that choice is gone — use the app's "Notifications to receive" switches instead.
+  - The phone app's notification channels change from six per-kind channels to two: **Important alerts** and **Other alerts**. Change the sound of each from Settings → Notifications to receive → Sound settings. A kind you had turned off in Android's settings (e.g. weather) is carried over as switched off in the app's "Notifications to receive".
   - The PC sends with the same rule (rate limits important, weather forecasts and condition alerts lower priority), which also applies to ntfy topics. Update both the PC and the phone app.
 <!-- /en -->
 
