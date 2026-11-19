@@ -99,7 +99,7 @@ https://jeiel85.github.io/claude-usage-tray-windows/pair/#<base64url(UTF-8 JSON 
 | `providers[]` | 화면에서 켠 provider만, 6시간 안에 관측한 것만 |
 | `providers[].provider` | `claude`·`codex`·`opencode`·`antigravity` |
 | `providers[].accountHash`, `accountScope` | 위 "계정 묶기" 참고(`account`·`device`) |
-| `providers[].accountLabel` | 표시 이름. Claude는 "이름 · 팀 조직"(`~/.claude.json`), Codex는 이름(`~/.codex/auth.json` id_token의 `name`, 이메일 꼴이면 생략·64자 제한, #266). 이메일·UUID는 넣지 않음 |
+| `providers[].accountLabel` | 표시 이름. Claude는 사용자가 PC 설정에서 붙인 계정 별명(#307), 없으면 "이름 · 팀 조직"(`~/.claude.json`), Codex는 이름(`~/.codex/auth.json` id_token의 `name`, 이메일 꼴이면 생략·64자 제한, #266). 이메일·UUID는 넣지 않음 |
 | `providers[].observedAt`, `errorKind` | 이 PC가 마지막으로 조회한 시각, 실패 종류 |
 | `providers[].quota` | 다중 PC 동기화와 같은 `UsageSyncQuotaSnapshot`(사용률은 0~1 비율) |
 | `providers[].today` | 오늘 이 PC의 토큰·세션·요청 수와 그 PC의 현지 날짜 `date`(없으면 생략). 앱은 휴대폰의 오늘 날짜와 같은 것만 더함 — 밤새 꺼진 PC의 어제 합계가 섞이지 않게 |
@@ -131,6 +131,8 @@ QR로 PC를 연결하면 알림도 함께 연결됩니다. 토픽 이름을 정�
 
 앱은 알림 보조 문구와 알림센터에 `accountLabel`을, 없으면 `pcName`을 보입니다 — 같은 계정을 여러 PC가 보면 중복 제거 뒤 남는 PC 이름은 먼저 도착한 쪽일 뿐이라 계정이 더 정확합니다. `provider`가 있으면 알림 강조색을 그 서비스 색으로 칠합니다.
 계정 필드는 종단 암호화되는 앱 푸시에만 싣고, 평문 ntfy 토픽에는 넣지 않습니다.
+
+Claude 계정 별명(#307)이 있으면 PC 가 `accountLabel` 에 별명을 싣고 `title` 앞에 `[별명] ` 을 붙입니다(예: `[회사] Claude 90% · 5시간 한도`). Android 12 이상은 화면 위로 뜨는 알림·접힌 알림에서 보조 문구를 보여 주지 않아서, 알림이 뜰 때도 어느 계정인지 보이게 제목 맨 앞에 둡니다. 앱은 따로 처리하지 않습니다(예전 앱도 그대로 보임).
 
 두 구현이 맞는지는 [`push-message.v1.aes128gcm.txt`](mobile-protocol/push-message.v1.aes128gcm.txt)로 확인합니다. .NET이 RFC 8291 부록 A의 서버 키·salt로 위 메시지를 암호화하고, Kotlin 테스트가 부록 A의 휴대폰 키로 복호화합니다.
 

@@ -37,6 +37,16 @@ public class AlertTextTests
     });
 
     [Fact]
+    public void AccountAliasGoesFirstInTheTitle() => InLanguage("ko", () =>
+    {
+        // 휴대폰이 화면 위로 띄우는 알림은 보조 문구(계정 이름)를 보여 주지 않는다 — 별명은 제목 맨 앞에 둔다(#307).
+        var title = AlertText.UsageTitle("Claude", Loc.AlertWindowFiveHour, 90);
+        Assert.Equal("[회사] Claude 90% · 5시간 한도", AlertText.WithAccountAlias(title, " 회사 "));
+        Assert.Equal(title, AlertText.WithAccountAlias(title, null));
+        Assert.Equal(title, AlertText.WithAccountAlias(title, "  "));
+    });
+
+    [Fact]
     public void UsageBodyShowsTheResetClockAndTimeLeftWithoutDoubleSeparators() => InLanguage("ko", () =>
     {
         var resetAt = Now.AddHours(1).AddMinutes(12);

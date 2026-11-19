@@ -2628,6 +2628,41 @@ public static class Loc
         _ => $"Phones, other PCs and ntfy alerts show this name. Leave empty to use the computer name ({machineName})."
     };
 
+    // ── Claude 계정 별명 (#307) ──────────────────────────────────────────────
+
+    public static string ClaudeAccountAliasTitle => Lang switch
+    {
+        "ko" => "Claude 계정 별명",
+        "zh" => "Claude 账户别名",
+        "ja" => "Claude アカウントの別名",
+        _ => "Claude account nickname"
+    };
+
+    /// <summary>accountLabel: 지금 로그인한 계정 이름("김민준 · Acme Corp"). 읽지 못했으면 빈 문자열.</summary>
+    public static string ClaudeAccountAliasHint(string accountLabel)
+    {
+        var account = string.IsNullOrWhiteSpace(accountLabel) ? "" : accountLabel.Trim();
+        return Lang switch
+        {
+            "ko" => (account.Length > 0 ? $"지금 로그인한 계정({account})에만 붙습니다. " : "지금 로그인한 계정에만 붙습니다. ")
+                    + "휴대폰 앱 알림 제목 앞에 [별명]으로 보이고, 팝업·휴대폰 계정 카드에는 계정 이름 대신 보입니다. 비우면 계정 이름을 씁니다.",
+            "zh" => (account.Length > 0 ? $"仅用于当前登录的账户（{account}）。" : "仅用于当前登录的账户。")
+                    + "手机应用通知标题前会显示 [别名]，弹出窗口和手机账户卡片会用它代替账户名称。留空则使用账户名称。",
+            "ja" => (account.Length > 0 ? $"いまログインしているアカウント（{account}）にだけ付きます。" : "いまログインしているアカウントにだけ付きます。")
+                    + "スマホアプリの通知タイトルの先頭に [別名] と表示され、ポップアップとスマホのアカウントカードではアカウント名の代わりに表示されます。空欄ならアカウント名を使います。",
+            _ => (account.Length > 0 ? $"Applies only to the account you're signed in to ({account}). " : "Applies only to the account you're signed in to. ")
+                 + "Phone app alerts start with [nickname], and the popup and phone account cards show it instead of the account name. Leave empty to use the account name."
+        };
+    }
+
+    public static string ClaudeAccountAliasSignedOut => Lang switch
+    {
+        "ko" => "Claude 에 로그인하면 계정마다 별명을 붙일 수 있습니다.",
+        "zh" => "登录 Claude 后即可为每个账户设置别名。",
+        "ja" => "Claude にログインすると、アカウントごとに別名を付けられます。",
+        _ => "Sign in to Claude to give each account a nickname."
+    };
+
     public static string MobileTitle => Lang switch
     {
         "ko" => "휴대폰·PC 연결",

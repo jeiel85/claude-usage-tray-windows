@@ -864,6 +864,154 @@ public class MainViewModelIntegrationTests : IDisposable
         });
     }
 
+    // ── Claude 계정 별명 (#307) ──────────────────────────────────────────────
+
+    private const string AccountUuid = "00000000-0000-0000-0000-0000000000a1";
+    private const string PersonalOrg = "00000000-0000-0000-0000-0000000000b1";
+    private const string TeamOrg = "00000000-0000-0000-0000-0000000000b2";
+
+    /// <summary>
+    /// 테스트 폴더에 로그인한 상태를 만든다. 토큰은 비워 둔다 — 새로고침이 돌아도 API·토큰 갱신을 부르지 않는다.
+    /// 최근 Claude Code 처럼 자격 파일에는 조직이 없고 프로필에만 있다(#275).
+    /// </summary>
+    private void SignIn(string orgUuid)
+    {
+        File.WriteAllText(Path.Combine(_dir, ".credentials.json"), """
+            { "claudeAiOauth": { "accessToken": "", "refreshToken": "", "expiresAt": 0, "subscriptionType": "max" } }
+            """);
+        File.WriteAllText(Path.Combine(_dir, ".claude.json"), $$"""
+            {
+              "oauthAccount": {
+                "accountUuid": "{{AccountUuid}}",
+                "organizationUuid": "{{orgUuid}}",
+                "displayName": "김민준",
+                "organizationName": "Acme Corp",
+                "organizationType": "claude_team"
+              }
+            }
+            """);
+    }
+
+    [Fact]
+    public async Task ClaudeAccountAlias_StaysWithTheAccountItWasGivenTo()
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            SignIn(TeamOrg);
+            var vm = CreateViewModel();
+            try
+            {
+                Assert.True(vm.CanEditClaudeAccountAlias);
+                Assert.Equal("", vm.ClaudeAccountAlias);
+                Assert.Equal(" · 김민준 · Acme Corp", vm.ClaudeAccountBadgeText);
+
+                Assert.True(vm.SetClaudeAccountAlias("  회사 "));
+                Assert.False(vm.SetClaudeAccountAlias("회사")); // 그대로면 저장할 것이 없다
+                vm.SaveSettings();
+
+                // 팝업 배지·휴대폰 카드·앱 푸시가 모두 같은 별명을 쓴다.
+                var teamKey = $"{TeamOrg}|{AccountUuid}";
+                Assert.Equal("회사", vm.ClaudeAccountAlias);
+                Assert.Equal(" · 회사", vm.ClaudeAccountBadgeText);
+                Assert.Equal("Claude Max · 회사 (김민준 · Acme Corp)", vm.ClaudePlanBadgeToolTip);
+                Assert.Equal("회사", vm.ClaudeMobileAccountLabel(teamKey));
+                var push = vm.ClaudePushAccount();
+                Assert.Equal(teamKey, push.AccountKey);
+                Assert.Equal("회사", push.Alias);
+            }
+            finally
+            {
+                vm.Dispose();
+            }
+
+            // 같은 사람의 다른 조직(개인 계정)에는 붙지 않는다.
+            SignIn(PersonalOrg);
+            vm = CreateViewModel();
+            try
+            {
+                Assert.Equal("", vm.ClaudeAccountAlias);
+                Assert.Equal(" · 김민준 · Acme Corp", vm.ClaudeAccountBadgeText);
+                Assert.Equal("", vm.ClaudePushAccount().Alias);
+            }
+            finally
+            {
+                vm.Dispose();
+            }
+
+            // 다시 그 계정으로 돌아오면 저장해 둔 별명이 돌아온다.
+            SignIn(TeamOrg);
+            vm = CreateViewModel();
+            try
+            {
+                Assert.Equal("회사", vm.ClaudeAccountAlias);
+            }
+            finally
+            {
+                vm.Dispose();
+            }
+        });
+    }
+
+    [Fact]
+    public async Task ClaudeAccountAlias_CannotBeSetWhileSignedOut()
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            SettingsWindow? window = null;
+            try
+            {
+                Assert.False(vm.CanEditClaudeAccountAlias);
+                Assert.False(vm.SetClaudeAccountAlias("회사"));
+
+                window = new SettingsWindow(vm);
+                window.Left = -10000;
+                window.Show();
+                window.UpdateLayout();
+                Assert.False(window.TxtClaudeAccountAlias.IsEnabled);
+                Assert.Equal(Loc.ClaudeAccountAliasSignedOut, window.LblClaudeAccountAliasHint.Text);
+            }
+            finally
+            {
+                window?.Close();
+                vm.Dispose();
+            }
+        });
+    }
+
+    // 바깥을 눌러 설정 창이 숨으면 칸의 LostFocus 가 오지 않는다 — 숨을 때 입력해 둔 별명을 저장해야 한다.
+    [Fact]
+    public async Task SettingsWindow_SavesTheClaudeAccountAliasWhenHidden()
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            SignIn(TeamOrg);
+            var vm = CreateViewModel();
+            SettingsWindow? window = null;
+            try
+            {
+                window = new SettingsWindow(vm);
+                window.Left = -10000;
+                window.Show();
+                window.UpdateLayout();
+                Assert.True(window.TxtClaudeAccountAlias.IsEnabled);
+                Assert.Contains("김민준 · Acme Corp", window.LblClaudeAccountAliasHint.Text);
+
+                window.TxtClaudeAccountAlias.Text = "회사";
+                window.Hide();
+
+                Assert.Equal("회사", vm.ClaudeAccountAlias);
+                var saved = new SettingsService(Path.Combine(_dir, "claude-usage-tray.json")).Load();
+                Assert.Equal("회사", saved.ClaudeAccountAliases[$"{TeamOrg}|{AccountUuid}"]);
+            }
+            finally
+            {
+                window?.Close();
+                vm.Dispose();
+            }
+        });
+    }
+
     // 자동 설치를 끄면 대기 시간 슬라이더는 의미가 없으므로 함께 비활성화된다.
     // (ElementName 바인딩은 깨져도 예외 없이 조용히 false 로 남으므로 실제 상태로 확인한다.)
     [Theory]

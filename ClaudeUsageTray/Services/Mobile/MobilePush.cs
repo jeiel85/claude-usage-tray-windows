@@ -73,9 +73,11 @@ public static class PushPriority
 /// <summary>
 /// 알림이 어느 계정의 일인지(#262). 휴대폰은 PC 이름 대신 이 계정으로 알림을 구분한다.
 /// <c>AccountKey</c> 는 휴대폰 사용량 피드와 같은 원시 키(Claude <c>orgUuid|accountUuid</c>, Codex <c>account_id|user_id</c>) —
-/// 밖으로는 <see cref="MobileAccountHash"/> 해시로만 나간다. <c>Label</c> 은 피드의 <c>accountLabel</c> 과 같은 표시 이름(이메일·UUID 없음).
+/// 밖으로는 <see cref="MobileAccountHash"/> 해시로만 나간다. <c>Label</c> 은 계정 이름(이메일·UUID 없음).
+/// <c>Alias</c> 는 사용자가 붙인 계정 별명(#307) — 있으면 <c>accountLabel</c> 로 이름 대신 나가고 알림 제목 앞에
+/// "[별명]" 으로 붙는다(<see cref="AppPushSender.Build"/>). 피드의 <c>accountLabel</c> 도 같은 규칙이라 카드와 알림의 이름이 같다.
 /// </summary>
-public sealed record PushAccount(string Provider, string? AccountKey, string? Label);
+public sealed record PushAccount(string Provider, string? AccountKey, string? Label, string? Alias = null);
 
 /// <summary>
 /// 복호화된 푸시 내용(UTF-8 JSON, 픽스처 <c>push-message.v1.json</c>).

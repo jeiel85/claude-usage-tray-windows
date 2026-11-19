@@ -203,6 +203,30 @@ public class MobilePushTests : IDisposable
     /// 이름을 Build 에서 한 줄·64자로 줄이지 않으면 암호화 한도를 넘겨 알림이 통째로 버려진다.
     /// </summary>
     [Fact]
+    public void BuildPutsTheAccountAliasInFrontOfTheTitleAndInPlaceOfTheName()
+    {
+        var store = new MobileDeviceStore(_dir);
+        var sender = new AppPushSender(store, new HttpClient(new FakeHandler(_ => HttpStatusCode.Created)), "HOME-PC");
+
+        // 별명(#307)이 있으면 휴대폰 카드와 같은 이름(별명)을 싣고, 알림이 뜰 때도 보이게 제목 맨 앞에 붙인다.
+        var aliased = sender.Build(PushCategories.Usage, "Claude 90% · 5h limit", "b", 4, null, TimeSpan.Zero, null,
+            new PushAccount("claude", "org|acct", "김민준 · Acme", " 회사 "));
+        Assert.Equal("[회사] Claude 90% · 5h limit", aliased.Title);
+        Assert.Equal("회사", aliased.AccountLabel);
+        Assert.Equal(MobileAccountHash.For("claude", "org|acct", store.PcId).Hash, aliased.AccountHash);
+
+        // 별명이 없으면 지금과 같다.
+        var plain = sender.Build(PushCategories.Usage, "Claude 90% · 5h limit", "b", 4, null, TimeSpan.Zero, null,
+            new PushAccount("claude", "org|acct", "김민준 · Acme", ""));
+        Assert.Equal("Claude 90% · 5h limit", plain.Title);
+        Assert.Equal("김민준 · Acme", plain.AccountLabel);
+
+        // 계정이 없는 알림(날씨·테스트)은 제목을 건드리지 않는다.
+        var weather = sender.Build(PushCategories.Weather, "비 소식", "b", 2, null, TimeSpan.Zero, null);
+        Assert.Equal("비 소식", weather.Title);
+    }
+
+    [Fact]
     public void BuildCapsVeryLongAccountLabel_SoThePushStillFits()
     {
         var store = new MobileDeviceStore(_dir);

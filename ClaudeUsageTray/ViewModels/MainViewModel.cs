@@ -186,8 +186,21 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty]
     private bool _showClaudeAccount = true;
 
+    // Claude 계정 별명(#307). 키는 휴대폰 계정 카드와 같은 Claude 계정 키(BuildClaudeMobileAccountKey).
+    // 갱신·알림 경로가 백그라운드 스레드에서 읽으므로 고쳐 쓰지 않고 새 사전으로 통째 바꾼다(AccountAlias.With).
+    private volatile IReadOnlyDictionary<string, string> _claudeAccountAliases = new Dictionary<string, string>();
+
+    /// <summary>지금 로그인한 Claude 계정의 별명(설정 칸). 계정이 바뀌면 그 계정의 별명으로 바뀐다. 없으면 "".</summary>
+    [ObservableProperty]
+    private string _claudeAccountAlias = "";
+
+    /// <summary>별명을 붙일 계정이 있는지 — 로그인해 계정 키를 알 때만 설정 칸을 쓸 수 있다.</summary>
+    [ObservableProperty]
+    private bool _canEditClaudeAccountAlias;
+
     partial void OnClaudePlanLabelChanged(string value) => NotifyClaudeBadgeChanged();
     partial void OnClaudeAccountLabelChanged(string value) => NotifyClaudeBadgeChanged();
+    partial void OnClaudeAccountAliasChanged(string value) => NotifyClaudeBadgeChanged();
     partial void OnShowClaudeAccountChanged(bool value) => NotifyClaudeBadgeChanged();
     partial void OnShowPlanBadgeChanged(bool value) => NotifyClaudeBadgeChanged();
 
@@ -199,18 +212,31 @@ namespace ClaudeUsageTray.ViewModels;
         OnPropertyChanged(nameof(ClaudePlanBadgeToolTip));
     }
 
+    // 별명(#307)이 있으면 계정 이름 대신 별명을 보인다 — 휴대폰 카드·알림과 같은 이름.
     private ClaudeBadgeParts ClaudeBadge =>
-        ComposeClaudeBadge(ShowPlanBadge, ClaudePlanLabel, ShowClaudeAccount, ClaudeAccountLabel);
+        ComposeClaudeBadge(ShowPlanBadge, ClaudePlanLabel, ShowClaudeAccount, AccountAlias.Display(ClaudeAccountAlias, ClaudeAccountLabel));
 
     /// <summary>등급 배지 줄 — 등급이나 계정 중 하나라도 보이면 줄을 그린다.</summary>
     public bool IsClaudePlanBadgeVisible => ClaudeBadge.IsVisible;
     /// <summary>등급 부분("Claude Team 5x"). 강조색.</summary>
     public string ClaudePlanBadgeText => ClaudeBadge.Plan;
-    /// <summary>계정 부분(" · 김민준 · Acme Corp"). 흐린 색.</summary>
+    /// <summary>계정 부분(" · 김민준 · Acme Corp", 별명이 있으면 " · 회사"). 흐린 색.</summary>
     public string ClaudeAccountBadgeText => ClaudeBadge.Account;
-    /// <summary>말줄임으로 잘린 줄의 전체 문구. 계정이 안 보이면 지금처럼 툴팁 없음.</summary>
+    /// <summary>
+    /// 말줄임으로 잘린 줄의 전체 문구. 계정이 안 보이면 지금처럼 툴팁 없음.
+    /// 별명을 보이고 있으면 원래 계정 이름을 괄호로 덧붙인다 — 별명만으로는 어느 로그인인지 확인할 수 없다.
+    /// </summary>
     public string? ClaudePlanBadgeToolTip =>
-        string.IsNullOrEmpty(ClaudeBadge.Account) ? null : ClaudeBadge.Plan + ClaudeBadge.Account;
+        ComposeClaudeBadgeToolTip(ClaudeBadge, ClaudeAccountAlias, ClaudeAccountLabel);
+
+    internal static string? ComposeClaudeBadgeToolTip(ClaudeBadgeParts badge, string? alias, string? accountLabel)
+    {
+        if (string.IsNullOrEmpty(badge.Account)) return null;
+        var text = badge.Plan + badge.Account;
+        return AccountAlias.Clean(alias).Length > 0 && !string.IsNullOrWhiteSpace(accountLabel)
+            ? $"{text} ({accountLabel.Trim()})"
+            : text;
+    }
 
     internal readonly record struct ClaudeBadgeParts(string Plan, string Account)
     {
@@ -687,7 +713,9 @@ namespace ClaudeUsageTray.ViewModels;
         MobileCloudflareHostname = s.MobileCloudflareHostname ?? "";
         MobileCloudflareTokenProtected = s.MobileCloudflareTokenProtected ?? "";
         PcAlias = PcName.Clean(s.PcAlias, PcName.MaxAliasLength);
-        TrayDisplayMode = UsageProviderKind.IsValid(s.TrayDisplayMode) ? s.TrayDisplayMode : UsageProviderKind.Auto;
+        // 지금 계정의 별명은 아래 UpdateClaudeSubscription 이 계정을 읽은 뒤 고른다.
+        _claudeAccountAliases = AccountAlias.Normalize(s.ClaudeAccountAliases);
+        TrayDisplayMode =UsageProviderKind.IsValid(s.TrayDisplayMode) ? s.TrayDisplayMode : UsageProviderKind.Auto;
         HideInactiveProviders = s.HideInactiveProviders;
 
         // Manual provider visibility
@@ -864,6 +892,35 @@ namespace ClaudeUsageTray.ViewModels;
         ClaudeVm.IsSubscribed = IsPaidClaudeSubscription(info.SubscriptionType);
         ClaudePlanLabel = PlanLabels.Claude(info.SubscriptionType, info.RateLimitTier);
         ClaudeAccountLabel = _credentials.HasCredentials() ? _claudeAccount.GetLabel() : "";
+        RefreshClaudeAccountAlias();
+    }
+
+    /// <summary>
+    /// 지금 로그인한 계정의 별명(#307)을 설정 칸·배지에 반영한다. 계정 전환·로그아웃도 이 경로를 지난다 —
+    /// 계정 키를 모르면(로그아웃) 칸을 잠그고 비운다.
+    /// </summary>
+    private void RefreshClaudeAccountAlias()
+    {
+        var key = CurrentClaudeMobileAccountKey();
+        CanEditClaudeAccountAlias = key is not null;
+        ClaudeAccountAlias = AccountAlias.Find(_claudeAccountAliases, key);
+    }
+
+    /// <summary>
+    /// Input : 설정 창 별명 칸의 값
+    /// Output: 바뀌었으면 true(호출자가 저장한다 — 설정 창은 다른 칸처럼 Setting_Changed 로 저장·새로고침한다)
+    /// 핵심 로직: 지금 로그인한 계정에만 붙인다(#307). 계정 키를 모르면(로그아웃) 아무것도 하지 않는다.
+    ///           빈 값은 그 계정의 별명을 지운다 — 다시 계정 이름이 보인다. 다른 계정의 별명은 그대로 둔다.
+    /// </summary>
+    public bool SetClaudeAccountAlias(string? alias)
+    {
+        var key = CurrentClaudeMobileAccountKey();
+        if (key is null) return false;
+        var clean = AccountAlias.Clean(alias);
+        if (clean == AccountAlias.Find(_claudeAccountAliases, key)) return false;
+        _claudeAccountAliases = AccountAlias.With(_claudeAccountAliases, key, clean);
+        ClaudeAccountAlias = clean;
+        return true;
     }
 
     /// <summary>
@@ -955,6 +1012,7 @@ namespace ClaudeUsageTray.ViewModels;
             MobileCloudflareHostname       = MobileCloudflareHostname,
             MobileCloudflareTokenProtected = MobileCloudflareTokenProtected,
             PcAlias            = PcName.Clean(PcAlias, PcName.MaxAliasLength),
+            ClaudeAccountAliases = new Dictionary<string, string>(_claudeAccountAliases, StringComparer.Ordinal),
             // 파일에서만 바꾸는 값은 디스크 값을 보존한다.
             MobilePort         = existing.MobilePort,
             MobileBindLoopback = existing.MobileBindLoopback,
@@ -1752,10 +1810,21 @@ namespace ClaudeUsageTray.ViewModels;
 
     /// <summary>
     /// 휴대폰 앱 푸시가 알림을 계정으로 구분하게 붙이는 계정(#262). 휴대폰 사용량 피드와 같은 키·표시 이름이라
-    /// 알림의 계정 해시가 계정 카드의 해시와 같다.
+    /// 알림의 계정 해시가 계정 카드의 해시와 같다. 그 계정의 별명(#307)도 싣는다 — 제목 앞 "[별명]".
     /// </summary>
-    private PushAccount ClaudePushAccount() => new(UsageProviderKind.Claude,
-        BuildClaudeMobileAccountKey(CurrentClaudeOrgUuid(), _claudeAccount.GetAccountUuid()), _claudeAccount.GetLabel());
+    internal PushAccount ClaudePushAccount()
+    {
+        var key = CurrentClaudeMobileAccountKey();
+        return new(UsageProviderKind.Claude, key, _claudeAccount.GetLabel(), AccountAlias.Find(_claudeAccountAliases, key));
+    }
+
+    /// <summary>지금 로그인한 Claude 계정의 휴대폰용 계정 키. 별명(#307)도 이 키로 붙는다. 로그아웃이면 null.</summary>
+    private string? CurrentClaudeMobileAccountKey() =>
+        BuildClaudeMobileAccountKey(CurrentClaudeOrgUuid(), _claudeAccount.GetAccountUuid());
+
+    /// <summary>휴대폰 계정 카드에 보낼 Claude 계정 이름 — 그 계정의 별명(#307)이 있으면 별명, 없으면 프로필 이름.</summary>
+    internal string ClaudeMobileAccountLabel(string? mobileAccountKey) =>
+        AccountAlias.Display(AccountAlias.Find(_claudeAccountAliases, mobileAccountKey), _claudeAccount.GetLabel());
 
     /// <summary>Codex 표시 이름은 id_token 의 <c>name</c>(이메일은 보내지 않는다, #266) — 피드와 같은 값.</summary>
     private static PushAccount CodexPushAccount() =>
@@ -1897,8 +1966,11 @@ namespace ClaudeUsageTray.ViewModels;
     {
         mergedTotals = null;
         if (IsMobileProviderVisible(UsageProviderKind.Claude))
-            PublishMobile(UsageProviderKind.Claude, BuildClaudeMobileAccountKey(accountKey, _claudeAccount.GetAccountUuid()),
-                _claudeAccount.GetLabel(), () => CreateClaudeQuotaSnapshot(usage, modelLimits), CreateLocalTotals(sessionStats), errorKind);
+        {
+            var mobileKey = BuildClaudeMobileAccountKey(accountKey, _claudeAccount.GetAccountUuid());
+            PublishMobile(UsageProviderKind.Claude, mobileKey, ClaudeMobileAccountLabel(mobileKey),
+                () => CreateClaudeQuotaSnapshot(usage, modelLimits), CreateLocalTotals(sessionStats), errorKind);
+        }
         if (!IsAnySyncActive)
             return UsageSyncQuotaCandidates.None;
 

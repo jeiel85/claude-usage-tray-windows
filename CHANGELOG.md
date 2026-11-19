@@ -3,6 +3,24 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.69.0] - 2026-11-19
+
+<!-- ko -->
+### 추가
+- **Claude 계정에 별명을 붙일 수 있습니다 (#307)** — 개인·회사처럼 Claude 계정을 여럿 쓰면 계정 이름이 모두 본인 이름이라 휴대폰에서 어느 계정인지 구분하기 어려웠습니다. 설정 > 연결의 "Claude 계정 별명" 에 이름(최대 20자)을 넣으면 지금 로그인한 계정에만 붙고, 계정을 바꾸면 그 계정의 별명이 쓰입니다.
+- 휴대폰 앱 알림은 제목 맨 앞에 `[별명]` 이 붙습니다(예: `[회사] Claude 90% · 5시간 한도`). 지금까지 계정 이름은 알림의 보조 문구에만 있어서, 화면 위로 뜨는 알림이나 접힌 알림에서는 보이지 않았습니다. 휴대폰 앱은 업데이트하지 않아도 됩니다.
+- PC 팝업의 등급 배지 줄과 휴대폰 계정 카드에도 계정 이름 대신 별명이 보입니다. 팝업 툴팁에는 원래 계정 이름이 함께 보입니다. 비우면 계정 이름으로 돌아갑니다.
+- ntfy 토픽으로 가는 알림에는 계정 정보를 싣지 않는 원칙대로 별명도 보내지 않습니다. 같은 계정을 여러 PC 가 보고 있으면 PC 마다 별명을 넣어 주세요.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Give your Claude accounts a nickname (#307)** — With several Claude accounts (personal, work), every account showed your own name, so the phone couldn't tell them apart. Enter a nickname (up to 20 characters) under Settings > Connect > "Claude account nickname"; it applies only to the account you're signed in to, and switching accounts switches to that account's nickname.
+- Phone app alerts now start with `[nickname]` (e.g. `[Work] Claude 90% · 5h limit`). Until now the account name was only in the alert's subtext, which isn't shown when an alert pops up on screen or is collapsed. No phone app update needed.
+- The popup's plan badge line and the phone's account cards also show the nickname instead of the account name; the popup tooltip still shows the account name. Clear it to go back to the account name.
+- Like other account details, the nickname is not sent to plain ntfy topics. If several PCs watch the same account, set the nickname on each of them.
+<!-- /en -->
+
 ## [1.68.2] - 2026-11-19
 
 <!-- ko -->

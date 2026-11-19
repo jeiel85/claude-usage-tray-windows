@@ -30,6 +30,8 @@ public partial class SettingsWindow : Window, IDisposable
         // UsagePopup 이 IsVisibleChanged 로 팝업을 다시 Activate 해, Topmost 팝업이 그 자식 창을 덮는다 (#232).
         Deactivated += (_, _) => { if (OwnedWindows.Count == 0) Hide(); };
         PreviewKeyDown += OnPreviewKeyDown;
+        // 바깥을 눌러 창이 숨으면 칸의 LostFocus 가 오지 않는다(키보드 포커스만 떠난다) — 입력해 둔 별명을 여기서 저장한다(#307).
+        IsVisibleChanged += (_, e) => { if (e.NewValue is false) CommitClaudeAccountAlias(this, new RoutedEventArgs()); };
 
         Loc.LanguageChanged += OnLanguageChanged;
         _vm.PropertyChanged += OnVmPropertyChanged;
@@ -68,7 +70,31 @@ public partial class SettingsWindow : Window, IDisposable
         {
             Dispatcher.Invoke(UpdateTrayAutoHelp);
         }
+        // 설정 창이 열린 채로 계정을 바꾸면(#307) 별명 칸·안내를 새 계정 것으로 바꾼다.
+        else if (e.PropertyName is nameof(MainViewModel.ClaudeAccountAlias)
+                 or nameof(MainViewModel.ClaudeAccountLabel)
+                 or nameof(MainViewModel.CanEditClaudeAccountAlias))
+        {
+            Dispatcher.Invoke(() => UpdateClaudeAccountAliasField(force: false));
+        }
     }
+
+    /// <summary>
+    /// 별명 칸의 값·활성 여부·안내 문구를 지금 계정에 맞춘다(#307). 입력 중이면(포커스가 칸에 있으면) 값은 덮어쓰지 않는다 —
+    /// 저장 직후 돌아오는 변경 알림이 타이핑을 지우지 않게. force 는 창을 처음 채울 때.
+    /// </summary>
+    private void UpdateClaudeAccountAliasField(bool force)
+    {
+        TxtClaudeAccountAlias.IsEnabled = _vm.CanEditClaudeAccountAlias;
+        if (force || !TxtClaudeAccountAlias.IsKeyboardFocusWithin)
+            TxtClaudeAccountAlias.Text = _vm.ClaudeAccountAlias;
+        UpdateClaudeAccountAliasHint();
+    }
+
+    private void UpdateClaudeAccountAliasHint() =>
+        LblClaudeAccountAliasHint.Text = _vm.CanEditClaudeAccountAlias
+            ? Loc.ClaudeAccountAliasHint(_vm.ClaudeAccountLabel)
+            : Loc.ClaudeAccountAliasSignedOut;
 
     private void OnLanguageChanged()
     {
@@ -153,6 +179,8 @@ public partial class SettingsWindow : Window, IDisposable
         UpdateUsageSyncStatusLabel();
         LblPcAlias.Text                     = Loc.PcAliasTitle;
         LblPcAliasHint.Text                 = Loc.PcAliasHint(Environment.MachineName);
+        LblClaudeAccountAlias.Text          = Loc.ClaudeAccountAliasTitle;
+        UpdateClaudeAccountAliasHint();
         LblMobileTitle.Text                 = Loc.MobileTitle;
         ChkMobileEnabled.Content            = Loc.MobileEnabled;
         LblMobileDescription.Text           = Loc.MobileDescription;
@@ -312,6 +340,7 @@ public partial class SettingsWindow : Window, IDisposable
         ChkMobileCloudflare.IsChecked    = _vm.MobileCloudflare;
         TxtCloudflareHostname.Text       = _vm.MobileCloudflareHostname;
         TxtPcAlias.Text                  = _vm.PcAlias;
+        UpdateClaudeAccountAliasField(force: true);
         // 고정 주소를 이미 쓰고 있으면 펼쳐 둔다 — 넣어 둔 값이 숨어 있으면 "왜 임시 주소가 아니지?" 를 찾기 어렵다.
         PanelCloudflareNamed.Visibility  = HasNamedTunnelSettings() ? Visibility.Visible : Visibility.Collapsed;
         UpdateMobileStatusLabel();
@@ -550,6 +579,26 @@ public partial class SettingsWindow : Window, IDisposable
     {
         if (e.Key != System.Windows.Input.Key.Enter) return;
         PcAlias_LostFocus(sender, e);
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Claude 계정 별명 칸을 떠날 때·Enter·창이 숨을 때 저장한다(#307). 지금 로그인한 계정에만 붙고, 값이 그대로면 저장하지 않는다.
+    /// 저장은 다른 칸과 같이 Setting_Changed — 곧바로 새로고침해 휴대폰 계정 카드에도 새 이름이 간다.
+    /// </summary>
+    private void CommitClaudeAccountAlias(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingValues || !_vm.CanEditClaudeAccountAlias) return;
+        if (_vm.SetClaudeAccountAlias(TxtClaudeAccountAlias.Text)) Setting_Changed(sender, e);
+        TxtClaudeAccountAlias.Text = _vm.ClaudeAccountAlias;
+    }
+
+    private void ClaudeAccountAlias_LostFocus(object sender, RoutedEventArgs e) => CommitClaudeAccountAlias(sender, e);
+
+    private void ClaudeAccountAlias_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != System.Windows.Input.Key.Enter) return;
+        CommitClaudeAccountAlias(sender, e);
         e.Handled = true;
     }
 
