@@ -1,8 +1,11 @@
+using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text.Json;
 using ClaudeUsageTray.Services;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace ClaudeUsageTray.Tests.Services;
 
@@ -67,15 +70,32 @@ public class UpdateSignatureTests
 /// 실물로 확인한다(서명 전 릴리스만 있으면 확인할 것이 없어 통과).
 /// </summary>
 [Trait("Category", "Network")]
-public class UpdateSignatureLiveReleaseTests
+public class UpdateSignatureLiveReleaseTests(ITestOutputHelper output)
 {
     [Fact]
     public async Task NewestSignedReleaseVerifiesWithTheEmbeddedKey()
     {
-        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        // 약 34MB exe 를 받는다 — 30초로는 1MB/s 회선에서 늘 시간 초과였다(#302).
+        using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(3) };
         http.DefaultRequestHeaders.Add("User-Agent", "ClaudeUsageTray-Tests");
-        using var doc = JsonDocument.Parse(await http.GetStringAsync(
-            "https://api.github.com/repos/jeiel85/claude-usage-tray-windows/releases?per_page=30"));
+
+        using var request = new HttpRequestMessage(HttpMethod.Get,
+            "https://api.github.com/repos/jeiel85/claude-usage-tray-windows/releases?per_page=30");
+        // PR CI 는 읽기 전용 워크플로 토큰을 넘긴다(토큰이 없으면 러너 IP 공용 한도에 걸린다). API 요청에만 붙인다.
+        var token = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
+        if (!string.IsNullOrWhiteSpace(token))
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await http.SendAsync(request);
+        // 한도 초과는 이 PC·러너의 사정이지 서명이 틀린 것이 아니다. xUnit 2 에는 실행 중 건너뛰기가 없어 확인 없이 끝내고
+        // 로그에만 남긴다 — 빨갛게 뜨는 것은 서명이 실제로 맞지 않을 때뿐이게.
+        if (IsRateLimited(response))
+        {
+            output.WriteLine($"GitHub API rate limited ({(int)response.StatusCode}); signature not checked.");
+            return;
+        }
+        response.EnsureSuccessStatusCode();
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
 
         var update = UpdateService.SelectUpdate(doc.RootElement, new Version(0, 0, 0));
         if (update is null) return;
@@ -85,4 +105,11 @@ public class UpdateSignatureLiveReleaseTests
         Assert.True(UpdateSignature.Verify(update.version, Convert.ToHexString(SHA256.HashData(exe)), signature),
             $"v{update.version} signature does not verify with the embedded key");
     }
+
+    // GitHub 는 기본 한도 초과를 403 + X-RateLimit-Remaining: 0 으로, 보조 한도는 403·429 + Retry-After 로 알린다.
+    private static bool IsRateLimited(HttpResponseMessage response) =>
+        response.StatusCode == HttpStatusCode.TooManyRequests
+        || (response.StatusCode == HttpStatusCode.Forbidden
+            && (response.Headers.RetryAfter is not null
+                || (response.Headers.TryGetValues("X-RateLimit-Remaining", out var remaining) && remaining.FirstOrDefault() == "0")));
 }
