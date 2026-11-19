@@ -99,6 +99,9 @@ class PushReceiver : BroadcastReceiver() {
         store.updateName(pc.pcId, parsed.pcName)
         val message = parsed.copy(pcName = pc.alias ?: parsed.pcName)
         // The PC skips muted categories itself; this catches the moments before the PC heard about a change.
+        // Channels first: after a background update the app may not have opened yet, and a kind blocked on a pre-#297
+        // channel only becomes a mute when that channel is migrated (#297) — before the check, not in show().
+        PushNotifier.ensureChannels(context)
         if (NotificationGroups.isMuted(message.category, state.mutedCategories)) return
         val show = synchronized(DEDUPE_LOCK) {
             val (fresh, json) = EventDedupe.check(state.recentEvents, message.eventKey, message.eventToleranceSec, System.currentTimeMillis())
