@@ -13,9 +13,12 @@ public class WeatherAlertService
     private readonly Func<NotificationSettings> _getSettings;
     private readonly IReadOnlyList<IWeatherWarningProvider> _warningProviders;
 
-    private static readonly string AlertCachePath = Path.Combine(
+    private static readonly string DefaultAlertCachePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         ".claude", "claude-usage-tray-weather-alerts.json");
+
+    /// <summary>발송 기록 파일. 테스트는 임시 폴더를 넘겨 개발자 PC 의 기록을 건드리지 않는다.</summary>
+    private readonly string _alertCachePath;
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -35,8 +38,10 @@ public class WeatherAlertService
         WeatherService weather,
         NotificationService notifier,
         Func<NotificationSettings> getSettings,
-        IReadOnlyList<IWeatherWarningProvider> warningProviders)
+        IReadOnlyList<IWeatherWarningProvider> warningProviders,
+        string? alertCachePath = null)
     {
+        _alertCachePath = alertCachePath ?? DefaultAlertCachePath;
         _weather = weather;
         _notifier = notifier;
         _getSettings = getSettings;
@@ -85,7 +90,7 @@ public class WeatherAlertService
                     var clickUrl = BuildWeatherClickUrl(loc);
 
                     _notifier.ShowWeatherAlert(title, ntfyBody, ntfyTopic,
-                        ntfyBody, priority: WeatherPriority.Forecast, tags: ["sunny"], clickUrl: clickUrl, dedupeKey: dailyKey);
+                        WeatherPriority.Forecast, ntfyMessage: ntfyBody, tags: ["sunny"], clickUrl: clickUrl, dedupeKey: dailyKey);
                     cache.Mark(dailyKey, now);
                 }
             }
@@ -128,8 +133,8 @@ public class WeatherAlertService
                 {
                     var body = $"{loc.Name}: {Loc.WeatherRainWarning(today.PrecipitationProbabilityMax.Value)}";
                     _notifier.ShowWeatherAlert(
-                        Loc.WeatherWarningTitle, body, ntfyTopic, body,
-                        priority: WeatherPriority.Condition, tags: ["umbrella"], clickUrl: clickUrl, dedupeKey: key);
+                        Loc.WeatherWarningTitle, body, ntfyTopic, WeatherPriority.Condition,
+                        ntfyMessage: body, tags: ["umbrella"], clickUrl: clickUrl, dedupeKey: key);
                     cache.Mark(key, now);
                 }
             }
@@ -142,8 +147,8 @@ public class WeatherAlertService
                 {
                     var body = $"{loc.Name}: {Loc.WeatherHeatWarning(today.MaxTemperatureC.Value)}";
                     _notifier.ShowWeatherAlert(
-                        Loc.WeatherWarningTitle, body, ntfyTopic, body,
-                        priority: WeatherPriority.Condition, tags: ["hot"], clickUrl: clickUrl, dedupeKey: key);
+                        Loc.WeatherWarningTitle, body, ntfyTopic, WeatherPriority.Condition,
+                        ntfyMessage: body, tags: ["hot"], clickUrl: clickUrl, dedupeKey: key);
                     cache.Mark(key, now);
                 }
             }
@@ -156,8 +161,8 @@ public class WeatherAlertService
                 {
                     var body = $"{loc.Name}: {Loc.WeatherColdWarning(today.MinTemperatureC.Value)}";
                     _notifier.ShowWeatherAlert(
-                        Loc.WeatherWarningTitle, body, ntfyTopic, body,
-                        priority: WeatherPriority.Condition, tags: ["snowflake"], clickUrl: clickUrl, dedupeKey: key);
+                        Loc.WeatherWarningTitle, body, ntfyTopic, WeatherPriority.Condition,
+                        ntfyMessage: body, tags: ["snowflake"], clickUrl: clickUrl, dedupeKey: key);
                     cache.Mark(key, now);
                 }
             }
@@ -174,8 +179,8 @@ public class WeatherAlertService
             {
                 var body = $"{loc.Name}: {Loc.WeatherWindWarning(report.Current.WindSpeedKmh.Value)}";
                 _notifier.ShowWeatherAlert(
-                    Loc.WeatherWarningTitle, body, ntfyTopic, body,
-                    priority: WeatherPriority.Condition, tags: ["wind"], clickUrl: clickUrl, dedupeKey: key);
+                    Loc.WeatherWarningTitle, body, ntfyTopic, WeatherPriority.Condition,
+                    ntfyMessage: body, tags: ["wind"], clickUrl: clickUrl, dedupeKey: key);
                 cache.Mark(key, now);
             }
         }
@@ -199,8 +204,8 @@ public class WeatherAlertService
 
                 var body = $"{alert.Event} · {alert.Severity}\n{alert.Headline}";
                 _notifier.ShowWeatherAlert(
-                    Loc.WeatherWarningTitle, body, ntfyTopic, body,
-                    priority: WeatherPriority.Official, tags: ["warning"], clickUrl: clickUrl, dedupeKey: key);
+                    Loc.WeatherWarningTitle, body, ntfyTopic, WeatherPriority.Official,
+                    ntfyMessage: body, tags: ["warning"], clickUrl: clickUrl, dedupeKey: key);
                 cache.Mark(key, now);
             }
 
@@ -256,13 +261,13 @@ public class WeatherAlertService
         };
     }
 
-    private static AlertCache LoadAlertCache(DateTimeOffset now)
+    private AlertCache LoadAlertCache(DateTimeOffset now)
     {
         AlertCache cache;
         try
         {
-            cache = File.Exists(AlertCachePath)
-                ? JsonSerializer.Deserialize<AlertCache>(File.ReadAllText(AlertCachePath), JsonOpts) ?? new()
+            cache = File.Exists(_alertCachePath)
+                ? JsonSerializer.Deserialize<AlertCache>(File.ReadAllText(_alertCachePath), JsonOpts) ?? new()
                 : new AlertCache();
         }
         catch
@@ -274,13 +279,13 @@ public class WeatherAlertService
         return cache;
     }
 
-    private static void SaveAlertCache(AlertCache cache)
+    private void SaveAlertCache(AlertCache cache)
     {
         try
         {
-            var dir = Path.GetDirectoryName(AlertCachePath);
+            var dir = Path.GetDirectoryName(_alertCachePath);
             if (dir != null) Directory.CreateDirectory(dir);
-            File.WriteAllText(AlertCachePath, JsonSerializer.Serialize(cache, JsonOpts));
+            File.WriteAllText(_alertCachePath, JsonSerializer.Serialize(cache, JsonOpts));
         }
         catch { }
     }

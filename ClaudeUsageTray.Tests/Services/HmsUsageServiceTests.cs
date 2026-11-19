@@ -162,14 +162,104 @@ public class HmsUsageServiceTests
     [InlineData(HttpStatusCode.TooManyRequests)]
     public async Task ReadAsync_ServerTroubleIsUnavailableNotInvalidKey(HttpStatusCode status)
     {
+        var clock = new FakeClock();
         var handler = new FakeSite { LoginStatus = status };
-        using var service = new HmsUsageService(() => "hms_key_1", handler);
+        using var service = new HmsUsageService(() => "hms_key_1", handler, clock.Now);
 
         Assert.Equal(HmsReadState.Unavailable, (await service.ReadAsync()).State);
 
-        // 잠시 막힌 것뿐이라 다음 조회에 다시 로그인한다.
+        // 잠시 막힌 것뿐이라 재시도 간격(첫 실패는 1분)이 지나면 다시 로그인한다(#310).
+        handler.LoginStatus = null;
+        clock.Advance(TimeSpan.FromMinutes(1));
+        Assert.Equal(HmsReadState.Ok, (await service.ReadAsync()).State);
+    }
+
+    // #310: 사이트 장애 동안 매 폴링마다 로그인·조회를 두드리지 않는다.
+    [Fact]
+    public async Task ReadAsync_BacksOffWhileTheSiteKeepsFailing()
+    {
+        var clock = new FakeClock();
+        var handler = new FakeSite { LoginStatus = HttpStatusCode.ServiceUnavailable };
+        using var service = new HmsUsageService(() => "hms_key_1", handler, clock.Now);
+
+        await service.ReadAsync();
+        Assert.Single(handler.Requests);
+
+        clock.Advance(TimeSpan.FromSeconds(59));
+        Assert.Equal(HmsReadState.Unavailable, (await service.ReadAsync()).State);
+        Assert.Single(handler.Requests);
+
+        clock.Advance(TimeSpan.FromSeconds(1));
+        await service.ReadAsync();
+        Assert.Equal(2, handler.Requests.Count);
+
+        // 두 번째 실패 뒤에는 2분을 쉰다.
+        clock.Advance(TimeSpan.FromMinutes(1));
+        await service.ReadAsync();
+        Assert.Equal(2, handler.Requests.Count);
+        clock.Advance(TimeSpan.FromMinutes(1));
+        await service.ReadAsync();
+        Assert.Equal(3, handler.Requests.Count);
+    }
+
+    [Fact]
+    public async Task ReadAsync_SuccessAndKeyChangeResetTheBackoff()
+    {
+        var clock = new FakeClock();
+        var key = "hms_key_1";
+        var handler = new FakeSite { ValidKey = null, LoginStatus = HttpStatusCode.BadGateway };
+        using var service = new HmsUsageService(() => key, handler, clock.Now);
+
+        await service.ReadAsync();
+        await service.ReadAsync();
+        Assert.Single(handler.Requests);
+
+        // 키를 바꾸면 기다리지 않고 바로 시도한다.
+        key = "hms_key_2";
         handler.LoginStatus = null;
         Assert.Equal(HmsReadState.Ok, (await service.ReadAsync()).State);
+
+        // 성공 뒤의 첫 실패는 다시 1분부터다.
+        handler.ExpireSessions();
+        handler.LoginStatus = HttpStatusCode.BadGateway;
+        await service.ReadAsync();
+        var count = handler.Requests.Count;
+        clock.Advance(TimeSpan.FromMinutes(1));
+        await service.ReadAsync();
+        Assert.Equal(count + 1, handler.Requests.Count);
+    }
+
+    [Fact]
+    public async Task ReadAsync_FollowsALongerRetryAfterOn429()
+    {
+        var clock = new FakeClock();
+        var handler = new FakeSite { LoginStatus = HttpStatusCode.TooManyRequests, RetryAfterSeconds = 600 };
+        using var service = new HmsUsageService(() => "hms_key_1", handler, clock.Now);
+
+        await service.ReadAsync();
+        clock.Advance(TimeSpan.FromMinutes(9));
+        await service.ReadAsync();
+        Assert.Single(handler.Requests);
+
+        clock.Advance(TimeSpan.FromMinutes(1));
+        await service.ReadAsync();
+        Assert.Equal(2, handler.Requests.Count);
+    }
+
+    [Theory]
+    [InlineData(1, null, 1)]
+    [InlineData(2, null, 2)]
+    [InlineData(3, null, 4)]
+    [InlineData(5, null, 16)]
+    [InlineData(6, null, 30)]
+    [InlineData(40, null, 30)]
+    [InlineData(1, 0.5, 1)]
+    [InlineData(1, 10.0, 10)]
+    [InlineData(3, 180.0, 60)]
+    public void RetryDelayFor_DoublesUpTo30MinutesAndHonoursRetryAfter(int failures, double? retryAfterMinutes, double expected)
+    {
+        var server = retryAfterMinutes is { } m ? TimeSpan.FromMinutes(m) : (TimeSpan?)null;
+        Assert.Equal(TimeSpan.FromMinutes(expected), HmsUsageService.RetryDelayFor(failures, server));
     }
 
     [Fact]
@@ -330,6 +420,13 @@ public class HmsUsageServiceTests
         }
     }
 
+    private sealed class FakeClock
+    {
+        private DateTimeOffset _now = new(2026, 11, 19, 12, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset Now() => _now;
+        public void Advance(TimeSpan by) => _now += by;
+    }
+
     /// <summary>대시보드 내부 API 를 흉내 낸다 — 로그인마다 새 세션 쿠키, 만료시키면 /api/me 가 401.</summary>
     private sealed class FakeSite : HttpMessageHandler
     {
@@ -338,6 +435,7 @@ public class HmsUsageServiceTests
 
         public string? ValidKey { get; set; } = "hms_key_1";
         public HttpStatusCode? LoginStatus { get; set; }
+        public int? RetryAfterSeconds { get; set; }
         public string? LoginBodyOverride { get; set; }
         public string MeBody { get; set; } = MeJson;
         public bool Throw { get; set; }
@@ -358,7 +456,12 @@ public class HmsUsageServiceTests
                 var body = await request.Content!.ReadAsStringAsync(ct);
                 LoginBodies.Add(body);
                 if (LoginStatus is { } status)
-                    return Json(status, LoginBodyOverride ?? """{"error":{"code":"busy"}}""");
+                {
+                    var failed = Json(status, LoginBodyOverride ?? """{"error":{"code":"busy"}}""");
+                    if (RetryAfterSeconds is { } seconds)
+                        failed.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.FromSeconds(seconds));
+                    return failed;
+                }
                 if (ValidKey != null && body != $$"""{"api_key":"{{ValidKey}}"}""")
                     return Json(HttpStatusCode.Unauthorized, InvalidKeyJson);
                 var session = $"session-{++_sessionCounter}";
@@ -392,11 +495,10 @@ public class HmsUsageServiceTests
 [Trait("Category", "Network")]
 public class HmsUsageLiveTests
 {
-    [Fact]
+    [RequiresEnvironmentFact("HMS_API_KEY")]
     public async Task RealSite_ReturnsTodayAllowance()
     {
-        var key = Environment.GetEnvironmentVariable("HMS_API_KEY");
-        if (string.IsNullOrWhiteSpace(key)) return;
+        var key = Environment.GetEnvironmentVariable("HMS_API_KEY")!;
 
         using var service = new HmsUsageService(() => key);
         var result = await service.ReadAsync();

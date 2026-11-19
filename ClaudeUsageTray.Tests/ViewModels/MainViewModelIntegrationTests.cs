@@ -203,6 +203,37 @@ public class MainViewModelIntegrationTests : IDisposable
         });
     }
 
+    // #310: OpenCode·Codex 하단 안내는 조회 때만 만들어져, 언어를 바꿔도 다음 새로고침까지 옛 언어로 남았다.
+    [Fact]
+    public async Task LanguageChange_RebuildsProviderNotesWithoutARefresh()
+    {
+        var originalLang = Loc.CurrentLang;
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            try
+            {
+                Loc.SetLanguage("ko");
+                var koOpenCode = Loc.ProviderOpenCodeNote;
+                var koCodex = Loc.ProviderCodexNote;
+                Assert.Equal(koOpenCode, vm.OpenCodeNote);
+                Assert.Equal(koCodex, vm.CodexNote);
+
+                Loc.SetLanguage("en");
+
+                Assert.Equal(Loc.ProviderOpenCodeNote, vm.OpenCodeNote);
+                Assert.Equal(Loc.ProviderCodexNote, vm.CodexNote);
+                Assert.NotEqual(koOpenCode, vm.OpenCodeNote);
+                Assert.NotEqual(koCodex, vm.CodexNote);
+            }
+            finally
+            {
+                Loc.SetLanguage(originalLang);
+                vm.Dispose();
+            }
+        });
+    }
+
     // 콘솔 응답의 부가 정보(한도 도달·구독 상태·추가 사용/크레딧)가 팝업 줄에 실제로 바인딩되고,
     // 값이 없는 줄은 접힌다.
     [Fact]

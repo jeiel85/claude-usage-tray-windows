@@ -620,6 +620,7 @@ namespace ClaudeUsageTray.ViewModels;
                          ClaudeAccountProfileReader? claudeAccount = null,
                          HmsUsageService? hmsUsage = null)
     {
+        _refresh = new CoalescedRefresh(RefreshOnceAsync);
         _api = api;
         _credentials = credentials;
         _claudeAccount = claudeAccount ?? new ClaudeAccountProfileReader();
@@ -1660,12 +1661,20 @@ namespace ClaudeUsageTray.ViewModels;
         var clickUrl = WeatherAlertService.BuildWeatherClickUrlPublic(loc);
 
         _notifier.ShowWeatherAlert(title, ntfyBody, ntfyTopic,
-            ntfyBody, priority: WeatherPriority.Forecast, tags: ["sunny"], clickUrl: clickUrl);
+            WeatherPriority.Forecast, ntfyMessage: ntfyBody, tags: ["sunny"], clickUrl: clickUrl);
 
         return null;
     }
 
-    public async Task RefreshAsync()
+    private readonly CoalescedRefresh _refresh;
+
+    /// <summary>
+    /// 모든 공급자를 새로 읽는다. 이미 도는 중이면 따로 돌리지 않고 그게 끝난 뒤 한 번 더 돈다(#314) —
+    /// 돌아오는 것은 그 마지막 실행이 끝났을 때다.
+    /// </summary>
+    public Task RefreshAsync() => _refresh.RunAsync();
+
+    private async Task RefreshOnceAsync()
     {
         _secondsUntilRefresh = PollingIntervalMinutes > 0 ? PollingIntervalMinutes * 60 : 120;
 
@@ -3166,6 +3175,7 @@ namespace ClaudeUsageTray.ViewModels;
 
             // 토큰 4타일 표시 여부는 퍼센트가 아니라 실제 토큰 데이터 유무로 판단한다(Claude 와 동일 기준).
             var codexHasTokenData = CodexVm.LastSnapshot.HasData;
+            _codexNoteMergedTotals = mergedTotals;
             CodexNote = WithSyncNote(Loc.ProviderCodexNote, mergedTotals);
 
             if (HasMergedDeviceTotals(mergedTotals))
@@ -3217,6 +3227,7 @@ namespace ClaudeUsageTray.ViewModels;
             _lastOpenCodeInputTokens = OpenCodeVm.LastInputTokens;
             _lastOpenCodeOutputTokens = OpenCodeVm.LastOutputTokens;
             _openCodeHasPeriodUsage = OpenCodeVm.HasPeriodUsage;
+            _openCodeNoteMergedTotals = mergedTotals;
             OpenCodeNote = WithSyncNote(OpenCodeVm.Note, mergedTotals);
             OpenCodePlanLabel = OpenCodeVm.PlanLabel;
 
@@ -3642,6 +3653,20 @@ namespace ClaudeUsageTray.ViewModels;
         _ => Loc.WeatherUnknown
     };
 
+    /// <summary>마지막 조회에서 Codex·OpenCode 하단 안내에 붙인 다른 PC 합산 정보. 언어가 바뀌면 이걸로 안내를 다시 만든다.</summary>
+    private UsageSyncMergedLocalTotals? _codexNoteMergedTotals;
+    private UsageSyncMergedLocalTotals? _openCodeNoteMergedTotals;
+
+    /// <summary>
+    /// Codex·OpenCode 하단 안내를 지금 언어로 다시 만든다(#310). 안내는 조회 때만 만들어져, 언어를 바꿔도 다음 새로고침
+    /// 전까지 옛 언어로 남았다. <see cref="OpenCodeViewModel.RefreshLocalizedLabels"/> 뒤에 불러야 한다.
+    /// </summary>
+    internal void RefreshProviderNotes()
+    {
+        CodexNote = WithSyncNote(Loc.ProviderCodexNote, _codexNoteMergedTotals);
+        OpenCodeNote = WithSyncNote(OpenCodeVm.Note, _openCodeNoteMergedTotals);
+    }
+
     private void OnLanguageChanged()
     {
         // 종료 중이면 Application.Current 가 이미 null 이다 — 갱신할 화면도 없으므로 그냥 넘어간다.
@@ -3649,6 +3674,7 @@ namespace ClaudeUsageTray.ViewModels;
         {
             ClaudeVm.RefreshLocalizedLabels();
             OpenCodeVm.RefreshLocalizedLabels();
+            RefreshProviderNotes();
             HmsVm.RefreshLanguage();
             AntigravityVm.RefreshLocalizedLabels();
             // 행 객체가 새로 만들어지므로 미러 프로퍼티도 다시 가리켜야 화면이 바뀐다.
