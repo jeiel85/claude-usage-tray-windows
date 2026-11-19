@@ -36,6 +36,13 @@ namespace ClaudeUsageTray.ViewModels;
     public AntigravityViewModel AntigravityVm { get; }
     public WeatherViewModel WeatherVm { get; }
     public OpenCodeViewModel OpenCodeVm { get; }
+    /// <summary>100milionseek(DeepSeek 무료 API) 일일 한도 — OpenCode 와 별도 섹션(#311).</summary>
+    public HmsViewModel HmsVm { get; }
+    /// <summary>
+    /// 펼침 상태 키. <see cref="UsageProviderKind"/> 가 아니다 — 트레이 표시 기준·공급자 표시 목록에는 넣지 않는
+    /// 임시 섹션이라 펼침에만 쓴다.
+    /// </summary>
+    public const string HmsFocusKey = "hms";
     public CodexViewModel CodexVm { get; }
     public ClaudeViewModel ClaudeVm { get; }
 
@@ -508,6 +515,7 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private bool _isCodexFocused = false;
     [ObservableProperty] private bool _isOpenCodeFocused = false;
     [ObservableProperty] private bool _isAntigravityFocused = false;
+    [ObservableProperty] private bool _isHmsFocused = false;
 
     [ObservableProperty] private double _openCodePercent = 0;
     [ObservableProperty] private double _trayUsagePercent = 0;
@@ -590,6 +598,7 @@ namespace ClaudeUsageTray.ViewModels;
     public string LblChatGptImageGeneration => Loc.ChatGptImageGeneration;
     public string LblChatGptImageGenerationTip => Loc.ChatGptImageGenerationTip;
     public string LblOpenCodeNoUsage => Loc.OpenCodeNoUsageToday;
+    public string LblHmsSection      => Loc.HmsSectionTitle;
     public string LblVisibleProviders => Loc.VisibleProviders;
     public string DisclaimerText     => SelectedProvider == UsageProviderKind.Claude ? Loc.Disclaimer : Loc.GenericDisclaimer;
 
@@ -627,7 +636,8 @@ namespace ClaudeUsageTray.ViewModels;
 
         AntigravityVm = new AntigravityViewModel(antigravity);
         WeatherVm = new WeatherViewModel(weather, weatherAlert);
-        OpenCodeVm = new OpenCodeViewModel(openCode, history, openCodeWebUsage, hmsUsage);
+        OpenCodeVm = new OpenCodeViewModel(openCode, history, openCodeWebUsage);
+        HmsVm = new HmsViewModel(hmsUsage);
         CodexVm = new CodexViewModel(codex, history);
         ClaudeVm = new ClaudeViewModel();
 
@@ -793,6 +803,7 @@ namespace ClaudeUsageTray.ViewModels;
         IsCodexFocused    = value == UsageProviderKind.Codex;
         IsOpenCodeFocused = value == UsageProviderKind.OpenCode;
         IsAntigravityFocused = value == UsageProviderKind.Antigravity;
+        IsHmsFocused = value == HmsFocusKey;
     }
 
     /// <summary>
@@ -812,6 +823,10 @@ namespace ClaudeUsageTray.ViewModels;
 
         // 빈 문자열은 "모두 접힘" 상태로 허용
         if (string.IsNullOrEmpty(FocusedProvider))
+            return;
+
+        // DeepSeek(100milionseek) 섹션은 키가 있는 동안만 펼침 대상이다(#311).
+        if (FocusedProvider == HmsFocusKey && !string.IsNullOrEmpty(HmsApiKeyProtected))
             return;
 
         if (UsageProviderKind.IsValid(FocusedProvider) &&
@@ -1661,7 +1676,8 @@ namespace ClaudeUsageTray.ViewModels;
                 RefreshClaudeAsync(),
                 RefreshCodexInternalAsync(),
                 RefreshOpenCodeInternalAsync(),
-                RefreshAntigravityInternalAsync()
+                RefreshAntigravityInternalAsync(),
+                HmsVm.RefreshAsync()
             };
 
             if (WeatherEnabled)
@@ -1714,8 +1730,7 @@ namespace ClaudeUsageTray.ViewModels;
             HasLiveCodexQuota(), _isCodexSubscribed, CodexHasError);
         IsOpenCodeActive = IsOpenCodeSectionActive(
             IsOpenCodeEnabled, hideInactive, _lastOpenCodeRequestCount, _openCodeHasPeriodUsage,
-            OpenCodeVm.HasWebQuota, OpenCodeVm.HasStaleSyncedQuota, OpenCodeHasError,
-            OpenCodeVm.HasHmsContent);
+            OpenCodeVm.HasWebQuota, OpenCodeVm.HasStaleSyncedQuota, OpenCodeHasError);
 
         ClaudeVm.IsUsageEmpty = TodayInputTokens + TodayOutputTokens == 0;
         IsCodexUsageEmpty = !_codexHasTokenData;
@@ -2518,17 +2533,13 @@ namespace ClaudeUsageTray.ViewModels;
         bool hasPeriodUsage,
         bool hasWebQuota,
         bool hasStaleSyncedQuota,
-        bool hasError,
-        bool hasHmsContent = false) =>
+        bool hasError) =>
         isEnabled && (!hideInactive
             || requestCount > 0
             || hasPeriodUsage
             || hasWebQuota
             || hasStaleSyncedQuota
-            || hasError
-            // 100milionseek 는 OpenCode 밖(다른 클라이언트)에서 쓸 수도 있다 — 한도 값이나 키 거절·조회 실패 안내가
-            // 있으면 섹션을 보인다(#306). 안내가 섹션 안에 있어 섹션이 숨으면 사용자가 볼 길이 없다.
-            || hasHmsContent);
+            || hasError);
 
     private async Task RefreshClaudeAsync()
     {
@@ -3273,6 +3284,7 @@ namespace ClaudeUsageTray.ViewModels;
         RecomputeCodexTimeProgress(now);
         UpdateCodexAdditionalTimeProgress(now);
         OpenCodeVm.UpdateTimeProgress(now);
+        HmsVm.UpdateTimeProgress(now);
         AntigravityVm.UpdateTimeProgress(now);
     }
 
@@ -3358,6 +3370,7 @@ namespace ClaudeUsageTray.ViewModels;
         UpdateCodexAdditionalTimeProgress(DateTimeOffset.Now);
         AntigravityVm.ShowAbsoluteResetTime = value;
         OpenCodeVm.ShowAbsoluteResetTime    = value;
+        HmsVm.ShowAbsoluteResetTime         = value;
     }
 
     /// <summary>
@@ -3531,6 +3544,7 @@ namespace ClaudeUsageTray.ViewModels;
         {
             ClaudeVm.RefreshLocalizedLabels();
             OpenCodeVm.RefreshLocalizedLabels();
+            HmsVm.RefreshLanguage();
             AntigravityVm.RefreshLocalizedLabels();
             // 행 객체가 새로 만들어지므로 미러 프로퍼티도 다시 가리켜야 화면이 바뀐다.
             AntigravityModels = AntigravityVm.Models;

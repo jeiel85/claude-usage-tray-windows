@@ -54,6 +54,8 @@ public class UiSnapshotTests : IDisposable
                 Render(popup, "popup-codex");
                 vm.FocusedProvider = UsageProviderKind.OpenCode;
                 Render(popup, "popup-opencode");
+                vm.FocusedProvider = MainViewModel.HmsFocusKey;
+                Render(popup, "popup-hms");
                 vm.FocusedProvider = UsageProviderKind.Claude;
                 popup.Close();
 
@@ -176,11 +178,11 @@ public class UiSnapshotTests : IDisposable
         vm.CodexLongReset = "5d";
         vm.IsCodexLongVisible = true;
 
-        // OpenCode 상세의 100milionseek 일일 한도 한 줄(#306).
+        // 100milionseek(DeepSeek 무료 API) 일일 한도 — OpenCode 와 별도 섹션(#311).
         vm.IsOpenCodeActive = true;
         var now = DateTimeOffset.Now;
         var nextUtcMidnight = new DateTimeOffset(now.UtcDateTime.Date.AddDays(1), TimeSpan.Zero);
-        vm.OpenCodeVm.ApplyHms(new HmsReadResult(HmsReadState.Ok,
+        vm.HmsVm.Apply(new HmsReadResult(HmsReadState.Ok,
             new HmsDailyUsage(32_339_025, 400_000_000, 367_660_975, 281, nextUtcMidnight, now.AddDays(1))), now);
     }
 

@@ -3,6 +3,26 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.70.1] - 2026-11-19
+
+<!-- ko -->
+### 수정
+- **설정을 저장하거나 새로고침할 때 창이 10초 넘게 멈추던 문제를 고쳤습니다 (#311)** — Codex 로컬 로그 읽기(이 PC 에서 11~17초)와 OpenCode 기록 읽기가 화면을 그리는 스레드에서 돌고 있었습니다. 이제 뒤에서 읽어, 새로고침 중에도 팝업·설정 창이 바로 반응합니다(측정: 최대 정지 14.2초 → 0.1초).
+
+### 개선
+- **DeepSeek 무료 API 한도를 OpenCode 와 따로 보여 줍니다 (#311)** — OpenCode 섹션 안에 끼어 OpenCode Go 한도처럼 보이던 게이지를 독립된 "DeepSeek 무료 API" 줄로 옮겼습니다. 접힌 줄에 사용률이 보이고, 누르면 게이지·초기화 시각·안내가 펼쳐집니다. OpenCode 로그인과는 관계없습니다.
+- 설정 > 트레이의 키 칸 옆에 **[저장] 버튼**을 두었습니다. 키를 붙여넣으면 버튼이 켜지고, 누르거나 Enter 를 치면 저장한 뒤 안내를 보여 줍니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The windows no longer freeze for 10+ seconds when you save settings or refresh (#311)** — Reading the local Codex logs (11–17 s on the test PC) and the OpenCode history ran on the UI thread. They now run in the background, so the popup and Settings stay responsive while refreshing (measured: longest stall 14.2 s → 0.1 s).
+
+### Improved
+- **The DeepSeek free API allowance is shown separately from OpenCode (#311)** — The gauge that sat inside the OpenCode section, where it looked like an OpenCode Go quota, now has its own "DeepSeek free API" row. The collapsed row shows the usage; click it for the gauge, reset time and notices. It has nothing to do with signing in to OpenCode.
+- The key field under Settings > Tray now has a **Save button**. It turns on once you paste a key; press it (or Enter) to save, and a confirmation appears.
+<!-- /en -->
+
 ## [1.70.0] - 2026-11-19
 
 <!-- ko -->

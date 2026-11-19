@@ -207,6 +207,7 @@ public partial class SettingsWindow : Window, IDisposable
         LblHmsKey.Text                      = Loc.HmsKeyTitle;
         LblHmsKeyHint.Text                  = Loc.HmsKeyHint;
         BtnHmsKeyClear.Content              = Loc.HmsKeyClear;
+        BtnHmsKeySave.Content               = Loc.HmsKeySave;
         UpdateHmsKeyStatus();
 
         // v1.27.0 표시 옵션 토글
@@ -453,12 +454,8 @@ public partial class SettingsWindow : Window, IDisposable
             _vm.MobileCloudflareTokenProtected = Services.Mobile.MobileSecret.Protect(newToken);
             PwdCloudflareToken.Clear();
         }
-        // 100milionseek 키(#306)도 같은 규칙 — 칸은 저장값을 다시 보여 주지 않고, 지우기는 전용 버튼으로.
-        if (PwdHmsKey.Password.Trim() is { Length: > 0 } newHmsKey)
-        {
-            _vm.HmsApiKeyProtected = Services.Mobile.MobileSecret.Protect(newHmsKey);
-            PwdHmsKey.Clear();
-        }
+        // 100milionseek 키는 여기서 읽지 않는다 — [저장]·Enter 로만 저장한다(#311, SaveHmsKey).
+        // 다른 설정을 바꾸는 것만으로 입력 중인 키가 저장·조회되면 안 된다.
         UpdateHmsKeyStatus();
 
         if (CmbTrayDisplayMode.SelectedItem is ComboBoxItem modeItem)
@@ -620,16 +617,26 @@ public partial class SettingsWindow : Window, IDisposable
         BtnHmsKeyClear.Visibility = saved ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    /// <summary>새 키를 넣었을 때만 저장한다 — 빈 칸을 지나가기만 해서는 저장·새로고침하지 않는다.</summary>
-    private void HmsKey_LostFocus(object sender, RoutedEventArgs e)
+    /// <summary>[저장]·Enter — 새 키를 넣었을 때만 저장한다(#311). 저장은 <see cref="Setting_Changed"/> 가 암호화해 넣는다.</summary>
+    private void SaveHmsKey(object sender, RoutedEventArgs e)
     {
-        if (PwdHmsKey.Password.Trim().Length > 0) Setting_Changed(sender, e);
+        if (_isLoadingValues || PwdHmsKey.Password.Trim() is not { Length: > 0 } newKey) return;
+        // 칸은 저장값을 다시 보여 주지 않는다 — 암호화해 넣고 바로 비운다. 지우기는 전용 버튼으로.
+        _vm.HmsApiKeyProtected = Services.Mobile.MobileSecret.Protect(newKey);
+        PwdHmsKey.Clear();
+        Setting_Changed(sender, e);
+        LblHmsKeySaved.Text = Loc.HmsKeyJustSaved;
     }
+
+    private void BtnHmsKeySave_Click(object sender, RoutedEventArgs e) => SaveHmsKey(sender, e);
+
+    private void HmsKey_PasswordChanged(object sender, RoutedEventArgs e) =>
+        BtnHmsKeySave.IsEnabled = PwdHmsKey.Password.Trim().Length > 0;
 
     private void HmsKey_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (e.Key != System.Windows.Input.Key.Enter) return;
-        HmsKey_LostFocus(sender, e);
+        SaveHmsKey(sender, e);
         e.Handled = true;
     }
 
