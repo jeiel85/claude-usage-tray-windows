@@ -498,7 +498,7 @@ public class CodexUsageMonitor
 
     /// <summary>
     /// Direct API(<c>/backend-api/wham/usage</c>) 응답을 스냅샷으로 편다.
-    /// 로컬 세션 로그(<see cref="ApplyRateLimits"/>)와는 완전히 다른 스키마다 — 창이
+    /// 로컬 세션 로그(<see cref="ApplyRateWindows"/>)와는 완전히 다른 스키마다 — 창이
     /// <c>rate_limit.primary_window</c>/<c>secondary_window</c> 로 한 겹 더 감싸여 있고,
     /// 리셋까지 남은 시간은 <c>limit_window_seconds</c>(초 단위, 로그의 <c>window_minutes</c>
     /// 는 분 단위)와 <c>reset_at</c>(로그의 <c>resets_at</c>과 이름이 다르다)로 불린다.
@@ -632,6 +632,16 @@ public class CodexUsageMonitor
 
     public ProviderUsageSnapshot GetTodaySnapshot() => GetTodaySnapshot(SessionsPath);
 
+    // 파일별로 읽은 결과(#314). 세션 로그는 이 PC 에서 1,200개·11GB 를 넘어, 새로고침마다 전부 다시 읽으면
+    // 11~17초 걸렸다. 로그는 끝에 덧붙기만 하므로 길이·수정 시각이 같으면 내용도 같다 — 바뀐 파일만 다시 읽는다.
+    // 오늘 합계는 날짜에 따라 달라지므로 '오늘' 이 바뀌면 모두 다시 읽는다.
+    // 길이·시각은 디렉터리 목록이 아니라 연 파일 핸들에서 읽는다 — Codex 가 열어 두고 쓰는 파일은 목록 쪽 값이 늦게 바뀐다.
+    private readonly object _scanLock = new();
+    private Dictionary<string, FileScan> _scanCache = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>테스트용: 마지막 스캔에서 내용을 실제로 읽은 파일 수.</summary>
+    internal int FilesReadLastScan { get; private set; }
+
     // sessionsPath / now 를 주입받는 오버로드 — 단위 테스트에서 임시 로그 폴더와 기준 시각을 지정하기 위한 것.
     public ProviderUsageSnapshot GetTodaySnapshot(string sessionsPath, DateTimeOffset? now = null)
     {
@@ -644,19 +654,77 @@ public class CodexUsageMonitor
         }
 
         var today = reference.LocalDateTime.Date;
-        var latestRateTs = DateTimeOffset.MinValue;
-        var latestAdditional = new Dictionary<string, LoggedLimit>(StringComparer.OrdinalIgnoreCase);
         var files = Directory.GetFiles(sessionsPath, "rollout-*.jsonl", SearchOption.AllDirectories);
-
-        foreach (var file in files)
+        var scans = new List<FileScan>(files.Length);
+        lock (_scanLock)
         {
-            try
+            var cache = new Dictionary<string, FileScan>(files.Length, StringComparer.OrdinalIgnoreCase);
+            var read = 0;
+            foreach (var file in files)
             {
-                ProcessFile(file, today, snapshot, ref latestRateTs, latestAdditional);
+                try
+                {
+                    using var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                    var length = fs.Length;
+                    var lastWrite = File.GetLastWriteTimeUtc(fs.SafeFileHandle);
+                    if (!_scanCache.TryGetValue(file, out var scan) ||
+                        scan.Length != length || scan.LastWriteUtc != lastWrite || scan.Today != today)
+                    {
+                        scan = ScanFile(fs, length, lastWrite, today);
+                        read++;
+                    }
+                    cache[file] = scan;
+                    scans.Add(scan);
+                }
+                catch
+                {
+                    // Skip unreadable files
+                }
             }
-            catch
+            _scanCache = cache;
+            FilesReadLastScan = read;
+        }
+
+        // 파일 순서대로 합친다 — 같은 시각이면 먼저 읽은 파일이 이기고, 리셋 추정은 그 파일까지의 창 길이로 정한다
+        // (파일마다 바로 반영하던 예전 스캔과 같은 결과).
+        var latestRateTs = DateTimeOffset.MinValue;
+        var latestPlanTs = DateTimeOffset.MinValue;
+        var latestAdditional = new Dictionary<string, LoggedLimit>(StringComparer.OrdinalIgnoreCase);
+        foreach (var scan in scans)
+        {
+            if (scan.RateWindows is { } rateWindows && scan.RateTs > latestRateTs)
             {
-                // Skip unreadable files
+                latestRateTs = scan.RateTs;
+                ApplyRateWindows(rateWindows, snapshot);
+            }
+            if (scan.PlanType is { } plan && scan.PlanTs > latestPlanTs)
+            {
+                latestPlanTs = scan.PlanTs;
+                snapshot.PlanType = plan;
+            }
+            foreach (var (limitId, limit) in scan.Additional)
+            {
+                if (!latestAdditional.TryGetValue(limitId, out var known) || limit.Timestamp > known.Timestamp)
+                    latestAdditional[limitId] = limit;
+            }
+
+            snapshot.TotalInputTokens += scan.InputTokens;
+            snapshot.TotalOutputTokens += scan.OutputTokens;
+            snapshot.TotalCacheReadTokens += scan.CacheReadTokens;
+            for (var hour = 0; hour < 24; hour++) snapshot.HourlyTokens[hour] += scan.HourlyTokens[hour];
+            if (scan.HadTodayTokens)
+            {
+                snapshot.HasData = true;
+                snapshot.SessionCount++;
+            }
+
+            // 로그에 resets_at이 없으면 금번 초기화 전 첫 활동 시간 + 창 길이로 폴백(창 길이를 알 때만).
+            // 창 길이를 모르면 임의 추정 대신 표시하지 않는다(예전 5시간 하드코딩은 주간 창에 맞지 않았음).
+            if (snapshot.ShortResetAt is null && scan.FirstTodayActivityTs is { } firstToday &&
+                snapshot.ShortWindowMinutes is int shortWindowMinutes && shortWindowMinutes > 0)
+            {
+                snapshot.ShortResetAt = firstToday.AddMinutes(shortWindowMinutes);
+                snapshot.IsShortResetEstimated = true;
             }
         }
 
@@ -699,16 +767,40 @@ public class CodexUsageMonitor
         snapshot.AdditionalQuotas.RemoveAll(window => window.ResetAt is { } reset && reset <= now);
     }
 
-    private static void ProcessFile(string filePath, DateTime today, ProviderUsageSnapshot snapshot,
-        ref DateTimeOffset latestRateTs, Dictionary<string, LoggedLimit> latestAdditional)
+    /// <summary>
+    /// 로그 파일 하나에서 합칠 값만 뽑은 것. 캐시에 남으므로 다 만든 뒤에는 바꾸지 않는다.
+    /// </summary>
+    private sealed class FileScan
     {
-        using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        using var reader = new StreamReader(fs);
+        public long Length { get; init; }
+        public DateTime LastWriteUtc { get; init; }
+        public DateTime Today { get; init; }
+
+        /// <summary>기본 한도 줄 중 가장 최근 것(같은 시각이면 먼저 나온 것)의 시각과 창. 없으면 창이 null.</summary>
+        public DateTimeOffset RateTs { get; set; } = DateTimeOffset.MinValue;
+        public List<RateWindow>? RateWindows { get; set; }
+
+        /// <summary>plan_type 이 있는 기본 한도 줄 중 가장 최근 것.</summary>
+        public DateTimeOffset PlanTs { get; set; } = DateTimeOffset.MinValue;
+        public string? PlanType { get; set; }
+
+        public Dictionary<string, LoggedLimit> Additional { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+        public long InputTokens { get; set; }
+        public long OutputTokens { get; set; }
+        public long CacheReadTokens { get; set; }
+        public long[] HourlyTokens { get; } = new long[24];
+        public bool HadTodayTokens { get; set; }
+        public DateTimeOffset? FirstTodayActivityTs { get; set; }
+    }
+
+    private static FileScan ScanFile(FileStream fs, long length, DateTime lastWriteUtc, DateTime today)
+    {
+        var scan = new FileScan { Length = length, LastWriteUtc = lastWriteUtc, Today = today };
+        using var reader = new StreamReader(fs, leaveOpen: true);
 
         UsageTotals? prevTotals = null;
-        bool fileHadTodayActivity = false;
         string? line;
-        DateTimeOffset? firstTodayActivityTs = null;
 
         while ((line = reader.ReadLine()) != null)
         {
@@ -734,7 +826,7 @@ public class CodexUsageMonitor
                 // 이름 그대로 "오늘 첫 활동" 이어야 한다. 날짜를 안 보면 며칠 전 로그의 첫 줄이 잡혀
                 // 리셋 추정치가 과거로 계산되고, 시간선이 100% 경과(막대 오른쪽 끝)로 고정된다.
                 if (ts != DateTimeOffset.MinValue && ts.ToLocalTime().Date == today)
-                    firstTodayActivityTs ??= ts;
+                    scan.FirstTodayActivityTs ??= ts;
 
                 if (payloadEl.TryGetProperty("rate_limits", out var rateLimitsEl) &&
                     rateLimitsEl.ValueKind == JsonValueKind.Object)
@@ -745,18 +837,24 @@ public class CodexUsageMonitor
                     var limitId = ReadString(rateLimitsEl, "limit_id");
                     if (limitId is null || IsDefaultLimit(limitId))
                     {
-                        if (ts > latestRateTs)
+                        if (ts > scan.RateTs)
                         {
-                            latestRateTs = ts;
-                            ApplyRateLimits(rateLimitsEl, snapshot);
+                            scan.RateTs = ts;
+                            scan.RateWindows = ReadLoggedWindows(rateLimitsEl);
+                        }
+                        if (ts > scan.PlanTs &&
+                            rateLimitsEl.TryGetProperty("plan_type", out var planEl) && planEl.ValueKind == JsonValueKind.String)
+                        {
+                            scan.PlanTs = ts;
+                            scan.PlanType = planEl.GetString();
                         }
                     }
-                    else if (!latestAdditional.TryGetValue(limitId, out var known) || ts > known.Timestamp)
+                    else if (!scan.Additional.TryGetValue(limitId, out var known) || ts > known.Timestamp)
                     {
                         // 읽을 창이 없는 줄이 앞서 읽은 정상 값을 지우지 않게 한다.
                         var windows = ReadLoggedAdditionalWindows(rateLimitsEl, limitId, ts);
                         if (windows.Count > 0)
-                            latestAdditional[limitId] = new LoggedLimit(ts, windows);
+                            scan.Additional[limitId] = new LoggedLimit(ts, windows);
                     }
                 }
 
@@ -766,13 +864,11 @@ public class CodexUsageMonitor
                 if (ts != DateTimeOffset.MinValue && ts.ToLocalTime().Date == today)
                 {
                     var delta = prevTotals is null ? totals : totals.Subtract(prevTotals.Value);
-                    snapshot.TotalInputTokens += Math.Max(0, delta.InputTokens);
-                    snapshot.TotalOutputTokens += Math.Max(0, delta.OutputTokens + delta.ReasoningOutputTokens);
-                    snapshot.TotalCacheReadTokens += Math.Max(0, delta.CachedInputTokens);
-                    snapshot.TotalCacheWriteTokens += 0;
-                    snapshot.HourlyTokens[ts.ToLocalTime().Hour] += Math.Max(0, delta.TotalTokens);
-                    fileHadTodayActivity = true;
-                    snapshot.HasData = true;
+                    scan.InputTokens += Math.Max(0, delta.InputTokens);
+                    scan.OutputTokens += Math.Max(0, delta.OutputTokens + delta.ReasoningOutputTokens);
+                    scan.CacheReadTokens += Math.Max(0, delta.CachedInputTokens);
+                    scan.HourlyTokens[ts.ToLocalTime().Hour] += Math.Max(0, delta.TotalTokens);
+                    scan.HadTodayTokens = true;
                 }
 
                 prevTotals = totals;
@@ -783,17 +879,7 @@ public class CodexUsageMonitor
             }
         }
 
-        if (fileHadTodayActivity)
-            snapshot.SessionCount++;
-
-        // 로그에 resets_at이 없으면 금번 초기화 전 첫 활동 시간 + 창 길이로 폴백(창 길이를 알 때만).
-        // 창 길이를 모르면 임의 추정 대신 표시하지 않는다(예전 5시간 하드코딩은 주간 창에 맞지 않았음).
-        if (snapshot.ShortResetAt is null && firstTodayActivityTs.HasValue &&
-            snapshot.ShortWindowMinutes is int shortWindowMinutes && shortWindowMinutes > 0)
-        {
-            snapshot.ShortResetAt = firstTodayActivityTs.Value.AddMinutes(shortWindowMinutes);
-            snapshot.IsShortResetEstimated = true;
-        }
+        return scan;
     }
 
     // 합계 값은 세션 누적이고, 오늘 사용량은 직전 줄과의 차분으로 센다. 그래서 읽지 못한 값을 0 으로 두면
@@ -821,10 +907,8 @@ public class CodexUsageMonitor
     // rate_limits의 primary/secondary 창을 window_minutes 오름차순으로 정렬해
     // 짧은 창을 Short 슬롯, 긴 창을 Long 슬롯에 배치한다. 백엔드가 슬롯에 담는 창
     // 길이를 바꿔도(예: primary가 5시간→주간) 라벨/위치가 어긋나지 않는다.
-    private static void ApplyRateLimits(JsonElement rateLimitsEl, ProviderUsageSnapshot snapshot)
+    private static void ApplyRateWindows(List<RateWindow> windows, ProviderUsageSnapshot snapshot)
     {
-        var windows = ReadLoggedWindows(rateLimitsEl);
-
         snapshot.ShortUsagePercent = 0;
         snapshot.ShortResetAt = null;
         snapshot.ShortWindowMinutes = null;
@@ -845,9 +929,6 @@ public class CodexUsageMonitor
             snapshot.LongResetAt = windows[1].ResetAt;
             snapshot.LongWindowMinutes = windows[1].WindowMinutes;
         }
-
-        if (rateLimitsEl.TryGetProperty("plan_type", out var planEl) && planEl.ValueKind == JsonValueKind.String)
-            snapshot.PlanType = planEl.GetString();
     }
 
     // primary/secondary 를 창 길이 오름차순으로 — Direct API 경로(ReadDirectApiWindows)와 같은 규칙.

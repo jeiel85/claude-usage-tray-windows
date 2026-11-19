@@ -24,6 +24,12 @@ public sealed partial class QuotaGaugeRow : ObservableObject
     /// <summary>창 길이. 모르면 null — 시간선 마커를 그리지 않는다.</summary>
     public TimeSpan? Window { get; init; }
 
+    /// <summary>
+    /// 팝업 막대가 새로 만들어진 행에서도 이전 길이부터 차오르게 쓰는 이름(#325, <c>GaugeAnimation.Key</c>).
+    /// 한 한도에 창이 여럿일 수 있어 창 길이까지 넣는다.
+    /// </summary>
+    public string AnimationKey => $"{Key}|{Window?.TotalMinutes}";
+
     [ObservableProperty] private string _resetAtLabel = "";
 
     /// <summary>게이지 툴팁 — Claude·Codex 게이지 툴팁과 같은 페이스 문구 한 줄.</summary>

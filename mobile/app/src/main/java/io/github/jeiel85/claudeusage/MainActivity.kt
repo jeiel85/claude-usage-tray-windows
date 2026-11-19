@@ -65,6 +65,7 @@ class MainActivity : ComponentActivity() {
         NotificationHistory.load(this)
         // Replace the old per-category channels now, not at the next alert, so Android's settings show the new two (#297).
         PushNotifier.ensureChannels(this)
+        AppUpdates.ensureChannels(this)
         pairingLink = if (savedInstanceState == null) intent.pairingLink() else savedInstanceState.getString(KEY_PAIRING_LINK)
         settingsOpen = savedInstanceState?.getBoolean(KEY_SETTINGS_OPEN) ?: false
         historyOpen = savedInstanceState?.getBoolean(KEY_HISTORY_OPEN) ?: false

@@ -41,6 +41,30 @@ public class PopupGaugeBindingRuleTests
         }
     }
 
+    // 목록 행 막대는 새로고침마다 새로 만들어지므로 이름이 있어야 이전 길이에서 차오른다(#325).
+    // 이름 앞말은 목록마다 달라야 다른 목록의 같은 한도 ID 를 이어 받지 않는다.
+    [Fact]
+    public void EveryListRowBar_HasAGaugeKeyWithItsOwnScope()
+    {
+        var doc = XDocument.Load(PopupXamlPath(), LoadOptions.SetLineInfo);
+        var rowBars = doc.Descendants(XName.Get("DataTemplate", WpfNs))
+            .SelectMany(t => t.Descendants(XName.Get("ProgressBar", WpfNs)))
+            .ToList();
+        Assert.NotEmpty(rowBars);
+
+        var scopes = new List<string>();
+        foreach (var bar in rowBars)
+        {
+            var line = ((System.Xml.IXmlLineInfo)bar).LineNumber;
+            var key = bar.Attributes().FirstOrDefault(a => a.Name.LocalName == "GaugeAnimation.Key")?.Value;
+            Assert.True(key is not null, $"UsagePopup.xaml:{line} list row ProgressBar has no views:GaugeAnimation.Key");
+            var scope = System.Text.RegularExpressions.Regex.Match(key!, @"StringFormat='([^':]+):\{0\}'").Groups[1].Value;
+            Assert.True(scope.Length > 0, $"UsagePopup.xaml:{line} GaugeAnimation.Key needs StringFormat='<list>:{{0}}': {key}");
+            scopes.Add(scope);
+        }
+        Assert.Equal(scopes.Count, scopes.Distinct(StringComparer.Ordinal).Count());
+    }
+
     [Fact]
     public void BarStyles_DoNotSetValue()
     {

@@ -8,6 +8,7 @@ namespace ClaudeUsageTray.ViewModels;
 public partial class OpenCodeViewModel : ObservableObject
 {
     private readonly OpenCodeUsageMonitor _monitor;
+    private readonly Func<ProviderUsageSnapshot> _readSnapshot;
     private readonly HistoryService _history;
     private readonly OpenCodeWebUsageService? _webUsage;
     private int _lastRequestCount = 0;
@@ -96,8 +97,16 @@ public partial class OpenCodeViewModel : ObservableObject
 
     public OpenCodeViewModel(OpenCodeUsageMonitor monitor, HistoryService history,
         OpenCodeWebUsageService? webUsage = null)
+        : this(monitor, history, webUsage, monitor.GetTodaySnapshot)
+    {
+    }
+
+    /// <summary>테스트용: 스냅샷 읽기를 바꿔 끼운다(느린 읽기가 UI 스레드를 붙잡지 않는지, #314).</summary>
+    internal OpenCodeViewModel(OpenCodeUsageMonitor monitor, HistoryService history,
+        OpenCodeWebUsageService? webUsage, Func<ProviderUsageSnapshot> readSnapshot)
     {
         _monitor = monitor;
+        _readSnapshot = readSnapshot;
         _history = history;
         _webUsage = webUsage;
     }
@@ -107,7 +116,7 @@ public partial class OpenCodeViewModel : ObservableObject
         try
         {
             // OpenCode DB 는 수 GB 까지 커진다(이 PC 2.5GB, 첫 읽기 0.4~1.9초) — UI 스레드 밖에서 읽는다.
-            var snapshot = await Task.Run(_monitor.GetTodaySnapshot);
+            var snapshot = await Task.Run(_readSnapshot);
             var read = _webUsage == null
                 ? OpenCodeWebReadResult.NotAttempted
                 : await _webUsage.TryGetUsageAsync();

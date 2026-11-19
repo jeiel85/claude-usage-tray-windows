@@ -809,7 +809,7 @@
                                                 </StackPanel>
                                             </Grid>
                                             <Grid Height="8" Margin="0,4,0,0" ToolTip="{Binding PaceTip}">
-                                                <ProgressBar views:GaugeAnimation.Value="{Binding UsagePercent}" Maximum="1" Style="{StaticResource UsageBarStyle}" VerticalAlignment="Center"/>
+                                                <ProgressBar views:GaugeAnimation.Key="{Binding AnimationKey, StringFormat='claude:{0}'}" views:GaugeAnimation.Value="{Binding UsagePercent}" Maximum="1" Style="{StaticResource UsageBarStyle}" VerticalAlignment="Center"/>
                                                 <Grid VerticalAlignment="Center" Height="8">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="{Binding TimePercent, Converter={StaticResource PercentToStar}}"/>
@@ -1165,7 +1165,7 @@
                                             </StackPanel>
                                         </Grid>
                                         <Grid Height="8" Margin="0,4,0,0" ToolTip="{Binding PaceTip}">
-                                            <ProgressBar views:GaugeAnimation.Value="{Binding UsagePercent}" Maximum="1" Style="{StaticResource CodexBarStyle}" VerticalAlignment="Center"/>
+                                            <ProgressBar views:GaugeAnimation.Key="{Binding AnimationKey, StringFormat='codex:{0}'}" views:GaugeAnimation.Value="{Binding UsagePercent}" Maximum="1" Style="{StaticResource CodexBarStyle}" VerticalAlignment="Center"/>
                                             <Grid VerticalAlignment="Center" Height="8">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="{Binding TimePercent, Converter={StaticResource PercentToStar}}"/>
@@ -1473,7 +1473,7 @@
                                                 </DockPanel>
                                             </Grid>
                                             <Grid Height="8" Margin="0,4,0,0" ToolTip="{Binding PaceTip}">
-                                                <ProgressBar views:GaugeAnimation.Value="{Binding UsagePercent, Mode=OneWay}" Maximum="1" Style="{StaticResource DeepSeekBarStyle}" VerticalAlignment="Center"/>
+                                                <ProgressBar views:GaugeAnimation.Key="{Binding AnimationKey, StringFormat='hms:{0}'}" views:GaugeAnimation.Value="{Binding UsagePercent, Mode=OneWay}" Maximum="1" Style="{StaticResource DeepSeekBarStyle}" VerticalAlignment="Center"/>
                                                 <Grid VerticalAlignment="Center" Height="8">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="{Binding TimePercent, Converter={StaticResource PercentToStar}}"/>
@@ -1543,7 +1543,7 @@
                                             </Grid>
                                             <!-- 시간선 마커: 창 진행률 위치에 세로선 (주간 7일 / 5시간 창 기준) -->
                                             <Grid Height="8" Margin="0,4,0,0" ToolTip="{Binding PaceTip}">
-                                                <ProgressBar views:GaugeAnimation.Value="{Binding UsagePercent}" Maximum="1" Style="{StaticResource AntigravityBarStyle}" VerticalAlignment="Center"/>
+                                                <ProgressBar views:GaugeAnimation.Key="{Binding AnimationKey, StringFormat='antigravity:{0}'}" views:GaugeAnimation.Value="{Binding UsagePercent}" Maximum="1" Style="{StaticResource AntigravityBarStyle}" VerticalAlignment="Center"/>
                                                 <Grid VerticalAlignment="Center" Height="8">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="{Binding TimePercent, Converter={StaticResource PercentToStar}}"/>

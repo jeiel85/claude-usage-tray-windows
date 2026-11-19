@@ -14,12 +14,11 @@ import io.github.jeiel85.claudeusage.push.PushNotifier
 /**
  * One Android notification per new Play version (#284). Tapping it opens the app, which hands straight over to the
  * Play listing ([EXTRA_OPEN_STORE]) — going through the app keeps a web fallback when there is no Play Store app,
- * which a PendingIntent aimed at the store could not. Its own channel, apart from PC alerts, like the GitHub build's.
+ * which a PendingIntent aimed at the store could not. Its own channel, apart from PC alerts, like the GitHub build's —
+ * the silent [UpdateChannels.QUIET]: a new version is information, not something to act on now (#299).
  */
 internal object StoreUpdateNotifier {
     const val EXTRA_OPEN_STORE = "io.github.jeiel85.claudeusage.OPEN_STORE"
-
-    private const val CHANNEL_ID = "cut.app.update"
 
     // Fixed ID — a later version replaces the earlier notice instead of stacking.
     private const val NOTIFICATION_ID = 0x0c_0284
@@ -31,13 +30,13 @@ internal object StoreUpdateNotifier {
      */
     fun show(context: Context, versionCode: Int): Boolean {
         if (!PushNotifier.canNotify(context)) return false
-        ensureChannel(context)
-        val channel = context.getSystemService(NotificationManager::class.java).getNotificationChannel(CHANNEL_ID)
+        ensureChannels(context)
+        val channel = context.getSystemService(NotificationManager::class.java).getNotificationChannel(UpdateChannels.QUIET)
         if (channel == null || channel.importance == NotificationManager.IMPORTANCE_NONE) return false
         val open = Intent(context, MainActivity::class.java)
             .putExtra(EXTRA_OPEN_STORE, true)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        val notification = NotificationCompat.Builder(context, UpdateChannels.QUIET)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(
                 context.getString(
@@ -48,7 +47,7 @@ internal object StoreUpdateNotifier {
             )
             .setContentText(context.getString(R.string.update_notification_text))
             .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_LOW) // below Android 8; 8+ follows the channel
             .setOnlyAlertOnce(true)
             .setContentIntent(
                 PendingIntent.getActivity(context, NOTIFICATION_ID, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT),
@@ -68,11 +67,17 @@ internal object StoreUpdateNotifier {
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
     }
 
-    private fun ensureChannel(context: Context) {
-        context.getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, context.getString(R.string.update_channel_name), NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = context.getString(R.string.update_channel_description)
-            },
+    /** On app start ([AppUpdates.ensureChannels]) and before each post; replaces the old loud channel. */
+    fun ensureChannels(context: Context) {
+        UpdateChannels.ensure(
+            context.getSystemService(NotificationManager::class.java),
+            listOf(
+                NotificationChannel(UpdateChannels.QUIET, context.getString(R.string.update_channel_name), NotificationManager.IMPORTANCE_LOW).apply {
+                    description = context.getString(R.string.update_channel_description)
+                    setSound(null, null)
+                    enableVibration(false)
+                },
+            ),
         )
     }
 }
