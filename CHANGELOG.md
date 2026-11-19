@@ -3,6 +3,20 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.71.1] - 2026-11-19
+
+<!-- ko -->
+### 수정
+- **DeepSeek 게이지를 다른 게이지와 같은 모양으로 맞췄습니다 (#316)** — 막대가 다른 게이지보다 두 배 두껍게 그려지고, 이름이 "오늘 토큰…"으로 잘렸습니다. 이제 Claude·Codex 게이지와 같은 굵기이고, 이름은 잘리지 않으며 폭이 모자라면 초기화 시각만 다음 줄로 내려갑니다.
+- **설정 > 트레이 탭 아래쪽이 잘리던 문제를 고쳤습니다 (#316)** — DeepSeek 키 칸이 들어간 뒤 "사용량 미니 패널 유지"·투명도 설정이 창 밖으로 밀려 보이지 않았습니다. 트레이·알림 탭도 일반 탭처럼 스크롤됩니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The DeepSeek gauge now looks like the other gauges (#316)** — Its bar was drawn twice as thick and its name was cut to "Today's tok…". It now has the same thickness as the Claude and Codex gauges, the name is never cut, and only the reset time wraps when space runs out.
+- **The bottom of Settings > Tray is no longer cut off (#316)** — After the DeepSeek key field was added, "Keep the mini usage panel" and the opacity setting were pushed out of the window. The Tray and Alerts tabs now scroll like the General tab.
+<!-- /en -->
+
 ## [1.71.0] - 2026-11-19
 
 <!-- ko -->

@@ -189,11 +189,15 @@ public class WindowRowLayoutTests : IDisposable
     /// 잘리지 않았다 = 배치된 폭이 제약 없이 잰 폭 이상이다. 초기화 문구는 폭이 모자라면(일·영 라벨, 추정 표기 등)
     /// 오른쪽 정렬로 줄바꿈하도록 했으므로 <paramref name="requireSingleLine"/> 일 때만 한 줄 폭을 요구한다.
     /// </summary>
-    private static void AssertRowFits(Window popup, string prefix, bool requireSingleLine)
+    private static void AssertRowFits(Window popup, string prefix, bool requireSingleLine) =>
+        AssertRowFits(prefix,
+            Assert.IsType<TextBlock>(popup.FindName(prefix + "Label")),
+            Assert.IsType<TextBlock>(popup.FindName(prefix + "Percent")),
+            Assert.IsType<TextBlock>(popup.FindName(prefix + "Reset")),
+            requireSingleLine);
+
+    private static void AssertRowFits(string prefix, TextBlock label, TextBlock percent, TextBlock reset, bool requireSingleLine)
     {
-        var label = Assert.IsType<TextBlock>(popup.FindName(prefix + "Label"));
-        var percent = Assert.IsType<TextBlock>(popup.FindName(prefix + "Percent"));
-        var reset = Assert.IsType<TextBlock>(popup.FindName(prefix + "Reset"));
         Assert.True(label.IsVisible, $"{prefix} label not visible");
         Assert.False(string.IsNullOrEmpty(reset.Text), $"{prefix} reset text empty");
         Assert.Equal(TextTrimming.None, reset.TextTrimming);   // 말줄임으로 시각을 숨기지 않는다
@@ -220,6 +224,67 @@ public class WindowRowLayoutTests : IDisposable
         // 줄바꿈된 경우에도 줄(행) 안에 다 들어가 아래 게이지를 덮지 않는다.
         Assert.True(Bottom(reset) <= row.ActualHeight + 0.5,
             $"{prefix} reset spills below the row: {Bottom(reset):F1} > {row.ActualHeight:F1}");
+    }
+
+    // DeepSeek(100milionseek) 섹션의 주 게이지(#316). 템플릿 안의 행이라 FindName 대신 시각 트리에서 찾는다.
+    // 막대도 다른 게이지와 같은 높이(스타일 값 4)인지 본다 — v1.70.1 은 Height="8" 로 덮어써 두 배 두꺼웠다.
+    [Theory]
+    [MemberData(nameof(Cases))]
+    public async Task DeepSeekGaugeRow_LabelPercentAndResetDoNotOverlap(string lang, bool estimated)
+    {
+        _ = estimated; // 일일 창은 추정 표기가 없다 — 같은 언어 목록을 쓰려고 Cases 를 그대로 받는다.
+        var originalLang = Loc.CurrentLang;
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            try
+            {
+                Loc.SetLanguage(lang);
+                vm.HideInactiveProviders = false;
+                vm.FocusedProvider = MainViewModel.HmsFocusKey;
+                vm.ShowAbsoluteResetTime = true;
+                var now = LateNight;
+                vm.HmsVm.Apply(new HmsReadResult(HmsReadState.Ok,
+                    new HmsDailyUsage(400_000_000, 400_000_000, 0, 9_999, now.AddHours(9).AddMinutes(59), now.AddDays(1)), "k"),
+                    now);
+
+                using var popup = new UsagePopup(vm);
+                popup.Left = -10000;
+                popup.Show();
+                popup.UpdateLayout();
+
+                AssertRowFits("HmsGauge",
+                    FindNamed<TextBlock>(popup, "HmsGaugeLabel"),
+                    FindNamed<TextBlock>(popup, "HmsGaugePercent"),
+                    FindNamed<TextBlock>(popup, "HmsGaugeReset"),
+                    requireSingleLine: false);
+
+                var list = Assert.IsType<ItemsControl>(popup.FindName("HmsGaugeList"));
+                var bar = FindDescendants<System.Windows.Controls.ProgressBar>(list).Single();
+                var codexBar = FindDescendants<System.Windows.Controls.ProgressBar>(popup)
+                    .First(b => b.Style == popup.FindResource("CodexBarStyle"));
+                Assert.Equal(codexBar.Height, bar.Height);
+                popup.Hide();
+            }
+            finally
+            {
+                Loc.SetLanguage(originalLang);
+                vm.Dispose();
+            }
+        });
+    }
+
+    private static T FindNamed<T>(DependencyObject root, string name) where T : FrameworkElement =>
+        FindDescendants<T>(root).Single(e => e.Name == name);
+
+    private static IEnumerable<T> FindDescendants<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (var i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+            if (child is T match) yield return match;
+            foreach (var nested in FindDescendants<T>(child)) yield return nested;
+        }
     }
 
     private static double UnconstrainedWidth(TextBlock source)

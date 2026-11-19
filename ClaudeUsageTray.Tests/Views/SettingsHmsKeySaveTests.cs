@@ -68,6 +68,36 @@ public class SettingsHmsKeySaveTests : IDisposable
         });
     }
 
+    // #316: DeepSeek 키 칸이 들어가며 트레이 탭 내용이 창 상한을 넘겨, 스크롤이 없던 그 탭의 아래쪽 설정이 잘렸다.
+    // 탭 내용은 항목이 늘어도 잘리지 않게 모두 ScrollViewer 안에 둔다(docs/UI_GUIDELINES.md 5).
+    [Theory]
+    [InlineData("TabGeneral")]
+    [InlineData("TabTray")]
+    [InlineData("TabAlerts")]
+    [InlineData("TabConnect")]
+    [InlineData("TabWeather")]
+    public async Task EveryTab_ScrollsInsteadOfClipping(string tabName)
+    {
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            SettingsWindow? settings = null;
+            try
+            {
+                settings = new SettingsWindow(vm);
+                var tab = Assert.IsType<System.Windows.Controls.TabItem>(settings.FindName(tabName));
+                var card = Assert.IsType<System.Windows.Controls.Border>(tab.Content);
+                Assert.IsType<System.Windows.Controls.ScrollViewer>(card.Child);
+            }
+            finally
+            {
+                settings?.Close();
+                settings?.Dispose();
+                vm.Dispose();
+            }
+        });
+    }
+
     private MainViewModel CreateViewModel()
     {
         Directory.CreateDirectory(_dir);

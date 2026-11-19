@@ -1453,25 +1453,25 @@
                         </Button>
 
                         <StackPanel Margin="10,6,10,0" Visibility="{Binding IsHmsFocused, Converter={StaticResource BoolToVisibility}}">
+                            <!-- 섹션의 주 게이지라 Claude·Codex 주 창 행과 같은 규칙(docs/UI_GUIDELINES.md): 이름은 Auto 열이라 잘리지 않고,
+                                 폭이 모자라면 초기화 문구만 오른쪽 정렬로 줄바꿈. 막대 높이는 스타일 값(4) 그대로. -->
                             <ItemsControl x:Name="HmsGaugeList" ItemsSource="{Binding HmsVm.Rows}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Margin="0,0,0,10">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Foreground="#F1F5F9" FontSize="10.5"
-                                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
-                                                           ToolTip="{Binding DisplayName}"/>
-                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="6,0,0,0">
-                                                    <TextBlock Text="{Binding UsagePercent, StringFormat={}{0:P0}}" Foreground="#93C5FD" FontSize="11" FontWeight="Bold"/>
-                                                    <TextBlock Text="{Binding ResetAtLabel}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0"/>
-                                                </StackPanel>
+                                                <TextBlock x:Name="HmsGaugeLabel" Grid.Column="0" Text="{Binding DisplayName}" Foreground="#F1F5F9" FontSize="11.5"/>
+                                                <DockPanel Grid.Column="1" HorizontalAlignment="Right" Margin="8,0,0,0">
+                                                    <TextBlock x:Name="HmsGaugePercent" DockPanel.Dock="Left" Text="{Binding UsagePercent, StringFormat={}{0:P0}}" Foreground="#93C5FD" FontSize="11" FontWeight="Bold"/>
+                                                    <TextBlock x:Name="HmsGaugeReset" Text="{Binding ResetAtLabel}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0" TextWrapping="Wrap" TextAlignment="Right"/>
+                                                </DockPanel>
                                             </Grid>
                                             <Grid Height="8" Margin="0,4,0,0" ToolTip="{Binding PaceTip}">
-                                                <ProgressBar Value="{Binding UsagePercent, Mode=OneWay}" Maximum="1" Height="8" Style="{StaticResource DeepSeekBarStyle}" VerticalAlignment="Center"/>
+                                                <ProgressBar Value="{Binding UsagePercent, Mode=OneWay}" Maximum="1" Style="{StaticResource DeepSeekBarStyle}" VerticalAlignment="Center"/>
                                                 <Grid VerticalAlignment="Center" Height="8">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="{Binding TimePercent, Converter={StaticResource PercentToStar}}"/>
