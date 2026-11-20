@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.72.7] - 2026-11-20
+
+<!-- ko -->
+### 버그 수정
+- **설정이 통째로 지워질 수 있던 문제 (#331)**: 설정 파일을 그 자리에서 덮어쓰던 것을 임시 파일에 쓴 뒤 바꿔 끼우도록 바꿨습니다. 직전 설정은 `.bak` 으로 남고, 파일이 깨져 있으면 그 파일을 옆에 보관한 채 `.bak` 에서 읽습니다(전에는 기본값으로 시작해 다음 저장이 모든 설정을 지웠습니다). 여러 곳에서 동시에 저장해도 한쪽 변경이 사라지지 않습니다.
+- **"오늘 N개 세션"이 부풀던 문제 (#332)**: Claude Code 서브에이전트 기록을 별도 세션으로 세던 것을 원래 세션에 합칩니다. 세션 목록에 같은 세션이 두 번 보이지 않고, 토큰 합계는 그대로입니다.
+- **동기화 폴더 [찾아보기] 창이 가려지던 문제 (#333)**: 폴더 선택 창이 뜨면 설정 창이 숨고 사용량 팝업이 그 위를 덮었습니다. 이제 설정 창 위에 뜨고, 고르는 동안 설정 창이 그대로 있습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Settings could be wiped (#331)**: the settings file used to be overwritten in place. It is now written to a temporary file and swapped in, the previous copy is kept as `.bak`, and a damaged file is set aside while the app reads `.bak` (before, it started from defaults and the next save erased every setting). Saves from several places at once no longer drop each other's changes.
+- **"N sessions today" was too high (#332)**: Claude Code subagent transcripts were counted as separate sessions. They now join their parent session, so a session no longer appears twice in the list; token totals are unchanged.
+- **The sync folder [Browse] dialog got covered (#333)**: opening it hid the settings window and the usage popup came up over the dialog. The dialog now opens over the settings window, which stays open while you choose.
+<!-- /en -->
+
 ## [1.72.6] - 2026-11-20
 
 <!-- ko -->

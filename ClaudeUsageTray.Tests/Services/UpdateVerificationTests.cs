@@ -14,7 +14,9 @@ namespace ClaudeUsageTray.Tests.Services;
 /// <summary>
 /// 자동 업데이트는 서명(<see cref="UpdateSignature"/>, #290)을 확인한 exe 만 설치한다. 서명 없는 릴리스는 고르지 않고,
 /// 서명이 맞지 않는 다운로드는 지운다. 검증 없이 설치하는 경로는 없다.
+/// 오류 문구를 <c>Loc</c> 로 비교하므로, 언어를 바꾸는 테스트와 나란히 돌지 않게 같은 컬렉션에 둔다(#213).
 /// </summary>
+[Collection("WpfTests")]
 public class UpdateVerificationTests
 {
     [Fact]

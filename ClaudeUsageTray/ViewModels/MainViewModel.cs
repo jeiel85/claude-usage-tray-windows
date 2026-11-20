@@ -969,10 +969,9 @@ namespace ClaudeUsageTray.ViewModels;
         if (IsOpenCodeEnabled) visibleProviders.Add(UsageProviderKind.OpenCode);
         if (IsAntigravityEnabled) visibleProviders.Add(UsageProviderKind.Antigravity);
 
-        // Preserve SkippedVersion / AutoUpdateAttemptedVersion from disk
-        var existing = _settingsService.Load();
-
-        var saved = new NotificationSettings
+        // 디스크에서만 바뀌는 값(SkippedVersion·AutoUpdateAttemptedVersion 등)은 보존한다. 읽기부터 쓰기까지 한 잠금 안에서
+        // 해야 그 사이 다른 스레드가 기록한 값(자동 업데이트 시도 표식 등)을 옛 값으로 덮어쓰지 않는다(#331).
+        var saved = _settingsService.Update(existing => new NotificationSettings
         {
             SelectedProvider = SelectedProvider,
             Language = SelectedLanguage,
@@ -1041,8 +1040,7 @@ namespace ClaudeUsageTray.ViewModels;
             MobilePort         = existing.MobilePort,
             MobileBindLoopback = existing.MobileBindLoopback,
             MobileCloudflaredPath = existing.MobileCloudflaredPath,
-        };
-        _settingsService.Save(saved);
+        })!;
         ApplyMobileSettings(saved);
     }
 
@@ -1166,12 +1164,12 @@ namespace ClaudeUsageTray.ViewModels;
 
         // 사용자가 직접 확인을 요청했으므로, 이전에 건너뛴 버전이라도 다시 제시한다.
         var manualVersion = result.version.ToString(3);
-        var stored = _settingsService.Load();
-        if (stored.SkippedVersion == manualVersion)
+        _settingsService.Update(stored =>
         {
+            if (stored.SkippedVersion != manualVersion) return null;
             stored.SkippedVersion = "";
-            _settingsService.Save(stored);
-        }
+            return stored;
+        });
 
         await ApplyCheckResultAsync(result, showDialog: true);
     }
@@ -1470,9 +1468,11 @@ namespace ClaudeUsageTray.ViewModels;
 
     public void SkipVersion(string version)
     {
-        var settings = _settingsService.Load();
-        settings.SkippedVersion = version;
-        _settingsService.Save(settings);
+        _settingsService.Update(settings =>
+        {
+            settings.SkippedVersion = version;
+            return settings;
+        });
         UpdateAvailable = false;
         UpdateCheckLabel = "";
     }
@@ -1480,11 +1480,12 @@ namespace ClaudeUsageTray.ViewModels;
     /// <summary>자동(카운트다운) 적용을 시도한 버전을 기록해 다음 실행의 무한 재시도를 막는다.</summary>
     private void RecordAutoUpdateAttempt(string version)
     {
-        var settings = _settingsService.Load();
-        if (settings.AutoUpdateAttemptedVersion == version) return;
-
-        settings.AutoUpdateAttemptedVersion = version;
-        _settingsService.Save(settings);
+        _settingsService.Update(settings =>
+        {
+            if (settings.AutoUpdateAttemptedVersion == version) return null;
+            settings.AutoUpdateAttemptedVersion = version;
+            return settings;
+        });
     }
 
     /// <summary>
@@ -1493,17 +1494,19 @@ namespace ClaudeUsageTray.ViewModels;
     /// </summary>
     private void ClearCompletedAutoUpdateMarker()
     {
-        var settings = _settingsService.Load();
-        var attempted = settings.AutoUpdateAttemptedVersion;
-        if (string.IsNullOrEmpty(attempted)) return;
+        _settingsService.Update(settings =>
+        {
+            var attempted = settings.AutoUpdateAttemptedVersion;
+            if (string.IsNullOrEmpty(attempted)) return null;
 
-        // 파싱 불가한 값은 잔재로 보고 정리한다.
-        if (Version.TryParse(attempted, out var attemptedVersion) &&
-            attemptedVersion > UpdateService.CurrentVersion)
-            return;
+            // 파싱 불가한 값은 잔재로 보고 정리한다.
+            if (Version.TryParse(attempted, out var attemptedVersion) &&
+                attemptedVersion > UpdateService.CurrentVersion)
+                return null;
 
-        settings.AutoUpdateAttemptedVersion = "";
-        _settingsService.Save(settings);
+            settings.AutoUpdateAttemptedVersion = "";
+            return settings;
+        });
     }
 
     [RelayCommand]
@@ -3037,10 +3040,9 @@ namespace ClaudeUsageTray.ViewModels;
     // settings 디스크 쓰기는 상태 전이(미감지→감지) 시 1회만 — 폴링마다 매번 쓰지 않음.
     private string ResolveOAuthNotAllowedNote()
     {
-        var settings = _settingsService.Load();
         var nowUtc = DateTime.UtcNow;
         DateTime firstSeen;
-        if (settings.OAuthNotAllowedFirstSeenUtc is DateTime existing)
+        if (_settingsService.Load().OAuthNotAllowedFirstSeenUtc is DateTime existing)
         {
             firstSeen = existing;
         }
@@ -3050,8 +3052,12 @@ namespace ClaudeUsageTray.ViewModels;
             // firstSeen 을 가장 오래된 history 시점으로 추정해 즉시 에스컬레이션 톤으로 진입.
             // 신규 사용자(history 비어있음 / 24h 미만)는 nowUtc 로 잡아 기존 유예 톤 유지.
             firstSeen = EstimateOAuthNotAllowedFirstSeenUtc(nowUtc);
-            settings.OAuthNotAllowedFirstSeenUtc = firstSeen;
-            _settingsService.Save(settings);
+            var seen = firstSeen;
+            _settingsService.Update(settings =>
+            {
+                settings.OAuthNotAllowedFirstSeenUtc ??= seen;
+                return settings;
+            });
         }
 
         var elapsed = nowUtc - firstSeen;
@@ -3098,10 +3104,12 @@ namespace ClaudeUsageTray.ViewModels;
     // OAuth-not-allowed 추적 상태를 정리한다. 값이 이미 null 이면 디스크 I/O 생략.
     private void ClearOAuthNotAllowedFirstSeenIfNeeded()
     {
-        var settings = _settingsService.Load();
-        if (settings.OAuthNotAllowedFirstSeenUtc is null) return;
-        settings.OAuthNotAllowedFirstSeenUtc = null;
-        _settingsService.Save(settings);
+        _settingsService.Update(settings =>
+        {
+            if (settings.OAuthNotAllowedFirstSeenUtc is null) return null;
+            settings.OAuthNotAllowedFirstSeenUtc = null;
+            return settings;
+        });
     }
 
     private async Task RefreshCodexInternalAsync()

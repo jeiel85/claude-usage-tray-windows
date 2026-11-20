@@ -18,6 +18,11 @@ public partial class SettingsWindow : Window, IDisposable
     private readonly MainViewModel _vm;
     private bool _disposed = false;
     private bool _isLoadingValues = false;
+    /// <summary>
+    /// WinForms 대화상자(동기화 폴더 찾아보기)가 떠 있는 동안 true. 그 대화상자는 <see cref="Window.OwnedWindows"/> 에 잡히지 않아,
+    /// 설정 창이 비활성화되면 "바깥 클릭" 으로 보고 숨었고 팝업이 그 위로 다시 떠 대화상자를 가렸다(#333).
+    /// </summary>
+    private bool _nativeDialogOpen;
 
     public SettingsWindow(MainViewModel vm)
     {
@@ -28,7 +33,7 @@ public partial class SettingsWindow : Window, IDisposable
         MouseLeftButtonDown += (_, e) => DragMove();
         // 자기 소유의 자식 창(QR 연결 창 등)으로 포커스가 넘어간 것은 "바깥 클릭"이 아니다. 여기서 숨으면
         // UsagePopup 이 IsVisibleChanged 로 팝업을 다시 Activate 해, Topmost 팝업이 그 자식 창을 덮는다 (#232).
-        Deactivated += (_, _) => { if (OwnedWindows.Count == 0) Hide(); };
+        Deactivated += (_, _) => { if (OwnedWindows.Count == 0 && !_nativeDialogOpen) Hide(); };
         PreviewKeyDown += OnPreviewKeyDown;
         // 바깥을 눌러 창이 숨으면 칸의 LostFocus 가 오지 않는다(키보드 포커스만 떠난다) — 입력해 둔 별명을 여기서 저장한다(#307).
         IsVisibleChanged += (_, e) => { if (e.NewValue is false) CommitClaudeAccountAlias(this, new RoutedEventArgs()); };
@@ -793,6 +798,27 @@ public partial class SettingsWindow : Window, IDisposable
         LblUsageSyncStatus.Text = _vm.UsageSyncStatusLabel;
     }
 
+    /// <summary>
+    /// WinForms 대화상자를 이 창을 주인으로 띄운다(#333) — 대화상자가 설정 창 위에 머물고, 떠 있는 동안 설정 창이 숨지 않는다.
+    /// </summary>
+    internal T WithNativeDialog<T>(Func<Forms.IWin32Window, T> show)
+    {
+        _nativeDialogOpen = true;
+        try
+        {
+            return show(new OwnerHandle(new System.Windows.Interop.WindowInteropHelper(this).Handle));
+        }
+        finally
+        {
+            _nativeDialogOpen = false;
+        }
+    }
+
+    private sealed class OwnerHandle(IntPtr handle) : Forms.IWin32Window
+    {
+        public IntPtr Handle { get; } = handle;
+    }
+
     private void BtnUsageSyncBrowse_Click(object sender, RoutedEventArgs e)
     {
         using var dialog = new Forms.FolderBrowserDialog
@@ -802,7 +828,7 @@ public partial class SettingsWindow : Window, IDisposable
             UseDescriptionForTitle = true,
         };
 
-        if (dialog.ShowDialog() != Forms.DialogResult.OK)
+        if (WithNativeDialog(owner => dialog.ShowDialog(owner)) != Forms.DialogResult.OK)
             return;
 
         TxtUsageSyncFolder.Text = dialog.SelectedPath;
