@@ -29,7 +29,7 @@ public class MainViewModelIntegrationTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private MainViewModel CreateViewModel()
+    private MainViewModel CreateViewModel(UsageSyncService? usageSyncOverride = null)
     {
         if (System.Windows.Application.Current == null)
             new System.Windows.Application { ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown };
@@ -45,7 +45,7 @@ public class MainViewModelIntegrationTests : IDisposable
         var notifier = new NotificationService(() => null);
         var updater = new UpdateService();
         var history = new HistoryService(_dir);
-        var usageSync = new UsageSyncService(Path.Combine(_dir, "appdata"));
+        var usageSync = usageSyncOverride ?? new UsageSyncService(Path.Combine(_dir, "appdata"));
         var weather = new WeatherService();
         var weatherAlert = new WeatherAlertService(
             weather, notifier, () => new NotificationSettings(), Array.Empty<IWeatherWarningProvider>());
@@ -108,6 +108,53 @@ public class MainViewModelIntegrationTests : IDisposable
             {
                 await vm.RefreshAsync();
                 Assert.False(string.IsNullOrWhiteSpace(vm.LastUpdatedLabel));
+            }
+            finally
+            {
+                vm.Dispose();
+            }
+        });
+    }
+
+    // #157: 다른 PC 가 동기화 폴더에 남긴 OpenCode 공식 할당량(롤링·주간·월간)이 새로고침을 거쳐 이 PC 팝업 값이 되는지
+    // 끝까지 본다. 쓰기·읽기·변환은 각각 UsageSyncServiceTests·OpenCodeConsoleExtrasTests 가 따로 본다.
+    [Fact]
+    public async Task RefreshAsync_AppliesOfficialOpenCodeQuotaFromAnotherDevice()
+    {
+        var syncRoot = Path.Combine(_dir, "sync");
+        var now = DateTimeOffset.Now;
+        var source = new UsageSyncService(Path.Combine(_dir, "source"), () => now, "source-pc");
+        source.WriteSnapshot(syncRoot, source.CreateSnapshot(
+            UsageProviderKind.OpenCode,
+            null,
+            new UsageSyncQuotaSnapshot
+            {
+                HasData = true,
+                ObservedAtUtc = now,
+                OpenCode = new UsageSyncOpenCodeQuota
+                {
+                    Rolling = new UsageSyncOpenCodeQuotaWindow { UsagePercent = 0.21, ResetAt = now.AddHours(3) },
+                    Weekly = new UsageSyncOpenCodeQuotaWindow { UsagePercent = 0.32, ResetAt = now.AddDays(4) },
+                    Monthly = new UsageSyncOpenCodeQuotaWindow { UsagePercent = 0.43, ResetAt = now.AddDays(20) },
+                },
+            },
+            new UsageSyncLocalTotals { RequestCount = 10 }));
+
+        await WpfTestHost.RunAsync(async () =>
+        {
+            var receiver = new UsageSyncService(Path.Combine(_dir, "receiver"), () => now, "receiver-pc");
+            var vm = CreateViewModel(receiver);
+            try
+            {
+                vm.UsageSyncEnabled = true;
+                vm.UsageSyncFolderPath = syncRoot;
+
+                await vm.RefreshAsync();
+
+                Assert.True(vm.OpenCodeVm.HasWebQuota);
+                Assert.Equal(0.21, vm.OpenCodeVm.RollingPercent, 6);
+                Assert.Equal(0.32, vm.OpenCodeVm.WeeklyPercent, 6);
+                Assert.Equal(0.43, vm.OpenCodeVm.MonthlyPercent, 6);
             }
             finally
             {
