@@ -64,6 +64,20 @@ public class SettingsNativeDialogTests : IDisposable
         });
     }
 
+    // #334 리뷰: 날씨 기준값 칸에 "NaN"·"1e999" 를 넣으면 저장이 ArgumentException 으로 앱을 끝냈다. 칸이 받지 않는다.
+    [Theory]
+    [InlineData("NaN", false)]
+    [InlineData("1e999", false)]
+    [InlineData("-1e999", false)]
+    [InlineData("abc", false)]
+    [InlineData("33", true)]
+    [InlineData("-10", true)]
+    public void WeatherThresholdField_AcceptsOnlyFiniteNumbers(string text, bool accepted)
+    {
+        Assert.Equal(accepted, SettingsWindow.TryParseFinite(text, out var value));
+        if (accepted) Assert.True(double.IsFinite(value));
+    }
+
     private MainViewModel CreateViewModel()
     {
         Directory.CreateDirectory(_dir);

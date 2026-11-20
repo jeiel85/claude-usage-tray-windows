@@ -1437,20 +1437,27 @@ public partial class SettingsWindow : Window, IDisposable
             _vm.WeatherRainProbabilityThreshold = Math.Clamp(rain, 0, 100);
             TxtWeatherRainThreshold.Text = _vm.WeatherRainProbabilityThreshold.ToString();
         }
-        else if (sender == TxtWeatherHeatThreshold && double.TryParse(TxtWeatherHeatThreshold.Text, out var heat))
+        // NaN·∞(예: "NaN", "1e999")는 받지 않고 칸을 지금 값으로 되돌린다 — JSON 으로 저장할 수 없는 값이다(#334 리뷰).
+        else if (sender == TxtWeatherHeatThreshold)
         {
-            _vm.WeatherHighTemperatureThresholdC = heat;
+            if (TryParseFinite(TxtWeatherHeatThreshold.Text, out var heat)) _vm.WeatherHighTemperatureThresholdC = heat;
+            TxtWeatherHeatThreshold.Text = _vm.WeatherHighTemperatureThresholdC.ToString();
         }
-        else if (sender == TxtWeatherColdThreshold && double.TryParse(TxtWeatherColdThreshold.Text, out var cold))
+        else if (sender == TxtWeatherColdThreshold)
         {
-            _vm.WeatherLowTemperatureThresholdC = cold;
+            if (TryParseFinite(TxtWeatherColdThreshold.Text, out var cold)) _vm.WeatherLowTemperatureThresholdC = cold;
+            TxtWeatherColdThreshold.Text = _vm.WeatherLowTemperatureThresholdC.ToString();
         }
-        else if (sender == TxtWeatherWindThreshold && double.TryParse(TxtWeatherWindThreshold.Text, out var wind))
+        else if (sender == TxtWeatherWindThreshold)
         {
-            _vm.WeatherWindSpeedThresholdKmh = Math.Max(0, wind);
+            if (TryParseFinite(TxtWeatherWindThreshold.Text, out var wind)) _vm.WeatherWindSpeedThresholdKmh = Math.Max(0, wind);
+            TxtWeatherWindThreshold.Text = _vm.WeatherWindSpeedThresholdKmh.ToString();
         }
         _vm.SaveSettingsCommand.Execute(null);
     }
+
+    internal static bool TryParseFinite(string text, out double value) =>
+        double.TryParse(text, out value) && double.IsFinite(value);
 
     private void UpdateWeatherLocationLabel()
     {

@@ -164,4 +164,21 @@ public class SettingsServiceTests : IDisposable
         Assert.Null(service.Update(_ => null));
         Assert.False(File.Exists(_path));
     }
+
+    // #334 리뷰: NaN·∞ 는 JSON 으로 쓸 수 없어 ArgumentException 이 난다. 저장 실패가 앱을 끝내지 않고, 원래 파일도 그대로다.
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    public void UnserializableValue_FailsTheSaveWithoutThrowingOrTouchingTheFile(double bad)
+    {
+        var service = new SettingsService(_path);
+        service.Save(new NotificationSettings { NtfyTopic = "first-synthetic-topic-0001" });
+        var before = File.ReadAllText(_path);
+
+        service.Save(new NotificationSettings { NtfyTopic = "second-synthetic-topic-002", WeatherHighTemperatureThresholdC = bad });
+        service.Update(s => { s.WeatherHighTemperatureThresholdC = bad; return s; });
+
+        Assert.Equal(before, File.ReadAllText(_path));
+        Assert.Empty(Directory.GetFiles(_dir, "*.tmp"));
+    }
 }

@@ -125,9 +125,11 @@ public class SettingsService
             else
                 File.Move(TempPath, _settingsPath);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                                       or ArgumentException or NotSupportedException or JsonException)
         {
-            // 저장 실패는 앱을 멈추지 않는다(디스크 가득·권한). 원래 파일은 그대로 남는다 — 바꿔 끼우기 전에 실패하므로.
+            // 저장 실패는 앱을 멈추지 않는다 — 디스크 가득·권한, 그리고 JSON 으로 쓸 수 없는 값(NaN·∞ 는 ArgumentException,
+            // #334 리뷰). 원래 파일은 그대로 남는다: 직렬화는 임시 파일을 쓰기 전에, 쓰기 실패는 바꿔 끼우기 전에 일어난다.
             Log($"save failed: {ex.Message}");
         }
     }
