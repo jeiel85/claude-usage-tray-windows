@@ -153,7 +153,7 @@ public class SettingsService
         try
         {
             var json = JsonSerializer.Serialize(settings, JsonOpts);
-            using (var stream = new FileStream(TempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var stream = new FileStream(TempPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
             using (var writer = new StreamWriter(stream))
             {
                 writer.Write(json);
