@@ -331,6 +331,65 @@ public class SessionMonitorTests : IDisposable
         Assert.Null(stats.RateLimitAt);
     }
 
+    // #332: 서브에이전트 기록(<세션>/subagents/agent-*.jsonl)은 부모의 sessionId 를 싣는다. 파일마다 세면 세션 수가 부풀고
+    // 목록에 같은 세션이 겹쳤다. 세션은 하나로, 토큰은 모두 더한다.
+    [Fact]
+    public void SubagentTranscripts_JoinTheirParentSession()
+    {
+        const string parent = "11111111-1111-1111-1111-111111111111";
+        const string other = "22222222-2222-2222-2222-222222222222";
+        WriteSession($"proj-a/{parent}.jsonl",
+            SessionLine("user", Today(9), parent, sidechain: false, cwd: "/work/demo", text: "Fix the login bug"),
+            SessionLine("assistant", Today(9), parent, sidechain: false, tokens: 100));
+        WriteSession($"proj-a/{parent}/subagents/agent-a1.jsonl",
+            SessionLine("user", Today(10), parent, sidechain: true, cwd: "/work/demo/sub", text: "Search the repo for X"),
+            SessionLine("assistant", Today(11), parent, sidechain: true, tokens: 40));
+        WriteSession($"proj-a/{parent}/subagents/agent-a2.jsonl",
+            SessionLine("assistant", Today(10), parent, sidechain: true, tokens: 2));
+        WriteSession($"proj-b/{other}.jsonl",
+            SessionLine("assistant", Today(8), other, sidechain: false, tokens: 7));
+
+        var stats = new SessionMonitor(_root).ScanTodayUsage();
+
+        Assert.Equal(2, stats.SessionCount);
+        Assert.Equal(2, stats.Sessions.Count);
+        Assert.Equal(149, stats.TotalInputTokens);
+        var merged = stats.Sessions.Single(x => x.SessionId == parent);
+        Assert.Equal(142, merged.TotalTokens);
+        Assert.Equal("Fix the login bug", merged.Title);           // 부모의 첫 프롬프트, 서브에이전트 지시문이 아니다
+        Assert.Equal("/work/demo", merged.ProjectPath);
+        Assert.Equal(Today(11).ToUniversalTime(), merged.LastActivityUtc); // 가장 늦은 활동은 서브에이전트 쪽
+    }
+
+    [Fact]
+    public void SubagentOnlyActiveToday_StillCountsItsSessionOnce()
+    {
+        // 부모 기록이 오늘 안 바뀌어도(서브에이전트만 돈 경우) 세션은 하나로 보이고 서브에이전트 정보로 채운다.
+        const string parent = "33333333-3333-3333-3333-333333333333";
+        WriteSession($"proj-a/{parent}/subagents/agent-b1.jsonl",
+            SessionLine("user", Today(10), parent, sidechain: true, cwd: "/work/demo", text: "Look for Y"),
+            SessionLine("assistant", Today(10), parent, sidechain: true, tokens: 5));
+        WriteSession($"proj-a/{parent}/subagents/agent-b2.jsonl",
+            SessionLine("assistant", Today(11), parent, sidechain: true, tokens: 6));
+
+        var stats = new SessionMonitor(_root).ScanTodayUsage();
+
+        Assert.Equal(1, stats.SessionCount);
+        var only = Assert.Single(stats.Sessions);
+        Assert.Equal(11, only.TotalTokens);
+        Assert.Equal("/work/demo", only.ProjectPath);
+    }
+
+    private static string SessionLine(string type, DateTime localTimestamp, string sessionId, bool sidechain,
+        string cwd = "", string text = "", long tokens = 0) =>
+        $"{{\"type\":\"{type}\",\"timestamp\":\"{Iso(localTimestamp)}\",\"sessionId\":\"{sessionId}\"," +
+        $"\"isSidechain\":{(sidechain ? "true" : "false")}," +
+        (cwd.Length > 0 ? $"\"cwd\":\"{cwd}\"," : "") +
+        (type == "user"
+            ? $"\"message\":{{\"role\":\"user\",\"content\":{System.Text.Json.JsonSerializer.Serialize(text)}}}}}"
+            : $"\"message\":{{\"usage\":{{\"input_tokens\":{tokens},\"output_tokens\":0," +
+              "\"cache_read_input_tokens\":0,\"cache_creation_input_tokens\":0}}}");
+
     private static DateTime Today(int hour) => DateTime.Today.AddHours(hour);
 
     private static string Iso(DateTime local) =>

@@ -43,11 +43,12 @@ public class SessionMonitor
 
         if (!Directory.Exists(_projectsPath)) return stats;
 
+        var sessions = new Dictionary<string, SessionPart>(StringComparer.Ordinal);
         foreach (var file in EnumerateFilesTouchedSince(today))
         {
             try
             {
-                ProcessFile(file, today, stats);
+                if (ProcessFile(file, today, stats) is { } part) MergeSession(sessions, part);
             }
             catch
             {
@@ -55,7 +56,36 @@ public class SessionMonitor
             }
         }
 
+        stats.SessionCount = sessions.Count;
+        stats.Sessions.AddRange(sessions.Values.Select(p => p.Session));
         return stats;
+    }
+
+    /// <summary>파일 하나에서 읽은 세션 조각. 서브에이전트 기록이면 <see cref="IsSidechain"/>.</summary>
+    private sealed record SessionPart(SessionInfo Session, bool IsSidechain);
+
+    /// <summary>
+    /// 같은 세션의 조각을 하나로 합친다(#332). Claude Code 는 서브에이전트 대화를 <c>&lt;세션&gt;/subagents/agent-*.jsonl</c>
+    /// 에 따로 쓰는데 줄마다 부모의 sessionId 를 싣는다 — 파일마다 세면 세션 수가 부풀고 목록에 같은 세션이 겹쳤다.
+    /// 토큰은 더하고(서브에이전트도 실제 사용량), 마지막 활동은 가장 늦은 것, 제목·폴더·브랜치는 부모 기록을 우선한다
+    /// (서브에이전트의 첫 프롬프트는 사용자가 쓴 것이 아니다).
+    /// </summary>
+    private static void MergeSession(Dictionary<string, SessionPart> sessions, SessionPart part)
+    {
+        if (!sessions.TryGetValue(part.Session.SessionId, out var existing))
+        {
+            sessions[part.Session.SessionId] = part;
+            return;
+        }
+
+        var (main, other) = existing.IsSidechain && !part.IsSidechain ? (part, existing) : (existing, part);
+        var merged = main.Session;
+        merged.TotalTokens = existing.Session.TotalTokens + part.Session.TotalTokens;
+        if (other.Session.LastActivityUtc > merged.LastActivityUtc) merged.LastActivityUtc = other.Session.LastActivityUtc;
+        if (merged.Title.Length == 0) merged.Title = other.Session.Title;
+        if (merged.ProjectPath.Length == 0) merged.ProjectPath = other.Session.ProjectPath;
+        if (merged.GitBranch.Length == 0) merged.GitBranch = other.Session.GitBranch;
+        sessions[merged.SessionId] = main with { Session = merged, IsSidechain = existing.IsSidechain && part.IsSidechain };
     }
 
     /// <summary>
@@ -93,12 +123,14 @@ public class SessionMonitor
         }
     }
 
-    private static void ProcessFile(string filePath, DateTime sinceDate, SessionStats stats)
+    /// <returns>오늘 활동이 있었으면 그 파일의 세션 조각, 없으면 null. 토큰 합계는 <paramref name="stats"/> 에 바로 더한다.</returns>
+    private static SessionPart? ProcessFile(string filePath, DateTime sinceDate, SessionStats stats)
     {
         using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         using var reader = new StreamReader(fs);
         string? line;
         bool fileHadActivity = false;
+        bool sidechain = false;
         // 트랜스크립트에 sessionId 가 없는 옛 형식이면 파일명이 곧 세션 id 다.
         var session = new SessionInfo { SessionId = Path.GetFileNameWithoutExtension(filePath) };
 
@@ -113,6 +145,7 @@ public class SessionMonitor
 
                 // cwd·브랜치는 종류를 가리지 않고 모든 줄에 실린다. 나중 줄이 최신 상태다.
                 CaptureSessionMeta(root, session);
+                if (root.TryGetProperty("isSidechain", out var sideEl) && sideEl.ValueKind == JsonValueKind.True) sidechain = true;
 
                 if (!root.TryGetProperty("type", out var typeEl)) continue;
                 var entryType = typeEl.GetString();
@@ -190,11 +223,7 @@ public class SessionMonitor
             }
         }
 
-        if (fileHadActivity)
-        {
-            stats.SessionCount++;
-            stats.Sessions.Add(session);
-        }
+        return fileHadActivity ? new SessionPart(session, sidechain) : null;
     }
 
     /// <summary>
