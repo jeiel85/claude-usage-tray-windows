@@ -72,8 +72,16 @@ public class GaugeAnimationTests
                 Assert.True(IsAnimated(bar));
                 Assert.Equal(0.2, bar.Value, 6);   // 첫 틱 전에는 출발점 — 새 길이가 먼저 비치지 않는다
 
-                await Task.Delay(200);
-                Assert.InRange(bar.Value, 0.2 + 1e-3, 0.8 - 1e-3);   // 중간 지점을 지나간다
+                // 중간 지점을 지나간다. 한 번(200ms 뒤) 재면 느린 CI 러너에서 그 사이 채우기가 끝나 버려 0.8 이 나왔다(PR #335) —
+                // 짧게 여러 번 재서 출발점과 도착점 사이 값을 한 번이라도 봤는지 본다.
+                var deadline = DateTime.UtcNow + GaugeAnimation.FillDuration.TimeSpan + TimeSpan.FromMilliseconds(400);
+                var sawMidway = false;
+                while (DateTime.UtcNow < deadline && !sawMidway)
+                {
+                    await Task.Delay(15);
+                    sawMidway = bar.Value > 0.2 + 1e-3 && bar.Value < 0.8 - 1e-3;
+                }
+                Assert.True(sawMidway, "the bar jumped to the new length instead of filling");
 
                 await Task.Delay(GaugeAnimation.FillDuration.TimeSpan + TimeSpan.FromMilliseconds(400));
 
