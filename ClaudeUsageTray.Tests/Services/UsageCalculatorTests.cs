@@ -4,6 +4,8 @@ using Xunit;
 
 namespace ClaudeUsageTray.Tests.Services;
 
+// 기대 문구를 Loc 에서 읽는다 — 언어를 바꾸는 테스트와 병렬로 돌면 중간에 언어가 바뀌어 깨지므로 같은 컬렉션에서 직렬로 돈다.
+[Collection("WpfTests")]
 public class UsageCalculatorTests
 {
     [Theory]
@@ -110,11 +112,22 @@ public class UsageCalculatorTests
     }
 
     [Fact]
+    public void FormatResetLabel_KeepsDateAndTimeTogether_WhenAbsoluteStampHasADate()
+    {
+        // 다음 날 초기화 → "MM/dd HH:mm" 날짜가 붙는 경우. 팝업에서 줄바꿈돼도 날짜·시각이 갈리지 않아야 한다(#234).
+        var now = new DateTimeOffset(DateTime.Today.AddHours(23).AddMinutes(50));
+        var result = UsageCalculator.FormatResetLabel(now.AddDays(3), false, true, now);
+        var stamp = result[(result.LastIndexOf('(') + 1)..^1];
+        Assert.Equal(UsageCalculator.FormatClockStamp(now.AddDays(3), now).Replace(' ', ' '), stamp);
+        Assert.DoesNotContain(' ', stamp);
+    }
+
+    [Fact]
     public void FormatResetLabel_UsesEstimatedFormat_WhenIsEstimatedIsTrue()
     {
         var resetAt = DateTimeOffset.Now.AddHours(2);
         var result = UsageCalculator.FormatResetLabel(resetAt, true, false, DateTimeOffset.Now);
-        Assert.True(result.Contains("~") || result.Contains("약") || result.Contains("estimated") || result.Contains("推定"),
+        Assert.True(result.Contains("~") || result.Contains("약") || result.Contains("estimated") || result.Contains("推定") || result.Contains("估算"),
             $"Expected estimated format indicator in: {result}");
     }
 
@@ -170,5 +183,55 @@ public class UsageCalculatorTests
     {
         var result = UsageCalculator.IsNoUsageInformational("Some message", UsageProviderKind.Claude);
         Assert.False(result);
+    }
+
+    private static readonly TimeZoneInfo Kst = TimeZoneInfo.FindSystemTimeZoneById("Korea Standard Time");
+
+    [Fact]
+    public void FormatObservedAt_ShowsTimeOnly_ForToday()
+    {
+        var now = new DateTimeOffset(2026, 9, 24, 9, 30, 0, TimeSpan.FromHours(9));
+        var observed = new DateTimeOffset(2026, 9, 24, 0, 5, 0, TimeSpan.FromHours(9));
+
+        Assert.Equal("00:05", UsageCalculator.FormatObservedAt(observed, now, Kst));
+    }
+
+    [Fact]
+    public void FormatObservedAt_AddsDate_ForYesterday()
+    {
+        // 최후 폴백은 24시간 전 관측까지 쓴다 — 어제 23:40 값을 "23:40" 으로만 적으면 방금 값처럼 읽힌다.
+        var now = new DateTimeOffset(2026, 9, 24, 0, 10, 0, TimeSpan.FromHours(9));
+        var observed = new DateTimeOffset(2026, 9, 23, 23, 40, 0, TimeSpan.FromHours(9));
+
+        var label = UsageCalculator.FormatObservedAt(observed, now, Kst);
+
+        // 날짜 구분자는 문화권을 따른다(ko: "09-23", en: "09/23") — FormatResetLabel 과 같은 형식.
+        Assert.Equal(observed.ToString("MM/dd HH:mm"), label);
+        Assert.StartsWith("09", label);
+        Assert.EndsWith("23 23:40", label);
+    }
+
+    [Fact]
+    public void FormatObservedAt_ComparesDatesInTheViewersZone()
+    {
+        // UTC 로는 같은 날(15:00Z)이어도 보는 쪽(KST) 기준으로는 다음 날 00:00 이다.
+        var now = new DateTimeOffset(2026, 9, 24, 0, 30, 0, TimeSpan.FromHours(9));
+        var observed = new DateTimeOffset(2026, 9, 23, 15, 0, 0, TimeSpan.Zero);
+
+        Assert.Equal("00:00", UsageCalculator.FormatObservedAt(observed, now, Kst));
+    }
+
+    [Fact]
+    public void FormatObservedAt_UsesTheObservationsOwnOffset_AcrossDaylightSavingChange()
+    {
+        // 미국 태평양 시간은 2026-11-01 02:00 에 PDT(-7) → PST(-8) 로 바뀐다.
+        // 전날 09:00 PDT 관측을 지금 오프셋(-8)으로 바꾸면 08:00 으로 한 시간 어긋난다.
+        var pacific = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
+        var observed = new DateTimeOffset(2026, 10, 31, 9, 0, 0, TimeSpan.FromHours(-7));
+        var now = new DateTimeOffset(2026, 11, 1, 12, 0, 0, TimeSpan.FromHours(-8));
+
+        var label = UsageCalculator.FormatObservedAt(observed, now, pacific);
+
+        Assert.EndsWith("31 09:00", label);
     }
 }

@@ -44,7 +44,8 @@ public class UpdateService
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(15) };
 
     // Verification logic
-    public record UpdateInfo(Version version, string downloadUrl, string sha256Url, string releaseNotes);
+    /// <summary>설치할 업데이트. <paramref name="signatureUrl"/> 는 <see cref="UpdateSignature.AssetName"/> 자산 주소.</summary>
+    public record UpdateInfo(Version version, string downloadUrl, string signatureUrl, string releaseNotes);
 
     static UpdateService()
     {
@@ -122,31 +123,54 @@ public class UpdateService
                 $"GitHub API: {msgEl.GetString()}",
                 UpdateCheckErrorKind.ApiError);
 
-        // Collect all releases newer than current version, sorted newest first
-        var newer = new List<(Version ver, string tag, string body, JsonElement element)>();
-        foreach (var rel in root.EnumerateArray())
+        return SelectUpdate(root, CurrentVersion);
+    }
+
+    /// <summary>
+    /// Input : GitHub releases 목록 JSON, 지금 버전
+    /// Output: 설치할 업데이트(없으면 null)
+    /// 핵심 로직: exe 와 서명(<see cref="UpdateSignature.AssetName"/>)이 모두 있는 가장 새 릴리스를 고른다(#290). 서명이 없는 릴리스는
+    ///           건너뛴다 — 서명은 CI 가 릴리스를 만든 뒤 배포 PC 에서 따로 올리므로 그 사이에는 없는 것이 정상이고, 탈취된 계정이
+    ///           올린 릴리스에도 없다. 릴리스 노트는 고른 버전까지의 새 버전을 모두 싣는다(건너뛴 중간 버전의 변경도 그 빌드에 들어 있다).
+    /// </summary>
+    internal static UpdateInfo? SelectUpdate(JsonElement releases, Version current)
+    {
+        if (releases.ValueKind != JsonValueKind.Array) return null;
+        var newer = new List<(Version Ver, string Tag, string Body, string? Exe, string? Sig)>();
+        foreach (var rel in releases.EnumerateArray())
         {
-            if (rel.TryGetProperty("draft", out var draft) && draft.GetBoolean()) continue;
-            if (rel.TryGetProperty("prerelease", out var pre) && pre.GetBoolean()) continue;
+            if (rel.TryGetProperty("draft", out var draft) && draft.ValueKind == JsonValueKind.True) continue;
+            if (rel.TryGetProperty("prerelease", out var pre) && pre.ValueKind == JsonValueKind.True) continue;
 
             var tag = rel.TryGetProperty("tag_name", out var tagEl) ? tagEl.GetString() ?? "" : "";
-            var verStr = tag.TrimStart('v');
-            if (!Version.TryParse(verStr, out var ver)) continue;
-            if (ver <= CurrentVersion) continue;
+            if (!Version.TryParse(tag.TrimStart('v'), out var ver)) continue;
+            if (ver <= current) continue;
 
+            string? exe = null, sig = null;
+            if (rel.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var asset in assets.EnumerateArray())
+                {
+                    var name = asset.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
+                    var url = asset.TryGetProperty("browser_download_url", out var u) ? u.GetString() ?? "" : "";
+                    if (url.Length == 0) continue;
+                    if (name.Equals("ClaudeUsageTray.exe", StringComparison.OrdinalIgnoreCase)) exe = url;
+                    else if (name.Equals(UpdateSignature.AssetName, StringComparison.OrdinalIgnoreCase)) sig = url;
+                }
+            }
             var body = rel.TryGetProperty("body", out var bodyEl) ? bodyEl.GetString() ?? "" : "";
-            newer.Add((ver, tag, body, rel));
+            newer.Add((ver, tag, body, exe, sig));
         }
 
-        if (newer.Count == 0) return null;
-
-        newer.Sort((a, b) => b.ver.CompareTo(a.ver)); // newest first
-        var latest = newer[0];
+        newer.Sort((a, b) => b.Ver.CompareTo(a.Ver)); // newest first
+        var chosen = newer.FirstOrDefault(r => r.Exe is not null && r.Sig is not null);
+        if (chosen.Exe is null) return null;
 
         // Build combined release notes: each version gets a header
         var notesBuilder = new System.Text.StringBuilder();
-        foreach (var (ver, tag, body, _) in newer)
+        foreach (var (ver, tag, body, _, _) in newer)
         {
+            if (ver > chosen.Ver) continue;
             var filtered = Loc.FilterReleaseNotes(body);
             if (string.IsNullOrWhiteSpace(filtered)) continue;
             if (notesBuilder.Length > 0) notesBuilder.AppendLine();
@@ -154,99 +178,83 @@ public class UpdateService
             notesBuilder.Append(filtered);
         }
 
-        string? exeUrl = null;
-        string? sha256Url = null;
-
-        foreach (var asset in latest.element.GetProperty("assets").EnumerateArray())
-        {
-            var name = asset.GetProperty("name").GetString() ?? "";
-            var url  = asset.GetProperty("browser_download_url").GetString() ?? "";
-
-            if (name.Equals("ClaudeUsageTray.exe", StringComparison.OrdinalIgnoreCase))
-                exeUrl = url;
-            else if (name.EndsWith(".sha256", StringComparison.OrdinalIgnoreCase) ||
-                     name.Equals("SHA256.txt", StringComparison.OrdinalIgnoreCase))
-                sha256Url = url;
-        }
-
-        if (exeUrl is null) return null;
-
-        return new UpdateInfo(latest.ver, exeUrl,
-            sha256Url ?? "", notesBuilder.ToString().TrimEnd());
+        return new UpdateInfo(chosen.Ver, chosen.Exe, chosen.Sig!, notesBuilder.ToString().TrimEnd());
     }
 
     /// <summary>
-    /// Downloads the new executable to a temporary location and verifies its SHA256.
-    /// Reports progress via the provided action.
+    /// Input : 대화상자에 띄운 업데이트, 지금 다시 확인하는 함수(보통 <see cref="CheckForUpdateAsync"/>)
+    /// Output: 실제로 받을 업데이트
+    /// 핵심 로직: 확인 결과는 시작 시·24시간마다만 새로 고치므로, 찾아 둔 뒤 새 버전이 또 나왔는데 찾아 둔 것을 그대로 받으면 중간 버전을
+    ///           설치하고 재시작 직후 한 번 더 업데이트하게 된다(#300). 그래서 받기 직전에 다시 확인해 더 새 버전이면 그걸 고른다. 다시
+    ///           확인이 실패하면(네트워크·rate limit 등) 찾아 둔 것으로 진행한다 — 그것도 서명이 맞아야 설치되는 정상 릴리스라 확인 실패가
+    ///           설치를 막을 이유는 없다.
     /// </summary>
-    /// <param name="allowUnverified">
-    /// 릴리스에 SHA256 자산이 없어도 설치를 진행할지. 기본값(false)은 거부다 —
-    /// 카운트다운 무인 설치가 검증 불가능한 바이너리를 조용히 설치하는 일이 없어야 한다.
-    /// 사용자가 경고를 보고 직접 실행을 누른 경우에만 호출부가 true 를 넘긴다.
-    /// </param>
-    public async Task<string> DownloadAndPrepareUpdateAsync(string downloadUrl, string sha256Url,
-                                                            Action<int, string> onProgress,
-                                                            bool allowUnverified = false)
+    internal static async Task<UpdateInfo> ResolveInstallTargetAsync(UpdateInfo offered, Func<Task<UpdateInfo?>> checkLatest)
     {
-        // 내려받기 전에 막는다: 설치하지 못할 30MB 를 받을 이유가 없고, 검증 여부는 다운로드 결과와
-        // 무관하게 릴리스 자산 구성만으로 이미 결정돼 있다.
-        if (string.IsNullOrWhiteSpace(sha256Url) && !allowUnverified)
-            throw new InvalidOperationException(
-                "This release has no SHA256 checksum asset; refusing to install it unattended.");
+        UpdateInfo? latest;
+        try
+        {
+            latest = await checkLatest();
+        }
+        catch (Exception)
+        {
+            return offered;
+        }
+        return latest is not null && latest.version > offered.version ? latest : offered;
+    }
+
+    /// <summary>
+    /// 새 exe 를 임시 폴더에 받고 업데이트 서명(<see cref="UpdateSignature"/>)을 확인한다. 서명이 맞지 않으면 받은 파일을 지우고 예외를 낸다.
+    /// 서명은 <c>버전 + SHA-256</c> 에 대한 것이라 SHA256.txt 는 쓰지 않는다(그 파일은 서명 이전 버전과 손으로 받는 사람을 위해 남겨 둔다).
+    /// 검증 없이 설치하는 경로는 없다 — 사용자가 직접 누른 경우도 마찬가지다(#290).
+    /// </summary>
+    public async Task<string> DownloadAndPrepareUpdateAsync(string downloadUrl, string signatureUrl, Version version,
+                                                            Action<int, string> onProgress)
+    {
+        // 서명이 없으면 받지도 않는다 — 확인할 방법이 없는 30MB 를 받을 이유가 없다.
+        if (string.IsNullOrWhiteSpace(signatureUrl))
+            throw new InvalidOperationException(Loc.UpdateSignatureInvalid);
+
+        onProgress(0, Loc.CheckingUpdate);
+        var signature = await Http.GetStringAsync(signatureUrl);
 
         var tempExe = Path.Combine(Path.GetTempPath(), $"ClaudeUsageTray_new_{Guid.NewGuid():N}.exe");
-
-        // 1. Download
-        onProgress(0, Loc.CheckingUpdate); // Reusing string or just "Downloading..."
-        using (var response = await Http.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
+        try
         {
-            response.EnsureSuccessStatusCode();
-            var totalBytes = response.Content.Headers.ContentLength ?? 0;
-            
-            using var contentStream = await response.Content.ReadAsStreamAsync();
-            using var fileStream = new FileStream(tempExe, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
-            
-            var buffer = new byte[8192];
-            long totalRead = 0;
-            int read;
-            while ((read = await contentStream.ReadAsync(buffer)) > 0)
+            using (var response = await Http.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
             {
-                await fileStream.WriteAsync(buffer.AsMemory(0, read));
-                totalRead += read;
-                if (totalBytes > 0)
+                response.EnsureSuccessStatusCode();
+                var totalBytes = response.Content.Headers.ContentLength ?? 0;
+
+                using var contentStream = await response.Content.ReadAsStreamAsync();
+                using var fileStream = new FileStream(tempExe, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
+
+                var buffer = new byte[8192];
+                long totalRead = 0;
+                int read;
+                while ((read = await contentStream.ReadAsync(buffer)) > 0)
                 {
-                    var pc = (int)((totalRead * 100) / totalBytes);
-                    onProgress(pc, Loc.DownloadingUpdate);
+                    await fileStream.WriteAsync(buffer.AsMemory(0, read));
+                    totalRead += read;
+                    if (totalBytes > 0)
+                        onProgress((int)((totalRead * 100) / totalBytes), Loc.DownloadingUpdate);
                 }
             }
-        }
 
-        // 2. Verify SHA256
-        if (!string.IsNullOrEmpty(sha256Url))
-        {
             onProgress(100, "Verifying...");
-            try
-            {
-                var expectedHashRaw = await Http.GetStringAsync(sha256Url);
-                var expectedHash = expectedHashRaw.Split(' ')[0].Trim().ToLowerInvariant();
+            string actualHash;
+            using (var fs = new FileStream(tempExe, FileMode.Open, FileAccess.Read, FileShare.Read))
+                actualHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(fs)).ToLowerInvariant();
 
-                using var fs = File.OpenRead(tempExe);
-                var actualHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(fs)).ToLowerInvariant();
-
-                if (actualHash != expectedHash)
-                {
-                    File.Delete(tempExe);
-                    throw new Exception("SHA256 mismatch");
-                }
-            }
-            catch (Exception ex)
-            {
-                File.Delete(tempExe);
-                throw new Exception("SHA256 verification failed", ex);
-            }
+            if (!UpdateSignature.Verify(version, actualHash, signature))
+                throw new InvalidOperationException(Loc.UpdateSignatureInvalid);
+            return tempExe;
         }
-
-        return tempExe;
+        catch
+        {
+            try { File.Delete(tempExe); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            throw;
+        }
     }
 
     /// <summary>
@@ -421,17 +429,5 @@ finally {
         // Final shutdown — 여기부터는 스왑 스크립트가 이 프로세스의 종료를 기다리고 있다.
         System.Windows.Application.Current.Dispatcher.Invoke(() =>
             System.Windows.Application.Current.Shutdown());
-    }
-
-    /// <summary>
-    /// Legacy - kept for compatibility but should use the prepare/apply flow for progress.
-    /// </summary>
-    public void ApplyUpdateAsync(string downloadUrl, string sha256Url = "")
-    {
-        // ... (existing code or just redirect to the new flow without progress)
-        _ = Task.Run(async () => {
-            var path = await DownloadAndPrepareUpdateAsync(downloadUrl, sha256Url, (_, _) => {});
-            ApplyPreparedUpdate(path);
-        });
     }
 }

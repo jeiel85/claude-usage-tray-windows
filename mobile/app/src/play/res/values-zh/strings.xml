@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Play build only (#257, #284): Google Play installs updates; this build only says a new version is out. -->
+<resources>
+    <string name="about_privacy">本应用只连接你配对的电脑 — 直接连接，或经由该电脑开启的 Cloudflare Tunnel。没有广告、分析或使用记录收集。其他外发流量只有经由推送应用中继服务器的端到端加密通知。更新由 Google Play 提供，应用只会询问本机的 Google Play 应用是否有新版本。</string>
+    <string name="update_banner">新版本 %1$s — 点按在 Google Play 中更新</string>
+    <string name="update_settings_title">应用更新</string>
+    <string name="update_current_version">已安装: %1$s</string>
+    <string name="update_settings_description">每天两次询问 Google Play 是否有新版本，每个版本只通知一次。由 Google Play 安装；无论此设置如何，主屏幕上的横幅都会显示。</string>
+    <string name="update_result_available">有新版本 %1$s</string>
+    <string name="update_open_store">Google Play</string>
+    <string name="update_check_now">立即检查</string>
+    <string name="update_result_latest">已是最新版本 (%1$s)</string>
+    <string name="update_result_not_from_play">只有从 Google Play 安装的应用才能检查更新。</string>
+    <string name="update_result_failed">Google Play 没有响应，请稍后再试。</string>
+    <string name="update_notifications_off">通知已关闭，新版本只会在应用内显示 — 允许通知</string>
+    <string name="update_notification_title">%1$s %2$s 更新</string>
+    <string name="update_notification_text">点按在 Google Play 中更新。</string>
+    <string name="update_channel_name">应用更新</string>
+    <string name="update_channel_description">通知 Google Play 上本应用的新版本</string>
+</resources>

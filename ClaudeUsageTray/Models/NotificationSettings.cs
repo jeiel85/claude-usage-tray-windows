@@ -37,7 +37,7 @@ public class NotificationSettings
     // 표시 언어 ("system"=OS 따라가기, "ko", "en", "zh", "ja")
     public string Language { get; set; } = "system";
 
-    // 트레이 아이콘 표시 기준 (auto, claude, codex, gemini-cli, opencode)
+    // 트레이 아이콘 표시 기준 (auto, claude, codex, opencode, antigravity)
     public string TrayDisplayMode { get; set; } = "auto";
 
     // 데이터가 없는 공급자 자동 숨김
@@ -47,8 +47,8 @@ public class NotificationSettings
     public List<string> VisibleProviders { get; set; } = [
         UsageProviderKind.Claude,
         UsageProviderKind.Codex,
-        UsageProviderKind.GeminiCli,
-        UsageProviderKind.OpenCode
+        UsageProviderKind.OpenCode,
+        UsageProviderKind.Antigravity
     ];
 
     // 현재 popup에서 펼쳐 보여주는(=focused) 공급자.
@@ -56,12 +56,65 @@ public class NotificationSettings
     // 사용자가 popup의 다른 공급자 행을 클릭하면 해당 키로 갱신되어 영속화된다.
     public string FocusedProvider { get; set; } = "";
 
+    public const int CurrentProviderSettingsVersion = 1;
+
+    /// <summary>
+    /// 공급자 설정 형식 버전. 0 은 #183 이전 파일 — Gemini CLI 항목이 있고 Antigravity 표시 여부는 저장되지 않던 형식이다.
+    /// 이 값이 없는 예전 파일도 0 으로 읽혀야 하므로 기본값은 0 으로 두고, 저장할 때 현재 버전을 채운다.
+    /// </summary>
+    public int ProviderSettingsVersion { get; set; }
+
+    /// <summary>
+    /// #183 이전 설정을 지금 형식으로 옮긴다. 이미 옮긴 설정에는 아무것도 하지 않는다.
+    /// Antigravity 는 예전에 표시 설정이 없어 늘 보였으므로 표시 목록에 넣어 그 상태를 잇는다 —
+    /// Gemini CLI 체크 상태를 물려받게 하면 Gemini CLI 만 꺼 두었던 사용자에게서 Antigravity 가 사라진다.
+    /// Gemini CLI 로 고정해 둔 트레이 기준·펼친 공급자는 후속 제품인 Antigravity 로 잇는다.
+    /// </summary>
+    public void MigrateLegacyProviders()
+    {
+        if (ProviderSettingsVersion >= CurrentProviderSettingsVersion) return;
+
+        VisibleProviders = [.. (VisibleProviders ?? []).Where(p => p != UsageProviderKind.LegacyGeminiCli).Distinct()];
+        if (!VisibleProviders.Contains(UsageProviderKind.Antigravity))
+            VisibleProviders.Add(UsageProviderKind.Antigravity);
+
+        if (TrayDisplayMode == UsageProviderKind.LegacyGeminiCli)
+            TrayDisplayMode = UsageProviderKind.Antigravity;
+        if (FocusedProvider == UsageProviderKind.LegacyGeminiCli)
+            FocusedProvider = UsageProviderKind.Antigravity;
+
+        ProviderSettingsVersion = CurrentProviderSettingsVersion;
+    }
+
     // v1.27.0 표시 옵션 토글
-    // Codex 플랜 배지 ("ChatGPT Plus" 등) 표시 여부
-    public bool ShowCodexPlanBadge { get; set; } = true;
+    // 구독 등급 배지 ("Claude Max 5x", "ChatGPT Plus" 등) 표시 여부 — v1.41.0 부터 전 공급자 공통
+    public bool ShowPlanBadge { get; set; } = true;
+
+    /// <summary>
+    /// v1.40.x 까지 쓰던 Codex 전용 키. 예전 설정 파일을 그대로 읽고(끄기 상태 보존),
+    /// 새로 저장할 때도 같은 값을 함께 써 이전 버전으로 되돌아가도 토글이 유지되도록 한다.
+    /// </summary>
+    [JsonPropertyName("ShowCodexPlanBadge")]
+    public bool ShowCodexPlanBadgeCompat
+    {
+        get => ShowPlanBadge;
+        set => ShowPlanBadge = value;
+    }
+
+    /// <summary>
+    /// Claude 등급 배지 줄 뒤에 계정 이름·조직("· 김민준 · Acme Corp")을 붙일지(#218). 기본 켜짐 —
+    /// 스크린샷을 공유할 때 실명·회사명을 가리려면 끈다. 키가 없던 예전 파일도 켜짐으로 읽힌다.
+    /// </summary>
+    public bool ShowClaudeAccount { get; set; } = true;
 
     // 리셋 라벨에 절대 시각을 병기할지 ("1h 23m 후 리셋 (18:30)")
     public bool ShowAbsoluteResetTime { get; set; } = false;
+
+    /// <summary>
+    /// Antigravity 의 Claude·GPT(3p) 한도 창도 보여줄지. 기본은 꺼짐 — Gemini 한도만 보여준다.
+    /// 이 키가 없던 예전 파일도 꺼짐으로 읽히므로 따로 옮길 것이 없다(<see cref="ProviderSettingsVersion"/> 를 올리지 않는다).
+    /// </summary>
+    public bool ShowAntigravityThirdPartyQuota { get; set; } = false;
 
     public bool KeepPopupAboveTaskbar { get; set; } = false;
     public double UsagePanelOpacity { get; set; } = 0.94;
@@ -70,6 +123,54 @@ public class NotificationSettings
     public string UsageSyncFolderPath { get; set; } = "";
     public int UsageSyncApiSnapshotTtlMinutes { get; set; } = 5;
     public int UsageSyncLocalSnapshotTtlHours { get; set; } = 24;
+
+    /// <summary>
+    /// 다른 기기에 보여 줄 이 PC 의 이름(#271). 비어 있으면 Windows 컴퓨터 이름 — 키가 없던 예전 파일도 그렇게 읽힌다.
+    /// 휴대폰·다른 PC·공유 폴더 스냅샷·ntfy 알림이 모두 이 이름을 쓴다(<see cref="Services.PcName"/>).
+    /// </summary>
+    public string PcAlias { get; set; } = "";
+
+    /// <summary>
+    /// Claude 계정 별명(#307). 키는 휴대폰 계정 카드와 같은 Claude 계정 키(<c>orgUuid|accountUuid</c>) — 계정마다 따로 붙어,
+    /// 계정을 바꾸면 그 계정의 별명이 쓰인다. 있으면 PC 팝업 배지·휴대폰 계정 카드·앱 푸시의 계정 이름 대신 쓰고,
+    /// 앱 푸시 제목 앞에 "[별명]" 으로 붙인다(<see cref="Services.AccountAlias"/>). 키가 없던 예전 파일은 빈 사전.
+    /// </summary>
+    public Dictionary<string, string> ClaudeAccountAliases { get; set; } = new();
+
+    /// <summary>
+    /// 별명을 바꾼 시각(UTC, #313). 키는 <see cref="ClaudeAccountAliases"/> 와 같고, 지운 별명도 시각이 남는다 —
+    /// PC 간 동기화에서 더 최근에 바꾼 쪽을 따르는 기준이다. 키가 없던 v1.70.0 파일은 빈 사전(가장 옛 시각으로 친다).
+    /// </summary>
+    public Dictionary<string, DateTimeOffset> ClaudeAccountAliasUpdatedAt { get; set; } = new();
+
+    // 휴대폰 앱 연동(#220). 기본은 꺼짐 — 켜야 이 PC 가 휴대폰용 포트를 연다.
+    public bool MobileEnabled { get; set; } = false;
+    /// <summary>같은 Wi-Fi·유선 LAN 경로(TLS 핀 고정).</summary>
+    public bool MobileLan { get; set; } = true;
+    /// <summary>Tailscale 경로(100.64.0.0/10). Tailscale 이 없으면 바인딩할 주소가 없어 저절로 빠진다.</summary>
+    public bool MobileTailscale { get; set; } = true;
+    /// <summary>수신 포트. 설정 창에는 없고 파일에서만 바꾼다(다른 프로그램과 겹칠 때).</summary>
+    public int MobilePort { get; set; } = Services.Mobile.MobileProtocol.DefaultPort;
+    /// <summary>127.0.0.1 에도 연다 — 개발·에뮬레이터(adb reverse) 전용, 파일에서만 켠다.</summary>
+    public bool MobileBindLoopback { get; set; } = false;
+    /// <summary>
+    /// 밖에서도 연결: Cloudflare Tunnel(#225). 켜면 cloudflared 를 하위 프로세스로 띄운다. 인터넷에 경로가 생기므로 기본은 꺼짐.
+    /// </summary>
+    public bool MobileCloudflare { get; set; } = false;
+    /// <summary>이름 있는 터널의 공인 호스트명(예: <c>pc.example.com</c>). 토큰과 함께 쓴다.</summary>
+    public string MobileCloudflareHostname { get; set; } = "";
+    /// <summary>
+    /// 이름 있는 터널 토큰(Cloudflare 대시보드). DPAPI(현재 사용자)로 암호화한 base64 로만 저장한다 —
+    /// 설정 파일이 동기화·백업되어도 다른 PC·사용자는 풀 수 없다. 비어 있으면 Quick Tunnel.
+    /// </summary>
+    public string MobileCloudflareTokenProtected { get; set; } = "";
+    /// <summary>
+    /// 100milionseek(DeepSeek 무료 API) 키(#306). 터널 토큰과 같이 DPAPI(현재 사용자) base64 로만 저장한다.
+    /// 비어 있으면 일일 한도를 조회하지 않는다.
+    /// </summary>
+    public string HmsApiKeyProtected { get; set; } = "";
+    /// <summary>cloudflared.exe 경로. 비우면 설치 폴더·PATH 에서 찾는다(파일에서만 바꾼다).</summary>
+    public string MobileCloudflaredPath { get; set; } = "";
 
     // Backward compatibility with old schema used by ViewModel.
     [JsonIgnore]

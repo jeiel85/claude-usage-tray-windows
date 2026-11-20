@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Same palette as the PC tray popup (#0F1117 background, #8B5CF6 accent). -->
+    <color name="bg">#FF0F1117</color>
+    <color name="accent">#FF8B5CF6</color>
+    <color name="ic_background">#FF0F1117</color>
+</resources>

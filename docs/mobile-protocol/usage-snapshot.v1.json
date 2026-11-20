@@ -1,0 +1,90 @@
+{
+  "schema": 1,
+  "ts": "2026-11-14T03:00:00+00:00",
+  "pcId": "0123456789abcdef0123456789abcdef",
+  "pcName": "HOME-PC",
+  "appVersion": "1.53.0",
+  "providers": [
+    {
+      "provider": "claude",
+      "accountHash": "8faa0d34671d6ec471dfade3f4b0f988c113aece4b24adfb6bf3d002216e1608",
+      "accountScope": "account",
+      "accountLabel": "\uAE40\uBBFC\uC900 \u00B7 Acme Corp",
+      "observedAt": "2026-11-14T02:59:30+00:00",
+      "errorKind": "",
+      "quota": {
+        "hasData": true,
+        "observedAtUtc": "2026-11-14T02:59:30+00:00",
+        "shortUsagePercent": 0.42,
+        "shortResetAt": "2026-11-14T05:00:00+00:00",
+        "isShortResetEstimated": false,
+        "longUsagePercent": 0.18,
+        "longResetAt": "2026-11-17T03:00:00+00:00",
+        "extraUsagePercent": 0.05,
+        "extraUsageEnabled": true,
+        "extraHasLimit": true,
+        "extraCreditsLabel": "$2.50 / $50.00",
+        "planType": "max",
+        "hasLongWindow": false,
+        "tierName": "",
+        "paidTierName": "",
+        "models": [],
+        "additionalQuotas": [
+          {
+            "limitId": "opus",
+            "limitName": "Opus",
+            "usagePercent": 0.7,
+            "resetAt": "2026-11-17T03:00:00+00:00",
+            "windowMinutes": 10080,
+            "observedAt": "2026-11-14T02:59:30+00:00"
+          }
+        ]
+      },
+      "today": {
+        "date": "2026-11-14",
+        "inputTokens": 120000,
+        "outputTokens": 34000,
+        "cacheReadTokens": 2500000,
+        "cacheWriteTokens": 80000,
+        "sessionCount": 3,
+        "requestCount": 41
+      }
+    },
+    {
+      "provider": "codex",
+      "accountHash": "58b57ce0866141bd469dfe0e99280ec0e4b645cd0b8e5569f67ba8718dae13e6",
+      "accountScope": "account",
+      "accountLabel": "",
+      "observedAt": "2026-11-14T02:58:00+00:00",
+      "errorKind": "",
+      "quota": {
+        "hasData": true,
+        "observedAtUtc": "2026-11-14T02:58:00+00:00",
+        "shortUsagePercent": 0.1,
+        "shortResetAt": "2026-11-14T07:00:00+00:00",
+        "isShortResetEstimated": false,
+        "longUsagePercent": 0.6,
+        "longResetAt": "2026-11-19T03:00:00+00:00",
+        "extraUsageEnabled": false,
+        "extraHasLimit": false,
+        "extraCreditsLabel": "",
+        "planType": "plus",
+        "shortWindowMinutes": 300,
+        "longWindowMinutes": 10080,
+        "hasLongWindow": true,
+        "tierName": "",
+        "paidTierName": "",
+        "models": [],
+        "additionalQuotas": []
+      }
+    },
+    {
+      "provider": "antigravity",
+      "accountHash": "c20600a382bed6ca4cf0e6a387ef763cebeb1ad81ae0550fd024f04711323c43",
+      "accountScope": "device",
+      "accountLabel": "",
+      "observedAt": "2026-11-14T02:59:00+00:00",
+      "errorKind": "api_failed"
+    }
+  ]
+}

@@ -3,6 +3,1548 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.72.7] - 2026-11-20
+
+<!-- ko -->
+### 버그 수정
+- **설정이 통째로 지워질 수 있던 문제 (#331)**: 설정 파일을 그 자리에서 덮어쓰던 것을 임시 파일에 쓴 뒤 바꿔 끼우도록 바꿨습니다. 직전 설정은 `.bak` 으로 남고, 파일이 깨져 있으면 그 파일을 옆에 보관한 채 `.bak` 에서 읽습니다(전에는 기본값으로 시작해 다음 저장이 모든 설정을 지웠습니다). 여러 곳에서 동시에 저장해도 한쪽 변경이 사라지지 않습니다.
+- **"오늘 N개 세션"이 부풀던 문제 (#332)**: Claude Code 서브에이전트 기록을 별도 세션으로 세던 것을 원래 세션에 합칩니다. 세션 목록에 같은 세션이 두 번 보이지 않고, 토큰 합계는 그대로입니다.
+- **동기화 폴더 [찾아보기] 창이 가려지던 문제 (#333)**: 폴더 선택 창이 뜨면 설정 창이 숨고 사용량 팝업이 그 위를 덮었습니다. 이제 설정 창 위에 뜨고, 고르는 동안 설정 창이 그대로 있습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Settings could be wiped (#331)**: the settings file used to be overwritten in place. It is now written to a temporary file and swapped in, the previous copy is kept as `.bak`, and a damaged file is set aside while the app reads `.bak` (before, it started from defaults and the next save erased every setting). Saves from several places at once no longer drop each other's changes.
+- **"N sessions today" was too high (#332)**: Claude Code subagent transcripts were counted as separate sessions. They now join their parent session, so a session no longer appears twice in the list; token totals are unchanged.
+- **The sync folder [Browse] dialog got covered (#333)**: opening it hid the settings window and the usage popup came up over the dialog. The dialog now opens over the settings window, which stays open while you choose.
+<!-- /en -->
+
+## [1.72.6] - 2026-11-20
+
+<!-- ko -->
+### 개선
+- **하드닝 3차: 휴대폰 키 거절 표시·PC 버전 안내·DeepSeek 세션 정리 (#320 #299 #310 #237)**
+  - 휴대폰 앱: DeepSeek 키가 거절되면 카드에 어느 PC 에서 키를 다시 넣어야 하는지 보입니다(전에는 값만 멈춰 이유를 알 수 없었습니다). PC 는 키 거절을 일시 실패와 구분해 보냅니다.
+  - 휴대폰 앱 PC 탭: v1.68.0 보다 오래된 PC 에 업데이트 안내를 보입니다 — 그런 PC 는 날씨 예보 같은 일상 알림도 휴대폰에서 울립니다.
+  - DeepSeek(100milionseek) 키를 바꾸거나 지우면 사이트의 이전 로그인 세션도 닫습니다.
+  - 팝업 게이지의 시간선 마커를 한 요소로 묶었습니다(보이는 모양은 같습니다). PC 서버가 실제로 보내는 실시간 데이터를 휴대폰 파서로 읽는 테스트를 넣었습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Hardening, round 3: rejected key on the phone, PC version notice, DeepSeek session cleanup (#320 #299 #310 #237)**
+  - Phone app: when the DeepSeek key is rejected, the card says which PC needs the key entered again (before, the value just stopped with no reason). The PC now reports a rejected key apart from a temporary failure.
+  - Phone app PCs tab: PCs older than v1.68.0 get an update notice — such PCs make even routine alerts like weather forecasts ring on the phone.
+  - Changing or removing the DeepSeek (100milionseek) key now also closes the previous sign-in session on the site.
+  - The time marker on popup gauges is now a single shared element (it looks the same). A new test reads what the PC server actually sends live with the phone's parser.
+<!-- /en -->
+
+## [1.72.5] - 2026-11-20
+
+<!-- ko -->
+### 개선
+- **하드닝 2차: 목록 막대 차오름·Codex 로그 스캔 비용·휴대폰 업데이트 알림 소리 (#325 #314 #299)**
+  - Antigravity·Codex 추가 한도·Claude 모델 한도·DeepSeek 처럼 목록으로 그리는 막대도 새로고침 뒤 이전 길이에서 차오릅니다(전에는 행이 새로 만들어져 바로 바뀌었습니다).
+  - Codex 세션 로그는 바뀐 파일만 다시 읽습니다. 이 PC(로그 1,251개·11GB)에서 새로고침마다 걸리던 로그 스캔이 17초에서 0.2초로 줄었고, 결과는 전부 읽을 때와 같습니다.
+  - 휴대폰 앱(GitHub·Play): 업데이트 알림 중 소리를 내는 것은 사용자가 눌러야 진행되는 "설치 확인"뿐이고, "새 버전"·"업데이트했습니다"는 조용히 옵니다. 옛 업데이트 알림 채널은 새 채널로 바뀌며, 옛 채널을 꺼 두었다면 새 채널도 꺼진 채로 만들어집니다.
+  - 새로고침 중 UI 가 멈추지 않는지(느린 읽기를 UI 스레드 밖에서 하는지) 재는 테스트를 넣었습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Hardening, round 2: list bar fill, Codex log scan cost, phone update notification sound (#325 #314 #299)**
+  - Bars drawn as lists (Antigravity, Codex additional limits, Claude model limits, DeepSeek) now also fill from their previous length after a refresh (previously the rows were rebuilt and jumped to the new length).
+  - Codex session logs are read again only when a file changed. On this PC (1,251 logs, 11 GB) the scan on every refresh went from 17 s to 0.2 s, with the same result as reading everything.
+  - Phone app (GitHub and Play): among update notifications only "confirm the install", which waits for you, makes a sound; "new version" and "updated" arrive silently. The old update channel is replaced by new ones, created switched off if you had switched the old one off.
+  - A new test checks that the UI keeps responding during a refresh (slow reads stay off the UI thread).
+<!-- /en -->
+
+## [1.72.4] - 2026-11-19
+
+<!-- ko -->
+### 개선
+- **하드닝: 새로고침 겹침·DeepSeek 재시도·OpenCode 행 배치·알림 우선순위 (#325 #314 #310 #299 #237)**
+  - 주기 갱신·설정 저장·수동 새로고침이 겹쳐도 사용량 읽기는 한 번만 돕니다. 도는 중에 들어온 요청은 끝난 뒤 한 번 더 읽어 바뀐 설정을 반영합니다(전에는 Codex 로그 스캔·OpenCode DB 읽기가 동시에 두 번 돌고, 먼저 끝난 쪽이 로딩 표시를 껐습니다).
+  - DeepSeek(100milionseek) 확인이 실패하면(서버 오류·429·네트워크) 다음 시도까지 1·2·4·8·16·30분씩 쉬고, 429 의 `Retry-After` 가 더 길면 그만큼(최대 1시간) 기다립니다. 성공하거나 키를 바꾸면 바로 다시 시도합니다.
+  - OpenCode 공식 할당량(롤링·주간·월간) 행이 Claude·Codex 행과 같은 규칙을 씁니다 — 라벨은 줄어들지 않고, 공간이 모자라면 초기화 문구만 오른쪽 정렬로 줄바꿈합니다.
+  - 언어를 바꾸면 OpenCode·Codex 섹션 아래 안내 문구도 바로 새 언어로 바뀝니다(전에는 다음 새로고침까지 이전 언어).
+  - 날씨 알림은 호출부마다 우선순위를 반드시 정하게 했고(빠뜨리면 휴대폰이 울리던 기본값 제거), 예보·조건 알림은 조용히·공식 특보만 울리는지 실제 경로로 확인하는 테스트를 넣었습니다.
+  - 팝업 막대가 모두 차오름 애니메이션으로 묶였는지 보는 테스트, 키가 없을 때 통과 대신 '건너뜀'으로 보이는 DeepSeek 실물 테스트, 콘솔이 UTF-8 이 아니어도 한글 릴리스 노트에서 깨지지 않는 서명 스크립트(`tools/sign-release.ps1`).
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Hardening: overlapping refreshes, DeepSeek retries, OpenCode row layout, alert priorities (#325 #314 #310 #299 #237)**
+  - Periodic, settings-save and manual refreshes no longer read usage twice at the same time. A request that arrives during a refresh runs once more afterwards so new settings still apply (previously the Codex log scan and OpenCode DB read could run twice in parallel, and the first to finish turned the loading indicator off).
+  - When the DeepSeek (100milionseek) check fails (server error, 429, network), the next try waits 1, 2, 4, 8, 16, then 30 minutes; a longer `Retry-After` on 429 is honoured (up to 1 hour). Success or a new key retries right away.
+  - OpenCode official quota rows (rolling, weekly, monthly) follow the same rule as the Claude and Codex rows: the label never shrinks, and only the reset text wraps, right-aligned, when space runs out.
+  - Changing the language now updates the notes under the OpenCode and Codex sections immediately (previously they kept the old language until the next refresh).
+  - Weather alerts must now state their priority at every call site (the default that made the phone ring when omitted is gone), and a test runs the real alert path to check that forecasts and condition alerts stay quiet while only official warnings ring.
+  - New tests check that every popup bar is bound through the fill animation; the live DeepSeek test now shows as skipped instead of passing when no key is set; the signing script (`tools/sign-release.ps1`) no longer breaks on Korean release notes when the console is not UTF-8.
+<!-- /en -->
+
+## [1.72.3] - 2026-11-19
+
+<!-- ko -->
+### 개선
+- **휴대폰 앱: 보여 줄 사용량이 없는 계정 카드를 숨깁니다 (#326)** — 로그인되지 않은 OpenCode 나 할당량을 읽지 못한 Antigravity 처럼 게이지도 오늘 토큰도 없는 카드가 "아직 서버 할당량 정보가 없습니다" 한 줄로 자리를 차지하던 것을 '계정' 탭에서 뺐습니다. 사용률이 0% 인 게이지는 그대로 보입니다.
+  - 'PC' 탭에는 모든 PC가 그대로 나옵니다. 카드가 하나도 남지 않으면 "PC에서 사용량을 기다리는 중…" 안내가 나옵니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Phone app: account cards with nothing to show are hidden (#326)** — Cards with no gauge and no tokens today (a signed-out OpenCode, Antigravity without quota data) used to take up space with just "No quota data from the server yet". The Accounts tab now leaves them out. A gauge at 0% still shows.
+  - The PCs tab still lists every PC. If no card is left, the "Waiting for usage from your PCs…" hint appears.
+<!-- /en -->
+
+## [1.72.2] - 2026-11-19
+
+<!-- ko -->
+### 개선
+- **게이지 막대가 값이 바뀌면 차오릅니다 (#322)** — 새로고침으로 사용률이 바뀌면 막대가 이전 길이에서 새 길이로 약 0.6초 동안 부드럽게 늘어나거나 줄어듭니다. 팝업이 닫혀 있는 동안 바뀐 값은 다음에 팝업을 열 때 움직여 보여 줍니다.
+  - 처음 열 때나 값이 그대로면 움직이지 않습니다. Windows 설정의 '애니메이션 효과'를 끄면 예전처럼 바로 바뀝니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Gauge bars now fill when the value changes (#322)** — When a refresh changes usage, each bar glides from its old length to the new one over about 0.6 s. Values that changed while the popup was closed animate the next time you open it.
+  - Bars don't move on first open or when nothing changed. Turning off Windows "Animation effects" keeps the old instant update.
+<!-- /en -->
+
+## [1.72.1] - 2026-11-19
+
+<!-- ko -->
+### 개선
+- **팝업의 DeepSeek 섹션 이름을 "DeepSeek" 으로 줄였습니다 (#321)** — "DeepSeek 무료 API" 가 다른 공급자 줄보다 길어 어색했습니다. 휴대폰 카드와 같은 이름입니다. 설정의 키 칸은 어떤 키인지 알 수 있게 "DeepSeek (100milionseek) API 키" 로 바꿨습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **The popup's DeepSeek section is now just "DeepSeek" (#321)** — "DeepSeek free API" was longer than the other provider rows. It now matches the phone card. The settings field reads "DeepSeek (100milionseek) API key" so it is clear which key goes there.
+<!-- /en -->
+
+## [1.72.0] - 2026-11-19
+
+<!-- ko -->
+### 추가
+- **휴대폰 앱에서도 DeepSeek 무료 API 한도를 볼 수 있습니다 (#318)** — PC 설정에 100milionseek 키를 넣어 두면, 휴대폰 홈의 계정 목록에 "DeepSeek" 카드가 생겨 오늘 토큰 사용률과 초기화까지 남은 시간(UTC 자정 = 한국 시각 오전 9시)을 보여 줍니다. 여러 PC 가 같은 키를 쓰면 카드 하나로 묶입니다.
+  - 휴대폰 앱을 이번 버전으로 업데이트하지 않아도 카드는 보이지만, 이름이 "100milionseek" 으로 나옵니다.
+  - PC 에서 키를 지우면 휴대폰에서도 바로 사라집니다. 키 자체는 휴대폰으로 보내지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **The phone app now shows the DeepSeek free API allowance too (#318)** — With your 100milionseek key saved on the PC, the phone's account list gains a "DeepSeek" card with today's token usage and the time left until it resets (UTC midnight). PCs that use the same key share one card.
+  - Phones that haven't updated to this version still show the card, named "100milionseek".
+  - Removing the key on the PC removes the card from the phone right away. The key itself is never sent to the phone.
+<!-- /en -->
+
+## [1.71.1] - 2026-11-19
+
+<!-- ko -->
+### 수정
+- **DeepSeek 게이지를 다른 게이지와 같은 모양으로 맞췄습니다 (#316)** — 막대가 다른 게이지보다 두 배 두껍게 그려지고, 이름이 "오늘 토큰…"으로 잘렸습니다. 이제 Claude·Codex 게이지와 같은 굵기이고, 이름은 잘리지 않으며 폭이 모자라면 초기화 시각만 다음 줄로 내려갑니다.
+- **설정 > 트레이 탭 아래쪽이 잘리던 문제를 고쳤습니다 (#316)** — DeepSeek 키 칸이 들어간 뒤 "사용량 미니 패널 유지"·투명도 설정이 창 밖으로 밀려 보이지 않았습니다. 트레이·알림 탭도 일반 탭처럼 스크롤됩니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The DeepSeek gauge now looks like the other gauges (#316)** — Its bar was drawn twice as thick and its name was cut to "Today's tok…". It now has the same thickness as the Claude and Codex gauges, the name is never cut, and only the reset time wraps when space runs out.
+- **The bottom of Settings > Tray is no longer cut off (#316)** — After the DeepSeek key field was added, "Keep the mini usage panel" and the opacity setting were pushed out of the window. The Tray and Alerts tabs now scroll like the General tab.
+<!-- /en -->
+
+## [1.71.0] - 2026-11-19
+
+<!-- ko -->
+### 개선
+- **Claude 계정 별명이 PC 끼리 맞춰집니다 (#313)** — 같은 계정을 여러 PC 에서 쓸 때, 한 PC 에서 별명을 넣거나 바꾸거나 지우면 PC 동기화(직접 동기화·공유 폴더)로 연결된 다른 PC 도 다음 갱신 때 같은 별명을 씁니다. 지금까지는 PC 마다 따로라, 한 PC 에만 넣으면 휴대폰 계정 카드 이름이 별명과 원래 이름을 오가고 알림 제목의 `[별명]` 도 붙었다 안 붙었다 했습니다.
+- 여러 PC 에서 다르게 넣었으면 가장 나중에 바꾼 별명을 따릅니다. 같은 팀 조직의 다른 사람이 붙인 별명은 따르지 않습니다.
+- PC 동기화를 켜지 않았으면 지금처럼 PC 마다 따로입니다. 다른 PC 가 v1.71.0 이전 버전이면 별명을 주고받지 않습니다(동기화 자체는 그대로 됩니다).
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Claude account nicknames now stay the same across your PCs (#313)** — When several PCs watch the same account, setting, changing or clearing the nickname on one PC is picked up by the other PCs linked by PC sync (direct sync or a shared folder) at their next refresh. Until now each PC kept its own, so setting it on just one PC made the phone's account card switch between the nickname and the account name, and the `[nickname]` in alert titles came and went.
+- If PCs were given different nicknames, the most recent change wins. Nicknames set by other people in the same team organization are not picked up.
+- Without PC sync, each PC still keeps its own. PCs on versions before v1.71.0 don't exchange nicknames (sync itself still works).
+<!-- /en -->
+
+## [1.70.1] - 2026-11-19
+
+<!-- ko -->
+### 수정
+- **설정을 저장하거나 새로고침할 때 창이 10초 넘게 멈추던 문제를 고쳤습니다 (#311)** — Codex 로컬 로그 읽기(이 PC 에서 11~17초)와 OpenCode 기록 읽기가 화면을 그리는 스레드에서 돌고 있었습니다. 이제 뒤에서 읽어, 새로고침 중에도 팝업·설정 창이 바로 반응합니다(측정: 최대 정지 14.2초 → 0.1초).
+
+### 개선
+- **DeepSeek 무료 API 한도를 OpenCode 와 따로 보여 줍니다 (#311)** — OpenCode 섹션 안에 끼어 OpenCode Go 한도처럼 보이던 게이지를 독립된 "DeepSeek 무료 API" 줄로 옮겼습니다. 접힌 줄에 사용률이 보이고, 누르면 게이지·초기화 시각·안내가 펼쳐집니다. OpenCode 로그인과는 관계없습니다.
+- 설정 > 트레이의 키 칸 옆에 **[저장] 버튼**을 두었습니다. 키를 붙여넣으면 버튼이 켜지고, 누르거나 Enter 를 치면 저장한 뒤 안내를 보여 줍니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The windows no longer freeze for 10+ seconds when you save settings or refresh (#311)** — Reading the local Codex logs (11–17 s on the test PC) and the OpenCode history ran on the UI thread. They now run in the background, so the popup and Settings stay responsive while refreshing (measured: longest stall 14.2 s → 0.1 s).
+
+### Improved
+- **The DeepSeek free API allowance is shown separately from OpenCode (#311)** — The gauge that sat inside the OpenCode section, where it looked like an OpenCode Go quota, now has its own "DeepSeek free API" row. The collapsed row shows the usage; click it for the gauge, reset time and notices. It has nothing to do with signing in to OpenCode.
+- The key field under Settings > Tray now has a **Save button**. It turns on once you paste a key; press it (or Enter) to save, and a confirmation appears.
+<!-- /en -->
+
+## [1.70.0] - 2026-11-19
+
+<!-- ko -->
+### 추가
+- **Claude 계정에 별명을 붙일 수 있습니다 (#307)** — 개인·회사처럼 Claude 계정을 여럿 쓰면 계정 이름이 모두 본인 이름이라 휴대폰에서 어느 계정인지 구분하기 어려웠습니다. 설정 > 연결의 "Claude 계정 별명" 에 이름(최대 20자)을 넣으면 지금 로그인한 계정에만 붙고, 계정을 바꾸면 그 계정의 별명이 쓰입니다.
+- 휴대폰 앱 알림은 제목 맨 앞에 `[별명]` 이 붙습니다(예: `[회사] Claude 90% · 5시간 한도`). 지금까지 계정 이름은 알림의 보조 문구에만 있어서, 화면 위로 뜨는 알림이나 접힌 알림에서는 보이지 않았습니다. 휴대폰 앱은 업데이트하지 않아도 됩니다.
+- PC 팝업의 등급 배지 줄과 휴대폰 계정 카드에도 계정 이름 대신 별명이 보입니다. 팝업 툴팁에는 원래 계정 이름이 함께 보입니다. 비우면 계정 이름으로 돌아갑니다.
+- ntfy 토픽으로 가는 알림에는 계정 정보를 싣지 않는 원칙대로 별명도 보내지 않습니다. 같은 계정을 여러 PC 가 보고 있으면 PC 마다 별명을 넣어 주세요.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Give your Claude accounts a nickname (#307)** — With several Claude accounts (personal, work), every account showed your own name, so the phone couldn't tell them apart. Enter a nickname (up to 20 characters) under Settings > Connect > "Claude account nickname"; it applies only to the account you're signed in to, and switching accounts switches to that account's nickname.
+- Phone app alerts now start with `[nickname]` (e.g. `[Work] Claude 90% · 5h limit`). Until now the account name was only in the alert's subtext, which isn't shown when an alert pops up on screen or is collapsed. No phone app update needed.
+- The popup's plan badge line and the phone's account cards also show the nickname instead of the account name; the popup tooltip still shows the account name. Clear it to go back to the account name.
+- Like other account details, the nickname is not sent to plain ntfy topics. If several PCs watch the same account, set the nickname on each of them.
+<!-- /en -->
+
+## [1.69.0] - 2026-11-19
+
+<!-- ko -->
+### 추가
+- **DeepSeek 무료 API(100milionseek) 오늘 토큰 한도 표시 (#306)** — 설정 > 트레이에 100milionseek API 키를 넣으면 OpenCode 상세에 "DeepSeek 무료 · 오늘" 게이지가 생깁니다. 사용률, 초기화 시각(UTC 자정 = 한국 시각 오전 9시), 시간선, 사용량·한도·요청 수, 보너스 한도가 끝나는 시각을 보여 줍니다.
+  - 키는 암호화해 이 PC 에만 저장하고 100milionseek.top 에만 보냅니다. 키를 넣지 않으면 아무것도 보이지 않습니다.
+  - 사이트 대시보드가 쓰는 비공개 API 를 읽으므로, 사이트가 바뀌면 "잠시 못 읽었습니다" 안내가 뜰 수 있습니다. 키가 바뀌었거나 지워졌으면 다시 넣으라고 알려 줍니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Today's token allowance for the DeepSeek free API (100milionseek) (#306)** — Enter your 100milionseek API key under Settings > Tray and the OpenCode details gain a "DeepSeek free · today" gauge: usage, reset time (UTC midnight), timeline marker, tokens used / allowance / requests, and when the bonus allowance ends.
+  - The key is encrypted, stored only on this PC, and sent only to 100milionseek.top. Without a key nothing is shown.
+  - It reads the private API behind the site's dashboard, so a site change may show "Couldn't read" until it is updated. If the key is rotated or deleted, you are asked to enter it again.
+<!-- /en -->
+
+## [1.68.2] - 2026-11-19
+
+<!-- ko -->
+### 수정
+- **휴대폰에도 PC와 같은 Antigravity 한도만 보입니다 (#304)** — 설정 > 트레이의 "Antigravity 의 Claude·GPT 한도도 표시" 를 꺼 두어도 휴대폰 앱에는 Claude·GPT 창이 그대로 보였습니다. 이제 휴대폰에도 PC 팝업과 같은 창만 보내고, 설정을 바꾸면 다음 갱신을 기다리지 않고 바로 반영됩니다. 다른 PC 와의 동기화에는 계속 전체 값을 보내므로 각 PC 는 자기 설정대로 보여 줍니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The phone now shows the same Antigravity limits as the PC (#304)** — With "Also show Antigravity's Claude·GPT limits" turned off under Settings > Tray, the phone app still showed the Claude·GPT windows. The phone now receives only the windows the PC popup shows, and changing the setting updates the phone right away instead of at the next refresh. Syncing with other PCs still sends every window, so each PC shows them by its own setting.
+<!-- /en -->
+
+## [1.68.1] - 2026-11-19
+
+<!-- ko -->
+### 수정
+- **새 버전이 연달아 나와도 업데이트는 한 번만 합니다 (#300)** — 트레이에 띄워 둔 채로 새 버전을 찾아 둔 뒤 그다음 버전이 또 나오면, 찾아 둔 버전을 설치하고 재시작하자마자 다음 버전으로 한 번 더 업데이트했습니다. 이제 받기 직전에 한 번 더 확인해 가장 새 버전을 바로 받습니다. 업데이트 창의 버전과 변경 내역도 그 버전으로 바뀝니다. 다시 확인하지 못하면(네트워크·GitHub 제한) 찾아 둔 버전을 그대로 받습니다.
+- 버전을 눌러 확인할 때도 앞서 찾아 둔 결과를 쓰지 않고 실제로 다시 확인합니다. 확인에 실패하면 찾아 둔 업데이트 창을 엽니다.
+- 업데이트 창이 열려 있는 동안 주기 확인이 새 버전을 찾으면, 창에는 옛 버전이 보이는데 실제로는 새 버전을 받던 문제도 함께 고쳤습니다.
+- 새 버전이 나온 직후 서명이 올라오기 전 몇 분 동안은 여전히 바로 앞 버전을 받습니다. 서명된 업데이트만 설치하기 때문입니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Back-to-back releases now update only once (#300)** — If the tray had already found a new version and another one came out before you installed it, the app installed the one it had found and then updated again right after restarting. It now checks again just before downloading and goes straight to the newest version; the update window's version and notes switch to it. If that check fails (network, GitHub limits), it installs the version it had found.
+- Clicking the version to check for updates now really checks again instead of reusing the earlier result. If the check fails, the update window for the version already found opens.
+- Also fixed: when the periodic check found a newer version while the update window was open, the window showed the old version but downloaded the new one.
+- For a few minutes after a release, before its signature is uploaded, you still get the version before it, because only signed updates are installed.
+<!-- /en -->
+
+## [1.68.0] - 2026-11-19
+
+<!-- ko -->
+### 개선
+- **휴대폰 알림은 중요한 것만 소리·진동으로 알립니다 (#297)** — 지금까지는 50% 도달, 매일 날씨 예보까지 PC에서 오는 알림이 모두 진동했습니다. 이제 바로 봐야 하는 알림만 소리·진동을 내고, 나머지는 알림창과 상태 표시줄에 조용히 쌓입니다.
+  - **소리·진동:** 사용량 90%·100%, 레이트 리밋(작업이 멈춤), 공식 기상 특보
+  - **조용히:** 사용량 50·75%, 조기 소진 예측, 할당량 초기화, 날씨 매일 예보와 비·폭염·한파·강풍 알림, 테스트
+  - 휴대폰 앱의 알림 채널이 종류별 6개에서 **'중요 알림'·'일반 알림'** 두 개로 바뀝니다. 설정 → 받을 알림 아래 '소리 설정'에서 각각의 소리를 바꿀 수 있습니다. Android 설정에서 꺼 둔 종류(예: 날씨)는 앱의 '받을 알림'에서 꺼진 것으로 옮겨집니다.
+  - PC도 같은 기준으로 보냅니다(레이트 리밋은 중요, 날씨 예보·조건 알림은 낮은 우선순위). ntfy 토픽으로 받는 경우에도 그대로 적용됩니다. PC와 휴대폰 앱을 모두 이 버전으로 올려야 합니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Phone alerts only sound and vibrate when they matter (#297)** — Until now every alert from the PC vibrated, down to 50% usage and the daily weather forecast. Now only alerts that need you right away make a sound and vibrate; the rest arrive quietly in the shade and status bar.
+  - **Sound and vibration:** usage at 90% and 100%, rate limits (work has stopped), official weather warnings
+  - **Quiet:** usage at 50 / 75%, early-exhaustion estimates, quota resets, the daily forecast and rain / heat / cold / wind alerts, tests
+  - The phone app's notification channels change from six per-kind channels to two: **Important alerts** and **Other alerts**. Change the sound of each from Settings → Notifications to receive → Sound settings. A kind you had turned off in Android's settings (e.g. weather) is carried over as switched off in the app's "Notifications to receive".
+  - The PC sends with the same rule (rate limits important, weather forecasts and condition alerts lower priority), which also applies to ntfy topics. Update both the PC and the phone app.
+<!-- /en -->
+
+## [1.67.3] - 2026-11-18
+
+<!-- ko -->
+### 보안
+- **자동 업데이트가 서명을 확인합니다 (#290)** — 지금까지는 같은 릴리스에 함께 올라간 SHA256 파일로만 확인해서, GitHub 계정이나 배포 도구가 탈취되면 바꿔 끼운 exe가 그대로 설치될 수 있었습니다. 이제 GitHub 밖에 있는 키로 서명한 업데이트만 설치합니다. 서명이 없거나 맞지 않으면 받은 파일을 지우고 설치하지 않습니다. 직접 '업데이트'를 눌러도 같습니다.
+- 이 버전부터 확인이 시작됩니다. 이 버전 자체는 예전 방식(SHA256)으로 받습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Security
+- **Automatic updates now check a signature (#290)** — Until now an update was checked only against the SHA256 file uploaded with the same release, so a hijacked GitHub account or release tool could get a swapped exe installed. Now only updates signed with a key kept outside GitHub are installed; if the signature is missing or wrong, the download is deleted and nothing is installed — also when you click Update yourself.
+- Checking starts with this version; this version itself is still installed the old way (SHA256).
+<!-- /en -->
+
+## [1.67.2] - 2026-11-18
+
+<!-- ko -->
+### 보안
+- **휴대폰 연결 서버를 더 단단하게 했습니다 (#290)** — 보안 감사에서 이 앱을 통해 PC를 장악할 경로는 찾지 못했고, 남은 약한 곳을 고쳤습니다.
+  - **페어링 잠금:** 틀린 코드는 연결 QR이 떠 있는 동안만 셉니다. 새 QR을 만들면 다시 셉니다. Cloudflare 경로를 켠 PC에서 누군가 미리 틀린 코드를 보내 두면 5분 동안 연결할 수 없던 문제가 없어졌습니다.
+  - **연결 자리:** 동시 연결 수(32)를 LAN·Tailscale·Cloudflare 경로마다 따로 셉니다. 인터넷에서 들어온 연결이 같은 집 휴대폰의 자리를 빼앗지 못합니다.
+  - **PC 정보:** `/api/v1/info`(PC 이름·앱 버전·Windows 버전)는 이제 연결된 기기만 볼 수 있습니다. 휴대폰 앱은 이 경로를 쓰지 않아 달라지는 것은 없습니다.
+  - 쓰이지 않던 옛 업데이터 프로젝트(`ClaudeUsageTray.Updater`)를 지웠습니다. SHA256 파일을 받지 못하면 검증 없이 설치하는 코드라, 다시 쓰이지 않게 없앴습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Security
+- **Hardened the phone connection server (#290)** — A security audit found no way to take over the PC through this app; the remaining weak spots are fixed.
+  - **Pairing lockout:** wrong codes are counted only while a pairing QR is shown, and a new QR starts a fresh count. On a PC with the Cloudflare path on, someone sending wrong codes in advance could block pairing for 5 minutes.
+  - **Connection slots:** the 32 concurrent connections are now counted per path (LAN, Tailscale, Cloudflare), so connections from the internet cannot take the slots of phones on your home network.
+  - **PC info:** `/api/v1/info` (PC name, app version, Windows version) now requires a paired device. The phone app does not use it, so nothing changes for you.
+  - Removed the unused legacy updater project (`ClaudeUsageTray.Updater`), which installed without verification when the SHA256 file could not be fetched, so it cannot come back into use.
+<!-- /en -->
+
+## [1.67.1] - 2026-11-18
+
+<!-- ko -->
+### 수정
+- **휴대폰에서 PC를 지우면 PC의 '연결된 휴대폰' 목록에서도 빠집니다 (#285)** — 지금까지 휴대폰에서 PC를 지우면 알림 구독만 해제되고 PC 쪽 연결은 남았습니다. 그래서 다시 연결하면 PC 목록에 같은 휴대폰이 두 번 보였습니다. 이제 휴대폰이 PC에 연결 해제를 함께 요청합니다(PC와 휴대폰 앱 모두 이 버전 이상일 때. PC가 이전 버전이면 예전처럼 알림 구독만 해제합니다). PC 동기화도 같습니다: 연결 탭에서 상대 PC를 지우면 상대 PC의 목록에서도 이 PC가 빠집니다. 지울 때 상대 PC가 꺼져 있었거나, 휴대폰 앱을 지우거나 새로 설치한 경우(예: v1.60.0 패키지명 변경)에는 알릴 수 없어 그대로 남습니다 — 휴대폰 연결 창에서 마지막 접속이 오래된 항목을 **연결 해제**하세요.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Removing a PC on the phone now also removes the phone from that PC's "Connected phones" list (#285)** — Until now removing a PC on the phone only cancelled its notifications; the PC kept the pairing. Pairing again then listed the same phone twice. Now the phone also asks the PC to unpair it (when both the PC and the phone app are on this version or later; an older PC only has its notification subscription removed, as before). PC sync works the same way: removing the other PC on the Connection tab also removes this PC from that PC's list. If the other PC was off at the time, or the phone app was uninstalled or reinstalled (for example the v1.60.0 package rename), it can't be told and the old entry stays — click **Revoke** on the entry with the old last-seen time in the phone connection window.
+<!-- /en -->
+
+## [1.67.0] - 2026-11-18
+
+<!-- ko -->
+### 추가
+- **Google Play에서 설치한 휴대폰 앱도 새 버전이 나오면 알려 줍니다 (#284)** — 지금까지 Play 설치본은 업데이트 확인이 없어, Play 자동 업데이트를 꺼 두면 새 버전이 나온 것을 알 수 없었습니다. 이제 휴대폰의 Google Play 앱에 새 버전이 있는지 물어(테스트 트랙 참여자는 그 트랙 기준) 홈 화면 배너, 설정 → 앱 업데이트, 알림(버전마다 한 번)으로 알리고, 누르면 Play 스토어의 앱 페이지로 갑니다. 설치는 지금처럼 Google Play가 합니다. 알림은 설정 → 앱 업데이트의 스위치로 끌 수 있습니다. GitHub APK 설치본은 바뀌지 않았습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **The phone app installed from Google Play now tells you when a new version is out (#284)** — Until now Play installs had no update check, so with Play's auto-update turned off you couldn't tell a new version had shipped. The app now asks the Google Play app on the phone whether a newer version is available (testers see their track's), shows it as a home-screen banner, in Settings → App updates and as one notification per version, and a tap opens the app's Play Store page. Google Play still does the installing. Turn the notification off with the switch in Settings → App updates. GitHub APK installs are unchanged.
+<!-- /en -->
+
+## [1.66.0] - 2026-11-18
+
+<!-- ko -->
+### 추가
+- **휴대폰 앱이 새 버전을 백그라운드에서 자동으로 설치합니다 (#281, GitHub APK 설치본)** — 지금까지는 새 버전 알림을 보고 앱을 열어 '업데이트'를 누르고, 설치 화면에서 한 번 더 눌러야 했습니다. 이제 하루 한 번 확인할 때 새 버전이 있으면 받아서 SHA-256과 서명 키(이 앱과 같은 키인지)를 확인한 뒤, 앱을 쓰지 않을 때 Android 12 이상에서 확인 없이 설치하고 "업데이트했습니다" 알림을 한 번 띄웁니다. Android가 확인을 요구하면(Android 11 이하, '알 수 없는 앱 설치'를 아직 허용하지 않은 경우 등) "설치 준비됨" 알림을 누르면 바로 설치 확인 화면이 뜹니다. 설정 → 앱 업데이트의 '백그라운드에서 자동 설치'로 끌 수 있습니다(기본 켜짐). Play 설치본은 지금처럼 Google Play가 업데이트합니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **The phone app installs new versions in the background (#281, GitHub APK installs)** — Until now a new version meant a notification, opening the app, tapping Update and confirming in the installer. Now the daily check downloads a new version, verifies its SHA-256 and that it is signed with this app's key, and installs it while you aren't using the app — without a prompt on Android 12 and later — then shows one "Updated" notification. When Android asks for confirmation (Android 11 and earlier, or "Install unknown apps" not yet allowed), tapping the "Ready to install" notification opens the installer's confirmation directly. Turn it off with "Install updates in the background" in Settings → App updates (on by default). Play installs keep updating through Google Play.
+<!-- /en -->
+
+## [1.65.3] - 2026-11-17
+
+<!-- ko -->
+### 개선
+- **휴대폰 앱이 Android 16(API 36)을 타겟팅합니다 (#278)** — Google Play는 새로 올리는 앱에 API 36 이상 타겟팅을 요구해, 이전 빌드로는 비공개 테스트 검토를 보낼 수 없었습니다. 화면·기능은 같습니다. Android 16 태블릿 등 큰 화면에서는 페어링 QR 스캐너가 세로로 고정되지 않고 기기 방향을 따릅니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **The phone app now targets Android 16 (API 36) (#278)** — Google Play requires new uploads to target API 36 or higher, so the previous build could not be sent for closed-testing review. Screens and features are unchanged. On large screens such as Android 16 tablets the pairing QR scanner follows the device orientation instead of staying in portrait.
+<!-- /en -->
+
+## [1.65.2] - 2026-11-17
+
+<!-- ko -->
+### 수정
+- **아주 긴 계정 이름 때문에 휴대폰 알림이 사라지던 문제 (#265)** — 앱 푸시는 암호화 한도를 넘으면 본문·제목만 줄였기 때문에, 계정 이름이 비정상적으로 길면 알림이 통째로 버려졌습니다. 이제 계정 이름을 한 줄·64자로 줄여 싣습니다.
+
+### 개선
+- **릴리스가 날씨 서버 상태에 막히지 않습니다 (#238)** — 실제 Open-Meteo·MET Norway를 부르는 테스트를 별도 범주(`Network`)로 나눴습니다. 릴리스 빌드는 이 테스트 없이 진행하고, 결과는 막지 않는 별도 단계에 남깁니다. 로컬 `dotnet test`에서는 그대로 함께 돕니다.
+- **릴리스 APK가 맞는 앱·채널인지 확인합니다 (#256)** — GitHub 릴리스에 붙는 APK의 패키지명이 `com.jeiel85.aiusage`인지, 앱 내 업데이트가 들어 있는 GitHub 빌드인지(`REQUEST_INSTALL_PACKAGES`) 검사해 다르면 릴리스를 멈춥니다.
+- **세션 제목을 만들 때 긴 첫 프롬프트를 통째로 복사하지 않습니다 (#145)** — 80자를 넘는 순간 읽기를 멈추고, 이모지를 반으로 자르지 않습니다. 보이는 제목은 같습니다.
+- 호출하는 곳이 없던 코드 세 곳(옛 사용량 적용 함수, 쓰기만 하던 Codex 퍼센트 필드, 옛 업데이트 설치 함수)을 지웠습니다 (#145, #113, #89).
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Phone alerts no longer vanish because of a very long account name (#265)** — when an app push went over the encryption limit only the body and title were shortened, so an abnormally long account name made the whole alert get dropped. The account name is now cut to one line of 64 characters.
+
+### Improved
+- **Releases no longer stall on weather-server outages (#238)** — tests that call the real Open-Meteo and MET Norway APIs are now in their own category (`Network`). The release build runs without them and reports them in a separate, non-blocking step. A local `dotnet test` still runs them.
+- **The release APK is checked for the right app and channel (#256)** — the APK attached to the GitHub release must have the package name `com.jeiel85.aiusage` and be the GitHub build with in-app updates (`REQUEST_INSTALL_PACKAGES`); otherwise the release stops.
+- **Session titles no longer copy a long first prompt in full (#145)** — reading stops as soon as 80 characters are reached, and an emoji is never cut in half. Titles look the same.
+- Removed three pieces of code nothing called (an old usage-apply method, a write-only Codex percent field, an old update-install method) (#145, #113, #89).
+<!-- /en -->
+
+## [1.65.1] - 2026-11-17
+
+<!-- ko -->
+### 수정
+- **같은 Claude 계정을 쓰는 PC들이 휴대폰에서 한 카드로 합쳐집니다 (#275)** — 최근 Claude Code는 로그인 파일(`~/.claude/.credentials.json`)에 조직 ID를 적지 않습니다. 앱은 그 값으로만 계정을 알아봐서, 휴대폰 계정 탭에 Claude 카드가 PC마다 따로 "계정을 확인할 수 없어 PC별로 표시"로 나왔습니다. 이제 Claude Code가 계정 정보를 두는 `~/.claude.json`에서도 읽어, PC 3대 중 1대가 계정 A·2대가 계정 B면 카드 2개로 보입니다. 같은 계정의 PC들이 모두 이 버전이어야 합쳐집니다.
+- **PC 간 동기화가 다른 계정의 PC까지 한 계정으로 묶던 문제 (#275)** — 같은 원인으로 공유 폴더·동기화 코드 동기화가 모든 PC를 한 계정으로 보아, 다른 계정 PC의 오늘 토큰을 더하거나 API 조회가 실패할 때 다른 계정의 할당량을 대신 보여 줄 수 있었습니다. 이제 계정별로 나뉩니다. 사용량 기록의 계정 구분, 계정 전환 감지, 같은 ntfy 토픽을 쓰는 다른 계정 알림의 구분도 함께 바로잡힙니다.
+- 계정을 모르던 동안 쌓인 Claude 사용량 기록(차트·자동 목표)은 그 PC가 처음 알게 된 계정으로 이어지므로 초기화되지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **PCs on the same Claude account merge into one card on the phone again (#275)** — recent Claude Code no longer writes the organization ID to its login file (`~/.claude/.credentials.json`), which is the only place the app looked. The account stayed unknown, so the phone's Accounts tab showed one Claude card per PC marked "Account not identified — shown per PC". The app now also reads `~/.claude.json`, where Claude Code keeps the account profile: one PC on account A and two on account B now show two cards. All PCs on an account need this version to merge.
+- **PC-to-PC sync no longer lumps different accounts together (#275)** — for the same reason, shared-folder and sync-code sync treated every PC as one account, so it could add another account's tokens to today's total or show another account's quota when the API call failed. Sync is now split by account again, and so are usage history, account-switch detection and alerts from different accounts on one ntfy topic.
+- Claude usage history recorded while the account was unknown (chart, auto goal) carries over to the first account the PC identifies, so it does not reset.
+<!-- /en -->
+
+## [1.65.0] - 2026-11-16
+
+<!-- ko -->
+### 추가
+- **PC에 이름을 붙일 수 있습니다 (#271)** — 설정 → 연결 탭 맨 위 '이 PC 이름'에 적은 이름이 휴대폰 앱·다른 PC의 동기화 목록·공유 폴더 동기화·ntfy 알림(본문 끝 "— 이름")에 `DESKTOP-…` 대신 보입니다. 비우면 지금처럼 컴퓨터 이름을 씁니다. 바꾸면 다시 시작하지 않아도 1분 안에 휴대폰과 다른 PC에 반영됩니다(휴대폰은 페어링 때 받은 이름을 그대로 두던 것을 이제 연결할 때마다 갱신합니다).
+- **휴대폰에서 PC별 별칭 (#271)** — 휴대폰 앱 PC 탭의 ⋮ 메뉴 → '이름 바꾸기'로 그 휴대폰에서만 쓰는 이름을 붙입니다. 별칭은 PC 목록·계정 카드의 PC 칩·알림·알림센터에 우선 보이고, PC 카드에는 PC가 보내는 이름도 함께 보입니다. 칸을 비우면 PC 이름으로 돌아갑니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Name your PC (#271)** — the new "This PC's name" field at the top of Settings → Link replaces `DESKTOP-…` on the phone app, other PCs' sync lists, shared-folder sync and ntfy alerts (the "— name" line). Leave it empty to keep the computer name. A change reaches phones and other PCs within a minute without a restart (the phone used to keep the name it got at pairing; it now updates it on every connection).
+- **Per-PC aliases on the phone (#271)** — PCs tab → ⋮ → Rename gives a PC a name used on that phone only. The alias shows first in the PC list, the account cards' PC chips, alerts and the notification center, and the PC card still shows the name the PC sends. Clear the field to go back to the PC's name.
+<!-- /en -->
+
+## [1.64.0] - 2026-11-16
+
+<!-- ko -->
+### 추가
+- **휴대폰 앱 게이지에도 시간선이 보입니다 (#269)** — PC 팝업처럼 각 게이지에 이번 창이 얼마나 흘렀는지 알려 주는 흰 세로 마커를 그립니다. 막대가 마커보다 앞서 있으면 이번 창을 평소보다 빨리 쓰고 있다는 뜻입니다. 5시간·주간 창과 추가 한도는 PC가 보내는 창 길이로, OpenCode는 롤링 5시간·주간 7일·월간(초기화 한 달 전부터)으로, Antigravity는 창 종류(주간·5시간)로 위치를 잡습니다. 창 길이를 모르거나 이미 초기화된 창에는 위치를 지어내지 않고 마커를 그리지 않습니다. PC 쪽 변경은 없어 예전 PC와도 그대로 동작합니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Time-line marker on the phone's gauges (#269)** — like the PC popup, each gauge now has a white vertical marker showing how much of the window has passed. A bar ahead of its marker means you're using this window faster than an even pace. The position uses the window length the PC already sends for 5-hour/weekly and extra limits, OpenCode's rolling 5 hours, weekly 7 days and monthly (from one month before the reset), and Antigravity's window kind (weekly, 5h). When the length is unknown or the window has already reset, no marker is drawn rather than a guessed one. Nothing changed on the PC, so older PCs work as before.
+<!-- /en -->
+
+## [1.63.1] - 2026-11-16
+
+<!-- ko -->
+### 개선
+- **Codex도 휴대폰에서 계정 이름으로 보입니다 (#266)** — v1.62.0에서 알림을 계정 이름으로 구분했지만 Codex는 이름이 없어 PC 이름이 보였습니다. 이제 Codex 로그인 정보의 이름을 휴대폰 계정 카드·알림·알림센터에 보입니다. 이메일은 보내지 않고(이름을 정하지 않아 이메일만 있는 계정은 지금처럼 PC 이름), ntfy 토픽에도 넣지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Codex accounts are named on the phone too (#266)** — v1.62.0 named alerts by account, but Codex had no name so the PC was shown. The phone's account card, alerts and notification center now show the name from the Codex login. Emails are never sent (an account with only an email still shows the PC), and nothing is added to the ntfy topic.
+<!-- /en -->
+
+## [1.63.0] - 2026-11-16
+
+<!-- ko -->
+### 추가
+- **휴대폰 앱: 샘플 데이터로 둘러보기 (#261)** — PC를 연결하기 전에도 앱이 무엇을 보여 주는지 볼 수 있습니다. 첫 화면의 **샘플 데이터로 둘러보기**를 누르면 계정·PC 화면을 예시 PC 3대의 사용량으로 보여 줍니다. 위쪽 안내에서 **끝내기**를 누르거나 뒤로 가기를 하면 돌아오고, PC를 추가하면 샘플은 사라집니다. 샘플은 화면에만 보이며 PC·네트워크·알림 기록에는 아무것도 남기지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Phone app: Try with sample data (#261)** — see what the app shows before pairing a PC. **Try with sample data** on the first screen fills the Accounts and PCs tabs with three example PCs. **End** in the banner (or Back) returns, and adding a PC replaces the sample. The sample is only shown on screen; nothing is stored, sent or added to the alert history.
+<!-- /en -->
+
+## [1.62.0] - 2026-11-16
+
+<!-- ko -->
+### 개선
+- **휴대폰 알림이 PC 대신 계정으로 구분됩니다 (#262)** — 알림 위의 작은 글씨가 보낸 PC 이름이 아니라 그 알림의 계정 이름(예: `김민준 · Acme Corp`)으로 바뀌고, 알림 색이 서비스 색(Claude 주황, Codex 초록)으로 칠해집니다. 알림센터에도 계정 이름이 보입니다. 계정 정보는 암호화된 앱 푸시에만 실리고 ntfy 토픽에는 보내지 않습니다. Codex는 표시할 이름이 이메일뿐이라 지금처럼 PC 이름이 보입니다.
+- **알림 문구를 다시 썼습니다 (#262)** — 제목만 봐도 무엇이 몇 %인지 알 수 있게 `Claude 90% · 5시간 한도`처럼 바꾸고, 본문에는 `15:30 초기화 · 3h 12m 남음`처럼 초기화 시각을 적습니다(Windows 알림·ntfy·휴대폰 공통, 4개 언어).
+
+### 수정
+- 사용량 알림 본문에 점이 두 번 찍히던 문제(`· · 3h 12m 후 초기화`)와 조기 소진 알림 본문이 `(원래 초기화:  · 3h 후 초기화)`로 깨지던 문제를 고쳤습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Phone alerts now name the account, not the PC (#262)** — the small text above an alert is the account it is about (e.g. `Jane Doe · Acme Corp`) instead of the PC that sent it, and alerts are tinted with the service's color (Claude orange, Codex green). The notification center shows the account too. The account travels only in the encrypted app push, never the ntfy topic. Codex has no display name other than an email, so Codex alerts still show the PC.
+- **Rewritten alert text (#262)** — titles say what and how much at a glance (`Claude 90% · 5h limit`) and the body gives the reset time (`Resets at 15:30 · 3h 12m left`). Applies to Windows notifications, ntfy and the phone, in all four languages.
+
+### Fixed
+- Usage alerts printed a doubled separator (`· · resets 3h 12m`), and the early-exhaustion body was garbled (`(original reset:  · resets 3h)`).
+<!-- /en -->
+
+## [1.61.1] - 2026-11-16
+
+<!-- ko -->
+### 내부
+- **Google Play용 빌드에 업로드 키 서명을 붙였습니다 (#256)** — Play 빌드는 GitHub 빌드와 다른 키(Play 업로드 키)로 서명됩니다. 릴리스마다 서명된 Play 번들도 함께 만들어집니다(Play Console 업로드용, GitHub 릴리스에는 붙지 않음). 앱 기능과 GitHub APK는 바뀐 점이 없습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Internal
+- **The Google Play build is now signed with its upload key (#256)** — a different key from the GitHub build's. Each release also produces a signed Play bundle (for Play Console upload; not attached to the GitHub release). No app changes; the GitHub APK is unchanged.
+<!-- /en -->
+
+## [1.61.0] - 2026-11-16
+
+<!-- ko -->
+### 변경
+- **휴대폰 앱을 GitHub 빌드와 Google Play 빌드로 나눴습니다 (#257)** — Google Play 출시를 준비하는 작업입니다. Play에서 받는 앱은 Play가 업데이트하므로 앱 안 업데이트 기능과 그 권한을 뺐습니다(Play 정책). GitHub Releases의 APK는 **지금과 똑같이** 앱 안에서 새 버전을 확인하고 설치합니다.
+  - 두 빌드는 서명 키가 달라 서로 업데이트되지 않습니다. 나중에 Play 버전으로 바꾸려면 GitHub 버전을 지우고 Play에서 설치한 뒤 PC를 다시 연결해야 합니다.
+  - Play 버전은 아직 출시되지 않았습니다. 지금 설치본은 그대로 쓰시면 됩니다.
+<!-- /ko -->
+
+<!-- en -->
+### Changed
+- **The phone app now comes as a GitHub build and a Google Play build (#257)** — groundwork for a Play release. Play updates the apps it installs, so the Play build leaves out the in-app updater and its permission (Play policy). The APK on GitHub Releases **works as before**: it checks for and installs new versions itself.
+  - The two builds are signed with different keys, so neither updates the other. To switch to the Play version later, uninstall the GitHub version, install from Play and add your PCs again.
+  - The Play version is not out yet. Keep using your current install.
+<!-- /en -->
+
+## [1.60.0] - 2026-11-15
+
+<!-- ko -->
+### 변경
+- **휴대폰 앱의 패키지 이름이 `com.jeiel85.aiusage`로 바뀌었습니다 (#254)** — Google Play 출시에 앞서 앱 패키지 이름을 정리했습니다. Android는 패키지 이름이 다르면 다른 앱으로 보기 때문에, 이번 버전은 기존 앱의 **업데이트가 아니라 새 앱으로** 설치됩니다.
+  - **옮기는 방법**: 새 앱을 설치합니다. 기존 앱의 업데이트 알림으로 받아도 새 앱으로 따로 설치됩니다. PC 트레이의 '휴대폰 연결'로 PC를 다시 추가한 다음 기존 앱을 삭제하세요. 연결한 PC, 설정, 알림 기록은 옮겨지지 않습니다.
+  - 기존 앱이 남아 있으면 새 앱 홈에 **이전 앱 삭제** 안내가 뜹니다. 두 앱이 모두 연결돼 있으면 같은 알림이 두 번 오기 때문입니다.
+  - PC 앱에는 바뀐 점이 없습니다. PC의 휴대폰 연결 창 '연결된 휴대폰'에 남은 기존 항목은 **연결 해제**하세요. ntfy 앱에 기존 앱의 구독이 남아 있으면 ntfy에서 지우면 됩니다.
+<!-- /ko -->
+
+<!-- en -->
+### Changed
+- **The phone app's package name is now `com.jeiel85.aiusage` (#254)** — the package name was settled ahead of a Google Play release. Android treats a different package name as a different app, so this version installs **as a new app, not as an update** of the old one.
+  - **To move over**: install the new app (the old app's update prompt also installs it as a separate app), add your PCs again with Connect phone in the PC tray, then uninstall the old app. Paired PCs, settings and alert history do not carry over.
+  - While the old app is still installed, the new app shows a **Remove old app** notice on its home screen — with both paired, every alert would arrive twice.
+  - Nothing changes in the PC app. In the PC's Connect phone window, **Disconnect** the old entry under Connected phones. If the ntfy app still lists the old app's subscription, delete it there.
+<!-- /en -->
+
+## [1.59.2] - 2026-11-15
+
+<!-- ko -->
+### 개선
+- **휴대폰 연결 QR이 훨씬 잘 찍힙니다 (#251)** — 연결 QR에는 PC로 가는 경로가 모두 들어가 칸이 77~109개로 촘촘합니다. 지금까지는 이 QR을 작은 칸에 줄여 그려서 칸 하나가 2픽셀 안팎이었고, 그마저 굵기가 들쭉날쭉해 휴대폰을 아주 가까이 대야 겨우 읽혔습니다.
+  - **PC**: QR을 더 크게(최대 360) 그리고, 칸 하나가 화면 픽셀 정수배가 되도록 1:1로 표시합니다. 화면 배율(125%·150% 등)이 바뀌면 다시 그립니다. 같은 조건의 인식 시뮬레이션에서 예전 QR은 휴대폰을 아주 가까이 대야 읽혔지만, 새 QR은 그 절반쯤 떨어진 거리에서도 읽힙니다.
+  - **휴대폰 앱**: 'QR 스캔' 화면이 초점을 계속 맞추고(연속 초점), 밝기를 화면 가운데 QR 기준으로 맞춥니다. 어두운 창 속 흰 QR이 하얗게 날아가지 않습니다.
+  - 휴대폰 기본 카메라로 찍어도 앱 연결 화면이 열립니다. 앱 안 스캐너가 잘 안 될 때 써 보세요.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **The phone pairing QR is much easier to scan (#251)** — the pairing QR carries every path to the PC, so it is dense (77–109 modules). It used to be shrunk into a small box, leaving each module about 2 pixels wide and unevenly sized, so the phone had to be held very close to read it.
+  - **PC**: the QR is larger (up to 360) and drawn 1:1 with every module an exact whole number of screen pixels. It is redrawn when the display scale (125%, 150%, …) changes. In a scan simulation under the same conditions, the old QR only read with the phone very close; the new one reads from about twice that distance.
+  - **Phone app**: the Scan QR screen now focuses continuously and meters on the QR in the middle, so the white code on the dark window no longer blows out.
+  - The phone's own camera app also opens the pairing screen, if the in-app scanner struggles.
+<!-- /en -->
+
+## [1.59.1] - 2026-11-15
+
+<!-- ko -->
+### 개선
+- **휴대폰 앱 업데이트를 설정에서 바로 설치합니다 (#247)** — 지금까지는 설정에서 '지금 확인'으로 새 버전을 찾아도, 설정에서 나와 홈 위쪽 배너를 다시 눌러야 설치할 수 있었습니다. 이제 '지금 확인'으로 새 버전을 찾으면 업데이트 창이 그 자리에서 바로 열립니다. 새 버전이 있으면 설정의 업데이트 카드에 **새 버전 — 업데이트** 버튼도 보입니다. 홈 배너와 같은 창이라 어느 쪽에서 눌러도 똑같이 설치됩니다.
+
+### 수정
+- **PC 탭의 ⋮ 메뉴가 카드 글자를 가리는 것처럼 보이던 문제를 고쳤습니다 (#248)** — 메뉴가 카드와 같은 색이라 카드에 구멍이 뚫린 것처럼 보였습니다. 이제 메뉴가 테두리와 그림자가 있는 밝은 창으로 뜨고, 삭제 아이콘이 붙습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Phone app updates install straight from Settings (#247)** — until now, finding a new version with Check now in Settings still meant leaving Settings and tapping the banner at the top of the home screen. Check now now opens the update dialog right away when it finds a new version, and the update card in Settings shows a **new version — Update** button whenever one is available. It is the same dialog as the home banner, so either way installs the same.
+
+### Fixed
+- **The ⋮ menu on the PCs tab no longer looks like it covers the card's text (#248)** — the menu had the card's own colour, so it looked like a hole cut into the card. It now opens as a lighter popup with a border and shadow, with a delete icon.
+<!-- /en -->
+
+## [1.59.0] - 2026-11-15
+
+<!-- ko -->
+### 개선
+- **휴대폰 앱 화면을 더 가볍고 읽기 쉽게 다듬었습니다 (#244)**
+  - **계정 카드**: 사용량 막대 하나가 세 줄에서 두 줄로 줄었습니다. 창 이름과 초기화 시각이 한 줄에, 퍼센트는 오른쪽에 크게 표시됩니다. 퍼센트는 70%부터 막대와 같은 색(주황·빨강)으로 바뀌어 급한 항목이 바로 보입니다.
+  - 서비스마다 색이 다른 머리글자 아이콘이 붙어 카드를 한눈에 구분할 수 있습니다. 오늘 사용량과 PC 목록은 구분선 아래로 옮겼습니다.
+  - **위쪽**: 탭이 알약 모양 전환 버튼으로 바뀌었고, 제목 아래에 "PC 3대 중 1대 연결됨" 같은 연결 요약이 보입니다. PC 추가는 + 아이콘으로 옮겼습니다.
+  - **PC 탭**: 연결 상태가 색 배지(연결됨·다시 시도 중·연결 안 됨)로 보입니다. '삭제'는 실수로 누르지 않도록 ⋮ 메뉴 안으로 넣었고, 목록 끝에 'PC 추가' 버튼이 생겼습니다.
+  - 설정과 알림센터도 같은 카드·배지·스위치 모양으로 맞췄습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **The phone app looks lighter and reads faster (#244)**
+  - **Account cards**: each usage bar now takes two lines instead of three — the window name and reset time on one line with the percentage large at the right, the bar below. From 70% the percentage takes the bar's colour (amber, red), so the urgent one stands out.
+  - Each service has a coloured initial, so cards are told apart at a glance. Today's totals and the PC list sit below a divider.
+  - **Top bar**: the tabs are now a pill-shaped switch, and a line under the title sums up the connections ("1 of 3 PCs live"). Adding a PC moved to a + icon.
+  - **PCs tab**: the connection state is a coloured badge (live, retrying, not connected). Remove moved into the ⋮ menu so it isn't tapped by accident, and the list ends with an Add PC button.
+  - Settings and the notification center use the same cards, badges and switches.
+<!-- /en -->
+
+## [1.58.2] - 2026-11-15
+
+<!-- ko -->
+### 수정
+- **휴대폰의 ntfy에 이 앱 구독이 두 개씩 남던 문제를 고쳤습니다 (#242)** — 앱을 지우고 다시 설치하거나 알림을 다시 등록하면, 예전 등록이 ntfy에 그대로 남아 '구독한 주제'에 같은 앱이 여러 번 보였습니다. 이제 다시 등록할 때 이전 등록을 먼저 해제하고, 예전 등록으로 알림이 오면 그 등록을 ntfy에서 지웁니다.
+  - 이미 남아 있는 예전 구독은 그쪽으로 알림이 한 번 오면 저절로 사라집니다. 바로 지우려면 ntfy에서 길게 눌러 구독을 취소해도 됩니다.
+  - PC 설정의 휴대폰 목록에 같은 휴대폰이 두 번 보이면, 예전 것(마지막 접속이 오래된 것)을 해제해 주세요.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The phone's ntfy no longer keeps two subscriptions for this app (#242)** — after reinstalling the app or turning alerts on again, the old registration stayed in ntfy, so the same app showed up more than once under subscribed topics. The app now unregisters the previous registration before registering again, and removes an old registration from ntfy when an alert arrives on it.
+  - An old subscription that is already there disappears the next time an alert reaches it. To remove it now, long-press it in ntfy and unsubscribe.
+  - If the phone list in the PC's settings shows the same phone twice, revoke the older one (the one last seen longer ago).
+<!-- /en -->
+
+## [1.58.1] - 2026-11-14
+
+<!-- ko -->
+### 개선
+- **휴대폰 앱이 이제 정식 서명으로 배포되고, 앱 안에서 자동 업데이트됩니다 (#240)** — 지금까지 릴리스의 휴대폰 앱(APK)은 빌드할 때마다 서명 키가 바뀌는 임시(디버그) 서명이라, 새 버전이 나와도 앱 안에서 업데이트할 수 없었습니다. 이번 버전부터 고정된 정식 키로 서명하고, 앱이 하루 한 번 확인하는 `update.json`도 함께 올라갑니다.
+  - **한 번만 직접 다시 설치해 주세요**: 지금 쓰는 앱(디버그 서명)은 Android가 서명이 다른 APK를 업데이트로 받아 주지 않습니다. 앱을 지우고 이 릴리스의 `ClaudeUsageTray-Mobile.apk`를 설치한 뒤 PC를 다시 추가하면, 그다음 버전부터는 앱 안에서 **업데이트**를 눌러 설치됩니다. 앱의 업데이트 창도 이 방법을 안내합니다.
+  - 정식 빌드는 크기를 줄이는 최적화(R8)를 거쳐 APK가 더 작습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **The phone app is now properly signed and updates itself from inside the app (#240)** — until now the phone app (APK) in each release was signed with a temporary (debug) key that changed with every build, so new versions could not be installed as in-app updates. From this version on it is signed with a fixed release key, and the `update.json` the app checks once a day is published with it.
+  - **Reinstall once by hand**: Android won't accept an update signed with a different key than the installed (debug-signed) app. Uninstall the app, install this release's `ClaudeUsageTray-Mobile.apk` and add your PCs again; from the next version on, tap **Update** inside the app. The app's update dialog explains this too.
+  - The release build is optimized (R8), so the APK is smaller.
+<!-- /en -->
+
+## [1.58.0] - 2026-11-14
+
+<!-- ko -->
+### 추가
+- **휴대폰 앱에 알림센터가 생겼습니다 (#235)** — 홈 위쪽 종 아이콘을 누르면 PC가 보낸 휴대폰 알림을 최신순으로 다시 볼 수 있습니다. 알림창에서 지운 알림이나, 앱 알림 권한이 꺼져 있어 뜨지 않았던 알림도 여기에 남습니다.
+  - 마지막으로 열어 본 뒤 새로 온 알림은 종 아이콘에 개수로 표시되고, 목록에서 **새 알림**으로 구분됩니다.
+  - 알림마다 종류·보낸 PC·시각·내용이 보이고, 링크가 있는 알림(날씨)은 눌러서 예보를 엽니다. **모두 지우기**로 비울 수 있습니다.
+  - 최근 30일·최대 200건을 이 휴대폰에만 보관합니다(PC나 다른 곳으로 보내지 않습니다). 설정에서 끈 종류와, 여러 PC가 보낸 같은 경고의 중복은 남기지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **The phone app has a notification center (#235)** — tap the bell at the top of the home screen to see the alerts your PCs sent, newest first. Alerts you swiped away, or that never showed because the app's notifications were off, are still there.
+  - Alerts that arrived since you last opened it are counted on the bell and marked **New** in the list.
+  - Each alert shows its kind, the PC that sent it, the time and the text; alerts with a link (weather) open the forecast when tapped. **Clear all** empties the list.
+  - The last 30 days (up to 200 alerts) are kept on this phone only — nothing is sent anywhere. Kinds you turned off in Settings, and the same alert sent by several PCs, are not kept twice.
+<!-- /en -->
+
+## [1.57.1] - 2026-11-14
+
+<!-- ko -->
+### 수정
+- **사용량 팝업에서 창 이름이 퍼센트와 겹치던 문제를 고쳤습니다 (#234)** — v1.56.0에서 글씨를 키운 뒤, 초기화 시각이 길게 붙으면 "7일 윈도우25%"처럼 창 이름이 퍼센트 위로 겹쳐 보였습니다(Claude 5시간·7일, Codex 단기·장기).
+  - 창 이름은 이제 줄어들지 않고 항상 온전히 보입니다.
+  - 초기화 문구는 다른 줄들과 같은 크기로 맞췄고, 그래도 자리가 모자라면(일본어·영어 이름, "(예상)" 표기 등) 시각을 자르지 않고 오른쪽 아래 줄로 넘깁니다. 이때 "(11-21 22:04)" 같은 날짜·시각은 둘로 갈리지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Window names no longer overlap the percentage in the usage popup (#234)** — after v1.56.0 enlarged the text, a long reset time could push the window name on top of the percentage ("7-Day Window25%") on the Claude 5-hour/7-day and Codex short/long rows.
+  - The window name now always shows in full.
+  - The reset text is back to the same size as the other rows; if it still doesn't fit (Japanese/English names, the "(estimated)" note), it wraps to a right-aligned second line instead of being cut off, and a date-time like "(11-21 22:04)" stays together.
+<!-- /en -->
+
+## [1.57.0] - 2026-11-14
+
+<!-- ko -->
+### 수정
+- **QR 연결 창이 메인 팝업 뒤에 숨던 문제 (#232)** — 설정 → 연결 → **휴대폰 연결… (QR 표시)**를 누르면 QR 창이 맨 앞에 뜹니다. 지금까지는 QR 창이 열리는 순간 설정 창이 스스로 숨고, 그 바람에 사용량 팝업이 다시 앞으로 올라와 QR 창을 가렸습니다. 이제 설정 창은 QR 창 같은 자기 창이 열려 있는 동안 숨지 않고, QR 창을 닫으면 설정 창으로 돌아옵니다.
+
+### 참고
+- 1.54.0·1.55.0·1.56.0은 따로 배포되지 않았습니다. 아래 세 버전의 변경 내용(Cloudflare Tunnel 연결, 휴대폰 앱 자동 업데이트·설정 화면 등)이 이번 릴리스에 함께 들어 있습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The QR pairing window opened behind the main popup (#232)** — Settings → Connect → **Connect phone… (show QR)** now opens the QR window in front. Before, the Settings window hid itself the moment the QR window opened, and the usage popup came back to the front and covered it. Settings now stays open while one of its own windows (like the QR window) is open, and you return to Settings when you close it.
+
+### Note
+- 1.54.0, 1.55.0 and 1.56.0 were not released on their own. Their changes (Cloudflare Tunnel connections, phone app self-update and Settings screen, and more — see below) ship in this release.
+<!-- /en -->
+
+## [1.56.0] - 2026-11-14
+
+<!-- ko -->
+### 추가
+- **휴대폰 앱에 설정 화면이 생겼습니다 (#230)** — 홈 위쪽 톱니바퀴를 누르면 열립니다. Homebase 앱과 같은 구성입니다.
+  - **알림**: 휴대폰 알림 켜기와 받을 알림 종류. '알림' 탭에 있던 것을 옮겨서, 홈 탭은 **계정·PC** 두 개가 됩니다(좌우로 밀어 넘기기는 그대로).
+  - **화면**: 초기화 시각을 "2h 13m 후" 대신 "오후 3:20"처럼 시각으로 보기(오늘이 아니면 날짜도), 앱을 보는 동안 화면 켜 두기(남는 휴대폰을 사용량 화면으로 세워 둘 때), 앱 언어(Android 13 이상 — Android 설정의 앱 언어 화면을 엽니다).
+  - **업데이트**: 앱 업데이트 켜기/끄기·지금 확인·설치된 버전(#228).
+  - **정보**: 이 버전의 변경 내용, PC 프로그램 받기, GitHub 저장소, 문제 신고(앱·Android 버전을 미리 채움), 오픈소스 라이선스, 데이터 처리 안내.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **The phone app has a Settings screen (#230)** — tap the gear at the top of the home screen. Same layout as the Homebase app.
+  - **Notifications**: turn phone alerts on and pick which kinds to receive. Moved from the Alerts tab, so the home screen now has two tabs, **Accounts** and **PCs** (swiping still works).
+  - **Display**: show reset times as clock times ("resets 3:20 PM", with the date when it isn't today) instead of "resets in 2h 13m"; keep the screen on while the app is open (for a spare phone standing as a usage display); app language (Android 13+, opens Android's per-app language screen).
+  - **Updates**: app updates on/off, check now, installed version (#228).
+  - **About**: what's new in this version, get the PC app, GitHub repository, report a problem (app and Android versions filled in), open-source licenses, how data is handled.
+<!-- /en -->
+
+## [1.55.0] - 2026-11-14
+
+<!-- ko -->
+### 추가
+- **휴대폰 앱이 스스로 새 버전을 확인하고 업데이트합니다 (#228)** — Homebase·Markleaf 앱과 같은 방식입니다.
+  - 하루 한 번 GitHub Releases에서 새 버전을 확인하고, 새 버전이 나오면 계정 탭 위 배너와 Android 알림(버전당 한 번)으로 알립니다.
+  - 배너나 알림을 누르면 변경 내용을 보고 **업데이트**를 누를 수 있습니다. 앱이 APK를 받아 SHA-256을 대조한 뒤 Android 설치 화면으로 넘깁니다. 설치는 내가 누를 때만 진행됩니다.
+  - 알림 탭 → **앱 업데이트**에서 끄거나 **지금 확인**할 수 있습니다.
+  - **처음 한 번은 직접 설치해야 합니다**: Android는 같은 서명 키로 만든 APK만 업데이트로 설치합니다. 앱 서명 키를 등록한 뒤 나오는 첫 정식 서명 APK를 한 번 지우고 다시 설치하면(연결한 PC는 다시 추가), 그다음부터 앱 안에서 업데이트됩니다. 지금의 임시(디버그) 서명 앱에서는 업데이트 창이 이 방법을 안내합니다. 서명 키 준비 방법은 `docs/MOBILE_UPDATES.md`에 있습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **The phone app checks for new versions and updates itself (#228)** — the same way the Homebase and Markleaf apps do.
+  - Once a day it checks GitHub Releases. When a new version is out, it shows a banner above the Accounts tab and an Android notification (once per version).
+  - Tap the banner or notification to see what changed and tap **Update**. The app downloads the APK, checks its SHA-256 and hands it to the Android installer. Nothing installs until you tap.
+  - Turn it off or **Check now** under Alerts → **App updates**.
+  - **Install manually once**: Android only installs an update signed with the same key. After the app signing key is set up, uninstall once and install the first properly signed APK (paired PCs need to be added again); from then on updates install from inside the app. On the current temporary (debug-signed) app, the update dialog explains this. Setting up the signing key is described in `docs/MOBILE_UPDATES.md`.
+<!-- /en -->
+
+## [1.54.0] - 2026-11-14
+
+<!-- ko -->
+### 추가
+- **Tailscale 없이 밖에서도 휴대폰·다른 PC가 연결됩니다 — Cloudflare Tunnel (#225)** — 설정 → **연결** → **밖에서도 연결 (Cloudflare Tunnel)**을 켜면 이 앱이 Cloudflare의 `cloudflared`를 함께 실행해, 집 밖의 휴대폰(LTE 등)에서도 사용량을 실시간으로 봅니다. Homebase와 같은 방식입니다.
+  - **포트·방화벽 설정이 필요 없습니다**: 이 PC가 Cloudflare로 바깥 연결만 엽니다.
+  - **계정 없이 바로 쓸 수 있습니다**: 기본은 임시 주소(`*.trycloudflare.com`)이며, 이 앱을 다시 시작할 때마다 주소가 바뀝니다. 휴대폰 알림(ntfy 앱)이 켜져 있으면 PC가 새 주소를 서명된 푸시로 보내 휴대폰이 알아서 따라갑니다(화면에 알림은 뜨지 않습니다).
+  - **고정 주소도 됩니다**: Cloudflare 계정·도메인이 있으면 "고정 주소 사용"에 터널 토큰과 호스트명을 넣으세요. 토큰은 이 Windows 사용자만 풀 수 있게 암호화해 저장합니다.
+  - `cloudflared`가 없으면 같은 줄의 **설치 (winget)** 버튼으로 설치합니다(Windows가 관리자 승인을 물을 수 있습니다).
+  - 휴대폰 앱은 같은 Wi-Fi → Tailscale(켜져 있을 때) → Cloudflare 순으로 되는 경로를 자동으로 고릅니다. PC 동기화 코드도 Cloudflare 경로로 연결됩니다.
+  - 주의: 터널 주소를 아는 사람은 PC 이름·앱 버전을 볼 수 있습니다. 사용량을 보려면 QR의 1회용 코드(5분)로 받은 토큰이 있어야 합니다.
+
+### 개선
+- **휴대폰 앱의 계정·PC·알림 탭을 좌우로 밀어 넘길 수 있습니다 (#227)** — 탭을 눌러도 되고, 화면을 옆으로 밀어도 됩니다. 탭마다 스크롤 위치가 따로 유지됩니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Phones and other PCs connect from anywhere without Tailscale — Cloudflare Tunnel (#225)** — Turn on Settings → **Connect** → **Connect from anywhere (Cloudflare Tunnel)** and this app runs Cloudflare's `cloudflared` alongside, so a phone away from home (mobile data, etc.) sees usage live. Same approach as Homebase.
+  - **No port or firewall setup**: this PC only dials out to Cloudflare.
+  - **Works without an account**: by default it uses a temporary address (`*.trycloudflare.com`) that changes each time this app restarts. With phone alerts (the ntfy app) on, the PC sends the new address in a signed push and the phone follows it on its own (no notification is shown).
+  - **Fixed address too**: with a Cloudflare account and domain, enter the tunnel token and hostname under "Use a fixed address". The token is stored encrypted so only this Windows user can read it.
+  - If `cloudflared` is missing, the **Install (winget)** button on the same line installs it (Windows may ask for administrator approval).
+  - The phone app picks the path that works: same Wi-Fi → Tailscale (when on) → Cloudflare. PC sync codes also connect over Cloudflare.
+  - Note: anyone who knows the tunnel address can see the PC name and app version. Seeing usage needs the token issued for the QR's one-time code (5 minutes).
+
+### Improved
+- **Swipe between the phone app's Accounts, PCs and Alerts tabs (#227)** — tap a tab or swipe sideways. Each tab keeps its own scroll position.
+<!-- /en -->
+
+## [1.53.0] - 2026-11-14
+
+<!-- ko -->
+### 추가
+- **휴대폰(Android) 앱에서 여러 PC의 사용량을 계정 단위로 실시간으로 봅니다 (#220)** — 설정 → **연결** → **이 PC에 연결 허용**을 켜고 **휴대폰 연결… (QR 표시)**를 누르면 QR이 나옵니다. 휴대폰 앱으로 스캔하면 그 PC가 등록되고, 앱이 화면에 보이는 동안 사용량이 바뀔 때마다 바로 반영됩니다. 연결 구조는 Homebase의 휴대폰 연동을 그대로 따릅니다.
+  - **계정 단위로 묶입니다**: 같은 계정을 쓰는 PC들은 한 카드로 합쳐집니다(PC 3대 중 2대가 계정 A, 1대가 계정 B면 카드 2개). 할당량은 가장 최근에 관측한 PC 값을 쓰고, 오늘 토큰은 PC마다 더합니다. Claude는 계정(조직+사용자), Codex는 로그인 계정으로 구분하며, 계정을 알 수 없는 Antigravity·OpenCode는 잘못 합치지 않도록 PC별로 따로 보입니다.
+  - **중계 서버 없이 직접 연결합니다**: 같은 Wi-Fi에서는 QR에 담긴 PC 인증서만 믿는 TLS로, 밖에서는 Tailscale로 붙습니다.
+  - **보안**: QR 코드는 5분·1회용이고 5분에 10번 틀리면 잠깁니다. PC는 토큰의 해시만 저장하고, 원시 계정 ID·이메일은 휴대폰에 보내지 않습니다.
+  - **방화벽**: 연결 창의 **방화벽 규칙 추가(관리자)**를 한 번 누르면 이 exe·포트로 한정한 규칙(LAN은 '개인' 네트워크에서만)을 넣습니다. 기본은 꺼져 있고, 켜야 포트(47830)를 엽니다.
+  - **휴대폰 앱 설치**: 이 릴리스의 `ClaudeUsageTray-Mobile.apk`를 휴대폰에서 받아 설치합니다(Android 8.0+). 앱이 없을 때 PC의 QR을 휴대폰 카메라로 찍으면 설치 안내 페이지가 열립니다.
+- **QR 연결만으로 휴대폰 알림까지 연결됩니다 (#222)** — 휴대폰에 ntfy 앱이 있으면 PC를 QR로 연결하는 순간 알림도 켜집니다. 토픽 이름을 정하거나 입력할 필요가 없습니다.
+  - 사용량 경고·조기 소진·레이트 리밋·초기화·날씨 알림이 휴대폰 앱으로 옵니다. 내용은 PC에서 종단 암호화(RFC 8291)되어 ntfy 서버는 암호문만 봅니다.
+  - 여러 PC가 같은 계정의 같은 사건을 보내도 휴대폰에는 한 번만 뜹니다.
+  - 앱의 **알림** 탭에서 받을 알림 종류를 고르면 PC가 보내기 전에 거릅니다.
+  - **기존 ntfy 토픽 이전**: 앱 알림을 받는 휴대폰이 있으면 PC는 평문 토픽으로 보내지 않습니다. 토픽은 앱 알림이 실패하거나 앱이 없을 때(iOS 등)의 대체 경로로만 쓰입니다. 설정 → 알림에 지금 어느 경로로 가는지 표시됩니다.
+- **공유 폴더 없이 '동기화 코드'로 PC끼리 사용량을 합칩니다 (#223)** — 한 PC의 설정 → 연결 → **이 PC의 동기화 코드 복사**를 누르고, 다른 PC의 같은 화면에 붙여 넣으면 두 PC가 직접 연결됩니다.
+  - 한 PC에만 연결해도 그룹 전체가 공유됩니다(B·C가 A에 연결하면 B와 C도 서로의 값을 받습니다).
+  - **Claude Code가 없는 PC도** 그룹의 다른 PC가 본 Claude 사용량을 보여 줍니다.
+  - 같은 Wi-Fi·LAN이나 Tailscale로 닿아야 합니다. 다른 네트워크의 PC는 기존 공유 폴더 동기화를 함께 쓸 수 있고, 두 경로의 값은 하나로 합쳐집니다.
+
+### 개선
+- **설정 창과 사용량 창을 정리했습니다 (#224)**
+  - 설정 창 제목을 "설정"으로 바꾸고 폭을 넓혀 탭이 잘리지 않게 했습니다. 설명 글자도 조금 키웠습니다.
+  - 휴대폰·PC 동기화·공유 폴더 동기화를 새 **연결** 탭에 모았습니다. 일반 탭이 짧아졌습니다.
+  - ntfy 탭을 **알림** 탭에 합쳤습니다.
+  - 사용량 창: 게이지 아래에 같은 숫자를 한 번 더 쓰던 요약 줄은 라벨에 마우스를 올리면 보이게 옮겼습니다. 토큰 수는 "2.5M"처럼 줄여 보이고 정확한 값은 툴팁에 남겼습니다. 위아래 두 군데 있던 설정 버튼은 위쪽 하나만 남겼습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **See every PC's usage per account, live, in the Android phone app (#220)** — Open Settings → **Connect**, turn on **Allow connections to this PC**, and click **Connect phone… (show QR)**. Scan the QR with the phone app to add the PC; while the app is on screen, usage changes show up right away. The design follows Homebase's phone link.
+  - **Grouped by account**: PCs that use the same account are merged into one card (three PCs, two on account A and one on account B → two cards). Quota uses the most recent observation; today's tokens are added up across PCs. Claude is identified by account (organization + user), Codex by its login; Antigravity and OpenCode can't be identified, so they appear per PC instead of being merged by mistake.
+  - **Direct, no relay server**: on the same Wi-Fi via TLS that trusts only the PC certificate from the QR; away from home via Tailscale.
+  - **Security**: QR codes work once for 5 minutes and lock after 10 wrong tries. The PC stores only token hashes and never sends raw account IDs or emails.
+  - **Firewall**: one click on **Add firewall rules (admin)** adds rules limited to this exe and port (LAN on Private networks only). Off by default; port 47830 opens only when it's on.
+  - **Install the phone app**: download `ClaudeUsageTray-Mobile.apk` from this release on the phone (Android 8.0+). Without the app, scanning the PC's QR with the phone camera opens an install guide.
+- **Pairing by QR also sets up phone alerts (#222)** — With the ntfy app on the phone, alerts turn on the moment a PC is paired. No topic to choose or type.
+  - Usage thresholds, early exhaustion, rate limits, resets and weather alerts arrive in the phone app, end-to-end encrypted on the PC (RFC 8291); the ntfy server only sees ciphertext.
+  - When several PCs report the same event for one account, the phone shows it once.
+  - Choose which alerts to receive in the app's **Alerts** tab; PCs filter before sending.
+  - **Old ntfy topic migrated**: when a phone receives app alerts, the PC stops posting to the plaintext topic. The topic remains only as a fallback when app delivery fails or there's no app (e.g. iOS). Settings → Alerts shows which path is in use.
+- **Sync PCs with a 'sync code' instead of a shared folder (#223)** — Click **Copy this PC's sync code** in Settings → Connect on one PC and paste it on another PC's same screen; the two PCs link directly.
+  - Linking to one PC shares with the whole group (if B and C link to A, B and C also get each other's values).
+  - **A PC without Claude Code** still shows the Claude usage the group observed.
+  - PCs must reach each other over the same Wi-Fi/LAN or Tailscale. For PCs on other networks, keep using shared-folder sync alongside; values from both paths are merged.
+
+### Improved
+- **Cleaner settings and usage windows (#224)**
+  - The settings window is titled "Settings" and is wider so tabs no longer clip; descriptions are slightly larger.
+  - Phone, PC sync and shared-folder sync now live in a new **Connect** tab, so the General tab is shorter.
+  - The ntfy tab is merged into **Alerts**.
+  - Usage window: the summary line that repeated the gauge's numbers moved into the label's tooltip; token counts show as "2.5M" with the exact value in a tooltip; the duplicate settings button at the bottom is gone (the one at the top remains).
+<!-- /en -->
+
+## [1.52.0] - 2026-11-11
+
+<!-- ko -->
+### 추가
+- **Claude 섹션에 계정 이름과 조직이 함께 보입니다 (#218)** — 등급 배지 뒤에 Claude 클라이언트 왼쪽 아래와 같은 이름·조직을 흐린 색으로 붙입니다. 예: `Claude Team 5x · 김민준 · Acme Corp`. 개인 계정과 회사 계정을 오갈 때 지금 보는 할당량이 어느 계정 것인지 바로 알 수 있습니다.
+  - 이 PC의 `~/.claude.json`에 Claude Code가 받아 둔 프로필을 읽습니다. 토큰이나 네트워크 호출은 쓰지 않습니다.
+  - 조직 이름은 팀·엔터프라이즈 조직일 때만 보입니다. 개인 구독은 조직 이름이 이메일로 자동 생성되는 경우가 있어서 숨깁니다. 이메일은 어디에도 보이지 않습니다.
+  - 줄이 늘어나지 않습니다. 길면 말줄임으로 자르고, 마우스를 올리면 전체 문구가 보입니다.
+  - 계정을 바꾸면 다음 새로고침 때 반영됩니다. 프로필을 읽지 못하면 지금처럼 등급만 보입니다.
+  - 설정 → 트레이 → 표시 옵션의 **Claude 계정 이름·조직 표시**로 끌 수 있습니다(기본 켜짐). 화면을 캡처해 공유할 때 실명·회사명을 가리려면 끄세요.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **The Claude section now shows your account name and organization (#218)** — The same name and organization the Claude app shows in its bottom-left corner are added after the plan badge in a muted color, for example `Claude Team 5x · Jane Doe · Acme Inc`. If you switch between a personal and a work account, you can tell at a glance whose quota you're looking at.
+  - It reads the profile Claude Code keeps in `~/.claude.json` on this PC. No token or network call is used.
+  - The organization shows only for Team or Enterprise organizations. Personal plans can have an organization name generated from your email, so it's hidden for them. Your email is never shown.
+  - The badge stays on one line. Long text is cut off with an ellipsis, and hovering shows the full text.
+  - Switching accounts shows up on the next refresh. If the profile can't be read, only the plan badge shows, as before.
+  - Turn it off under Settings → Tray → Display options → **Show Claude account name and organization** (on by default), for example before sharing a screenshot.
+<!-- /en -->
+
+## [1.51.1] - 2026-11-10
+
+<!-- ko -->
+### 수정
+- **자석으로 붙은 사용량 창이 기본 위치처럼 가장자리에서 살짝 띄워집니다 (#216)** — 1.51.0 은 창을 화면 가장자리에 딱 붙였고, 트레이 모서리 기본 위치는 조금 띄워 두어 붙인 위치가 기본 위치와 달랐습니다. 이제 기본 위치와 같은 간격으로 붙으므로, 오른쪽 아래 구석에 붙이면 기본 위치와 정확히 같은 자리에 놓입니다. 기본 화면·미니 화면 모두 같습니다.
+  - 기본 화면의 그림자가 화면 밖이나 작업표시줄, 옆 모니터로 잘려 나가지 않습니다.
+  - 끌기를 마친 뒤 화면 안으로 들이는 처리와 높이가 바뀔 때 가장자리를 지키는 처리도 같은 간격을 씁니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **A snapped usage window now keeps the same small gap from the edge as its default position (#216)** — 1.51.0 snapped the window flush against the screen edge, while the default tray-corner position leaves a small gap, so a snapped window never lined up with the default. It now snaps with the same gap, so snapping it into the bottom-right corner puts it exactly at the default position. This applies to both the regular and mini views.
+  - The regular view's shadow is no longer cut off at the screen edge or drawn over the taskbar or a neighboring monitor.
+  - Pulling the window back on screen after a drag and keeping it on an edge when its height changes use the same gap.
+<!-- /en -->
+
+## [1.51.0] - 2026-11-10
+
+<!-- ko -->
+### 추가
+- **사용량 창을 끌면 화면 가장자리에 자석처럼 붙습니다 (#214)** — 기본 화면과 미니 화면 모두, 창이 놓인 모니터의 상하좌우 가장자리나 작업표시줄 경계에서 16px 안으로 끌면 그 가장자리에 붙고, 더 끌면 떨어집니다.
+  - 기본 화면은 그림자 자리인 바깥 투명 여백을 빼고, 눈에 보이는 테두리를 가장자리에 맞춥니다.
+  - 모니터가 여러 대면 창이 놓인 모니터의 가장자리를 씁니다.
+
+### 수정
+- **미니 화면이 디스플레이 배율 100%가 아닐 때 가장자리에서 어긋나던 문제를 고쳤습니다 (#214)** — 위치 계산에 화면 픽셀과 앱 좌표가 섞여 있었습니다. 이제 같은 픽셀 기준으로 계산합니다.
+- **옮겨 둔 기본 화면이 트레이 모서리로 되돌아가지 않습니다 (#214)** — 이전에는 공급자 행을 눌러 창 높이가 바뀌면 트레이 모서리로 되돌아갔습니다. 이제 옮긴 자리를 지키고, 아래·오른쪽 가장자리에 붙여 둔 창은 높이가 바뀌어도 그 가장자리에 남습니다. 설정 창을 닫을 때도 옮긴 자리에 그대로 있습니다. 다른 모니터로 옮긴 창의 최대 높이는 그 모니터 기준으로 맞춥니다. 트레이 아이콘을 다시 눌러 열면 지금처럼 트레이 모서리에서 열립니다.
+- 끌기를 마쳤을 때 창이 화면 밖으로 나가 있으면, 이제 기본 화면도 미니 화면처럼 작업 영역 안으로 들어옵니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **The usage window now snaps to screen edges like a magnet while you drag it (#214)** — In both the regular and mini views, dragging the window within 16px of any edge of its monitor, including the taskbar edge, snaps it to that edge. Keep dragging to pull it away.
+  - The regular view lines up its visible border with the edge, not the transparent shadow margin around it.
+  - With several monitors, it snaps to the edges of the monitor the window is on.
+
+### Fixed
+- **The mini view no longer lands slightly off the screen edges when display scaling isn't 100% (#214)** — Its position math mixed screen pixels with app coordinates. Both now use the same pixels.
+- **A moved regular view no longer jumps back to the tray corner (#214)** — Clicking a provider row used to send it back there when the window height changed. It now stays where you put it. A window attached to the bottom or right edge stays on that edge when its height changes. Closing the settings window no longer moves it either. On another monitor, its maximum height follows that monitor. Opening it again from the tray icon still opens it at the tray corner.
+- If the window ends up partly off screen when you finish dragging, the regular view is now pulled back inside the work area, just like the mini view.
+<!-- /en -->
+
+## [1.50.1] - 2026-10-28
+
+<!-- ko -->
+### 수정
+- **Codex 상세의 ChatGPT 이미지 생성 줄이 "Ch…" 로 잘리던 문제를 고쳤습니다 (#210)** — 남은 횟수와 초기화 시각을 한 줄에 몰아 두어 이름이 두 글자만 보였습니다. 이제 윗줄에 `ChatGPT 이미지 생성 · 120회 남음`, 아랫줄에 `23h 58m 후 초기화 (10-29 17:47)` 를 다른 한도의 요약 줄과 같은 모양으로 보여 줍니다. 초기화 시각을 모르면 아랫줄은 나오지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The ChatGPT image generation line in Codex details no longer gets cut down to "Ch…" (#210)** — The remaining count and reset time were squeezed onto the same line, leaving room for only two letters of the name. The name and `120 left` now sit on the first line and `resets 23h 58m (10-29 17:47)` on its own line below, styled like the summary line of the other limits. The second line is hidden when the reset time is unknown.
+<!-- /en -->
+
+## [1.50.0] - 2026-10-28
+
+<!-- ko -->
+### 수정
+- **Codex 상세에 ChatGPT 이미지 생성 남은 횟수가 실제로 나옵니다 (#206)** — 이전 버전의 이미지 생성 게이지는 Codex 사용량 응답에 이미지 한도가 따로 실려 올 때만 그려졌는데, 실제 응답에는 그 값이 없어 한 번도 나오지 않았습니다. 이제 ChatGPT 웹이 쓰는 값을 같은 Codex 로그인으로 읽어 `ChatGPT 이미지 생성 · 120회 남음 · 1d 0h 후 초기화` 처럼 보여 줍니다.
+  - 서버가 총 한도는 알려주지 않아 사용률 게이지 없이 남은 횟수만 보여 줍니다. 아직 쓰지 않았다면 초기화 시각은 "지금부터 24시간 뒤"로 표시됩니다.
+  - 이 요청은 Windows 에 기본으로 들어 있는 `curl.exe` 로 보냅니다. 앱의 일반 요청 방식은 이 주소에서만 Cloudflare 가 막기 때문입니다. 로그인 정보는 명령줄에 남기지 않습니다.
+  - 값을 읽지 못하면 이 줄만 숨기고, Codex 사용량·로그인 안내는 그대로입니다.
+  - Codex 에서 만든 이미지가 이 횟수에서 함께 빠지는지는 아직 확인되지 않았습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Codex details now actually show your remaining ChatGPT image generations (#206)** — The image generation gauge in earlier versions only appeared when the Codex usage response carried a separate image limit, and real responses never do, so it never showed up. The app now reads the value ChatGPT on the web uses, with the same Codex sign-in, and shows it as `ChatGPT image generation · 120 left · resets in 1d 0h`.
+  - The server doesn't report the total limit, so there's no usage gauge, only the remaining count. If you haven't used any yet, the reset time shows as 24 hours from now.
+  - This request goes through the `curl.exe` that ships with Windows, because Cloudflare blocks the app's usual request method on this address only. Your sign-in token is never put on a command line.
+  - If the value can't be read, only this line is hidden; Codex usage and the sign-in notice are unaffected.
+  - It isn't confirmed yet whether images made in Codex count against this number.
+<!-- /en -->
+
+## [1.49.0] - 2026-10-16
+
+<!-- ko -->
+### 추가
+- **Antigravity 상세에 Gemini 4 Argon 주간 한도를 별도 게이지로 보여줍니다 (#204)** — Antigravity 앱의 사용량 화면처럼, 공유 한도(Gemini 모델 · Claude·GPT 모델) 아래에 `Gemini 4 Argon · 주간` 게이지가 따로 나옵니다.
+  - Google 이 Argon 한도를 Antigravity 데스크톱 앱이 보내는 요청에만 알려 주기 때문에, 이제 앱도 같은 방식으로 요청합니다. 서버가 거부하면 이전 방식으로 다시 요청해 기존 게이지는 그대로 받습니다.
+  - Argon 을 쓸 수 없는 계정에서는 이 게이지가 나오지 않습니다.
+  - 트레이 숫자는 지금처럼 공유 한도 기준입니다. Argon 을 다 써도 다른 모델은 계속 쓸 수 있기 때문이며, Claude 의 모델 한정 한도·Codex 추가 한도와 같은 규칙입니다.
+  - 다중 PC 동기화로 받은 값도 같은 이름으로 보입니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Antigravity details now show the Gemini 4 Argon weekly limit as its own gauge (#204)** — Like the usage screen in the Antigravity app, a separate `Gemini 4 Argon · Weekly` gauge appears below the shared limits (Gemini models · Claude and GPT models).
+  - Google only reports the Argon limit to requests made the way the Antigravity desktop app makes them, so the app now asks the same way. If the server refuses, it asks again the previous way so the existing gauges still arrive.
+  - Accounts that can't use Argon don't get this gauge.
+  - The tray number still follows the shared limits. Using up Argon doesn't stop you from using other models, and Claude's model-specific limits and Codex's extra limits follow the same rule.
+  - Values received through multi-PC sync show the same name.
+<!-- /en -->
+
+## [1.48.2] - 2026-10-13
+
+<!-- ko -->
+### 수정
+- **Codex·OpenCode 사용량 데이터에 이상한 값 하나가 섞여도 나머지는 그대로 읽습니다 (#201)** — 지금까지는 Codex 공식 사용량 응답의 한 칸(예: 추가 한도의 초기화 시각)이 비어 있거나 숫자가 아니기만 해도 응답 전체를 버리고 로컬 로그로 바꿔 보여 줬습니다. Codex 로그 한 줄과 OpenCode 요청 한 건도 같은 이유로 통째로 집계에서 빠졌습니다. 이제 그 칸만 "값 없음"으로 두고 나머지 게이지·토큰·비용은 평소대로 보여 줍니다.
+- 앱이 Codex 로그인 파일을 읽는 동안에도 Codex 가 로그인 정보를 저장하거나 로그아웃할 수 있게 파일을 엽니다. 앱은 이 파일에 쓰지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **One odd value in Codex or OpenCode usage data no longer throws away the rest (#201)** — Until now, if a single field in the official Codex usage response (for example, the reset time of an extra limit) came back empty or non-numeric, the whole response was dropped and the app fell back to local logs. A Codex log line or an OpenCode request with such a value was also left out of the totals entirely. Now only that field is treated as missing, and the other gauges, tokens and costs are shown as usual.
+- The Codex sign-in file is now opened so that Codex can still save its sign-in or sign out while the app is reading it. The app never writes to this file.
+<!-- /en -->
+
+## [1.48.1] - 2026-10-13
+
+<!-- ko -->
+### 수정
+- **Codex 로그인이 만료되면 그 사실을 알려 줍니다 (#198)** — Codex 로그인 토큰이 만료돼 공식 사용량 조회가 거부되면, 앱은 지금까지 아무 말 없이 로컬 로그로 바꿔 보여 줬습니다. 로그 값은 그 PC 에서 Codex 를 써야 생기므로 게이지가 옛 값이나 빈 값이 되고, 공식 조회에서만 오는 모델별 추가 한도(Spark 등)는 이유 없이 사라진 채 출처만 `Local Log` 로 바뀌었습니다. 이제 Codex 상세에 `이 PC 의 Codex 로그인이 만료됐습니다…` 안내가 나옵니다. Codex 를 실행하면 로그인이 갱신되고, 그래도 안 되면 Codex 에 다시 로그인하면 됩니다.
+- 안내는 서버가 로그인을 거부했을 때만 나옵니다. 거부 응답이라도 원인이 여럿인 경우(접근 차단 등)에는 이 PC 의 로그인이 실제로 만료됐을 때만 띄우고, 네트워크가 잠깐 끊긴 경우에는 띄우지 않습니다.
+- 기본 게이지는 계속 보이고(이 PC 로그나 다중 PC 동기화 값), 빨간 오류로 표시하지 않습니다. 조회 중 예기치 않은 오류가 나면 이전 안내는 지웁니다.
+- 앱은 로그인 토큰을 직접 갱신하거나 Codex 로그인 파일에 쓰지 않습니다. 앱이 갱신하면 Codex 쪽 로그인이 풀릴 수 있기 때문입니다.
+- 일본어 화면의 "오늘 Codex 사용 기록 없음" 문구에 한글이 섞여 있던 것을 고쳤습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The app now tells you when your Codex sign-in has expired (#198)** — When the Codex sign-in token expired and the official usage request was rejected, the app silently switched to local logs. Local logs only exist where Codex is used on that PC, so the gauges could show old or empty values, and per-model extra limits (such as Spark), which only come from the official request, disappeared without explanation while the source changed to `Local Log`. The Codex details now show `This PC's Codex sign-in has expired…`. Running Codex refreshes the sign-in; if that does not help, sign in to Codex again.
+- The notice only appears when the server rejects the sign-in. For rejections that can have other causes (such as access blocks), it appears only when this PC's sign-in has actually expired, and it never appears for a brief network outage.
+- The main gauges keep showing (from this PC's logs or multi-PC sync) and are not marked as an error. If the check fails unexpectedly, the previous notice is cleared.
+- The app never refreshes the sign-in token or writes to the Codex sign-in file itself, because doing so could sign Codex out.
+- Fixed Korean characters mixed into the Japanese "no Codex usage today" text.
+<!-- /en -->
+
+## [1.48.0] - 2026-10-12
+
+<!-- ko -->
+### 추가
+- **OpenCode 상세에 요금제·한도 도달·추가 사용·크레딧·구독 상태를 보여줍니다 (#196)** — OpenCode 콘솔이 이미 알려 주던 값을 콘솔 화면과 같은 규칙으로 옮겼습니다.
+  - 배지가 `OpenCode Go Plus` 를 구분합니다(Go Plus 는 한도가 4배).
+  - 창을 다 쓰면 게이지 아래에 `주간 한도 도달 · 3d 4h 후 재개` 처럼 다시 쓸 수 있는 때를 알려 줍니다. 추가 사용이 켜져 있으면 `… 동안 크레딧으로 계속 사용` 으로 나옵니다.
+  - `추가 사용 켜짐 · 크레딧 $12.34` — 크레딧은 콘솔처럼 작업공간 관리자에게만 보입니다.
+  - 갱신 결제 실패·결제 조치 필요(빨간색), 해지 예정(`Go 구독 10/19 종료`), Go Plus → Go 전환 예정을 한 줄로 알려 줍니다.
+  - 구독이 일시정지·결제 승인 대기·갱신 처리 중·재승인 필요 상태면 "Go 할당량을 찾지 못했습니다" 대신 그 이유를 보여 줍니다.
+- 위 값도 다중 PC 동기화에 포함됩니다. 다른 PC 의 관측으로 게이지를 그릴 때 같은 줄이 함께 나옵니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **OpenCode details now show the plan, limit-reached state, extra usage, credits and subscription status (#196)** — Values the OpenCode console already reports are shown with the console's own rules.
+  - The badge tells `OpenCode Go Plus` apart (Go Plus has 4× the limits).
+  - When a window is used up, a line below the gauges says when you can use Go again, e.g. `Weekly limit reached · Go resumes in 3d 4h`, or `… using credits for the next …` when extra usage is on.
+  - `Extra usage on · Credits $12.34` — like the console, credits are shown to workspace admins only.
+  - Renewal payment failures and required payment actions (in red), a scheduled cancellation (`Go subscription ends 10/19`) and a Go Plus → Go switch are shown on one line.
+  - When the subscription is paused, awaiting payment approval, processing renewal or needs reauthorization, the popup shows that reason instead of "No OpenCode Go quota found".
+- These values are included in multi-PC sync, so the same lines appear when the gauges come from another PC's observation.
+<!-- /en -->
+
+## [1.47.0] - 2026-10-12
+
+<!-- ko -->
+### 변경
+- **Antigravity 는 기본으로 Gemini 한도만 보여줍니다 (#194)** — 상세 화면에 Gemini 5시간·주간 두 줄만 나오고, 트레이 숫자와 자동 모드 판정도 Gemini 창 기준입니다. Claude·GPT 한도도 보려면 설정 > 트레이 > 표시 옵션의 `Antigravity 의 Claude·GPT 한도도 표시` 를 켜세요. 꺼 두면 Antigravity 에서 Claude·GPT 를 써서 그 한도가 차도 앱에는 나오지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Changed
+- **Antigravity now shows only the Gemini limits by default (#194)** — The details show just the Gemini 5-hour and weekly rows, and the tray figure and auto mode follow the Gemini windows. To see the Claude and GPT limits too, turn on `Also show Antigravity's Claude and GPT limits` under Settings > Tray > Display options. While it is off, using up those limits through Claude or GPT in Antigravity does not show in the app.
+<!-- /en -->
+
+## [1.46.2] - 2026-10-12
+
+<!-- ko -->
+### 수정
+- **OpenCode Go 사용량 게이지가 다시 나옵니다 (#188)** — OpenCode 가 9월 22일 Go 사용량 화면을 새 콘솔(`opencode.ai/console`)로 옮기면서, 앱이 읽던 예전 페이지가 새 콘솔로 넘어가 게이지를 읽지 못하고 로그인해도 연결되지 않았습니다. 이제 새 콘솔에서 롤링·주간·월간 사용률과 초기화 시각을 읽습니다.
+- 새 콘솔 로그인이 필요하면 `OpenCode 로그인` 버튼이 나타납니다. 예전 페이지로 로그인해 두었어도 한 번 더 로그인해야 할 수 있습니다.
+- 로그인은 됐지만 Go 구독이 없는(또는 해지·일시정지된) 계정이면 로그인 버튼 아래에 그 이유를 알려 줍니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **OpenCode Go usage gauges are back (#188)** — On September 22 OpenCode moved Go usage to the new console (`opencode.ai/console`). The old page the app read now forwards to the new console, so the gauges could not be read and signing in never connected. The app now reads the rolling, weekly and monthly usage and reset times from the new console.
+- If the new console needs you to sign in, the `Sign in to OpenCode` button appears. Even if you signed in through the old page, you may need to sign in once more.
+- If you are signed in but the account has no Go subscription (or it was cancelled or paused), the reason now appears below the sign-in button.
+<!-- /en -->
+
+## [1.46.1] - 2026-10-12
+
+<!-- ko -->
+### 수정
+- **개발용 테스트가 이 PC 의 실제 설정·사용 기록을 덮어쓰지 않습니다 (#186)** — 소스에서 테스트를 돌리면 `~/.claude` 의 설정·사용 기록·날씨 알림 기록과 OpenCode 웹 로그인 세션이 바뀌고, Claude 토큰이 만료된 때에는 로그인 파일까지 갱신될 수 있었습니다. 테스트는 이제 임시 폴더만 쓰고, 테스트 중에 트레이 앱이 몰래 실행되지도 않습니다. 앱 자체의 동작은 바뀌지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Developer tests no longer overwrite this PC's real settings and usage history (#186)** — Running the test suite from source used to rewrite the settings, usage history and weather-alert records under `~/.claude` and the OpenCode web sign-in session, and could even refresh the Claude login file when its token had expired. Tests now use temporary folders only, and the tray app no longer starts silently during tests. The app itself behaves exactly as before.
+<!-- /en -->
+
+## [1.46.0] - 2026-10-12
+
+<!-- ko -->
+### 추가
+- **Claude 의 모델별 주간 한도도 게이지로 보여줍니다 (#187)** — Claude 는 5시간·7일 한도 말고도 특정 모델에만 거는 주간 한도(예: `Sonnet`, 프로모션 기간의 `Fable`)를 따로 둡니다. Claude 상세에서 7일 게이지 아래에 이런 한도가 한 줄씩(예: `Fable · 주간`) 사용률·초기화 시각·시간선과 함께 나옵니다. 모델 이름은 서버가 준 이름을 그대로 씁니다.
+- 모델별 한도도 다중 PC 동기화에 포함됩니다. 이 PC 의 Claude 조회가 실패해 다른 PC 의 값을 쓸 때 모델별 한도도 함께 보여줍니다.
+
+### 변경
+- 응답에 있었지만 화면에 쓰이지 않던 Opus/Sonnet 주간 값은 위 목록으로 합쳤습니다. 같은 모델이 두 곳에 다 오면 한 줄만 그립니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Claude's per-model weekly limits now get their own gauges (#187)** — Besides the 5-hour and 7-day limits, Claude enforces weekly limits that apply to a single model (e.g. `Sonnet`, or `Fable` during a promotion). They now appear below the 7-day gauge in the Claude details, one row each (e.g. `Fable · Weekly`), with usage, reset time and the timeline marker. Model names are shown as the server provides them.
+- Per-model limits are included in multi-PC sync, so when this PC's Claude fetch fails and another PC's values are used, the per-model limits come along.
+
+### Changed
+- The Opus/Sonnet weekly values that were already in the response but never shown are merged into the list above. A model reported in both places is drawn once.
+<!-- /en -->
+
+## [1.45.0] - 2026-10-12
+
+<!-- ko -->
+### 추가
+- **Antigravity 상세에 Google AI 크레딧 잔액을 보여줍니다 (#190)** — Google AI Pro·Ultra 는 한도를 다 쓴 뒤 일부 모델을 크레딧으로 이어 쓸 수 있습니다. 게이지 아래에 `Google AI 크레딧 · 1,234` 한 줄로 잔액이 나오고, 크레딧 대상이 아닌 계정에는 나오지 않습니다. 다 쓴 경우는 0 으로 표시합니다.
+- 크레딧 잔액도 다중 PC 동기화에 포함됩니다.
+
+### 수정
+- 그 요금제에서 계량하지 않는 창(`disabled`)이 "0% 사용" 게이지로 그려지던 문제를 고쳤습니다. 주간 한도를 다 써서 막혔는데도 5시간 창이 비어 있는 것처럼 보일 수 있었습니다.
+- 잔여 비율 없이 수량만 오거나 값이 없는 창을 "하나도 안 씀" 으로 그리던 문제를 고쳤습니다. 이제 사용률을 지어내지 않고 그 창을 그리지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Antigravity details now show your Google AI credit balance (#190)** — Google AI Pro and Ultra can keep using some models with credits after reaching a limit. The balance appears below the gauges as `Google AI Credits · 1,234`, and is hidden for accounts that are not eligible for credits. A used-up balance shows as 0.
+- The credit balance is included in multi-PC sync.
+
+### Fixed
+- Fixed windows the plan does not meter (`disabled`) being drawn as "0% used" gauges. The 5-hour window could look empty even while the weekly limit was used up and requests were blocked.
+- Fixed windows that come with a quantity instead of a remaining fraction, or with no value at all, being drawn as unused. The app no longer makes up a usage figure and leaves those windows out.
+<!-- /en -->
+
+## [1.44.0] - 2026-10-12
+
+<!-- ko -->
+### 추가
+- **Codex 이미지 생성 등 추가 한도도 게이지로 보여줍니다 (#182)** — Codex 는 5시간·주간 한도 말고도 이미지 생성 같은 기능별 한도를 따로 겁니다. Codex 상세에서 기본 게이지 아래에 이런 한도가 창마다 한 줄씩(예: `이미지 생성 · 주간`) 사용률·초기화 시각·시간선과 함께 나옵니다. 이름을 모르는 새 한도는 서버가 준 이름으로 표시합니다.
+- 추가 한도도 다중 PC 동기화에 포함됩니다. 이 PC 에서 Codex 로그인이 만료돼 있어도 다른 PC 가 본 값을 보여줍니다.
+
+### 수정
+- Codex 세션 로그에 추가 한도 기록이 섞여 있으면 그 값이 5시간 게이지를 덮어쓸 수 있던 문제를 고쳤습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Codex extra limits such as image generation now get their own gauges (#182)** — Besides the 5-hour and weekly limits, Codex enforces separate per-feature limits like image generation. They now appear below the main gauges in the Codex details, one row per window (e.g. `Image generation · Weekly`), with usage, reset time and the timeline marker. New limits the app doesn't know yet are shown with the name the server provides.
+- Extra limits are included in multi-PC sync, so a PC whose Codex login has expired still shows what another PC saw.
+
+### Fixed
+- Fixed extra-limit entries in the Codex session logs being able to overwrite the 5-hour gauge.
+<!-- /en -->
+
+## [1.43.0] - 2026-10-12
+
+<!-- ko -->
+### 변경
+- **Gemini CLI 설정을 Antigravity 설정으로 통합했습니다 (#183)** — Google 이 Gemini CLI 를 Antigravity CLI 로 전환했고(2026-06-18 부터 개인 계정 요청 중단), 앱 설정에는 Gemini CLI 만 있고 Antigravity 는 없었습니다.
+  - 설정 > 표시할 에이전트 선택에서 `Gemini CLI` 대신 `Antigravity` 를 켜고 끌 수 있습니다. 이전에는 Antigravity 섹션을 끌 방법이 없었습니다.
+  - 설정 > 트레이 표시 기준에서 `Antigravity` 를 고를 수 있습니다. 트레이 게이지는 가장 많이 소진된 창(모델 그룹 × 주간·5시간)을 보여 주고, 트레이 메뉴와 툴팁(`AG`)에도 Antigravity 가 나옵니다.
+  - 자동 모드에서는 최근 5시간 안에 Antigravity 를 썼을 때(5시간 창 사용률이 0보다 클 때) 고릅니다. 주간 창은 한 번 쓰면 일주일 내내 0보다 커서 근거로 삼지 않습니다 — 며칠 전 사용분만으로 오늘 쓰는 다른 에이전트를 밀어내지 않게 했습니다.
+  - 기존 설정은 자동으로 옮겨집니다. Antigravity 는 이전처럼 계속 보이고, `Gemini CLI` 로 고정해 둔 트레이 표시 기준은 `Antigravity` 로 바뀝니다.
+
+### 제거
+- **Gemini CLI 섹션** — Antigravity CLI 는 사용 기록을 다른 위치·형식으로 남겨 이 섹션으로는 더 이상 집계되지 않습니다. 팝업 섹션, 트레이 메뉴 항목, 로컬 로그 파서를 함께 정리했습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Changed
+- **Gemini CLI settings are now Antigravity settings (#183)** — Google has replaced Gemini CLI with Antigravity CLI (personal accounts stopped being served on 2026-06-18), yet the app settings still listed Gemini CLI and had no Antigravity entry.
+  - Settings > Select agents to display now has `Antigravity` in place of `Gemini CLI`. Previously there was no way to hide the Antigravity section.
+  - Settings > Tray Display Base now offers `Antigravity`. The tray gauge shows the most-used window (model group × weekly/5-hour), and Antigravity also appears in the tray menu and tooltip (`AG`).
+  - Auto mode picks Antigravity only when you used it in the last 5 hours (5-hour window usage above 0). The weekly window stays above 0 for a whole week after any use, so it is not used as a signal — usage from days ago no longer pushes aside the agent you are using today.
+  - Existing settings migrate automatically. Antigravity stays visible as before, and a tray display base pinned to `Gemini CLI` becomes `Antigravity`.
+
+### Removed
+- **Gemini CLI section** — Antigravity CLI records usage in a different location and format, so this section could no longer count it. The popup section, tray menu item and local log parser were removed.
+<!-- /en -->
+
+## [1.42.0] - 2026-10-08
+
+<!-- ko -->
+### 추가
+- **Claude 로그인이 만료되면 팝업에서 바로 다시 로그인할 수 있습니다 (#180)** — "로그인이 만료됐습니다" 또는 "액세스 토큰이 없습니다" 안내 아래에 `터미널에서 로그인` 버튼이 나옵니다. 누르면 새 터미널 창에서 `claude auth login` 이 실행되고, 브라우저에서 로그인을 마치면 사용량이 자동으로 다시 표시됩니다.
+- 이 PC 에 Claude Code CLI 가 설치되어 있지 않으면 버튼이 `Claude Code 설치 후 로그인` 으로 바뀝니다. 누르면 공식 설치 스크립트(`irm https://claude.ai/install.ps1 | iex`, 관리자 권한 불필요)로 설치한 뒤 이어서 로그인합니다. 설치가 실패하면 창이 닫히지 않고 원인과 도움말 링크를 보여줍니다.
+- 로그인을 마치면 다음 자동 갱신을 기다리지 않고 바로 사용량을 다시 불러옵니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Sign back in to Claude right from the popup when your login expires (#180)** — A `Sign in via terminal` button now appears under the "Login expired" / "No access token" message. It runs `claude auth login` in a new terminal window; once you finish signing in in the browser, usage shows up again automatically.
+- If the Claude Code CLI isn't installed on this PC, the button becomes `Install Claude Code and sign in`. It installs the CLI with the official script (`irm https://claude.ai/install.ps1 | iex`, no admin rights needed) and then signs you in. If the install fails, the window stays open with the error and a help link.
+- Once you finish signing in, usage reloads right away instead of waiting for the next auto-refresh.
+<!-- /en -->
+
+## [1.41.15] - 2026-10-08
+
+<!-- ko -->
+### 개선
+- **Claude 토큰 갱신 보강 (#177 후속, 코드 리뷰 반영)**
+  - 서버가 저장된 scope 를 거부(400)하면 이전처럼 scope 없이 한 번 더 요청해, 갱신이 영구히 막히지 않게 했습니다.
+  - 서버가 비정상적으로 긴 대기 시간을 줘도 최대 6시간까지만 기다립니다.
+  - 재로그인이 필요한 상태에서 다음 재시도가 일시 제한으로 막혀도 "다시 로그인하세요" 안내를 유지합니다.
+  - 자격 파일의 scope 형식이 예상과 달라도 로그인이 풀린 것으로 오인하지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Claude token refresh hardening (#177 follow-up, from code review)**
+  - If the server rejects the stored scope (400), the request is retried once without scope as before, so refresh can't get stuck permanently.
+  - An abnormally long server Retry-After is capped at 6 hours.
+  - The "sign in again" message stays when a later retry is rate-limited after the refresh token was rejected.
+  - An unexpected `scopes` format in the credentials file no longer makes the login look missing.
+<!-- /en -->
+
+## [1.41.14] - 2026-10-08
+
+<!-- ko -->
+### 수정
+- **Claude 로그인 토큰이 만료된 뒤 사용량이 "아직 확인하지 못했습니다" 에 계속 머물던 문제 (#177)** — Claude Code CLI 를 한동안 쓰지 않아 토큰이 만료되면 앱이 직접 갱신하는데, 갱신이 실패해도 2분마다 쉬지 않고 다시 시도해 토큰 서버가 요청을 계속 거절(429)하는 상태에 빠졌습니다. 이제 갱신이 실패하면 5분부터 시작해 최대 60분까지 간격을 늘려 기다리고, 서버가 알려준 대기 시간도 지킵니다. 다시 로그인하면 기다리지 않고 바로 갱신합니다. 갱신 요청도 Claude Code 와 같은 형식(scope 포함)으로 보냅니다.
+- 갱신이 막힌 동안에는 영문 원문 오류 대신 이유와 다음 재시도 시각을 표시합니다(일시 제한 · 갱신 실패 · 재로그인 필요, 4개 언어).
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Claude usage stayed at "Usage not retrieved yet" after the login token expired (#177)** — when the token expires (e.g. Claude Code CLI hasn't run for a while) the app refreshes it itself, but on failure it retried every 2 minutes without pause, which kept the token server rejecting requests (429). Failed refreshes now back off from 5 minutes up to 60 minutes and honor the server's Retry-After. Signing in again refreshes immediately without waiting. The refresh request now matches Claude Code's (includes scope).
+- While refresh is blocked, the reason and next retry time are shown instead of the raw English error (rate-limited · refresh failed · sign-in required, 4 languages).
+<!-- /en -->
+
+## [1.41.13] - 2026-09-30
+
+<!-- ko -->
+### 수정
+- **Codex 푸시 알림이 엉뚱한 때, 엉뚱한 내용으로 발송되던 문제 (#173)** — 세 가지를 고쳤습니다.
+  - 할당량 초기화 알림이 Codex 인데도 "Claude 할당량 초기화됨" 문구로 나갔습니다. 이제 공급자 이름을 씁니다(4개 언어). Claude 문구는 그대로입니다.
+  - 설정에서 끈 임계값(50/75/90/100%)도 Codex 는 발송했습니다. 이제 Claude 처럼 켠 임계값만 발송합니다.
+  - 조회 실패 뒤 로그 폴백(0% 또는 옛 값)이 알림 기준값을 무너뜨려, 다음 정상 조회 때 50/75/90 알림이 한꺼번에 다시 나가거나 가짜 "초기화" 알림이 나갔습니다. 이제 사용량 창을 설명하는 실제 관측으로만 기준값을 갱신하고, 같은 창 안에서 값이 내려가는 폴백은 무시하며, 서버가 준 리셋 시각이 지났을 때만 초기화로 봅니다(로그에 리셋 시각이 없어 추정한 값의 경과는 증거로 쓰지 않습니다).
+- **여러 PC 가 같은 ntfy 토픽으로 같은 알림을 각자 발송하던 문제 (#175)** — 기존 중복 검사는 PC 이름이 붙은 본문을 비교해서 다른 PC 의 알림과는 절대 일치하지 않았습니다. 이제 공급자·종류·임계값·창 리셋 시각·계정으로 만든 사건 키를 ntfy `sequence_id` 로 발행하고, 발송 전에 토픽 캐시(12시간)에서 같은 사건이 있는지 확인합니다. 서로 다른 계정의 알림이 서로를 막지 않도록 계정 식별자의 해시를 키에 넣습니다(원문은 남기지 않습니다). 계정을 알 수 없으면(API 키 모드 등) 이 설치의 무작위 기기 ID(처음 한 번 만들어 `~/.claude/claude-usage-tray-device-id` 에 저장) 해시를 대신 넣어, 다른 PC 와는 중복을 걸러내지 않되 같은 PC 의 알림은 재시작 뒤에도 계속 걸러냅니다. 할당량 초기화 알림은 감지 시각 대신 끝난 창의 리셋 시각으로 사건을 식별하므로, 초기화를 자고 넘겨 늦게 깬 PC 도 다른 PC 가 이미 보낸 같은 알림을 다시 보내지 않습니다. 레이트 리밋 알림은 감지한 시각이 아니라 세션 로그에 찍힌 기록 시각으로 사건을 식별하므로, 앱을 다시 켜서 같은 기록을 30분 넘게 뒤에 또 읽어도 이미 보낸 알림을 다시 보내지 않습니다. 확인이 실패하거나 서버가 키를 거부하면 알림을 잃지 않도록 그대로 발송합니다.
+
+### 개선
+- 날씨 알림도 같은 방식으로 다른 PC 와의 중복을 걸러냅니다(위치·날짜가 같은 알림). 중복 방지 키는 PC 의 지역 설정과 무관하게 만듭니다(예전 문자열 서식은 독일어·프랑스어 설정에서 좌표가 "37,57", 태국어 설정에서 연도가 불교력으로 달라졌습니다. 영어·한국어 설정에서는 글자 하나 달라지지 않아 기존 발송 기록이 그대로 유효합니다). 날짜도 PC 의 "오늘" 이 아니라 예보 자체의 날짜(위치의 현지 날짜)를 쓰고, 강풍 알림의 6시간 쿨다운 창은 UTC 기준으로 자릅니다 — 시간대가 다른 PC 가 다른 날의 알림을 같은 사건으로 착각해 삼키지 않도록 하기 위해서입니다. 강풍 창 경계가 UTC 로 옮겨져 업데이트 직후 강풍 조건이 이어지고 있으면 알림이 한 번 더 갈 수 있습니다.
+- 테스트 알림은 중복 확인 없이 누를 때마다 발송됩니다(예전에는 3분 안에 다시 누르면 건너뛰었습니다).
+- 알림 확인을 위해 ntfy 발송 전에 0~4초 무작위 대기가 있어 최대 4초 늦게 도착할 수 있습니다(Windows 알림은 즉시 표시).
+- 한계: 두 PC 가 약 2초 안에 동시에 감지하면 둘 다 보낼 수 있습니다(Android·웹 ntfy 앱은 한 알림으로 합치고 iOS 는 해당 없음). 창 리셋 시각을 모르는 알림은 그 동시 감지가 분 경계를 걸치면 합쳐지지 않을 수 있습니다. 완전히 막으려면 한 PC 에서만 "이 PC에서 ntfy 알림 발송"을 켜세요.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Codex push notifications were sent at the wrong time with the wrong content (#173)** — three fixes:
+  - The quota-reset alert said "Claude quota reset" even for Codex. It now uses the provider's name (4 languages). The Claude wording is unchanged.
+  - Codex sent every threshold (50/75/90/100%) even the ones turned off in settings. It now sends only the enabled thresholds, like Claude.
+  - After a failed fetch, the log fallback (0% or a stale value) broke the alert baseline, so the next good fetch re-sent 50/75/90 all at once or sent a false "quota reset". The baseline now moves only on observations that actually describe the usage window, ignores fallback values that go down inside the same window, and treats a window as reset only once the server-provided reset time has passed (an elapsed estimated reset time is not evidence).
+- **Several PCs sharing one ntfy topic each sent the same alert (#175)** — the old duplicate check compared the message body, which carries the PC name, so it never matched another PC's alert. An event key built from provider, kind, threshold, window reset time and account is now published as the ntfy `sequence_id`, and the topic's cache (12 h) is checked for the same event before sending. A hash of the account identifier is part of the key so alerts from different accounts never suppress each other (the raw identifier is never sent). If the account can't be determined (e.g. API-key mode), a hash of a random per-installation device ID (created once and stored in `~/.claude/claude-usage-tray-device-id`) is used instead, so such a PC is never de-duplicated against other PCs but its own alerts stay de-duplicated across restarts. A quota-reset alert is identified by the reset time of the window that just ended instead of the time it was detected, so a PC that slept through the reset does not re-send an alert another PC already sent. A rate-limit alert is identified by the time recorded in the session log rather than the time it was detected, so restarting the app and re-reading the same entry more than 30 minutes later does not re-send an alert that was already sent. If the check fails or the server rejects the key, the alert is sent anyway so it is never lost.
+
+### Improved
+- Weather alerts are de-duplicated across PCs the same way (same location and date). The de-duplication key no longer depends on the PC's regional settings (the old string format turned coordinates into "37,57" under German/French settings and the year into the Buddhist era under Thai settings; under English/Korean settings it is unchanged character for character, so existing sent-alert records stay valid). The date is now the forecast's own date (the location's local date) rather than the PC's "today", and the wind alert's 6-hour cooldown window is cut in UTC, so PCs in different time zones never mistake different days' alerts for the same event. The wind window boundary moves from local time to UTC, so an ongoing windy condition may trigger one extra alert right after updating.
+- Test notifications skip the duplicate check and are sent every time you press the button (previously a second press within 3 minutes was skipped).
+- A random 0–4 s wait before sending to ntfy means alerts can arrive up to 4 s later (the Windows toast is immediate).
+- Limitation: if two PCs detect the same event within about 2 seconds, both can send (Android and web ntfy apps merge them into one notification; iOS does not). For alerts without a known window reset time, that simultaneous detection may not be merged when it straddles a minute boundary. To rule it out completely, enable "Send ntfy notifications from this PC" on one PC only.
+<!-- /en -->
+
+## [1.41.12] - 2026-09-24
+
+<!-- ko -->
+### 수정
+- **Claude Code 보다 트레이가 먼저 뜬 PC 에서 로그인해도 구독 등급이 재시작 전까지 반영되지 않던 문제** — 자격 파일 감시는 앱 시작 시점에 `~/.claude` 폴더가 있어야 시작되므로, 그 뒤 로그인하면 변경 이벤트가 오지 않아 구독 배지와 "구독 중이면 0% 여도 Claude 섹션 표시" 판정이 옛 상태로 고정됐습니다. 정기 새로고침(기본 2분)마다 구독 상태를 다시 확인합니다. 파일을 쓰는 도중이라 읽지 못한 순간에는 직전 값을 유지해 섹션이 깜빡이지 않습니다.
+- **Codex 요금제가 "guest"(로그인하지 않은 체험)일 때도 유료 구독으로 판정하던 문제** — 무료로 봅니다.
+
+### 개선
+- 자격 파일을 다른 프로그램이 쓰는 중에도 읽을 수 있도록 공유 모드로 엽니다.
+- Gemini CLI 섹션 표시 규칙을 다른 공급자와 같은 형태의 판정 함수로 정리했습니다(동작 변화 없음).
+- 읽는 곳이 없던 `IsSubscriptionActive` 필드와 호출부 없는 `GetSubscriptionType` 을 제거했습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **On a PC where the tray app started before Claude Code was ever used, logging in later didn't update the subscription tier until restart** — the credentials-file watcher only starts if `~/.claude` exists at launch, so no change event arrived and the plan badge plus the "keep the Claude section visible at 0% when subscribed" rule stayed stale. The subscription is now re-checked on every scheduled refresh (2 min by default); if the file can't be read at that moment (mid-write), the previous state is kept so the section doesn't flicker.
+- **A Codex plan type of "guest" (signed-out trial) was treated as a paid subscription** — it now counts as free.
+
+### Improved
+- The credentials file is opened in shared mode so it can be read while another program is writing it.
+- The Gemini CLI section visibility rule is now a standalone predicate shaped like the other providers' (no behavior change).
+- Removed the unread `IsSubscriptionActive` field and the unused `GetSubscriptionType`.
+<!-- /en -->
+
+## [1.41.11] - 2026-09-24
+
+<!-- ko -->
+### 수정
+- **자정 직후 다른 PC 의 할당량을 놓치던 문제** — 동기화 폴더가 날짜별로 나뉘어 있어, 자정을 막 넘긴 시점에는 어제 23시대에 다른 PC 가 올린 여전히 유효한 값을 읽지 못했습니다. 오늘 폴더에 할당량이 아직 없을 때만 어제 폴더도 함께 읽어 "24시간 이내" 관측을 날짜 경계에서 놓치지 않습니다.
+- **다른 PC 값의 출처 문구가 어제 값을 방금 값처럼 보여주던 문제** — "○○의 23:40 스냅샷으로 표시 중" 처럼 시각만 적어, 최대 24시간 전 관측을 쓰는 최후 폴백에서 오독될 수 있었습니다. 오늘 관측이 아니면 날짜를 함께 표시합니다(Claude·Codex·Antigravity 출처 문구, OpenCode "갱신 대기 중" 안내).
+- **Antigravity 최후 폴백이 모든 모델이 이미 리셋된 값까지 후보로 삼던 문제** — 이제 아직 리셋되지 않은 모델이 하나라도 있을 때만 다른 PC 값을 씁니다.
+- **방금 리셋된 창의 값이 몇 분간 그대로 보이던 문제** — 다른 PC 가 13:58 에 올린 값은 14:00 리셋 직후에도 신선도 기준(기본 5분) 안이라 리셋 전 % 가 표시될 수 있었습니다. 신선한 값도 창이 유효한지 확인합니다.
+- **출처 문구의 관측 시각이 서머타임 전환을 넘으면 1시간 어긋나던 문제** — 관측 시각을 시스템 시간대로 변환합니다.
+
+### 개선
+- **다중 PC 최후 폴백 선택 규칙을 한 곳으로 통합** — Claude·Codex·OpenCode·Antigravity 가 각자 다른 모양으로 구현하던 "신선한 값, 없으면 창이 유효한 최후 관측" 규칙을 동기화 서비스 하나로 모았습니다. 다음 provider 를 추가하거나 규칙을 고칠 때 일부만 바뀌는 회귀를 막습니다.
+- **Antigravity 표시를 끈 PC 에서 다른 PC 값으로 섹션이 다시 켜지지 않도록 게이트 추가**(현재 설정 UI 에는 토글이 없어 동작 변화 없음).
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Another PC's quota was missed right after midnight** — the sync folder is split by date, so just past midnight the still-valid value another PC uploaded at 23:xx the previous day was not read. When today's folder has no quota yet, yesterday's folder is read as well so observations within the last 24 hours survive the date boundary.
+- **The synced-source caption made yesterday's value look current** — "Showing X snapshot from 23:40" carried only the time, which is misleading now that the last-resort fallback uses observations up to 24 hours old. The date is added when the observation is not from today (Claude/Codex/Antigravity source captions and the OpenCode "awaiting refresh" notice).
+- **The Antigravity last-resort fallback accepted snapshots whose models had all reset** — another PC's value is now used only while at least one model is still inside its window.
+- **A just-reset window kept showing its old value for a few minutes** — a value another PC uploaded at 13:58 was still within the freshness limit (5 min by default) right after a 14:00 reset, so the pre-reset percentage could be shown. Fresh values are now window-checked too.
+- **The source caption's observation time was off by an hour across a daylight-saving change** — the observation time is now converted through the system time zone.
+
+### Improved
+- **One shared selection rule for the multi-PC last-resort fallback** — Claude, Codex, OpenCode and Antigravity each implemented "fresh value, else the latest observation whose window is still open" in a different shape; it now lives in the sync service, so future changes or new providers can't update only some of them.
+- **Gate so a PC with Antigravity hidden doesn't re-enable the section from another PC's value** (no behavior change today: the settings UI has no such toggle yet).
+<!-- /en -->
+
+## [1.41.10] - 2026-09-18
+
+<!-- ko -->
+### 개선
+- **Codex·Gemini CLI "오늘의 토큰" 타일에서 항상 비어 있는 캐시 쓰기 타일 제거** — 두 공급자 모두 API 특성상 cache write 개념이 없어 이 타일은 구조적으로 항상 "—" 만 표시했습니다. 4타일(2×2)에서 입력/출력/캐시 읽기 3타일(1행)로 바꿔 빈 타일이 팝업 스크롤만 늘리던 문제를 없앴습니다.
+- **입력/출력/캐시 읽기 타일도 값이 없을 때(오늘 아직 그 항목이 발생하지 않은 경우) 개별적으로 숨김** — 이전에는 값이 없어도 "—" 로 표시해 자리를 차지했습니다. 이제 셋 중 일부만 비어 있으면 그 타일만 접히고 나머지가 왼쪽으로 붙으며, 전부 비어 있으면 행 전체가 사라집니다.
+
+### 참고
+- Claude 섹션은 값이 없을 때 "—" 대신 "0" 을 표시하는 다른 방식이라 이번 변경에서 제외했습니다. OpenCode 섹션은 Codex·Gemini 와 동일한 "—" 방식을 쓰지만 이번 요청 범위에 포함되지 않아 그대로 두었습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Removed the always-empty cache-write tile from the Codex/Gemini CLI "today's tokens" grid** — neither provider's API exposes a cache-write concept, so that tile structurally always read "—". The grid changed from 4 tiles (2×2) to 3 tiles (Input/Output/Cache Read) in a single row, so the empty tile no longer grows the popup's scroll height.
+- **Input/Output/Cache Read tiles now hide individually when they have nothing to show** (e.g. that metric hasn't happened yet today) — previously an empty metric still rendered as a "—" placeholder taking up space. Now if only some are empty, only those tiles collapse and the rest pack to the left; if all are empty, the whole row disappears.
+
+### Notes
+- The Claude section shows "0" instead of "—" for empty metrics (a different pattern), so it was left out of this change. OpenCode uses the same "—" pattern as Codex/Gemini but wasn't in scope for this request, so it's unchanged for now.
+<!-- /en -->
+
+## [1.41.9] - 2026-09-18
+
+<!-- ko -->
+### 수정
+- **Antigravity 는 "초기화 절대 시간 표시" 설정을 켜도 눈에 보이는 변화가 없던 문제** — v1.41.8 에서 설정값 자체는 Antigravity 로 전달되게 고쳤지만, 실제로는 게이지 막대에 마우스를 올려야만 뜨는 툴팁에만 절대 시각을 추가해 사용자가 체감할 수 없었습니다(다른 공급자는 모두 눈에 보이는 라벨이 바뀝니다). 이제 Claude·Codex·OpenCode 와 동일하게 리셋 라벨에 직접 괄호로 절대 시각이 붙습니다.
+
+### 참고
+- 라벨에 절대 시각까지 붙으면 "그룹 · 창" 형태의 긴 이름이 잘릴 수 있지만(#139), 이름 칸은 이미 말줄임표 + 전체 이름 툴팁으로 이 경우를 감당하도록 되어 있어 그대로 재사용했습니다. 게이지 툴팁은 다른 공급자와 같은 페이스 문구만 남기고 절대 시각 중복 표시는 제거했습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Turning on "show absolute reset time" produced no visible change for Antigravity** — v1.41.8 fixed the setting value reaching Antigravity's view model, but the absolute time was only added to a tooltip that only appears on hovering the gauge bar, so users couldn't actually see it (every other provider changes a visible label). Antigravity's reset label now appends the absolute time in parentheses directly, matching Claude/Codex/OpenCode.
+
+### Notes
+- Appending the absolute time can now truncate the long "group · window" row name (#139), but the name column already had character-ellipsis trimming plus a full-name tooltip for exactly this case, so it was reused as-is. The gauge tooltip now only shows the same pace text other providers use — the duplicate absolute-time line was removed.
+<!-- /en -->
+
+## [1.41.8] - 2026-09-18
+
+<!-- ko -->
+### 수정
+- **초기화 절대 시간 표시 설정이 Antigravity·OpenCode 에는 적용되지 않던 문제** — 설정 > "초기화 절대 시간 표시" 토글이 Claude·Codex 리셋 라벨에는 정상 반영되지만, Antigravity·OpenCode 는 토글과 무관하게 항상 같은 방식으로만 표시됐습니다(Antigravity 는 행 라벨이 항상 상대 시간뿐이고 툴팁은 항상 절대 시각을 붙였으며, OpenCode 의 롤링/주간/월간 라벨은 항상 절대 시각을 붙였습니다). 두 ViewModel 이 `FormatResetLabel` 호출 시 절대 시각 여부를 하드코딩해 설정값을 아예 받지 않은 게 원인이었습니다. 이제 두 공급자 모두 같은 설정값을 그대로 전달받습니다.
+
+### 참고
+- Antigravity 는 행 이름이 "그룹 · 창" 형태라 절대 시각까지 붙이면 이름이 잘리는 문제(#139)가 있어, 라벨 자체에는 여전히 절대 시각을 붙이지 않고 설정이 켜졌을 때만 툴팁에 절대 시각 줄을 추가합니다(꺼져 있으면 Claude·Codex 와 마찬가지로 어디에도 절대 시각이 붙지 않습니다). OpenCode 는 Claude·Codex 와 동일하게 라벨에 직접 괄호로 절대 시각을 붙이거나 뗍니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The "show absolute reset time" setting never reached Antigravity or OpenCode** — the toggle in Settings correctly changed Claude's and Codex's reset labels, but Antigravity and OpenCode always displayed the same way regardless of it (Antigravity's row label was always relative-only while its tooltip always showed the absolute time; OpenCode's Rolling/Weekly/Monthly labels always showed the absolute time). Both view models hardcoded whether to show the absolute stamp when calling `FormatResetLabel`, so the setting was never actually read. Both providers now receive the same setting value Claude and Codex do.
+
+### Notes
+- Antigravity's row name is a "group · window" combo (e.g. "Gemini Models · Weekly"), so appending the absolute time would truncate it (#139) — the row label itself still stays relative-only, and the absolute time is added to the tooltip only when the setting is on (when it's off, nothing shows it, same as Claude/Codex). OpenCode matches Claude/Codex exactly: the absolute time is appended in parentheses directly on the label when the setting is on, and omitted when it's off.
+<!-- /en -->
+
+## [1.41.7] - 2026-09-18
+
+<!-- ko -->
+### 수정
+- **Codex Direct API 가 존재하지 않는 도메인·잘못된 스키마로 출시 이래 단 한 번도 성공한 적 없던 문제** — `api.openai-v2.com` 은 DNS 에 등록조차 안 된 도메인이었고, `auth.json` 토큰 경로(#148)와 응답 파싱 스키마도 실제 서버와 달랐습니다. 세 문제가 겹쳐 이 PC 에 유효한 Codex 로그인이 있어도 항상 로컬 세션 로그로만 조용히 폴백했습니다. 실제 codex CLI 가 쓰는 `chatgpt.com/backend-api/wham/usage` 엔드포인트와 `ChatGPT-Account-Id` 헤더, 실제 응답 스키마(`rate_limit.primary_window`/`secondary_window`)에 맞춰 다시 구현했습니다. 이 엔드포인트는 계정 단위 값을 돌려주므로, Claude 와 마찬가지로 다른 PC 에서 쓴 Codex 사용량도 이제 정상적으로 반영됩니다.
+
+### 참고
+- 여러 대의 PC 중 Codex 를 실제로 쓰지 않는 PC 에서도, 이 PC 에 유효한 Codex 로그인만 있으면 이제 계정 전체의 실제 사용량을 직접 보여줍니다(OneDrive 다중 PC 동기화 폴더에 의존하지 않습니다).
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The Codex Direct API path had never succeeded once since it shipped, due to a nonexistent domain and a mismatched response schema** — `api.openai-v2.com` wasn't even registered in DNS, and both the `auth.json` token path (#148) and the response parsing schema didn't match the real server. Combined, this meant the app always fell back silently to the local session log even when this PC had a valid Codex login. Rewrote it against the endpoint the real codex CLI uses (`chatgpt.com/backend-api/wham/usage`), the required `ChatGPT-Account-Id` header, and the actual response schema (`rate_limit.primary_window`/`secondary_window`). Since this endpoint returns account-level data, Codex usage from other PCs now shows up correctly, the same way Claude already does.
+
+### Notes
+- On any PC with a valid Codex login — even one that doesn't actively use Codex — the account's real usage now shows directly, without depending on the OneDrive multi-PC sync folder.
+<!-- /en -->
+
+## [1.41.6] - 2026-09-15
+
+<!-- ko -->
+### 수정
+- **Antigravity 최후 폴백 스냅샷의 모델이 전부 리셋을 지났을 때 빈 섹션·0% 게이지가 뜨던 문제** — v1.41.5 에서 넓힌 최후 폴백이 최대 24시간 전 관측치를 받다 보니, 그 안의 모델이 전부 리셋된 경우가 실제로 생겼습니다. 보여줄 모델도 없고 로컬에 실제 에러도 없다면 폴백 자체가 없었던 것으로 되돌려 섹션을 숨깁니다. 로컬에 로그인 필요 같은 진짜 에러가 있다면, 모델이 하나도 없어도 그 에러 안내는 계속 보여줍니다(섹션 전체가 하나의 표시 여부 값으로 묶여 있어, 자칫하면 에러까지 함께 가려질 수 있었습니다).
+
+### 참고
+- v1.41.5 의 다중 PC 동기화 최후 폴백 확장에 대한 리뷰 후속 조치입니다. 화면 흐름은 대부분 그대로이고, 위에 적은 좁은 경우(폴백 모델이 전부 만료)만 다듬었습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **An Antigravity last-resort snapshot whose models had all reset could leave an empty section with a misleading 0% gauge** — since v1.41.5's widened fallback can now pull in observations up to 24h old, every model bucket inside one could genuinely have reset by the time it's shown. When there's nothing left to show and no real local error, the fallback is now treated as if it were never available (the section stays hidden). If there IS a genuine local error (e.g. needs login), it still shows even when no model rows survive — the whole section shares one visibility flag, so clearing it unconditionally would have hidden the error message too.
+
+### Notes
+- Follow-up from review on v1.41.5's multi-PC sync last-resort fallback. Most of the user-facing flow is unchanged; only the narrow case above (every fallback model already expired) was refined.
+<!-- /en -->
+
+## [1.41.5] - 2026-09-15
+
+<!-- ko -->
+### 수정
+- **다중 PC 동기화 중 Claude 만 다른 PC 값을 최후 폴백으로 쓸 수 있어, Codex·OpenCode·Antigravity 는 원본 PC 가 잠자기·종료 상태로 신선도 기준(기본 5분)만 지나도 게이지가 사라지던 문제** — v1.41.4 에서 Claude 에만 추가했던 "당일 관측치면 오래됐어도 창이 아직 유효한 한 최후 폴백으로 쓴다" 로직을 세 provider 에도 동일하게 적용했습니다. Codex·Antigravity 는 계정 단위 할당량을, OpenCode 는 공식 웹 콘솔 값을 다른 PC 가 관측한 그대로(최대 24시간) 보여줍니다.
+
+### 참고
+- 최후 폴백을 넓히면서 두 가지를 함께 다잡았습니다. (1) Codex·Antigravity 는 이 PC 의 실제 로그인 필요·조회 실패 같은 에러가 있으면, 폴백 값이 있어도 그 에러 안내를 가리지 않습니다. (2) OpenCode 는 롤링·주간·월간 창 중 하나라도 그 사이 리셋됐으면 스냅샷 전체를 버리고, Antigravity 는 모델별로 리셋 시각이 지난 행만 개별적으로 숨깁니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Only Claude could use another PC's stale-but-still-valid quota as a last resort during multi-PC sync — Codex, OpenCode, and Antigravity gauges would go blank as soon as the source PC had been asleep or off longer than the default 5-minute freshness window** — the "use today's observation even if it's stale, as long as its window hasn't reset" fallback added for Claude in v1.41.4 now applies to all three. Codex/Antigravity show the other PC's account-level quota, and OpenCode shows its official web-console figures, exactly as observed there (up to 24h old).
+
+### Notes
+- Widening the fallback came with two safeguards. (1) For Codex/Antigravity, a genuine local error on this PC (needs login, query failed) is never hidden behind a fallback value. (2) OpenCode discards the whole cached snapshot if any of its rolling/weekly/monthly windows has reset in the meantime, while Antigravity instead hides only the individual model rows whose own reset time has passed.
+<!-- /en -->
+
+## [1.41.4] - 2026-09-07
+
+<!-- ko -->
+### 수정
+- **다중 PC 동기화 중인데도 로컬 API 가 실패하면 무조건 "자동 재시도"만 뜨던 문제** — 동기화된 다른 PC 의 quota 를 폴백으로 쓰는 기능은 이미 있었지만, 신선도 기준(기본 5분, 최대 60분)을 넘기면 무조건 버려졌습니다. 그런데 403 permission_error 쿨다운은 90분이라, 두 PC 가 동시에 이 쿨다운에 걸리면 정작 필요한 순간에 폴백도 못 쓰는 공백이 있었습니다(실측: 한 PC 의 마지막 관측이 87분 전). 사용량 %는 창이 리셋되기 전까지 증가만 하므로, 그 창이 아직 유효하다면 당일 관측치는 오래됐어도 "적어도 이만큼은 썼다"는 유효한 하한입니다 — 창이 이미 리셋된 스냅샷만 걸러내고 최후 폴백으로 씁니다.
+
+### 참고
+- 로컬 API 가 실제로 끊긴 경우(로그인 필요·권한 거부 등)의 안내는 최후 폴백 값이 있어도 그대로 뜹니다 — 폴백은 숫자만 채울 뿐, 실제 문제를 가리지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Multi-PC sync showed only a bare "retrying" message even when another PC's quota was available** — the sync fallback already existed, but any snapshot older than the freshness window (5 min by default, capped at 60) was discarded outright. The 403 permission_error cooldown is 90 minutes, though, so when two PCs hit that cooldown around the same time, the fallback had nothing to use right when it mattered most (observed: one PC's last successful reading was 87 minutes stale). Usage percentage only rises until its window resets, so a same-day reading is still a valid lower bound as long as that window hasn't reset yet — snapshots whose window has already reset are filtered out before being used as a last resort.
+
+### Notes
+- A genuine local failure (needs login, permission denied, etc.) still shows its real notice even when a last-resort value is available — the fallback only fills in the number, it never hides an actual problem.
+<!-- /en -->
+
+## [1.41.3] - 2026-08-28
+
+<!-- ko -->
+### 수정
+- **구독 중이어도 오늘 Codex 를 쓰지 않으면 Codex 섹션이 사라지던 문제** — 섹션을 화면에 남길지 정하는 조건이 `5시간 창 사용률 · 오류` 만 봤습니다. Codex 의 5시간 창은 초기화 시각이 지나면 통째로 버려져 0% 가 되므로, 오늘 Codex 를 쓰지 않은 날에는 두 조건이 모두 거짓이라 `데이터 없는 공급자 자동 숨김`(기본 켜짐)과 맞물려 아직 살아 있는 주간 창(실측 21% · 09-02 초기화)과 `ChatGPT Plus` 배지를 손에 든 채로 Codex 가 팝업에서 통째로 사라졌습니다. 주간 창 사용률, 아직 살아 있는 창을 알고 있다는 사실, 오늘 토큰 기록, 그리고 유료 구독 중이라는 사실(`~/.codex/auth.json` id_token 의 `chatgpt_plan_type`)도 표시 근거로 인정합니다.
+
+### 참고
+- 화면에 보이는 값은 달라지지 않습니다. 사라지던 섹션이 그대로 남을 뿐입니다.
+- `free` 등급과 로그아웃(API 키 모드 포함) 상태는 구독으로 치지 않습니다. 구독 여부는 세션 로그에 남은 과거 요금제가 아니라 **지금 로그인된 계정**(`~/.codex/auth.json`)에서만 읽습니다 — 로그의 `plan_type` 은 날짜와 무관하게 남아 로그아웃 뒤에도 사라지지 않기 때문입니다.
+- 다만 로그아웃 전에 받아 둔 창이 아직 초기화 전이면, 그 창이 끝날 때까지는 게이지가 남습니다(최대 주간 창 하나).
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The Codex section disappeared on a day without Codex use, even on a paid plan** — The rule deciding whether to keep the section on screen looked only at the five-hour window percentage and errors. Codex drops a five-hour window whole once its reset time passes, so it reads 0%; on a day without Codex use both conditions were false, and together with `Hide providers without data` (on by default) the whole Codex section vanished — while a still-live weekly window (measured 21%, resetting 09-02) and the `ChatGPT Plus` badge were sitting right there. The weekly window percentage, knowing a window is still live, today's token record, and an active paid subscription (`chatgpt_plan_type` in the `~/.codex/auth.json` id_token) now count as something to show.
+
+### Notes
+- No displayed value changes. The section that used to disappear simply stays.
+- A `free` plan or a signed-out state (including API-key mode) does not count as a subscription. Subscription status is read only from **the currently signed-in account** (`~/.codex/auth.json`), never from the plan type left in session logs — that one survives sign-out, since it is picked up regardless of date.
+- A window fetched before signing out still shows until it resets, though (at most one weekly window).
+<!-- /en -->
+
+## [1.41.2] - 2026-08-26
+
+<!-- ko -->
+### 수정
+- **구독 중이어도 그날 첫 사용 전에는 Claude 섹션이 사라지던 문제** — 섹션을 화면에 남길지 정하는 조건이 `오늘 토큰 · 5시간 창 사용률 · 오류` 만 봤습니다. 아직 Claude 를 쓰지 않은 아침에는 셋 다 0 이라, `데이터 없는 공급자 자동 숨김`(기본 켜짐)과 맞물려 `Claude Max 5x` 등급도 이미 받아 둔 게이지(5시간 2% · 7일 70%)도 손에 든 채로 Claude 가 팝업에서 통째로 사라졌습니다. 받아 둔 공식 할당량과 유료 구독 중이라는 사실(`~/.claude/.credentials.json` 의 `subscriptionType`)도 표시 근거로 인정합니다.
+
+### 참고
+- 화면에 보이는 값은 달라지지 않습니다. 사라지던 섹션이 그대로 남을 뿐입니다.
+- `free` 등급과 로그아웃 상태는 구독으로 치지 않습니다 — 이 경우 종전대로 숨겨집니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The Claude section disappeared before the day's first use, even on a paid plan** — The rule deciding whether to keep the section on screen looked only at today's tokens, the five-hour window percentage, and errors. On a morning when Claude hasn't been used yet all three are zero, so together with `Hide providers without data` (on by default) the whole Claude section vanished — while the `Claude Max 5x` badge and the already-fetched gauges (5-hour 2%, 7-day 70%) were sitting right there. A fetched official quota, and an active paid subscription (`subscriptionType` in `~/.claude/.credentials.json`), now count as something to show.
+
+### Notes
+- No displayed value changes. The section that used to disappear simply stays.
+- A `free` plan or a signed-out state does not count as a subscription — those stay hidden as before.
+<!-- /en -->
+
+## [1.41.1] - 2026-08-25
+
+<!-- ko -->
+### 수정
+- **다른 PC 에서만 OpenCode 를 쓰면 그 게이지가 이 PC 화면에서 사라지던 문제** — 동기화로 받은 OpenCode Go 공식 할당량은 정상적으로 넘어와 적용까지 되는데, 섹션을 화면에 남길지 정하는 조건이 `오늘 요청 수 · 이 PC 의 이번 달 로컬 기록 · 오류` 만 보고 있었습니다. 이 PC 에서 OpenCode 를 쓰지 않으면 셋 다 없어서, `데이터 없는 공급자 자동 숨김`(기본 켜짐)과 맞물려 게이지 값을 손에 들고도 OpenCode 가 팝업에서 통째로 사라졌습니다. 받은 공식 할당량과, 그 값이 시효를 넘겨 `기기명의 15:02 값 · 갱신 대기 중` 안내로 바뀐 경우도 표시 근거로 인정합니다.
+
+### 참고
+- 1.38.9 에서 고친 것은 같은 증상의 다른 경로(다른 PC 의 합산 토큰이 버려지던 문제)로, 관측한 PC 도 그날 토큰이 0 이면 여전히 섹션이 사라졌습니다.
+- 화면에 보이는 값은 달라지지 않습니다. 사라지던 섹션이 그대로 남을 뿐입니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **OpenCode gauges vanished on a PC that only receives them** — The official OpenCode Go quota synchronized from another PC arrived and was applied correctly, but the rule deciding whether to keep the section on screen looked only at today's request count, this PC's local usage for the month, and errors. On a PC where OpenCode is never used none of the three exist, so together with `Hide providers without data` (on by default) the whole OpenCode section disappeared even though the gauge values were already in hand. A received official quota — and the `<device> value from 15:02 · awaiting refresh` notice it turns into once it passes its lifetime — now counts as something to show.
+
+### Notes
+- The 1.38.9 fix covered a different path to the same symptom (another PC's merged token totals being discarded); the section still disappeared whenever the observing PC had no tokens that day.
+- No displayed value changes. The section that used to disappear simply stays.
+<!-- /en -->
+
+## [1.41.0] - 2026-08-20
+
+<!-- ko -->
+### 추가
+- **내 구독 등급이 화면에 나옵니다** — 각 에이전트 상세를 펼치면 이름 아래에 `Claude Max 5x`, `ChatGPT Plus`, `OpenCode Go` 같은 배지가 붙습니다. Claude 는 Max 안에서도 5x·20x 로 한도가 4배 차이 나므로 배수까지 함께 표시합니다.
+- Codex 배지는 오늘 Codex 를 아직 쓰지 않아 세션 로그에 사용량이 없을 때도 로그인 정보에서 요금제를 읽어 채웁니다.
+- 설정 → 표시 옵션의 `Codex 플랜 배지 표시` 가 `구독 등급 배지 표시` 로 바뀌어 모든 에이전트의 배지를 함께 켜고 끕니다. 예전에 이 항목을 꺼 두었다면 그 설정이 그대로 유지됩니다.
+
+### 참고
+- 등급을 알 수 없는 경우에는 `ChatGPT plan` 같은 빈 껍데기 문구 대신 배지를 표시하지 않습니다. Gemini CLI 는 등급을 알 수 있는 로컬 자료가 없어 배지가 없습니다.
+- **구독 만료일은 표시하지 않습니다** — Claude 는 앱이 쓰는 토큰으로 결제 정보를 볼 수 없고, Codex 는 만료 정보가 갱신되지 않아 이미 지난 날짜가 남아 있습니다. 잘못된 날짜를 보여 주는 대신 표시하지 않습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Your subscription plan is now on screen** — expanding an agent's details shows a badge such as `Claude Max 5x`, `ChatGPT Plus`, or `OpenCode Go` under its name. Claude Max comes in 5x and 20x with a 4x difference in limits, so the multiplier is shown too.
+- The Codex badge is filled in from the local sign-in file when today's session logs carry no usage yet.
+- Settings → Display options renamed `Show Codex plan badge` to `Show subscription plan badge`; it now toggles every agent's badge at once, and an existing "off" choice is preserved.
+
+### Notes
+- When the plan cannot be determined the badge is hidden rather than showing a placeholder like `ChatGPT plan`. Gemini CLI has no local source for its tier, so it has no badge.
+- **Renewal/expiry dates are not shown** — Claude's Claude Code token cannot read billing data, and Codex's expiry claim is not refreshed (it still carries a date from two months ago while the plan is active). A wrong date is worse than none.
+<!-- /en -->
+
+## [1.40.0] - 2026-08-20
+
+<!-- ko -->
+### 추가
+- **`오늘 N개 세션` 을 누르면 그 세션들이 목록으로 펼쳐집니다** — 줄마다 프로젝트 이름, 브랜치, 오늘 그 세션이 쓴 토큰, 마지막 활동 시각이 나옵니다. 최근 활동 순으로 정렬되고, 최근 10분 안에 기록이 있는 세션은 초록 점으로 구분합니다. 줄에 마우스를 올리면 그 세션의 첫 프롬프트와 전체 경로를 볼 수 있습니다. 기본은 접힌 상태라 기존 화면 높이는 그대로입니다.
+- 워크트리에서 돌린 세션은 마지막 폴더 이름(`auto-update-logic-3db433` 같은 해시 이름) 대신 저장소 이름으로 표시하고, 어느 워크트리인지는 브랜치로 구분합니다.
+- 다중 PC 동기화로 다른 PC 의 세션이 합계에 섞여 있으면, 목록 아래에 `다른 PC 세션 N개는 목록에 없음` 이라고 적습니다(트랜스크립트는 그 PC 에만 있어 목록으로 만들 수 없습니다).
+
+### 참고
+- 이 수는 **지금 실행 중인 세션이 아니라 오늘 기록이 남은 세션**의 수입니다. 세션 종료는 트랜스크립트에 남지 않아 정확한 "활성" 판정은 불가능하며, 초록 점은 "최근 10분 안에 기록이 있었다"는 뜻입니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Clicking `N session(s) today` expands the list of those sessions** — each row shows the project name, branch, tokens that session spent today, and its last activity time. Rows are ordered by most recent activity, and sessions written to within the last 10 minutes get a green dot. Hovering a row reveals its first prompt and full path. The list starts collapsed, so the popup keeps its current height.
+- Sessions run from a worktree are listed under the repository name instead of the hash-suffixed worktree folder (`auto-update-logic-3db433`); the branch tells the worktrees apart.
+- When multi-PC sync mixes other devices into the session count, the list notes `N session(s) from other PCs not listed` — their transcripts live on those PCs and cannot be listed here.
+
+### Note
+- The count is **sessions with activity recorded today, not sessions running right now**. Transcripts do not record when a session ends, so "active" cannot be determined exactly; the green dot means "written to within the last 10 minutes".
+<!-- /en -->
+
+## [1.39.2] - 2026-08-12
+
+<!-- ko -->
+### 변경
+- **Antigravity 게이지가 5시간 → 주간 순으로 고정됩니다** — 사용량이 많은 순으로 세우고 있어서 새로고침할 때마다 네 칸의 자리가 뒤바뀌었고, 5시간·주간이 섞여 나와 Claude·Codex 와 읽는 방식이 달랐습니다. 이제 모델 그룹별로 묶고 그 안에서 짧은 창이 위로 갑니다.
+- **게이지 아래에 `45% 사용 · 잔량 55%` 요약이 추가됐습니다** — Claude·Codex 게이지에만 있던 한 줄입니다.
+- **게이지 툴팁이 페이스 문구로 통일됐습니다** — `시간 50% 경과 · 사용 45% · 5%p 여유` 처럼 Claude·Codex 와 같은 내용을 보여주고, 리셋 절대 시각은 그 아래 줄에 남습니다.
+- **상세 맨 아래에 데이터 출처 안내가 생겼습니다** — 다른 에이전트와 같은 자리입니다. 다른 PC 가 올린 값을 보고 있을 때는 오른쪽에 그 PC 와 관측 시각을 적습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Changed
+- **Antigravity gauges are pinned to 5-hour → weekly order** — They were sorted by usage, so the four rows swapped places on every refresh and the 5-hour and weekly windows came out interleaved, unlike Claude and Codex. Rows are now grouped by model group, shortest window first.
+- **Each gauge carries a `45% used · 55% remaining` summary line** — the single line that previously existed only on the Claude and Codex gauges.
+- **Gauge tooltips now show the same pace text as the other agents** — `Time 50% · Used 45% · 5pp behind`, with the absolute reset stamp on the line below.
+- **The detail ends with a data-source note** — same position as the other agents. When another PC's snapshot is on screen, that device and observation time are shown on the right.
+<!-- /en -->
+
+## [1.39.1] - 2026-08-12
+
+<!-- ko -->
+### 변경
+- **Antigravity 상세가 다른 에이전트와 같은 모양으로 표시됩니다** — 혼자만 별도 카드 안에 그려져 제목·퍼센트·리셋 시각이 따로 놀았습니다. 이제 Claude·Codex·OpenCode 와 같은 한 줄 구성(`이름 · 사용률 · 리셋까지 남은 시간` + 게이지)을 씁니다. 요금제 이름은 Codex 의 플랜 배지와 같은 자리에 놓았고, 창 목록 안의 별도 스크롤도 없앴습니다.
+- **Antigravity 게이지에도 시간선이 표시됩니다** — 창이 얼마나 흘렀는지 알려 주는 세로 마커를 다른 에이전트와 같은 모양으로 추가했습니다. 마커보다 게이지가 앞서 있으면 이번 창을 평소보다 빨리 쓰고 있다는 뜻입니다. 창 길이(주간·5시간)를 알 수 없는 항목에는 위치를 지어내지 않고 마커를 그리지 않습니다.
+- **창 이름을 `Gemini 모델 · 주간` 처럼 줄였습니다** — 퍼센트가 사용률인데 이름은 `잔여량` 이라 값이 반대로 읽혔고, 이름이 길어 잘리기도 했습니다. 리셋 시각의 절대 표기(`(08-14 18:44)`)는 한 줄을 넘기므로 게이지 툴팁으로 옮겼습니다. 전체 이름도 툴팁에서 볼 수 있습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Changed
+- **The Antigravity detail now matches the other agents** — It was the only section drawn inside its own card, with the name, percentage and reset time each on a separate line. It now uses the same single-row layout as Claude, Codex and OpenCode (`name · usage · time to reset` plus a gauge). The plan name sits where Codex shows its plan badge, and the separate scrollbar inside the window list is gone.
+- **The Antigravity gauges show a timeline marker** — The vertical marker for how far the window has elapsed is now drawn the same way as for the other agents. A gauge ahead of the marker means the window is being consumed faster than the clock. Entries whose window length is unknown get no marker rather than an invented position.
+- **Window names are shortened to `Gemini Models · Weekly`** — The percentage is usage, but the name said `Remaining`, so the value read backwards; the long names were also being truncated. The absolute reset stamp (`(08-14 18:44)`) does not fit on one line and moved to the gauge tooltip, which also carries the full name.
+<!-- /en -->
+
+## [1.39.0] - 2026-08-11
+
+<!-- ko -->
+### 수정
+- **Antigravity 게이지가 사전 설정 없이는 뜨지 않던 문제** — 사용량을 조회하기도 전에 사용자가 직접 만들어야 하는 OAuth client 파일을 요구해, 그 파일이 없는 대부분의 PC 에서 섹션이 조용히 사라졌습니다. 파일을 만들려면 실행 중인 `language_server.exe` 의 400MB 메모리 덤프를 떠서 값을 뽑아내야 했습니다. 그런데 Windows 자격 증명 관리자에는 refresh token 뿐 아니라 **아직 유효한 access token 이 함께** 저장돼 있어서, 이 과정 자체가 필요 없었습니다. 이제 저장된 토큰을 먼저 쓰고, 만료됐을 때만 설치된 `language_server.exe` 에서 client 값을 자동으로 찾아 갱신합니다. Antigravity 에 로그인만 되어 있으면 **설정할 것이 없습니다.**
+
+### 변경
+- **Antigravity 사용량이 앱 화면과 같은 게이지로 표시됩니다** — 기존에는 `retrieveUserQuota` 가 주는 모델별 요청 잔량을 보여줘서, Antigravity 의 `Models & Usage` 화면에 있는 게이지와 서로 다른 값이었습니다. 이제 같은 출처(`retrieveUserQuotaSummary`)를 사용해 `Gemini Models` 와 `Claude and GPT models` 각각의 **주간·5시간 잔여량** 네 칸을 그대로 보여줍니다.
+- **아직 쓰지 않은 창도 표시합니다** — 사용률이 0% 인 항목을 목록에서 빼고 있어서, 그 주에 아무것도 쓰지 않았으면 상세를 펼쳐도 빈 화면이었습니다. Antigravity 앱은 이 경우에도 100% 게이지를 보여줍니다.
+- **트레이 게이지는 가장 많이 쓴 창을 기준으로 합니다** — 창마다 한도가 따로 걸리므로 평균을 쓰면 급한 제약이 가려집니다(주간 90% + 5시간 0% → 45%로 표시되던 문제).
+- **게이지 이름이 앱 언어로 표시됩니다** — 서버는 이름을 영어로만 내려주므로 `Gemini 모델 · 주간 잔여량` 처럼 네 가지 언어로 옮겨 보여줍니다. 아직 모르는 항목이 오면 서버가 준 문구를 그대로 씁니다.
+- Antigravity 를 실행하지 않아도 조회됩니다. 앱의 로컬 서버가 아니라 Google 백엔드를 직접 호출합니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **The Antigravity gauge never appeared without manual setup** — Before reading any usage, the app demanded an OAuth client file that users had to create themselves, so on most PCs the section simply vanished. Producing that file meant taking a 400MB memory dump of the running `language_server.exe` and extracting the values by hand. Yet the Windows Credential Manager already stores **a still-valid access token** alongside the refresh token, which made the whole procedure unnecessary. The stored token is now used first, and the client values are located automatically from the installed `language_server.exe` only when the token has expired. If you are signed in to Antigravity, **there is nothing to configure.**
+
+### Changed
+- **Antigravity usage now shows the same gauge as the app itself** — The old call (`retrieveUserQuota`) returned per-model request allowances, which did not match the gauge on Antigravity's `Models & Usage` screen. The app now reads the same source (`retrieveUserQuotaSummary`) and shows the four windows verbatim: weekly and five-hour remaining for `Gemini Models` and for `Claude and GPT models`.
+- **Windows you have not used yet are kept on screen** — Rows at 0% usage were filtered out, so during a week with no activity the expanded view was blank. Antigravity itself shows a full gauge in that situation.
+- **The tray gauge follows the most consumed window** — Each window carries its own limit, so averaging hides the binding constraint (90% weekly + 0% five-hour used to read as 45%).
+- **Gauge labels follow the app language** — The server sends these names in English only, so they are now translated into all four languages (for example `Gemini 모델 · 주간 잔여량`). Unrecognized entries keep the server's own wording.
+- Usage is read even when Antigravity is not running, since the request goes to Google's backend rather than the app's local server.
+<!-- /en -->
+
+## [1.38.11] - 2026-08-11
+
+<!-- ko -->
+### 수정
+- **PC 재부팅 뒤 OpenCode 로그인이 풀린 것처럼 보이던 문제** — 부팅 직후에는 네트워크가 아직 올라오지 않아 자동 조회의 탐색 자체가 실패하는데, 앱은 이 실패를 로그아웃과 똑같이 다뤄 `OpenCode 로그인` 버튼을 띄우고 30분 동안 재시도하지 않았습니다. 세션 쿠키는 멀쩡한데도 다시 로그인해야 하는 것처럼 보였습니다. 이제 서버가 로그인 페이지로 되돌린 경우에만 로그인이 풀린 것으로 판정하고, 탐색 실패·응답 없음처럼 확인 자체를 못 한 경우에는 버튼 대신 `공식 할당량을 잠시 못 읽었습니다 · 곧 다시 시도` 안내를 표시하며 1분부터 시작하는 짧은 간격으로 다시 확인합니다. 조용히 넘어가던 탐색 실패도 이유가 기록됩니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **OpenCode looked signed out after a PC reboot** — Right after boot the network is not up yet, so the automatic read's navigation fails outright, and the app treated that failure exactly like a sign-out: it showed the `Sign in to OpenCode` button and stopped retrying for 30 minutes, even though the session cookie was still valid. A sign-out is now recognized only when the server redirects to the login page. When the check itself could not be completed — navigation failure, no response — the button is replaced with `Couldn't read the official quota right now · retrying soon`, and the next check starts one minute later with a short back-off. Navigation failures that used to pass silently are now recorded with a reason.
+<!-- /en -->
+
+## [1.38.10] - 2026-08-10
+
+<!-- ko -->
+### 수정
+- **동기화 값만 쓰는 PC에서 로그인이 풀린 것처럼 보이던 문제** — 다른 PC가 관측한 OpenCode 공식 할당량이 유효시간(최대 40분)을 넘기면 게이지가 사라지고 `OpenCode 로그인` 버튼이 노출됐습니다. 그 PC는 로그인한 적도, 할 이유도 없는데 로그인을 요구하는 화면이라 동기화가 끊긴 것으로 오해하기 쉬웠습니다. 이제 오늘 다른 PC가 관측한 이력이 있으면 버튼 대신 `기기명의 15:02 값 · 갱신 대기 중` 안내를 표시하고, 관측 이력이 아예 없을 때만 로그인 버튼을 남깁니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **A PC that only consumes synchronized values looked signed out** — Once the OpenCode official quota observed by another PC passed its lifetime (up to 40 minutes), the gauges disappeared and the `Sign in to OpenCode` button took their place, even though that PC had never signed in and had no reason to. The screen now shows `<device> value from 15:02 · awaiting refresh` whenever another PC observed the quota today, and keeps the sign-in button only when there is no observation at all.
+<!-- /en -->
+
+## [1.38.9] - 2026-08-10
+
+<!-- ko -->
+### 수정
+- **다른 PC에서만 쓰는 공급자 섹션이 통째로 보이지 않던 문제** — 동기화 합계를 화면에 반영할지 판단할 때 "사용량이 있는 기기"가 2대 이상일 것을 요구했습니다. 이 PC에서 한 번도 쓰지 않은 공급자(예: OpenCode)는 기기 수가 1이 되어 다른 PC 값이 통째로 버려졌고, "데이터 없는 공급자 자동 숨김"과 맞물려 섹션 자체가 사라졌습니다. 이제 합계에 데이터가 있으면 기기 수와 무관하게 표시합니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **A provider section was missing entirely when only another PC used it** — Applying synchronized totals required at least two devices with usage. A provider never used on this PC (for example OpenCode) produced a device count of one, so the other PC's totals were discarded, and combined with "hide providers without data" the section disappeared. Totals that contain data are now displayed regardless of device count.
+<!-- /en -->
+
 ## [1.38.8] - 2026-08-10
 
 <!-- ko -->

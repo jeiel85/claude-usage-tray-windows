@@ -16,3 +16,19 @@ Thumbs.db
 publish/
 publish2/
 publish3/
+
+# Android (mobile/)
+mobile/.gradle/
+mobile/build/
+mobile/app/build/
+mobile/local.properties
+mobile/.kotlin/
+mobile/release-signing.properties
+mobile/play-signing.properties
+.keystore/
+*.jks
+*.keystore
+
+# JVM crash logs (Gradle/emulator under memory pressure) — v1.72.5 committed one by accident
+hs_err_pid*.log
+replay_pid*.log

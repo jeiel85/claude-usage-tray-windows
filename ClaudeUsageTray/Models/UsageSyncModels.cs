@@ -26,6 +26,29 @@ public sealed class UsageSyncSnapshot
     public UsageSyncLocalTotals LocalTotals { get; set; } = new();
     public string ErrorKind { get; set; } = "";
     public string Source { get; set; } = "local";
+
+    /// <summary>
+    /// 보낸 PC 가 지금 계정에 붙인 별명(#313, Claude 만). 그 PC 에 별명 기록이 없으면 null — 예전 PC 의 스냅샷에도 없다.
+    /// 필드 추가라 <see cref="UsageSyncSchema.CurrentVersion"/> 은 올리지 않는다(예전 PC 는 무시한다).
+    /// </summary>
+    public UsageSyncAccountAlias? AccountAlias { get; set; }
+}
+
+/// <summary>
+/// PC 간 동기화로 주고받는 계정 별명(#313). 받는 PC 는 <c>KeyHash</c> 가 자기 별명 키의 해시와 같을 때만,
+/// 더 최근에 바뀐 쪽을 따른다(<see cref="Services.AccountAlias.Wins"/>). 스냅샷의 <c>AccountHash</c> 는 조직 단위라
+/// 팀 조직에서는 다른 사람의 스냅샷도 같은 묶음으로 오기 때문에 키 해시를 따로 싣는다.
+/// </summary>
+public sealed class UsageSyncAccountAlias
+{
+    /// <summary>별명 키(Claude <c>orgUuid|accountUuid</c>)의 해시 — <c>UsageSyncService.BuildAccountHash("claude", 키)</c>.</summary>
+    public string KeyHash { get; set; } = "";
+
+    /// <summary>별명. 빈 문자열이면 그 PC 에서 별명을 지웠다는 뜻이다.</summary>
+    public string Alias { get; set; } = "";
+
+    /// <summary>별명을 바꾼 시각(UTC). v1.70.0 에서 넣고 그 뒤 바꾸지 않은 별명은 가장 옛 시각.</summary>
+    public DateTimeOffset UpdatedAtUtc { get; set; }
 }
 
 /// <summary>
@@ -58,9 +81,27 @@ public sealed class UsageSyncQuotaSnapshot
     public string PaidTierName { get; set; } = "";
     public UsageSyncModelQuota[] Models { get; set; } = [];
 
+    /// <summary>Google AI 크레딧 잔액(계정 단위). 크레딧 대상이 아니거나 이 필드가 없던 버전이 올린 스냅샷이면 null.</summary>
+    public long? AiCredits { get; set; }
+
     // OpenCode Go 전용 — 공식 웹 콘솔이 제공한 계정 단위 할당량만 담는다.
     // 인증 쿠키·워크스페이스 URL 같은 로그인 정보는 동기화하지 않는다.
     public UsageSyncOpenCodeQuota? OpenCode { get; set; }
+
+    // 기본 창 말고 따로 걸린 한도의 창 목록 — Codex: 이미지 생성 등 추가 한도(#182), Claude: 모델 한정 한도(#187).
+    // 다른 provider 에서는 비어 있다.
+    public UsageSyncAdditionalQuota[] AdditionalQuotas { get; set; } = [];
+}
+
+/// <summary>추가 한도의 창 하나(계정 단위) — <see cref="AdditionalQuotaWindow"/> 와 같은 값.</summary>
+public sealed class UsageSyncAdditionalQuota
+{
+    public string LimitId { get; set; } = "";
+    public string LimitName { get; set; } = "";
+    public double UsagePercent { get; set; }
+    public DateTimeOffset? ResetAt { get; set; }
+    public int? WindowMinutes { get; set; }
+    public DateTimeOffset? ObservedAt { get; set; }
 }
 
 /// <summary>Antigravity 의 모델 한 개짜리 할당량 행(계정 단위).</summary>
@@ -69,6 +110,18 @@ public sealed class UsageSyncModelQuota
     public string ModelId { get; set; } = "";
     public double RemainingFraction { get; set; }
     public DateTimeOffset? ResetAt { get; set; }
+
+    /// <summary>서버가 내려준 표시 이름. 이 필드가 없던 버전이 올린 스냅샷에서는 비어 있다.</summary>
+    public string DisplayName { get; set; } = "";
+
+    /// <summary>창 종류("weekly", "5h"). 받는 쪽에서 이름을 자기 언어로 부르는 데 쓴다.</summary>
+    public string Window { get; set; } = "";
+
+    /// <summary>
+    /// 서버가 준 그룹 이름("Gemini 4 Argon"). 받는 쪽이 모르는 그룹을 "그룹 이름 · 창" 으로 부르는 데 쓴다(#204).
+    /// 이 필드가 없던 버전이 올린 스냅샷에서는 비어 있고, 그 버전은 모르는 필드를 무시하므로 스키마 버전은 그대로 둔다.
+    /// </summary>
+    public string GroupName { get; set; } = "";
 }
 
 public sealed class UsageSyncOpenCodeQuota
@@ -76,6 +129,20 @@ public sealed class UsageSyncOpenCodeQuota
     public UsageSyncOpenCodeQuotaWindow Rolling { get; set; } = new();
     public UsageSyncOpenCodeQuotaWindow Weekly { get; set; } = new();
     public UsageSyncOpenCodeQuotaWindow Monthly { get; set; } = new();
+
+    // 아래는 같은 콘솔 관측에 든 요금제·구독·크레딧 정보다. 이 필드들이 없던 버전이 올린 스냅샷에서는
+    // 비어 있고, 그 버전은 모르는 필드를 무시하므로 스키마 버전은 그대로 둔다.
+
+    /// <summary>요금제("go"·"go-plus").</summary>
+    public string? Product { get; set; }
+    public bool ExtraUsageEnabled { get; set; }
+    public decimal? CreditsUsd { get; set; }
+    /// <summary>
+    /// 구독 상태 이름(<see cref="OpenCodeGoSubscriptionStatus"/>). 숫자로 두면 나중에 값이 늘었을 때
+    /// 이전 버전이 엉뚱한 상태로 읽으므로 이름으로 싣고, 모르는 이름은 받는 쪽에서 정상 갱신으로 본다.
+    /// </summary>
+    public string? Subscription { get; set; }
+    public DateTimeOffset? PeriodEndsAt { get; set; }
 }
 
 public sealed class UsageSyncOpenCodeQuotaWindow
@@ -103,6 +170,24 @@ public sealed class UsageSyncLocalTotals
         SessionCount != 0 ||
         RequestCount != 0 ||
         HourlyTokens.Any(static value => value != 0);
+}
+
+/// <summary>
+/// 할당량 후보 묶음(<c>UsageSyncService.SelectQuotaCandidates</c>).
+/// <paramref name="Fresh"/>: 신선도 기준 안의 최신 값(창이 아직 유효한 것만).
+/// <paramref name="LastObserved"/>: 신선도를 무시한 최근 24시간 안의 최신 관측 — 게이지로 못 쓰더라도
+/// "다른 PC 가 언제 마지막으로 관측했는지" 안내에 쓴다.
+/// <paramref name="LastResort"/>: <paramref name="LastObserved"/> 중 창이 아직 유효해 게이지에 써도 되는 것.
+/// </summary>
+public sealed record UsageSyncQuotaCandidates(
+    UsageSyncSnapshot? Fresh,
+    UsageSyncSnapshot? LastObserved,
+    UsageSyncSnapshot? LastResort)
+{
+    public static UsageSyncQuotaCandidates None { get; } = new(null, null, null);
+
+    /// <summary>신선한 값이 있으면 그것, 없으면 창이 유효한 최후 관측.</summary>
+    public UsageSyncSnapshot? Selected => Fresh ?? LastResort;
 }
 
 public sealed record UsageSyncReadDiagnostic(string Path, string Reason);

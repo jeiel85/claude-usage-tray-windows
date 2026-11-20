@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace ClaudeUsageTray.Models;
@@ -10,6 +11,7 @@ public class UsageResponse
     [JsonPropertyName("seven_day")]
     public UsageWindow? SevenDay { get; set; }
 
+    // 모델 한정 주간 한도의 옛 자리 — 지금도 Sonnet 한도는 여기로만 오는 계정이 있다(#187, ClaudeModelLimits 참고).
     [JsonPropertyName("seven_day_opus")]
     public UsageWindow? SevenDayOpus { get; set; }
 
@@ -18,6 +20,13 @@ public class UsageResponse
 
     [JsonPropertyName("extra_usage")]
     public ExtraUsage? ExtraUsage { get; set; }
+
+    /// <summary>
+    /// 한도 목록 원문(<c>limits[]</c>, #187). 문서화되지 않은 필드라 형식이 바뀌어도 기본 5시간·7일 조회까지
+    /// 함께 실패하지 않도록 타입으로 묶지 않고 받아 두고, <c>ClaudeModelLimits</c> 가 관대하게 읽는다.
+    /// </summary>
+    [JsonPropertyName("limits")]
+    public JsonElement Limits { get; set; }
 }
 
 public class UsageWindow
@@ -58,12 +67,48 @@ public class SessionStats
     public long TotalCacheWriteTokens { get; set; }
     public int SessionCount { get; set; }
     public DateTime LastActivity { get; set; }
+
+    /// <summary>
+    /// 오늘 기록이 있는 세션들의 상세. SessionCount 와 같은 것을 세지만, 목록으로 보여주려면
+    /// 세션마다 어느 프로젝트·브랜치였는지가 필요하다. (이 PC 의 트랜스크립트 기준)
+    /// </summary>
+    public List<SessionInfo> Sessions { get; } = [];
     public bool HasRateLimitHit { get; set; }
     public string? RateLimitResetTime { get; set; }
+
+    /// <summary>
+    /// 오늘 로그에 찍힌 가장 최근 레이트 리밋 기록의 시각(UTC). 재시작하면 같은 기록을 다시 읽으므로,
+    /// 알림 키를 "지금" 이 아니라 이 시각에 묶어야 같은 사건이 새 사건으로 둔갑하지 않는다(#175). 기록에 시각이 없으면 null.
+    /// </summary>
+    public DateTimeOffset? RateLimitAt { get; set; }
 
     // 시간대별(0~23시) 전체 토큰 집계
     public long[] HourlyTokens { get; } = new long[24];
 
     public long TotalTokens => TotalInputTokens + TotalOutputTokens;
     public long GrandTotal => TotalInputTokens + TotalOutputTokens + TotalCacheReadTokens + TotalCacheWriteTokens;
+}
+
+/// <summary>
+/// 오늘 활동이 있었던 세션 하나. 트랜스크립트 파일(*.jsonl) 1개 = 세션 1개.
+/// </summary>
+public class SessionInfo
+{
+    /// <summary>세션 UUID. 트랜스크립트에 없으면 파일명으로 채운다.</summary>
+    public string SessionId { get; set; } = "";
+
+    /// <summary>세션이 실행된 작업 디렉터리(cwd). 목록의 이름·툴팁이 여기서 나온다.</summary>
+    public string ProjectPath { get; set; } = "";
+
+    /// <summary>마지막으로 기록된 git 브랜치. 워크트리 구분에 쓴다.</summary>
+    public string GitBranch { get; set; } = "";
+
+    /// <summary>첫 사용자 프롬프트 한 줄 요약 — 세션을 알아보게 하는 제목.</summary>
+    public string Title { get; set; } = "";
+
+    /// <summary>오늘 마지막 활동 시각(UTC).</summary>
+    public DateTime LastActivityUtc { get; set; }
+
+    /// <summary>오늘 이 세션이 쓴 토큰 합계(입력+출력+캐시).</summary>
+    public long TotalTokens { get; set; }
 }

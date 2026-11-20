@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GitHub build only (#257): the in-app updater (#228). The Play build leaves updates to Google Play, whose policy
+     forbids an app installing its own updates, so none of this reaches it. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- The updater hands the SHA-256-checked APK to the system installer. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Android 12+: lets the background auto-install (#281) update this app itself without a confirmation prompt. -->
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
+    <!-- Keeps the background update check scheduled across reboots (JobInfo.setPersisted). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application>
+        <!-- Background update check → one "new version" notification. -->
+        <service
+            android:name=".update.UpdateCheckJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <!-- Background auto-install (#281): install-session results, and "this app was just replaced" (one notice). -->
+        <receiver
+            android:name=".update.UpdateInstallReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Shares only the downloaded update APK (cache/updates) with the system installer. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+</manifest>

@@ -6,9 +6,10 @@ namespace ClaudeUsageTray.ViewModels;
 
 public partial class CodexViewModel : ObservableObject
 {
-    private readonly CodexUsageMonitor _monitor;
+    private readonly Func<Task<ProviderUsageSnapshot>> _readSnapshot;
     private readonly HistoryService _history;
-    private double _prevPercent = -1;
+    // 알림용 "이전 값" 은 표시용 Percent 와 분리한다 — 조회 실패 때의 0% 가 기준선을 무너뜨리지 않게 하기 위함.
+    private readonly QuotaAlertBaseline _alertBaseline = new();
     private DateTimeOffset? _rawShortResetAt;
     private bool _rawShortResetEstimated;
     private DateTimeOffset? _rawLongResetAt;
@@ -26,17 +27,22 @@ public partial class CodexViewModel : ObservableObject
     [ObservableProperty] private string _longReset = "";
     [ObservableProperty] private string _longSummary = "";
     [ObservableProperty] private bool _isLongVisible = false;
-    [ObservableProperty] private string _planLabel = "ChatGPT plan";
+    [ObservableProperty] private string _planLabel = "";
     [ObservableProperty] private string _shortWindowLabel = Loc.ShortWindow;
     [ObservableProperty] private string _longWindowLabel = Loc.LongWindow;
     [ObservableProperty] private string _inputLabel = "—";
     [ObservableProperty] private string _outputLabel = "—";
     [ObservableProperty] private string _cacheReadLabel = "—";
-    [ObservableProperty] private string _cacheWriteLabel = "—";
-    [ObservableProperty] private bool _isActive = false;
     [ObservableProperty] private bool _isUsageEmpty = true;
+    // 서버가 로그인 토큰을 거부해 로컬 로그로 폴백했는지(#198). 오류가 아니라 안내다 — 로그 기반 게이지는 그대로 보인다.
+    [ObservableProperty] private bool _needsSignIn;
+    // ChatGPT 이미지 생성 잔여 횟수(#206). 응답에 총 한도가 없어 게이지가 아니라 "N회 남음" 한 줄로 둔다.
+    [ObservableProperty] private bool _hasImageGeneration;
+    [ObservableProperty] private string _imageGenerationRemaining = "";
+    [ObservableProperty] private string _imageGenerationReset = "";
+    private FeatureAllowance? _imageGeneration;
 
-    public double PrevPercent => _prevPercent;
+    public double PrevPercent => _alertBaseline.Percent;
     public DateTimeOffset? RawShortResetAt => _rawShortResetAt;
     public bool RawShortResetEstimated => _rawShortResetEstimated;
     public DateTimeOffset? RawLongResetAt => _rawLongResetAt;
@@ -46,16 +52,27 @@ public partial class CodexViewModel : ObservableObject
     public ProviderUsageSnapshot LastSnapshot { get; private set; } = new();
 
     public CodexViewModel(CodexUsageMonitor monitor, HistoryService history)
+        : this(() => monitor.GetTodaySnapshotAsync(), history)
     {
-        _monitor = monitor;
+    }
+
+    /// <summary>테스트용: 스냅샷 읽기를 바꿔 끼운다(느린 읽기가 UI 스레드를 붙잡지 않는지, #314).</summary>
+    internal CodexViewModel(Func<Task<ProviderUsageSnapshot>> readSnapshot, HistoryService history)
+    {
+        _readSnapshot = readSnapshot;
         _history = history;
     }
 
-    public async Task RefreshAsync(bool showAbsoluteResetTime, string ntfyTopic, bool notificationsEnabled, bool notifyOnQuotaReset, Action<int, string, string, string> showUsageAlert, Action showQuotaResetAlert)
+    // thresholds: 사용자가 설정에서 켠 임계값(%). Claude 와 같은 기준을 따르도록 호출자가 넘긴다.
+    // showUsageAlert 의 마지막 인자: 서버가 준 창 리셋 시각(추정치면 null). showQuotaResetAlert 의 인자: 초기화로 끝난 창의 리셋 시각.
+    // 둘 다 여러 PC 의 같은 알림을 가르는 데 쓴다(#175).
+    public async Task RefreshAsync(bool showAbsoluteResetTime, string ntfyTopic, bool notificationsEnabled, bool notifyOnQuotaReset, IReadOnlyCollection<int> thresholds, Action<int, string, string, string, DateTimeOffset?> showUsageAlert, Action<DateTimeOffset?> showQuotaResetAlert)
     {
         try
         {
-            var snapshot = await _monitor.GetTodaySnapshotAsync();
+            // 스레드 풀에서 읽는다 — API 응답 뒤의 로컬 로그 스캔(이 PC 실측 11~17초)이 UI 스레드에서 돌면
+            // 새로고침(설정 저장·주기 갱신)마다 팝업·설정 창이 응답 없음 직전까지 멈췄다.
+            var snapshot = await Task.Run(_readSnapshot);
             LastSnapshot = snapshot;
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
@@ -69,28 +86,27 @@ public partial class CodexViewModel : ObservableObject
                 var informational = UsageCalculator.IsNoUsageInformational(snapshot.ErrorMessage, UsageProviderKind.Codex);
                 HasError = !snapshot.HasData && !string.IsNullOrWhiteSpace(snapshot.ErrorMessage) && !informational;
                 ErrorMessage = informational ? "" : (snapshot.ErrorMessage ?? "");
+                NeedsSignIn = NeedsSignInFor(snapshot.CodexApiStatus);
+                ApplyImageGeneration(snapshot.ImageGeneration, DateTimeOffset.Now, showAbsoluteResetTime);
                 Summary = Loc.UsageSummary(newPercent);
 
-                if (notificationsEnabled && _prevPercent >= 0)
-                {
-                    if (notifyOnQuotaReset && _prevPercent >= 1.0 && newPercent < 1.0)
-                    {
-                        showQuotaResetAlert();
-                    }
+                // 알림이 꺼져 있어도 기준선은 갱신한다 — 나중에 켰을 때 낡은 기준선과 비교하지 않도록.
+                var alerts = _alertBaseline.Observe(
+                    newPercent, snapshot.ShortResetAt, snapshot.IsShortResetEstimated,
+                    DateTimeOffset.Now, thresholds, notifyOnQuotaReset);
 
-                    var providerLabel = UsageProviderKind.DisplayName(UsageProviderKind.Codex);
-                    foreach (var t in new[] { 50, 75, 90, 100 }.OrderBy(x => x))
-                    {
-                        double tf = t / 100.0;
-                        if (_prevPercent < tf && newPercent >= tf)
-                        {
-                            showUsageAlert(t, Loc.Usage, Reset, ntfyTopic);
-                        }
-                    }
+                if (notificationsEnabled)
+                {
+                    if (alerts.QuotaReset)
+                        showQuotaResetAlert(alerts.EndedWindowResetAt);
+
+                    // 추정 리셋은 PC 마다 달라(로그의 첫 활동 시각 기준) 같은 창을 가르는 근거가 못 된다.
+                    var windowResetAt = snapshot.IsShortResetEstimated ? null : snapshot.ShortResetAt;
+                    foreach (var t in alerts.CrossedThresholds)
+                        showUsageAlert(t, Loc.AlertWindowUsage, Reset, ntfyTopic, windowResetAt);
                 }
 
                 Percent = newPercent;
-                _prevPercent = newPercent;
 
                 LongPercent   = snapshot.LongUsagePercent;
                 _rawLongResetAt = snapshot.LongResetAt;
@@ -102,14 +118,12 @@ public partial class CodexViewModel : ObservableObject
                 // 장기(둘째) 창은 실제로 두 번째 창이 존재할 때만 노출.
                 IsLongVisible = snapshot.LongWindowMinutes is not null || snapshot.LongUsagePercent > 0 || snapshot.LongResetAt is not null;
 
-                PlanLabel = !string.IsNullOrWhiteSpace(snapshot.PlanType)
-                    ? $"ChatGPT {snapshot.PlanType}"
-                    : "ChatGPT plan";
+                // 요금제를 모르면 "ChatGPT plan" 같은 빈 껍데기 대신 배지를 숨긴다 — 다른 공급자와 같은 규칙.
+                PlanLabel = PlanLabels.Codex(snapshot.PlanType);
 
                 InputLabel      = snapshot.TotalInputTokens      > 0 ? UsageCalculator.FormatTokenShort(snapshot.TotalInputTokens)      : "—";
                 OutputLabel     = snapshot.TotalOutputTokens     > 0 ? UsageCalculator.FormatTokenShort(snapshot.TotalOutputTokens)     : "—";
                 CacheReadLabel  = snapshot.TotalCacheReadTokens  > 0 ? UsageCalculator.FormatTokenShort(snapshot.TotalCacheReadTokens)  : "—";
-                CacheWriteLabel = snapshot.TotalCacheWriteTokens > 0 ? UsageCalculator.FormatTokenShort(snapshot.TotalCacheWriteTokens) : "—";
 
                 IsUsageEmpty = !snapshot.HasData;
 
@@ -126,14 +140,18 @@ public partial class CodexViewModel : ObservableObject
             {
                 HasError = true;
                 ErrorMessage = ex.Message;
+                // 이번 조회 결과를 모르므로 이전 안내를 남기지 않는다 — 빨간 오류와 회색 안내가 함께 보이지 않게.
+                NeedsSignIn = false;
+                ApplyImageGeneration(null, DateTimeOffset.Now, showAbsoluteResetTime);
             });
         }
     }
 
-    public void UpdateActiveState(bool isEnabled, bool hideInactive)
-    {
-        IsActive = isEnabled && (!hideInactive || Percent > 0 || HasError);
-    }
+    /// <summary>
+    /// 로그인 만료 안내를 띄울지(#198). 서버가 토큰을 거부했을 때만이다 — 로그인 파일이 없는 경우(로그아웃·API 키 모드)는
+    /// 사용자가 고른 상태이고, 네트워크 실패 등은 일시적일 수 있다.
+    /// </summary>
+    internal static bool NeedsSignInFor(CodexApiStatus status) => status == CodexApiStatus.AuthFailed;
 
     public void UpdateResetLabels(bool showAbsoluteResetTime)
     {
@@ -142,5 +160,63 @@ public partial class CodexViewModel : ObservableObject
             Reset = UsageCalculator.FormatResetLabel(_rawShortResetAt, _rawShortResetEstimated, showAbsoluteResetTime, now);
         if (_rawLongResetAt.HasValue && (_rawLongResetAt.Value - now).TotalMinutes < 10)
             LongReset = UsageCalculator.FormatResetLabel(_rawLongResetAt, false, showAbsoluteResetTime, now);
+    }
+
+    internal void ApplyImageGeneration(FeatureAllowance? allowance, DateTimeOffset now, bool showAbsoluteResetTime)
+    {
+        _imageGeneration = allowance;
+        UpdateImageGenerationLabels(now, showAbsoluteResetTime);
+    }
+
+    /// <summary>
+    /// 이미지 생성 잔여 횟수 줄을 다시 쓴다(#206) — 조회 직후, 매초 카운트다운, 표시 설정·언어가 바뀔 때.
+    /// 초기화 시각이 지나면 남은 횟수는 지난 창의 값이라 다음 조회까지 숨긴다.
+    /// </summary>
+    public void UpdateImageGenerationLabels(DateTimeOffset now, bool showAbsoluteResetTime)
+    {
+        if (_imageGeneration is { ResetAt: { } reset } && reset <= now)
+            _imageGeneration = null;
+
+        HasImageGeneration = _imageGeneration is not null;
+        ImageGenerationRemaining = _imageGeneration is { } allowance ? Loc.RemainingCount(allowance.Remaining) : "";
+        // 초기화 문구는 남은 횟수 옆이 아니라 자기 줄에 그리므로(#210) 앞의 " · " 구분자를 뗀다.
+        ImageGenerationReset = UsageCalculator.FormatResetLabel(_imageGeneration?.ResetAt, false, showAbsoluteResetTime, now)
+            .TrimStart(' ', '·');
+    }
+
+    /// <summary>
+    /// 추가 한도(이미지 생성 등, #182)를 게이지 행으로 만든다. 이 PC 가 읽은 값과 다른 PC 에서 받은 값이
+    /// 같은 규칙을 타도록 정적으로 둔다. 행 규칙은 <see cref="QuotaGaugeRow.BuildRows"/> 가 Claude 모델 한도와 함께 정한다.
+    /// </summary>
+    internal static IReadOnlyList<QuotaGaugeRow> BuildAdditionalLimitRows(
+        IEnumerable<AdditionalQuotaWindow> windows, DateTimeOffset now, bool showAbsoluteResetTime) =>
+        QuotaGaugeRow.BuildRows(windows, window => ResolveLimitName(window.LimitId, window.LimitName), now, showAbsoluteResetTime);
+
+    /// <summary>
+    /// 한도 이름. 이미지 생성 한도는 앱 언어로 부르고, 모르는 한도는 서버가 준 이름을 다듬어 쓴다.
+    /// 이미지 한도의 실제 식별자는 공개 자료로 확인되지 않아 "image" 가 들어 있는지로 가린다
+    /// (ID·이름 어느 쪽이든 — 로그 줄에는 이름이 비어 있을 수 있다).
+    /// </summary>
+    internal static string ResolveLimitName(string limitId, string limitName)
+    {
+        if (limitName.Contains("image", StringComparison.OrdinalIgnoreCase) ||
+            limitId.Contains("image", StringComparison.OrdinalIgnoreCase))
+            return Loc.CodexImageGenerationLimit;
+
+        return FormatLimitName(string.IsNullOrWhiteSpace(limitName) ? limitId : limitName);
+    }
+
+    /// <summary>서버 식별자를 읽을 만한 이름으로 ("gpt-5.3-codex-spark" → "GPT-5.3-Codex-Spark", "codex_other" → "Codex Other").</summary>
+    internal static string FormatLimitName(string raw)
+    {
+        var words = raw.Split(['_', ' '], StringSplitOptions.RemoveEmptyEntries);
+        return string.Join(' ', words.Select(word => string.Join('-', word.Split('-').Select(FormatNameSegment))));
+    }
+
+    private static string FormatNameSegment(string segment)
+    {
+        if (segment.Length == 0) return segment;
+        if (segment.Equals("gpt", StringComparison.OrdinalIgnoreCase)) return "GPT";
+        return char.ToUpperInvariant(segment[0]) + segment[1..];
     }
 }

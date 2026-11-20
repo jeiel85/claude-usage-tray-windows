@@ -18,6 +18,11 @@ public partial class SettingsWindow : Window, IDisposable
     private readonly MainViewModel _vm;
     private bool _disposed = false;
     private bool _isLoadingValues = false;
+    /// <summary>
+    /// WinForms 대화상자(동기화 폴더 찾아보기)가 떠 있는 동안 true. 그 대화상자는 <see cref="Window.OwnedWindows"/> 에 잡히지 않아,
+    /// 설정 창이 비활성화되면 "바깥 클릭" 으로 보고 숨었고 팝업이 그 위로 다시 떠 대화상자를 가렸다(#333).
+    /// </summary>
+    private bool _nativeDialogOpen;
 
     public SettingsWindow(MainViewModel vm)
     {
@@ -26,11 +31,16 @@ public partial class SettingsWindow : Window, IDisposable
         InitializeComponent();
 
         MouseLeftButtonDown += (_, e) => DragMove();
-        Deactivated += (_, _) => Hide();
+        // 자기 소유의 자식 창(QR 연결 창 등)으로 포커스가 넘어간 것은 "바깥 클릭"이 아니다. 여기서 숨으면
+        // UsagePopup 이 IsVisibleChanged 로 팝업을 다시 Activate 해, Topmost 팝업이 그 자식 창을 덮는다 (#232).
+        Deactivated += (_, _) => { if (OwnedWindows.Count == 0 && !_nativeDialogOpen) Hide(); };
         PreviewKeyDown += OnPreviewKeyDown;
+        // 바깥을 눌러 창이 숨으면 칸의 LostFocus 가 오지 않는다(키보드 포커스만 떠난다) — 입력해 둔 별명을 여기서 저장한다(#307).
+        IsVisibleChanged += (_, e) => { if (e.NewValue is false) CommitClaudeAccountAlias(this, new RoutedEventArgs()); };
 
         Loc.LanguageChanged += OnLanguageChanged;
         _vm.PropertyChanged += OnVmPropertyChanged;
+        _vm.Mobile.Changed += OnMobileChanged;
 
         // v1.27.0: 컨텐츠 크기 변경(탭 전환/언어 변경/표시 옵션 추가 등) 시 우하단 앵커 자동 유지
         // — popup 과 동일하게 작업표시줄 침범 방지 (UsagePopup 의 OnSizeChangedKeepAnchor 와 같은 패턴)
@@ -65,7 +75,31 @@ public partial class SettingsWindow : Window, IDisposable
         {
             Dispatcher.Invoke(UpdateTrayAutoHelp);
         }
+        // 설정 창이 열린 채로 계정을 바꾸면(#307) 별명 칸·안내를 새 계정 것으로 바꾼다.
+        else if (e.PropertyName is nameof(MainViewModel.ClaudeAccountAlias)
+                 or nameof(MainViewModel.ClaudeAccountLabel)
+                 or nameof(MainViewModel.CanEditClaudeAccountAlias))
+        {
+            Dispatcher.Invoke(() => UpdateClaudeAccountAliasField(force: false));
+        }
     }
+
+    /// <summary>
+    /// 별명 칸의 값·활성 여부·안내 문구를 지금 계정에 맞춘다(#307). 입력 중이면(포커스가 칸에 있으면) 값은 덮어쓰지 않는다 —
+    /// 저장 직후 돌아오는 변경 알림이 타이핑을 지우지 않게. force 는 창을 처음 채울 때.
+    /// </summary>
+    private void UpdateClaudeAccountAliasField(bool force)
+    {
+        TxtClaudeAccountAlias.IsEnabled = _vm.CanEditClaudeAccountAlias;
+        if (force || !TxtClaudeAccountAlias.IsKeyboardFocusWithin)
+            TxtClaudeAccountAlias.Text = _vm.ClaudeAccountAlias;
+        UpdateClaudeAccountAliasHint();
+    }
+
+    private void UpdateClaudeAccountAliasHint() =>
+        LblClaudeAccountAliasHint.Text = _vm.CanEditClaudeAccountAlias
+            ? Loc.ClaudeAccountAliasHint(_vm.ClaudeAccountLabel)
+            : Loc.ClaudeAccountAliasSignedOut;
 
     private void OnLanguageChanged()
     {
@@ -116,7 +150,7 @@ public partial class SettingsWindow : Window, IDisposable
 
     private void ApplyLocalization()
     {
-        TitleText.Text                      = Loc.Notifications;
+        TitleText.Text                      = Loc.Settings;
         LblGeneral.Text                     = Loc.NotificationsEnabled;
         ChkEnabled.Content                  = Loc.NotificationsEnabled;
         ChkRateLimit.Content                = Loc.NotifyRateLimit;
@@ -148,20 +182,48 @@ public partial class SettingsWindow : Window, IDisposable
         LblUsageSyncFolder.Text             = Loc.UsageSyncFolder;
         BtnUsageSyncBrowse.Content          = Loc.UsageSyncBrowse;
         UpdateUsageSyncStatusLabel();
+        LblPcAlias.Text                     = Loc.PcAliasTitle;
+        LblPcAliasHint.Text                 = Loc.PcAliasHint(Environment.MachineName);
+        LblClaudeAccountAlias.Text          = Loc.ClaudeAccountAliasTitle;
+        UpdateClaudeAccountAliasHint();
+        LblMobileTitle.Text                 = Loc.MobileTitle;
+        ChkMobileEnabled.Content            = Loc.MobileEnabled;
+        LblMobileDescription.Text           = Loc.MobileDescription;
+        ChkMobileLan.Content                = Loc.MobilePathLan;
+        ChkMobileTailscale.Content          = Loc.MobilePathTailscale;
+        ChkMobileCloudflare.Content         = Loc.MobilePathCloudflare;
+        LblMobileCloudflareHint.Text        = Loc.MobileCloudflareHint;
+        BtnCloudflareInstall.Content        = Loc.CloudflareInstall;
+        BtnCloudflareAdvanced.Content       = Loc.CloudflareAdvanced;
+        LblCloudflareNamedHint.Text         = Loc.CloudflareNamedHint(Services.Mobile.MobileLinkService.NormalizePort(_vm.Mobile.Server?.Options.Port ?? Services.Mobile.MobileProtocol.DefaultPort));
+        LblCloudflareHostname.Text          = Loc.CloudflareHostname;
+        LblCloudflareToken.Text             = Loc.CloudflareToken;
+        BtnCloudflareTokenClear.Content     = Loc.CloudflareTokenClear;
+        BtnMobileConnect.Content            = Loc.MobileConnectButton;
+        UpdateMobileStatusLabel();
         LangItemSystem.Content              = Loc.LanguageSystem;
         LblTrayDisplayMode.Text             = Loc.TrayDisplayMode;
         ChkHideInactive.Content             = Loc.HideInactiveProviders;
         LblVisibleProviders.Text            = Loc.VisibleProviders;
         ChkVisibleClaude.Content            = "Claude";
         ChkVisibleCodex.Content             = "Codex";
-        ChkVisibleGemini.Content            = "Gemini CLI";
         ChkVisibleOpenCode.Content          = "OpenCode";
+        ChkVisibleAntigravity.Content       = "Antigravity";
+        LblHmsKey.Text                      = Loc.HmsKeyTitle;
+        LblHmsKeyHint.Text                  = Loc.HmsKeyHint;
+        BtnHmsKeyClear.Content              = Loc.HmsKeyClear;
+        BtnHmsKeySave.Content               = Loc.HmsKeySave;
+        UpdateHmsKeyStatus();
 
         // v1.27.0 표시 옵션 토글
         LblDisplayOptions.Text              = Loc.DisplayOptionsSection;
-        ChkShowCodexPlanBadge.Content       = Loc.ShowCodexPlanBadge;
+        ChkShowPlanBadge.Content            = Loc.ShowPlanBadge;
+        ChkShowClaudeAccount.Content        = Loc.ShowClaudeAccount;
+        LblShowClaudeAccountHint.Text       = Loc.ShowClaudeAccountHint;
         ChkShowAbsoluteResetTime.Content    = Loc.ShowAbsoluteResetTime;
         LblShowAbsoluteResetTimeHint.Text   = Loc.ShowAbsoluteResetTimeHint;
+        ChkShowAntigravityThirdPartyQuota.Content   = Loc.AntigravityShowThirdPartyQuota;
+        LblShowAntigravityThirdPartyQuotaHint.Text  = Loc.AntigravityShowThirdPartyQuotaHint;
         ChkKeepPopupAboveTaskbar.Content    = Loc.KeepPopupAboveTaskbar;
         LblKeepPopupAboveTaskbarHint.Text   = Loc.KeepPopupAboveTaskbarHint;
         LblUsagePanelOpacity.Text           = Loc.UsagePanelOpacity;
@@ -194,7 +256,15 @@ public partial class SettingsWindow : Window, IDisposable
             "ja" => "通知",
             _ => "Alerts"
         };
-        TabNtfy.Header = "ntfy";
+        TabConnect.Header = Loc.TabConnect;
+        LblPhoneAlertsTitle.Text   = Loc.PhoneAlertsTitle;
+        LblPeerSyncTitle.Text      = Loc.PeerSyncTitle;
+        LblPeerSyncDescription.Text = Loc.PeerSyncDescription;
+        BtnPeerSyncCopy.Content    = Loc.PeerSyncCopyCode;
+        LblPeerSyncPaste.Text      = Loc.PeerSyncPasteLabel;
+        BtnPeerSyncJoin.Content    = Loc.PeerSyncJoin;
+        UpdatePhoneAlertsStatus();
+        UpdatePeerSyncList();
 
         // 날씨 탭
         TabWeather.Header = Loc.WeatherTab;
@@ -274,6 +344,16 @@ public partial class SettingsWindow : Window, IDisposable
         ChkUsageSyncEnabled.IsChecked    = _vm.UsageSyncEnabled;
         TxtUsageSyncFolder.Text          = _vm.UsageSyncFolderPath;
         UpdateUsageSyncStatusLabel();
+        ChkMobileEnabled.IsChecked       = _vm.MobileEnabled;
+        ChkMobileLan.IsChecked           = _vm.MobileLan;
+        ChkMobileTailscale.IsChecked     = _vm.MobileTailscale;
+        ChkMobileCloudflare.IsChecked    = _vm.MobileCloudflare;
+        TxtCloudflareHostname.Text       = _vm.MobileCloudflareHostname;
+        TxtPcAlias.Text                  = _vm.PcAlias;
+        UpdateClaudeAccountAliasField(force: true);
+        // 고정 주소를 이미 쓰고 있으면 펼쳐 둔다 — 넣어 둔 값이 숨어 있으면 "왜 임시 주소가 아니지?" 를 찾기 어렵다.
+        PanelCloudflareNamed.Visibility  = HasNamedTunnelSettings() ? Visibility.Visible : Visibility.Collapsed;
+        UpdateMobileStatusLabel();
         SliderPolling.Value = _vm.PollingIntervalMinutes > 0 ? _vm.PollingIntervalMinutes : 2;
         UpdatePollingLabel((int)SliderPolling.Value);
         ChkAutoUpdateEnabled.IsChecked   = _vm.AutoUpdateEnabled;
@@ -310,11 +390,13 @@ public partial class SettingsWindow : Window, IDisposable
 
         ChkVisibleClaude.IsChecked   = _vm.IsClaudeEnabled;
         ChkVisibleCodex.IsChecked    = _vm.IsCodexEnabled;
-        ChkVisibleGemini.IsChecked   = _vm.IsGeminiEnabled;
         ChkVisibleOpenCode.IsChecked = _vm.IsOpenCodeEnabled;
+        ChkVisibleAntigravity.IsChecked = _vm.IsAntigravityEnabled;
 
-        ChkShowCodexPlanBadge.IsChecked    = _vm.ShowCodexPlanBadge;
+        ChkShowPlanBadge.IsChecked         = _vm.ShowPlanBadge;
+        ChkShowClaudeAccount.IsChecked     = _vm.ShowClaudeAccount;
         ChkShowAbsoluteResetTime.IsChecked = _vm.ShowAbsoluteResetTime;
+        ChkShowAntigravityThirdPartyQuota.IsChecked = _vm.ShowAntigravityThirdPartyQuota;
         ChkKeepPopupAboveTaskbar.IsChecked = _vm.KeepPopupAboveTaskbar;
         SliderUsagePanelOpacity.Value      = _vm.UsagePanelOpacity > 0 ? Math.Clamp(_vm.UsagePanelOpacity, 0.5, 1.0) : 0.94;
 
@@ -365,6 +447,21 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.AutoUpdateEnabled     = ChkAutoUpdateEnabled.IsChecked == true;
         _vm.UsageSyncEnabled      = ChkUsageSyncEnabled.IsChecked == true;
         _vm.UsageSyncFolderPath   = TxtUsageSyncFolder.Text.Trim();
+        _vm.MobileEnabled         = ChkMobileEnabled.IsChecked == true;
+        _vm.MobileLan             = ChkMobileLan.IsChecked == true;
+        _vm.MobileTailscale       = ChkMobileTailscale.IsChecked == true;
+        _vm.MobileCloudflare      = ChkMobileCloudflare.IsChecked == true;
+        _vm.MobileCloudflareHostname = TxtCloudflareHostname.Text.Trim();
+        _vm.PcAlias = Services.PcName.Clean(TxtPcAlias.Text, Services.PcName.MaxAliasLength);
+        // 토큰 칸이 비어 있으면 저장된 토큰을 그대로 둔다(칸은 보안상 저장값을 다시 보여 주지 않는다). 지우기는 전용 버튼으로.
+        if (PwdCloudflareToken.Password.Trim() is { Length: > 0 } newToken)
+        {
+            _vm.MobileCloudflareTokenProtected = Services.Mobile.MobileSecret.Protect(newToken);
+            PwdCloudflareToken.Clear();
+        }
+        // 100milionseek 키는 여기서 읽지 않는다 — [저장]·Enter 로만 저장한다(#311, SaveHmsKey).
+        // 다른 설정을 바꾸는 것만으로 입력 중인 키가 저장·조회되면 안 된다.
+        UpdateHmsKeyStatus();
 
         if (CmbTrayDisplayMode.SelectedItem is ComboBoxItem modeItem)
             _vm.TrayDisplayMode = modeItem.Tag?.ToString() ?? UsageProviderKind.Auto;
@@ -375,11 +472,13 @@ public partial class SettingsWindow : Window, IDisposable
 
         _vm.IsClaudeEnabled   = ChkVisibleClaude.IsChecked == true;
         _vm.IsCodexEnabled    = ChkVisibleCodex.IsChecked == true;
-        _vm.IsGeminiEnabled   = ChkVisibleGemini.IsChecked == true;
         _vm.IsOpenCodeEnabled = ChkVisibleOpenCode.IsChecked == true;
+        _vm.IsAntigravityEnabled = ChkVisibleAntigravity.IsChecked == true;
 
-        _vm.ShowCodexPlanBadge    = ChkShowCodexPlanBadge.IsChecked == true;
+        _vm.ShowPlanBadge         = ChkShowPlanBadge.IsChecked == true;
+        _vm.ShowClaudeAccount     = ChkShowClaudeAccount.IsChecked == true;
         _vm.ShowAbsoluteResetTime = ChkShowAbsoluteResetTime.IsChecked == true;
+        _vm.ShowAntigravityThirdPartyQuota = ChkShowAntigravityThirdPartyQuota.IsChecked == true;
         _vm.KeepPopupAboveTaskbar = ChkKeepPopupAboveTaskbar.IsChecked == true;
         _vm.UsagePanelOpacity     = Math.Clamp(SliderUsagePanelOpacity.Value, 0.5, 1.0);
 
@@ -391,14 +490,333 @@ public partial class SettingsWindow : Window, IDisposable
 
         UpdateTrayModeAvailability();
         _vm.SaveSettingsCommand.Execute(null);
+        UpdateMobileStatusLabel();
         FlashSavedIndicator();
         _ = _vm.RefreshAsync();
+    }
+
+    /// <summary>
+    /// 휴대폰 연동 줄의 상태 문구와 하위 체크박스 활성 여부. 서버 바인딩은 백그라운드에서 끝나므로
+    /// 여기 문구는 "지금 아는 것" 만 보이고, 자세한 경로·QR 은 연결 창에서 실시간으로 보인다.
+    /// </summary>
+    private void UpdateMobileStatusLabel()
+    {
+        var enabled = ChkMobileEnabled.IsChecked == true;
+        ChkMobileLan.IsEnabled = enabled;
+        ChkMobileTailscale.IsEnabled = enabled;
+        ChkMobileCloudflare.IsEnabled = enabled;
+        BtnMobileConnect.IsEnabled = enabled;
+        var devices = _vm.Mobile.Devices?.List().Count ?? 0;
+        LblMobileStatus.Text = enabled ? Loc.MobileStatusPaired(devices) : Loc.MobileStatusOff;
+        UpdateCloudflareStatus();
+    }
+
+    private bool HasNamedTunnelSettings() =>
+        !string.IsNullOrWhiteSpace(_vm.MobileCloudflareHostname) || !string.IsNullOrEmpty(_vm.MobileCloudflareTokenProtected);
+
+    /// <summary>
+    /// Cloudflare 줄(#225): 켜졌을 때만 설명·상태·고정 주소 칸을 보인다. 상태는 터널 커넥터가 실제로 보고한 것
+    /// (여는 중·열림 주소·미설치·오류)을 그대로 보여 준다 — "켰는데 왜 안 되지?" 를 이 줄에서 바로 알 수 있게.
+    /// </summary>
+    private void UpdateCloudflareStatus()
+    {
+        var on = ChkMobileEnabled.IsChecked == true && ChkMobileCloudflare.IsChecked == true;
+        PanelCloudflare.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+        LblCloudflareTokenSaved.Text = string.IsNullOrEmpty(_vm.MobileCloudflareTokenProtected) ? "" : Loc.CloudflareTokenSaved;
+        BtnCloudflareTokenClear.Visibility = string.IsNullOrEmpty(_vm.MobileCloudflareTokenProtected) ? Visibility.Collapsed : Visibility.Visible;
+        if (!on) return;
+
+        var status = _vm.Mobile.Tunnel.Status();
+        if (_cloudflareInstallMessage is { } message)
+        {
+            LblCloudflareStatus.Text = message;
+        }
+        else
+        {
+            LblCloudflareStatus.Text = status?.State switch
+            {
+                Services.Mobile.CloudflareStatus.Running => Loc.CloudflareRunning(status.Hostname ?? "", status.Mode == Services.Mobile.CloudflareStatus.Quick),
+                Services.Mobile.CloudflareStatus.NotInstalled => Loc.CloudflareNotInstalled,
+                Services.Mobile.CloudflareStatus.Error => Loc.CloudflareError(status.Detail),
+                _ => Loc.CloudflareStarting,
+            };
+        }
+        BtnCloudflareInstall.Visibility = status?.State == Services.Mobile.CloudflareStatus.NotInstalled && !_cloudflareInstalling
+            ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private bool _cloudflareInstalling;
+    private string? _cloudflareInstallMessage;
+
+    /// <summary>winget 으로 cloudflared 를 설치한다. 설치되면 터널 루프가 1분 안에 스스로 찾아 연다(다시 켤 필요 없음).</summary>
+    private async void BtnCloudflareInstall_Click(object sender, RoutedEventArgs e)
+    {
+        if (_cloudflareInstalling) return;
+        _cloudflareInstalling = true;
+        _cloudflareInstallMessage = Loc.CloudflareInstalling;
+        UpdateCloudflareStatus();
+        try
+        {
+            var error = await Services.Mobile.CloudflareTunnel.InstallWithWingetAsync();
+            _cloudflareInstallMessage = error is null ? Loc.CloudflareInstalled : Loc.CloudflareInstallFailed(error);
+        }
+        finally
+        {
+            _cloudflareInstalling = false;
+            if (!_disposed) UpdateCloudflareStatus();
+        }
+    }
+
+    private void BtnCloudflareAdvanced_Click(object sender, RoutedEventArgs e) =>
+        PanelCloudflareNamed.Visibility = PanelCloudflareNamed.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
+
+    private void CloudflareField_LostFocus(object sender, RoutedEventArgs e)
+    {
+        // 값이 그대로면 저장하지 않는다 — 칸을 지나가기만 해도 터널이 다시 시작되면 Quick Tunnel 주소가 바뀐다.
+        var hostnameChanged = TxtCloudflareHostname.Text.Trim() != _vm.MobileCloudflareHostname;
+        if (hostnameChanged || PwdCloudflareToken.Password.Trim().Length > 0) Setting_Changed(sender, e);
+    }
+
+    /// <summary>
+    /// PC 이름 칸을 떠날 때 저장한다(#271). 값이 그대로면 저장하지 않는다 — 다른 칸의 LostFocus 와 같은 규칙.
+    /// 저장한 뒤 정리된 값(공백 정리)을 칸에 다시 보여 준다.
+    /// </summary>
+    private void PcAlias_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (Services.PcName.Clean(TxtPcAlias.Text, Services.PcName.MaxAliasLength) == _vm.PcAlias) return;
+        Setting_Changed(sender, e);
+        TxtPcAlias.Text = _vm.PcAlias;
+    }
+
+    private void PcAlias_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != System.Windows.Input.Key.Enter) return;
+        PcAlias_LostFocus(sender, e);
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Claude 계정 별명 칸을 떠날 때·Enter·창이 숨을 때 저장한다(#307). 지금 로그인한 계정에만 붙고, 값이 그대로면 저장하지 않는다.
+    /// 저장은 다른 칸과 같이 Setting_Changed — 곧바로 새로고침해 휴대폰 계정 카드에도 새 이름이 간다.
+    /// </summary>
+    private void CommitClaudeAccountAlias(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingValues || !_vm.CanEditClaudeAccountAlias) return;
+        if (_vm.SetClaudeAccountAlias(TxtClaudeAccountAlias.Text)) Setting_Changed(sender, e);
+        TxtClaudeAccountAlias.Text = _vm.ClaudeAccountAlias;
+    }
+
+    private void ClaudeAccountAlias_LostFocus(object sender, RoutedEventArgs e) => CommitClaudeAccountAlias(sender, e);
+
+    private void ClaudeAccountAlias_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != System.Windows.Input.Key.Enter) return;
+        CommitClaudeAccountAlias(sender, e);
+        e.Handled = true;
+    }
+
+    private void UpdateHmsKeyStatus()
+    {
+        var saved = !string.IsNullOrEmpty(_vm.HmsApiKeyProtected);
+        LblHmsKeySaved.Text = saved ? Loc.HmsKeySaved : "";
+        BtnHmsKeyClear.Visibility = saved ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>[저장]·Enter — 새 키를 넣었을 때만 저장한다(#311). 저장은 <see cref="Setting_Changed"/> 가 암호화해 넣는다.</summary>
+    private void SaveHmsKey(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingValues || PwdHmsKey.Password.Trim() is not { Length: > 0 } newKey) return;
+        // 칸은 저장값을 다시 보여 주지 않는다 — 암호화해 넣고 바로 비운다. 지우기는 전용 버튼으로.
+        _vm.HmsApiKeyProtected = Services.Mobile.MobileSecret.Protect(newKey);
+        PwdHmsKey.Clear();
+        Setting_Changed(sender, e);
+        LblHmsKeySaved.Text = Loc.HmsKeyJustSaved;
+    }
+
+    private void BtnHmsKeySave_Click(object sender, RoutedEventArgs e) => SaveHmsKey(sender, e);
+
+    private void HmsKey_PasswordChanged(object sender, RoutedEventArgs e) =>
+        BtnHmsKeySave.IsEnabled = PwdHmsKey.Password.Trim().Length > 0;
+
+    private void HmsKey_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != System.Windows.Input.Key.Enter) return;
+        SaveHmsKey(sender, e);
+        e.Handled = true;
+    }
+
+    private void BtnHmsKeyClear_Click(object sender, RoutedEventArgs e)
+    {
+        _vm.HmsApiKeyProtected = "";
+        PwdHmsKey.Clear();
+        Setting_Changed(sender, e);
+    }
+
+    private void BtnCloudflareTokenClear_Click(object sender, RoutedEventArgs e)
+    {
+        _vm.MobileCloudflareTokenProtected = "";
+        PwdCloudflareToken.Clear();
+        Setting_Changed(sender, e);
+    }
+
+    /// <summary>서버 상태·기기 목록·PC 동기화 연결이 바뀌면(스레드풀에서 올 수 있다) 연결 탭과 알림 상태를 다시 그린다.</summary>
+    private void OnMobileChanged() => Dispatcher.BeginInvoke(() =>
+    {
+        if (_disposed) return;
+        // 터널 주소가 열리면 설치 진행 문구 대신 실제 상태를 보인다.
+        if (!_cloudflareInstalling && _vm.Mobile.Tunnel.Status()?.State == Services.Mobile.CloudflareStatus.Running)
+            _cloudflareInstallMessage = null;
+        UpdateMobileStatusLabel();
+        UpdatePeerSyncList();
+        UpdatePhoneAlertsStatus();
+    });
+
+    /// <summary>
+    /// 알림 탭의 "휴대폰 알림" 상태. 앱 푸시가 등록된 휴대폰이 있으면 그쪽이 기본 경로이고 ntfy 토픽은 대체 경로임을 알린다(#222).
+    /// </summary>
+    private void UpdatePhoneAlertsStatus()
+    {
+        var phones = _vm.Mobile.Devices?.List().Count(d => d.HasPush) ?? 0;
+        LblPhoneAlertsStatus.Text = _vm.Mobile.HasTargets ? Loc.PhoneAlertsViaApp(phones) : Loc.PhoneAlertsNoApp;
+    }
+
+    /// <summary>
+    /// 연결 탭의 PC 목록 — 이 PC 가 코드로 연결한 PC(해제 가능)와, 다른 PC 가 이 PC 에 연결해 둔 것(이 PC 에서 해제 가능).
+    /// </summary>
+    private void UpdatePeerSyncList()
+    {
+        var rows = new List<PeerRow>();
+        foreach (var p in _vm.Mobile.Peers.Status())
+        {
+            var detail = p.Connected
+                ? Loc.PeerSyncConnected(p.Via ?? "")
+                : p.LastError == "revoked" ? Loc.PeerSyncRevoked : Loc.PeerSyncNotConnected;
+            rows.Add(new PeerRow("out:" + p.Peer.PcId, p.Peer.PcName, detail,
+                p.Connected ? ConnectedDot : p.LastError == "revoked" ? ErrorDot : IdleDot, Loc.PeerSyncRemove));
+        }
+        foreach (var d in _vm.Mobile.Devices?.List().Where(d => d.Kind == Services.Mobile.MobileDeviceKind.Pc) ?? [])
+            rows.Add(new PeerRow("in:" + d.DeviceId, d.Name, Loc.PeerSyncIncoming, IdleDot, Loc.PeerSyncRemove));
+        PeerSyncList.ItemsSource = rows;
+    }
+
+    private static readonly System.Windows.Media.Brush ConnectedDot = Frozen(0x10, 0xB9, 0x81);
+    private static readonly System.Windows.Media.Brush IdleDot = Frozen(0x5A, 0x5F, 0x7A);
+    private static readonly System.Windows.Media.Brush ErrorDot = Frozen(0xEF, 0x44, 0x44);
+
+    private static System.Windows.Media.Brush Frozen(byte r, byte g, byte b)
+    {
+        var brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(r, g, b));
+        brush.Freeze();
+        return brush;
+    }
+
+    private sealed record PeerRow(string Key, string Title, string Detail, System.Windows.Media.Brush Dot, string RemoveLabel);
+
+    /// <summary>
+    /// 이 PC 의 동기화 코드를 클립보드에 복사한다. 휴대폰 QR 과 같은 일회용 코드라(5분·1회용) 받는 PC 가 바로 붙여 넣어야 한다.
+    /// 연결이 꺼져 있거나 열린 경로가 없으면 코드를 만들 수 없다 — 다른 PC 가 이 PC 에 닿아야 하기 때문이다.
+    /// </summary>
+    private void BtnPeerSyncCopy_Click(object sender, RoutedEventArgs e)
+    {
+        var code = _vm.Mobile.CreateSyncCode();
+        if (code is null)
+        {
+            ShowPeerResult(LblPeerSyncCopyResult, Loc.PeerSyncCodeUnavailable);
+            return;
+        }
+        try
+        {
+            System.Windows.Clipboard.SetText(code);
+            ShowPeerResult(LblPeerSyncCopyResult, Loc.PeerSyncCopied);
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            ShowPeerResult(LblPeerSyncCopyResult, Loc.PeerSyncCopyFailed);
+        }
+    }
+
+    private async void BtnPeerSyncJoin_Click(object sender, RoutedEventArgs e)
+    {
+        var code = TxtPeerSyncCode.Text;
+        if (string.IsNullOrWhiteSpace(code)) return;
+        BtnPeerSyncJoin.IsEnabled = false;
+        ShowPeerResult(LblPeerSyncJoinResult, Loc.PeerSyncJoining);
+        try
+        {
+            var name = await _vm.Mobile.Peers.JoinAsync(code);
+            TxtPeerSyncCode.Text = "";
+            ShowPeerResult(LblPeerSyncJoinResult, Loc.PeerSyncJoined(name));
+            _vm.Mobile.Peers.Reconcile();
+            _ = _vm.RefreshAsync();
+        }
+        catch (Services.Mobile.PeerJoinException ex)
+        {
+            ShowPeerResult(LblPeerSyncJoinResult, ex.Code switch
+            {
+                "not_a_code" => Loc.PeerSyncErrNotACode,
+                "self" => Loc.PeerSyncErrSelf,
+                "code_expired" => Loc.PeerSyncErrExpired,
+                "locked" => Loc.PeerSyncErrLocked,
+                _ => Loc.PeerSyncErrInvalid,
+            });
+        }
+        catch (Exception ex)
+        {
+            ShowPeerResult(LblPeerSyncJoinResult, Loc.PeerSyncErrUnreachable(ex.Message));
+        }
+        finally
+        {
+            BtnPeerSyncJoin.IsEnabled = true;
+            UpdatePeerSyncList();
+        }
+    }
+
+    private void BtnPeerSyncRemove_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: string key }) return;
+        if (key.StartsWith("out:", StringComparison.Ordinal)) _ = _vm.Mobile.Peers.Remove(key[4..]); // 상대 PC 에 알리는 건 기다리지 않는다
+        else if (key.StartsWith("in:", StringComparison.Ordinal)) _vm.Mobile.Devices?.Revoke(key[3..]);
+        UpdatePeerSyncList();
+    }
+
+    private static void ShowPeerResult(TextBlock label, string text)
+    {
+        label.Text = text;
+        label.Visibility = string.IsNullOrEmpty(text) ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void BtnMobileConnect_Click(object sender, RoutedEventArgs e)
+    {
+        var window = new MobileConnectWindow(_vm.Mobile) { Owner = this };
+        window.ShowDialog();
+        UpdateMobileStatusLabel();
     }
 
     private void UpdateUsageSyncStatusLabel()
     {
         _vm.RefreshUsageSyncStatus();
         LblUsageSyncStatus.Text = _vm.UsageSyncStatusLabel;
+    }
+
+    /// <summary>
+    /// WinForms 대화상자를 이 창을 주인으로 띄운다(#333) — 대화상자가 설정 창 위에 머물고, 떠 있는 동안 설정 창이 숨지 않는다.
+    /// </summary>
+    internal T WithNativeDialog<T>(Func<Forms.IWin32Window, T> show)
+    {
+        _nativeDialogOpen = true;
+        try
+        {
+            return show(new OwnerHandle(new System.Windows.Interop.WindowInteropHelper(this).Handle));
+        }
+        finally
+        {
+            _nativeDialogOpen = false;
+        }
+    }
+
+    private sealed class OwnerHandle(IntPtr handle) : Forms.IWin32Window
+    {
+        public IntPtr Handle { get; } = handle;
     }
 
     private void BtnUsageSyncBrowse_Click(object sender, RoutedEventArgs e)
@@ -410,7 +828,7 @@ public partial class SettingsWindow : Window, IDisposable
             UseDescriptionForTitle = true,
         };
 
-        if (dialog.ShowDialog() != Forms.DialogResult.OK)
+        if (WithNativeDialog(owner => dialog.ShowDialog(owner)) != Forms.DialogResult.OK)
             return;
 
         TxtUsageSyncFolder.Text = dialog.SelectedPath;
@@ -510,7 +928,9 @@ public partial class SettingsWindow : Window, IDisposable
         BtnTestNotification.IsEnabled = false;
 
         var result = await _vm.SendTestNotificationAsync();
-        BtnTestNotification.Content = result.NtfyAttempted
+        BtnTestNotification.Content = result.AppPush == Services.Mobile.AppPushResult.Delivered
+            ? Loc.TestNotificationSentApp
+            : result.NtfyAttempted
             ? result.NtfySucceeded ? Loc.TestNotificationSent : Loc.TestNotificationFailedNtfy
             : hasNtfy && !sendsNtfyFromThisPc
                 ? Loc.TestNotificationSentNtfyDisabled
@@ -609,8 +1029,8 @@ public partial class SettingsWindow : Window, IDisposable
         {
             UsageProviderKind.Claude => "Claude",
             UsageProviderKind.Codex => "Codex",
-            UsageProviderKind.GeminiCli => "Gemini CLI",
             UsageProviderKind.OpenCode => "OpenCode",
+            UsageProviderKind.Antigravity => "Antigravity",
             _ => "Claude"
         };
 
@@ -676,12 +1096,12 @@ public partial class SettingsWindow : Window, IDisposable
     private void UpdateTrayModeAvailability()
     {
         if (TrayItemClaude   == null || TrayItemCodex     == null
-         || TrayItemGemini   == null || TrayItemOpenCode  == null) return;
+         || TrayItemOpenCode == null || TrayItemAntigravity == null) return;
 
         TrayItemClaude.IsEnabled   = ChkVisibleClaude.IsChecked   == true;
         TrayItemCodex.IsEnabled    = ChkVisibleCodex.IsChecked    == true;
-        TrayItemGemini.IsEnabled   = ChkVisibleGemini.IsChecked   == true;
         TrayItemOpenCode.IsEnabled = ChkVisibleOpenCode.IsChecked == true;
+        TrayItemAntigravity.IsEnabled = ChkVisibleAntigravity.IsChecked == true;
 
         // 현재 선택된 모드가 disable 상태가 되면 자동(Auto) 으로 폴백
         if (CmbTrayDisplayMode.SelectedItem is ComboBoxItem item &&
@@ -718,14 +1138,18 @@ public partial class SettingsWindow : Window, IDisposable
             _vm.HideInactiveProviders = true;
             _vm.IsClaudeEnabled       = true;
             _vm.IsCodexEnabled        = true;
-            _vm.IsGeminiEnabled       = true;
             _vm.IsOpenCodeEnabled     = true;
+            _vm.IsAntigravityEnabled  = true;
             _vm.KeepPopupAboveTaskbar = false;
             _vm.UsagePanelOpacity     = 0.94;
             _vm.NtfySendFromThisPc    = true;
             _vm.NtfyTopic             = preservedNtfyTopic; // 사용자 토픽 보존
             _vm.UsageSyncEnabled      = false;
             _vm.UsageSyncFolderPath   = "";
+            _vm.MobileEnabled         = false;
+            _vm.MobileLan             = true;
+            _vm.MobileTailscale       = true;
+            _vm.MobileCloudflare      = false;
             _vm.AutoUpdateEnabled     = true;
             _vm.AutoUpdateCountdownSeconds = AppConstants.DefaultAutoUpdateCountdownSeconds;
 
@@ -742,13 +1166,18 @@ public partial class SettingsWindow : Window, IDisposable
             ChkHideInactive.IsChecked   = _vm.HideInactiveProviders;
             ChkVisibleClaude.IsChecked  = _vm.IsClaudeEnabled;
             ChkVisibleCodex.IsChecked   = _vm.IsCodexEnabled;
-            ChkVisibleGemini.IsChecked  = _vm.IsGeminiEnabled;
             ChkVisibleOpenCode.IsChecked= _vm.IsOpenCodeEnabled;
+            ChkVisibleAntigravity.IsChecked = _vm.IsAntigravityEnabled;
             ChkKeepPopupAboveTaskbar.IsChecked = _vm.KeepPopupAboveTaskbar;
             SliderUsagePanelOpacity.Value = _vm.UsagePanelOpacity;
             ChkNtfySendFromThisPc.IsChecked = _vm.NtfySendFromThisPc;
             ChkUsageSyncEnabled.IsChecked = _vm.UsageSyncEnabled;
             TxtUsageSyncFolder.Text       = _vm.UsageSyncFolderPath;
+            ChkMobileEnabled.IsChecked    = _vm.MobileEnabled;
+            ChkMobileLan.IsChecked        = _vm.MobileLan;
+            ChkMobileTailscale.IsChecked  = _vm.MobileTailscale;
+            ChkMobileCloudflare.IsChecked = _vm.MobileCloudflare;
+            UpdateMobileStatusLabel();
             ChkAutoUpdateEnabled.IsChecked  = _vm.AutoUpdateEnabled;
             SliderAutoUpdateCountdown.Value = _vm.AutoUpdateCountdownSeconds;
             UpdateAutoUpdateCountdownLabel(_vm.AutoUpdateCountdownSeconds);
@@ -1008,20 +1437,27 @@ public partial class SettingsWindow : Window, IDisposable
             _vm.WeatherRainProbabilityThreshold = Math.Clamp(rain, 0, 100);
             TxtWeatherRainThreshold.Text = _vm.WeatherRainProbabilityThreshold.ToString();
         }
-        else if (sender == TxtWeatherHeatThreshold && double.TryParse(TxtWeatherHeatThreshold.Text, out var heat))
+        // NaN·∞(예: "NaN", "1e999")는 받지 않고 칸을 지금 값으로 되돌린다 — JSON 으로 저장할 수 없는 값이다(#334 리뷰).
+        else if (sender == TxtWeatherHeatThreshold)
         {
-            _vm.WeatherHighTemperatureThresholdC = heat;
+            if (TryParseFinite(TxtWeatherHeatThreshold.Text, out var heat)) _vm.WeatherHighTemperatureThresholdC = heat;
+            TxtWeatherHeatThreshold.Text = _vm.WeatherHighTemperatureThresholdC.ToString();
         }
-        else if (sender == TxtWeatherColdThreshold && double.TryParse(TxtWeatherColdThreshold.Text, out var cold))
+        else if (sender == TxtWeatherColdThreshold)
         {
-            _vm.WeatherLowTemperatureThresholdC = cold;
+            if (TryParseFinite(TxtWeatherColdThreshold.Text, out var cold)) _vm.WeatherLowTemperatureThresholdC = cold;
+            TxtWeatherColdThreshold.Text = _vm.WeatherLowTemperatureThresholdC.ToString();
         }
-        else if (sender == TxtWeatherWindThreshold && double.TryParse(TxtWeatherWindThreshold.Text, out var wind))
+        else if (sender == TxtWeatherWindThreshold)
         {
-            _vm.WeatherWindSpeedThresholdKmh = Math.Max(0, wind);
+            if (TryParseFinite(TxtWeatherWindThreshold.Text, out var wind)) _vm.WeatherWindSpeedThresholdKmh = Math.Max(0, wind);
+            TxtWeatherWindThreshold.Text = _vm.WeatherWindSpeedThresholdKmh.ToString();
         }
         _vm.SaveSettingsCommand.Execute(null);
     }
+
+    internal static bool TryParseFinite(string text, out double value) =>
+        double.TryParse(text, out value) && double.IsFinite(value);
 
     private void UpdateWeatherLocationLabel()
     {
@@ -1047,6 +1483,7 @@ public partial class SettingsWindow : Window, IDisposable
         {
             Loc.LanguageChanged -= OnLanguageChanged;
             _vm.PropertyChanged -= OnVmPropertyChanged;
+            _vm.Mobile.Changed -= OnMobileChanged;
         }
 
         _disposed = true;

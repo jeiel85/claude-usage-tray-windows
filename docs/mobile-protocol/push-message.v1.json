@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "id": "5b0e1c2d3f4a49b8a1c2d3e4f5a6b7c8",
+  "pcId": "0123456789abcdef0123456789abcdef",
+  "pcName": "HOME-PC",
+  "category": "usage",
+  "priority": "warning",
+  "title": "Claude 90% \u00B7 5\uC2DC\uAC04 \uD55C\uB3C4",
+  "body": "15:30 \uCD08\uAE30\uD654 \u00B7 1h 12m \uB0A8\uC74C",
+  "eventKey": "claude-usage-short-90-a1b2c3_1794620400",
+  "eventToleranceSec": 300,
+  "ts": "2026-11-14T03:00:00+00:00",
+  "provider": "claude",
+  "accountHash": "968457bb39374eb944710d0959514c3b52f194a5f3cdaf7b7bfa58e83e8d9af2",
+  "accountLabel": "\uAE40\uBBFC\uC900 \u00B7 Acme Corp"
+}

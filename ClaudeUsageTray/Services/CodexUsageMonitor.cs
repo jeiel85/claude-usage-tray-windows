@@ -1,7 +1,12 @@
+using System.Diagnostics;
+using System.Globalization;
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using ClaudeUsageTray.Models;
 
 namespace ClaudeUsageTray.Services;
@@ -16,79 +21,292 @@ public class CodexUsageMonitor
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         ".codex", "auth.json");
 
-    private const string UsageApiEndpoint = "https://api.openai-v2.com/backend-api/codex/usage";
+    // 실제 codex CLI(openai/codex 저장소 backend-client/src/client/rate_limit_resets.rs)가 부르는
+    // 계정 단위 사용량 엔드포인트. 예전 값("api.openai-v2.com/backend-api/codex/usage")은 DNS 에
+    // 존재조차 하지 않는 도메인이었다 — 이 경로는 한 번도 실제로 성공한 적이 없었다는 뜻이다
+    // (#148 은 auth.json 경로만 지적했지만, 도메인과 응답 스키마 자체가 잘못돼 있던 건 이번에
+    // 실제 계정으로 실측하며 드러났다. 아래 응답 파싱도 그때 확인한 실제 스키마 기준이다).
+    private const string UsageApiEndpoint = "https://chatgpt.com/backend-api/wham/usage";
+
+    // ChatGPT 웹이 새 대화 화면을 열 때 부르는 엔드포인트. 응답 limits_progress 에 이미지 생성 등 기능별 잔여 횟수가
+    // 실린다(#206). wham/usage 에는 이 값이 없다(additional_rate_limits: null, 2026-10-28 실측).
+    // Codex 로그인 토큰으로 읽히지만 ChatGPT-Account-Id 와 User-Agent 가 없으면 Cloudflare 가 403 HTML 을 준다.
+    private const string ConversationInitEndpoint = "https://chatgpt.com/backend-api/conversation/init";
+    private const string ImageGenerationFeature = "image_gen";
+
+    /// <summary>Direct API 로 읽은 스냅샷의 <see cref="ProviderUsageSnapshot.DataSource"/> 값.</summary>
+    public const string DirectApiSource = "Direct API";
     private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(AppConstants.ApiTimeoutSeconds) };
 
-    public async Task<ProviderUsageSnapshot> GetTodaySnapshotAsync(bool useDirectApi = true)
+    public Task<ProviderUsageSnapshot> GetTodaySnapshotAsync(bool useDirectApi = true) =>
+        GetTodaySnapshotAsync(useDirectApi, _http, AuthPath, SessionsPath, ReadConversationInitWithCurlAsync);
+
+    // HTTP·경로를 주입받는 오버로드 — 단위 테스트에서 가짜 응답과 임시 로그인 파일·로그 폴더를 쓰기 위한 것.
+    // readConversationInit 이 null 이면 이미지 생성 잔여 횟수(#206)를 읽지 않는다 — 테스트가 실제 서버를 부르지 않게.
+    internal async Task<ProviderUsageSnapshot> GetTodaySnapshotAsync(
+        bool useDirectApi, HttpClient http, string authPath, string sessionsPath,
+        ConversationInitReader? readConversationInit = null)
     {
+        var apiStatus = CodexApiStatus.NotAttempted;
         if (useDirectApi)
         {
-            var apiSnapshot = await FetchUsageFromApiAsync();
+            var (apiSnapshot, status) = await FetchUsageFromApiAsync(http, authPath, readConversationInit);
+            apiStatus = status;
             if (apiSnapshot is { HasData: true })
             {
                 // API 데이터가 있으면 로그 기반 데이터와 병합하거나 API 우선 사용
                 // 여기서는 API 데이터를 우선하고, 상세 히스토리(시간대별)만 로그에서 보완
-                var logSnapshot = GetTodaySnapshot();
+                var logSnapshot = GetTodaySnapshot(sessionsPath);
                 apiSnapshot.HourlyTokens = logSnapshot.HourlyTokens;
                 apiSnapshot.TotalInputTokens = logSnapshot.TotalInputTokens;
                 apiSnapshot.TotalOutputTokens = logSnapshot.TotalOutputTokens;
                 apiSnapshot.TotalCacheReadTokens = logSnapshot.TotalCacheReadTokens;
                 apiSnapshot.SessionCount = logSnapshot.SessionCount;
+                apiSnapshot.CodexApiStatus = status;
                 return apiSnapshot;
             }
         }
 
-        var snapshot = GetTodaySnapshot();
+        // 폴백 이유를 함께 싣는다 — 로그 값은 이 PC 에서 Codex 를 써야 생겨 옛 값·빈 값일 수 있고, 모델별 추가 한도
+        // (Spark 등)는 사실상 API 응답에서만 온다. 로그인이 만료된 PC 에서 화면이 왜 그런지 설명할 수 있어야 한다(#198).
+        var snapshot = GetTodaySnapshot(sessionsPath);
         snapshot.DataSource = "Local Log";
+        snapshot.PlanType ??= TryReadPlanTypeFromAuth(authPath);
+        snapshot.CodexApiStatus = apiStatus;
         return snapshot;
     }
 
-    private async Task<ProviderUsageSnapshot?> FetchUsageFromApiAsync()
+    /// <summary>
+    /// <b>지금</b> 로그인돼 있는 계정의 요금제. 로그아웃하면(파일이 없거나 id_token 이 사라지면) null 이다.
+    /// 스냅샷의 <see cref="ProviderUsageSnapshot.PlanType"/> 은 날짜와 무관하게 가장 최근 세션 로그의
+    /// <c>rate_limits.plan_type</c> 을 집어오므로 로그아웃 뒤에도 남는다 — "지금 구독 중인가" 를 물을 때는
+    /// 반드시 이쪽을 쓴다(과거 값으로 판단하면 해지·로그아웃 후에도 영영 구독 중으로 보인다).
+    /// </summary>
+    public static string? GetCurrentPlanType() => TryReadPlanTypeFromAuth(AuthPath);
+
+    /// <summary>
+    /// <b>지금</b> 로그인돼 있는 Codex 계정의 식별자 원문. 로그아웃이거나 읽지 못하면 null.
+    /// 여러 PC 가 같은 ntfy 토픽을 쓸 때 서로 다른 계정의 알림이 같은 사건으로 오인되지 않도록 알림 키에 섞는다(#175).
+    /// </summary>
+    public static string? GetCurrentAccountIdentity() => TryReadAccountIdentity(AuthPath);
+
+    /// <summary>
+    /// <b>지금</b> 로그인돼 있는 Codex 계정의 표시 이름(휴대폰 계정 카드·알림에 쓴다, #266). 없거나 읽지 못하면 null.
+    /// </summary>
+    public static string? GetCurrentAccountName() => TryReadAccountName(AuthPath);
+
+    /// <summary>휴대폰에 싣는 이름의 최대 길이. 비정상적으로 긴 값이 푸시 한 건의 크기를 다 쓰지 않게.</summary>
+    internal const int MaxAccountNameLength = 64;
+
+    /// <summary>
+    /// Input : <c>~/.codex/auth.json</c> 경로
+    /// Output: id_token 의 <c>name</c> 클레임(사람 이름). 없거나 이메일 꼴이면 null
+    /// 핵심 로직: 휴대폰 프로토콜은 이메일을 보내지 않는다(Claude 표시 이름과 같은 규칙) — 그래서 <c>email</c> 클레임은 읽지 않고,
+    ///           <c>name</c> 이 이메일로 채워진 계정(이름을 정하지 않은 경우)도 버린다. 앞뒤 공백을 떼고 길이를 자른다.
+    ///           id_token 은 서명 검증 없이 payload 만 읽는다 — 표시 전용이다.
+    /// </summary>
+    internal static string? TryReadAccountName(string authPath)
     {
         try
         {
-            var token = TryGetAccessToken();
-            if (string.IsNullOrEmpty(token)) return null;
+            if (!File.Exists(authPath)) return null;
 
-            var request = new HttpRequestMessage(HttpMethod.Get, UsageApiEndpoint);
+            using var doc = JsonDocument.Parse(ReadAuthFile(authPath));
+            if (!doc.RootElement.TryGetProperty("tokens", out var tokens) || tokens.ValueKind != JsonValueKind.Object ||
+                ReadString(tokens, "id_token") is not { } idToken)
+                return null;
+
+            using var payload = DecodeJwtPayload(idToken);
+            if (payload is null || ReadString(payload.RootElement, "name") is not { } raw) return null;
+
+            var name = raw.Trim();
+            if (name.Contains('@')) return null;
+            if (name.Length > MaxAccountNameLength)
+            {
+                var cut = MaxAccountNameLength;
+                if (char.IsHighSurrogate(name[cut - 1])) cut--;
+                name = name[..cut].TrimEnd() + "…";
+            }
+            return name;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 로그인 파일에서 계정 식별자를 만든다.
+    ///
+    /// Input : <c>~/.codex/auth.json</c> 경로
+    /// Output: <c>"{account_id}|{user_id}"</c> (한쪽만 알면 다른 쪽은 빈 문자열). 둘 다 모르면 null
+    /// 핵심 로직: 같은 계정이면 어느 PC 에서든 같은 값이어야 한다 — 그래서 토큰(갱신 때마다 바뀜)이 아니라
+    ///           계정·사용자 ID 만 쓴다. <c>tokens.account_id</c> 는 #148 에서 실제 파일로 확인된 자리이고,
+    ///           id_token 의 <c>chatgpt_user_id</c>(없으면 <c>user_id</c>)·<c>chatgpt_account_id</c> 는 Codex CLI 소스
+    ///           (openai/codex codex-rs/login/src/token_data.rs)가 읽는 클레임 이름이다. 워크스페이스(계정) ID 만으로는
+    ///           같은 워크스페이스의 다른 사용자가 구분되지 않아 사용자 ID 도 함께 쓴다.
+    ///           id_token 은 서명 검증 없이 payload 만 읽는다 — 표시·식별 전용이며 인증에 쓰지 않는다.
+    /// </summary>
+    internal static string? TryReadAccountIdentity(string authPath)
+    {
+        try
+        {
+            if (!File.Exists(authPath)) return null;
+
+            using var doc = JsonDocument.Parse(ReadAuthFile(authPath));
+            if (!doc.RootElement.TryGetProperty("tokens", out var tokens) || tokens.ValueKind != JsonValueKind.Object)
+                return null;
+
+            var accountId = ReadString(tokens, "account_id");
+            string? userId = null;
+
+            if (ReadString(tokens, "id_token") is { } idToken)
+            {
+                using var payload = DecodeJwtPayload(idToken);
+                if (payload is not null &&
+                    payload.RootElement.TryGetProperty("https://api.openai.com/auth", out var auth) &&
+                    auth.ValueKind == JsonValueKind.Object)
+                {
+                    userId = ReadString(auth, "chatgpt_user_id") ?? ReadString(auth, "user_id");
+                    accountId ??= ReadString(auth, "chatgpt_account_id");
+                }
+            }
+
+            return accountId is null && userId is null ? null : $"{accountId}|{userId}";
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    // auth.json 은 Codex 가 토큰을 갱신할 때 다시 쓰고 로그아웃할 때 지운다. File.ReadAllText(FileShare.Read)로 열면
+    // Codex 가 쓰기로 열어 둔 동안엔 읽지 못하고, 읽는 동안엔 Codex 의 쓰기·삭제를 막는다 — 쓰기·삭제 공유를 허용해 연다(#201).
+    // 앱은 이 파일에 쓰지 않는다.
+    private static string ReadAuthFile(string authPath)
+    {
+        using var stream = new FileStream(authPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+
+    private static string? ReadString(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String &&
+        !string.IsNullOrWhiteSpace(value.GetString())
+            ? value.GetString()
+            : null;
+
+    /// <summary>
+    /// 로그인 파일(<c>~/.codex/auth.json</c>)의 id_token 에서 요금제를 읽는다.
+    /// 세션 로그의 <c>rate_limits.plan_type</c> 은 오늘 Codex 를 한 번이라도 써야 생기므로,
+    /// 요금제 배지가 "쓰기 전에는 안 보이는" 값이 되지 않도록 여기서 보완한다.
+    ///
+    /// id_token 은 서명 검증 없이 payload 만 읽는다. 이 값은 <b>표시 전용</b>이며 인증이나 권한
+    /// 판단에 쓰지 않는다(파일 자체가 이미 사용자 소유의 로컬 자격 파일이다).
+    /// </summary>
+    internal static string? TryReadPlanTypeFromAuth(string authPath)
+    {
+        try
+        {
+            if (!File.Exists(authPath)) return null;
+
+            using var doc = JsonDocument.Parse(ReadAuthFile(authPath));
+            if (!doc.RootElement.TryGetProperty("tokens", out var tokens) ||
+                tokens.ValueKind != JsonValueKind.Object ||
+                !tokens.TryGetProperty("id_token", out var idTokenEl) ||
+                idTokenEl.ValueKind != JsonValueKind.String)
+                return null;
+
+            using var payload = DecodeJwtPayload(idTokenEl.GetString());
+            if (payload is null) return null;
+
+            return payload.RootElement.TryGetProperty("https://api.openai.com/auth", out var auth) &&
+                   auth.ValueKind == JsonValueKind.Object &&
+                   auth.TryGetProperty("chatgpt_plan_type", out var planEl) &&
+                   planEl.ValueKind == JsonValueKind.String
+                ? planEl.GetString()
+                : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>JWT 의 payload(두 번째 조각, base64url) 를 JSON 으로 편다. 형태가 아니면 null.</summary>
+    internal static JsonDocument? DecodeJwtPayload(string? jwt)
+    {
+        if (string.IsNullOrWhiteSpace(jwt)) return null;
+
+        var parts = jwt.Split('.');
+        if (parts.Length < 2 || parts[1].Length == 0) return null;
+
+        var payload = parts[1].Replace('-', '+').Replace('_', '/');
+        payload = payload.PadRight(payload.Length + (4 - payload.Length % 4) % 4, '=');
+
+        try
+        {
+            return JsonDocument.Parse(Convert.FromBase64String(payload));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Direct API 로 계정 사용량을 읽는다. 못 읽으면 스냅샷 없이 그 이유를 돌려준다(#198).
+    ///
+    /// 토큰이 만료돼도 여기서 refresh_token 으로 갱신하거나 auth.json 에 쓰지 않는다. refresh token 은 한 번 쓰면
+    /// 새 것으로 바뀌므로, 앱이 갱신하면 Codex 가 들고 있는 refresh token 이 무효가 돼 Codex 자체가 로그아웃될 수 있다.
+    /// 갱신은 Codex 가 실행될 때 스스로 한다 — 앱은 실패 사유만 알린다.
+    /// </summary>
+    internal static async Task<(ProviderUsageSnapshot? Snapshot, CodexApiStatus Status)> FetchUsageFromApiAsync(
+        HttpClient http, string authPath, ConversationInitReader? readConversationInit = null)
+    {
+        var (token, accountId) = TryGetApiCredentials(authPath);
+        if (string.IsNullOrEmpty(token)) return (null, CodexApiStatus.NoCredentials);
+
+        ProviderUsageSnapshot? snapshot;
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, UsageApiEndpoint);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            // 실제 CLI 와 같은 값 — 서버가 User-Agent 로 클라이언트를 가리는지는 불명이지만,
+            // Antigravity 쪽(v1internal 엔드포인트)이 이미 이 방식으로 403 을 겪은 전례가 있어 맞춰 둔다.
+            request.Headers.UserAgent.ParseAdd("codex-cli");
+            if (!string.IsNullOrEmpty(accountId))
+                request.Headers.TryAddWithoutValidation("ChatGPT-Account-Id", accountId);
 
-            var response = await _http.SendAsync(request);
-            if (!response.IsSuccessStatusCode) return null;
+            using var response = await http.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+                return (null, ClassifyFailedResponse(response.StatusCode, IsJwtExpired(token, DateTimeOffset.UtcNow)));
 
             var json = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-
-            // API 응답 구조 파싱 (리뷰 문서의 rate_limits 구조 기반)
-            if (!root.TryGetProperty("rate_limits", out var rateLimitsEl)) return null;
-
-            var snapshot = new ProviderUsageSnapshot
-            {
-                HasData = true,
-                DataSource = "Direct API",
-            };
-            ApplyRateLimits(rateLimitsEl, snapshot);
-            // API 응답이라고 리셋 시각이 항상 미래인 것은 아니다(캐시된 응답·시계 어긋남).
-            DropExpiredWindows(snapshot, DateTimeOffset.Now);
-            snapshot.IsSubscriptionActive = snapshot.PlanType is "Plus" or "Team" or "Enterprise";
-
-            return snapshot;
+            snapshot = ParseDirectApiUsage(doc.RootElement, DateTimeOffset.Now);
+            if (snapshot is null) return (null, CodexApiStatus.Unavailable);
         }
         catch
         {
-            return null;
+            // 네트워크 실패·타임아웃·응답 해석 실패 — 일시적일 수 있어 로그인 문제로 보지 않는다.
+            return (null, CodexApiStatus.Unavailable);
         }
+
+        // 보조 조회 — 실패해도 Codex 조회 결과·로그인 상태 판단에 영향을 주지 않고 이 항목만 비운다.
+        if (readConversationInit is not null)
+            snapshot.ImageGeneration = ParseImageGeneration(await ReadSafelyAsync(readConversationInit, token, accountId), DateTimeOffset.Now);
+        return (snapshot, CodexApiStatus.Succeeded);
     }
 
-    private string? TryGetAccessToken()
+    /// <summary><c>conversation/init</c> 응답 본문을 읽는다. 못 읽으면(HTTP 오류·차단·실행 실패) null.</summary>
+    internal delegate Task<string?> ConversationInitReader(string token, string? accountId);
+
+    private static async Task<string?> ReadSafelyAsync(ConversationInitReader reader, string token, string? accountId)
     {
         try
         {
-            if (!File.Exists(AuthPath)) return null;
-            var json = File.ReadAllText(AuthPath);
-            using var doc = JsonDocument.Parse(json);
-            return doc.RootElement.TryGetProperty("access_token", out var tokenEl) ? tokenEl.GetString() : null;
+            return await reader(token, accountId);
         }
         catch
         {
@@ -96,7 +314,333 @@ public class CodexUsageMonitor
         }
     }
 
+    /// <summary>
+    /// <c>conversation/init</c> 을 Windows 내장 <c>curl.exe</c> 로 부른다(#206).
+    /// .NET HttpClient(SocketsHttpHandler)와 WinRT HttpClient 로 같은 요청을 보내면 chatgpt.com 앞단 Cloudflare 가 이 경로에만
+    /// 챌린지(403, <c>cf-mitigated: challenge</c>)를 건다. 같은 요청을 curl.exe·Python 으로 보내면 200 이다 — 헤더 순서·구성,
+    /// HTTP 1.1/2, TLS 1.2/1.3 을 맞춰도 .NET 쪽만 막혀 클라이언트 연결 특성으로 판정되는 것으로 본다(2026-10-28 실측, 프록시 없음).
+    /// curl.exe 는 Windows 10 1803 부터 System32 에 기본으로 있다(앱 최소 대상 1809). 없거나 막히면 이 항목만 비운다.
+    /// 빈 본문으로 POST 한다 — 웹이 보내는 다른 필드(gizmo_id 등)가 없어도 같은 응답이고, 대화를 만들지 않는다(실측).
+    /// </summary>
+    private static async Task<string?> ReadConversationInitWithCurlAsync(string token, string? accountId)
+    {
+        var config = BuildCurlConfig(token, accountId);
+        var curlPath = Path.Combine(Environment.SystemDirectory, "curl.exe");
+        if (config is null || !File.Exists(curlPath)) return null;
+
+        var startInfo = new ProcessStartInfo(curlPath)
+        {
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            StandardOutputEncoding = Encoding.UTF8,
+        };
+        // --fail: 2xx 가 아니면(403 챌린지 HTML 등) 본문 없이 실패 코드로 끝난다.
+        foreach (var arg in new[] { "--silent", "--fail", "--max-time", AppConstants.ApiTimeoutSeconds.ToString(CultureInfo.InvariantCulture), "--config", "-", ConversationInitEndpoint })
+            startInfo.ArgumentList.Add(arg);
+
+        using var process = Process.Start(startInfo);
+        if (process is null) return null;
+
+        // 토큰은 명령줄(다른 프로세스가 볼 수 있다)이 아니라 표준 입력의 curl 설정으로 넘긴다.
+        await process.StandardInput.WriteAsync(config);
+        process.StandardInput.Close();
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        var stderr = process.StandardError.ReadToEndAsync(); // 버퍼가 차서 curl 이 멈추지 않도록 비운다
+
+        // --max-time 이 끝내지 못한 경우의 안전장치.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(AppConstants.ApiTimeoutSeconds + 5));
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            try { process.Kill(); } catch (InvalidOperationException) { } catch (System.ComponentModel.Win32Exception) { }
+            return null;
+        }
+
+        await stderr;
+        return process.ExitCode == 0 ? await stdout : null;
+    }
+
+    // 설정 문법(따옴표·줄바꿈)에 끼어들 수 있는 값은 쓰지 않는다 — JWT(base64url·점)와 계정 UUID 만 받는다.
+    private static readonly Regex CurlConfigSafeValue = new("^[A-Za-z0-9._-]+$", RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// <c>conversation/init</c> 요청을 curl 설정 문법으로 만든다. 값이 허용 문자 밖이면 null.
+    /// 헤더는 wham/usage 요청과 같다 — 계정 헤더와 User-Agent 가 빠지면 Cloudflare 가 403 을 준다(실측).
+    /// </summary>
+    internal static string? BuildCurlConfig(string token, string? accountId)
+    {
+        if (!CurlConfigSafeValue.IsMatch(token) || (accountId is not null && !CurlConfigSafeValue.IsMatch(accountId)))
+            return null;
+
+        var config = new StringBuilder()
+            .Append("request = \"POST\"\n")
+            .Append("data = \"{}\"\n")
+            .Append("header = \"Content-Type: application/json\"\n")
+            .Append("user-agent = \"codex-cli\"\n")
+            .Append("header = \"Authorization: Bearer ").Append(token).Append("\"\n");
+        if (accountId is not null)
+            config.Append("header = \"ChatGPT-Account-Id: ").Append(accountId).Append("\"\n");
+        return config.ToString();
+    }
+
+    /// <summary>응답 본문에서 이미지 생성 잔여 횟수를 읽는다. 본문이 없거나 JSON 이 아니면 null.</summary>
+    internal static FeatureAllowance? ParseImageGeneration(string? json, DateTimeOffset now)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            return ParseFeatureAllowance(doc.RootElement, ImageGenerationFeature, now);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// <c>conversation/init</c> 응답에서 기능 하나의 잔여 횟수를 읽는다(#206).
+    ///
+    /// Input : 응답 루트, 기능 이름(<c>image_gen</c> 등), 현재 시각
+    /// Output: <c>limits_progress[{feature_name, remaining, reset_after}]</c> 중 그 기능. 없거나 남은 횟수를 못 읽으면 null
+    /// 핵심 로직: 초기화 시각이 이미 지났으면 그 남은 횟수는 지난 창의 값이라 버린다(기본 한도의 DropExpiredWindows 와 같은 이유).
+    ///           초기화 시각만 못 읽으면 남은 횟수는 그대로 쓴다.
+    /// </summary>
+    internal static FeatureAllowance? ParseFeatureAllowance(JsonElement root, string featureName, DateTimeOffset now)
+    {
+        if (root.ValueKind != JsonValueKind.Object ||
+            !root.TryGetProperty("limits_progress", out var limitsEl) || limitsEl.ValueKind != JsonValueKind.Array)
+            return null;
+
+        foreach (var limitEl in limitsEl.EnumerateArray())
+        {
+            if (limitEl.ValueKind != JsonValueKind.Object ||
+                !string.Equals(ReadString(limitEl, "feature_name"), featureName, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (!JsonNumber.TryReadInt32(limitEl, "remaining", out var remaining) || remaining < 0)
+                return null;
+
+            DateTimeOffset? resetAt = ReadString(limitEl, "reset_after") is { } raw &&
+                                      DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed)
+                ? parsed
+                : null;
+            if (resetAt is { } reset && reset <= now) return null;
+
+            return new FeatureAllowance(remaining, resetAt);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 실패한 응답이 "다시 로그인해야 하는" 실패인지 가린다(#198).
+    /// 401 은 서버가 토큰을 거부한 것이다. 403 은 원인이 여럿이다 — chatgpt.com 앞단 Cloudflare 의 챌린지·차단
+    /// (1020 등), 계정 헤더 누락 같은 요청 문제도 403 이다. 그래서 403 은 access_token 이 실제로 만료됐을 때만
+    /// 인증 실패로 본다. 멀쩡한 로그인에 "다시 로그인" 을 띄우면 사용자가 엉뚱한 조치를 하게 된다.
+    /// 그 밖의 오류(429·5xx 등)는 일시적일 수 있어 인증 문제로 보지 않는다.
+    /// </summary>
+    internal static CodexApiStatus ClassifyFailedResponse(HttpStatusCode statusCode, bool isTokenExpired) => statusCode switch
+    {
+        HttpStatusCode.Unauthorized => CodexApiStatus.AuthFailed,
+        HttpStatusCode.Forbidden when isTokenExpired => CodexApiStatus.AuthFailed,
+        _ => CodexApiStatus.Unavailable,
+    };
+
+    /// <summary>
+    /// access_token(JWT) 의 <c>exp</c> 가 이미 지났는지. JWT 가 아니거나 <c>exp</c> 를 못 읽으면 false(모름).
+    /// 서명 검증 없이 payload 만 읽는다 — 실패 사유를 가리는 표시 판단에만 쓰고, 이 값으로 호출을 건너뛰지 않는다
+    /// (PC 시계가 어긋나 있을 수 있으니 유효 여부는 서버가 정한다).
+    /// </summary>
+    internal static bool IsJwtExpired(string? jwt, DateTimeOffset now)
+    {
+        using var payload = DecodeJwtPayload(jwt);
+        return payload is { RootElement.ValueKind: JsonValueKind.Object } &&
+               payload.RootElement.TryGetProperty("exp", out var expEl) &&
+               // TryGetInt64 는 숫자가 아닌 요소에서 false 가 아니라 예외를 던진다 — 종류를 먼저 본다.
+               expEl.ValueKind == JsonValueKind.Number &&
+               expEl.TryGetInt64(out var exp) &&
+               exp <= now.ToUnixTimeSeconds();
+    }
+
+    /// <summary>
+    /// <c>~/.codex/auth.json</c> 에서 Direct API 호출에 쓸 자격 증명을 읽는다.
+    /// 실제 파일은 최상위가 아니라 <c>tokens</c> 아래에 담겨 있다(#148) — 최상위에서 읽으면 항상
+    /// null 이 되어 API 경로가 조용히 죽은 채로 로그 폴백만 타게 된다. <c>account_id</c> 도 같은
+    /// 자리에 있으며, 서버가 이 값 없이는 403 을 준다(codex CLI 의 ChatGPT-Account-Id 헤더와 동일).
+    /// </summary>
+    internal static (string? Token, string? AccountId) TryGetApiCredentials(string authPath)
+    {
+        try
+        {
+            if (!File.Exists(authPath)) return (null, null);
+            using var doc = JsonDocument.Parse(ReadAuthFile(authPath));
+            if (!doc.RootElement.TryGetProperty("tokens", out var tokens) || tokens.ValueKind != JsonValueKind.Object)
+                return (null, null);
+
+            var token = tokens.TryGetProperty("access_token", out var t) && t.ValueKind == JsonValueKind.String
+                ? t.GetString() : null;
+            var accountId = tokens.TryGetProperty("account_id", out var a) && a.ValueKind == JsonValueKind.String
+                ? a.GetString() : null;
+            return (token, accountId);
+        }
+        catch
+        {
+            return (null, null);
+        }
+    }
+
+    /// <summary>
+    /// Direct API(<c>/backend-api/wham/usage</c>) 응답을 스냅샷으로 편다.
+    /// 로컬 세션 로그(<see cref="ApplyRateWindows"/>)와는 완전히 다른 스키마다 — 창이
+    /// <c>rate_limit.primary_window</c>/<c>secondary_window</c> 로 한 겹 더 감싸여 있고,
+    /// 리셋까지 남은 시간은 <c>limit_window_seconds</c>(초 단위, 로그의 <c>window_minutes</c>
+    /// 는 분 단위)와 <c>reset_at</c>(로그의 <c>resets_at</c>과 이름이 다르다)로 불린다.
+    /// (실측: openai/codex 저장소 codex-backend-openapi-models 의 OpenAPI 모델 기준, 2026-09-18)
+    /// </summary>
+    internal static ProviderUsageSnapshot? ParseDirectApiUsage(JsonElement root, DateTimeOffset now)
+    {
+        if (!root.TryGetProperty("rate_limit", out var rateLimitEl) || rateLimitEl.ValueKind != JsonValueKind.Object)
+            return null;
+
+        var windows = ReadDirectApiWindows(rateLimitEl);
+        if (windows.Count == 0) return null;
+
+        var snapshot = new ProviderUsageSnapshot
+        {
+            HasData = true,
+            DataSource = DirectApiSource,
+            ShortUsagePercent = windows[0].Percent,
+            ShortResetAt = windows[0].ResetAt,
+            ShortWindowMinutes = windows[0].WindowMinutes,
+        };
+        if (windows.Count > 1)
+        {
+            snapshot.LongUsagePercent = windows[1].Percent;
+            snapshot.LongResetAt = windows[1].ResetAt;
+            snapshot.LongWindowMinutes = windows[1].WindowMinutes;
+        }
+
+        if (root.TryGetProperty("plan_type", out var planEl) && planEl.ValueKind == JsonValueKind.String)
+            snapshot.PlanType = planEl.GetString();
+
+        ReadAdditionalRateLimits(root, snapshot.AdditionalQuotas, now);
+
+        // API 응답이라고 리셋 시각이 항상 미래인 것은 아니다(캐시된 응답·시계 어긋남).
+        DropExpiredWindows(snapshot, now);
+
+        return snapshot;
+    }
+
+    /// <summary>
+    /// 기본 한도 말고 따로 걸린 한도들(이미지 생성 등, #182)을 창 단위로 편다.
+    /// 응답 최상위의 <c>additional_rate_limits: [{limit_name, metered_feature, rate_limit}]</c> 이고,
+    /// <c>rate_limit</c> 은 기본 한도와 같은 <c>primary_window</c>/<c>secondary_window</c> 구조다.
+    /// 공식 CLI 는 <c>metered_feature</c> 를 한도 ID 로, <c>limit_name</c> 을 표시 이름으로 쓴다
+    /// (openai/codex backend-client/src/client.rs, codex-backend-openapi-models 의 AdditionalRateLimitDetails).
+    /// 이미지 생성 한도의 실제 이름은 공개 자료로 확인되지 않아 이름으로 고르지 않고 전부 받는다.
+    /// </summary>
+    private static void ReadAdditionalRateLimits(JsonElement root, List<AdditionalQuotaWindow> target, DateTimeOffset observedAt)
+    {
+        if (!root.TryGetProperty("additional_rate_limits", out var limitsEl) || limitsEl.ValueKind != JsonValueKind.Array)
+            return;
+
+        foreach (var limitEl in limitsEl.EnumerateArray())
+        {
+            if (limitEl.ValueKind != JsonValueKind.Object) continue;
+
+            var limitName = ReadString(limitEl, "limit_name") ?? "";
+            var limitId = ReadString(limitEl, "metered_feature") ?? limitName;
+            // 기본 한도가 여기 한 번 더 실려 오면 같은 게이지가 두 번 그려진다.
+            if (limitId.Length == 0 || IsDefaultLimit(limitId)) continue;
+            if (!limitEl.TryGetProperty("rate_limit", out var rateLimitEl) || rateLimitEl.ValueKind != JsonValueKind.Object)
+                continue;
+
+            AddAdditionalWindows(target, limitId, limitName, ReadDirectApiWindows(rateLimitEl), observedAt);
+        }
+    }
+
+    // primary/secondary 를 창 길이 오름차순으로 — 기본 한도·추가 한도가 같은 규칙을 쓴다.
+    private static List<RateWindow> ReadDirectApiWindows(JsonElement rateLimitEl)
+    {
+        var windows = new List<RateWindow>(2);
+        if (ReadDirectApiWindow(rateLimitEl, "primary_window") is { } primary) windows.Add(primary);
+        if (ReadDirectApiWindow(rateLimitEl, "secondary_window") is { } secondary) windows.Add(secondary);
+        windows.Sort(CompareByWindowLength);
+        return windows;
+    }
+
+    private static void AddAdditionalWindows(
+        List<AdditionalQuotaWindow> target, string limitId, string limitName, List<RateWindow> windows,
+        DateTimeOffset observedAt)
+    {
+        foreach (var window in windows)
+        {
+            target.Add(new AdditionalQuotaWindow
+            {
+                LimitId = limitId,
+                LimitName = limitName,
+                UsagePercent = window.Percent,
+                ResetAt = window.ResetAt,
+                WindowMinutes = window.WindowMinutes,
+                ObservedAt = observedAt,
+            });
+        }
+    }
+
+    /// <summary>
+    /// 기본 한도 ID. 세션 로그의 <c>limit_id</c> 가 이 값이거나 비어 있으면(이 필드가 생기기 전 로그) 기본 한도다
+    /// (openai/codex codex-api/src/rate_limits.rs 가 기본 헤더 묶음을 이 ID 로 부른다).
+    /// </summary>
+    private const string DefaultLimitId = "codex";
+
+    private static bool IsDefaultLimit(string limitId) =>
+        string.Equals(limitId, DefaultLimitId, StringComparison.OrdinalIgnoreCase);
+
+    // window_minutes 오름차순(길이를 모르는 창은 뒤로)
+    private static int CompareByWindowLength(RateWindow a, RateWindow b) =>
+        (a.WindowMinutes ?? int.MaxValue).CompareTo(b.WindowMinutes ?? int.MaxValue);
+
+    // limit_window_seconds 는 초 단위라 분 단위인 로컬 로그 스키마(ReadWindow)와 맞추려면 60 으로 나눈다.
+    private static RateWindow? ReadDirectApiWindow(JsonElement rateLimitEl, string windowName)
+    {
+        if (!rateLimitEl.TryGetProperty(windowName, out var windowEl) || windowEl.ValueKind != JsonValueKind.Object)
+            return null;
+
+        double percent = windowEl.TryGetProperty("used_percent", out var percentEl) &&
+                         percentEl.ValueKind == JsonValueKind.Number
+            ? Math.Clamp(percentEl.GetDouble() / 100.0, 0, 1)
+            : 0;
+
+        // 숫자가 아닌 값(null 등)은 그 필드만 "없음"이다 — 예외로 응답 전체를 버리지 않는다(#201).
+        DateTimeOffset? resetAt = JsonNumber.TryReadInt64(windowEl, "reset_at", out var epoch) && epoch > 0
+            ? DateTimeOffset.FromUnixTimeSeconds(epoch)
+            : null;
+
+        int? windowMinutes = JsonNumber.TryReadInt32(windowEl, "limit_window_seconds", out var ws) && ws > 0
+            ? (int)Math.Round(ws / 60.0, MidpointRounding.AwayFromZero)
+            : null;
+
+        return new RateWindow(percent, resetAt, windowMinutes);
+    }
+
     public ProviderUsageSnapshot GetTodaySnapshot() => GetTodaySnapshot(SessionsPath);
+
+    // 파일별로 읽은 결과(#314). 세션 로그는 이 PC 에서 1,200개·11GB 를 넘어, 새로고침마다 전부 다시 읽으면
+    // 11~17초 걸렸다. 로그는 끝에 덧붙기만 하므로 길이·수정 시각이 같으면 내용도 같다 — 바뀐 파일만 다시 읽는다.
+    // 오늘 합계는 날짜에 따라 달라지므로 '오늘' 이 바뀌면 모두 다시 읽는다.
+    // 길이·시각은 디렉터리 목록이 아니라 연 파일 핸들에서 읽는다 — Codex 가 열어 두고 쓰는 파일은 목록 쪽 값이 늦게 바뀐다.
+    private readonly object _scanLock = new();
+    private Dictionary<string, FileScan> _scanCache = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>테스트용: 마지막 스캔에서 내용을 실제로 읽은 파일 수.</summary>
+    internal int FilesReadLastScan { get; private set; }
 
     // sessionsPath / now 를 주입받는 오버로드 — 단위 테스트에서 임시 로그 폴더와 기준 시각을 지정하기 위한 것.
     public ProviderUsageSnapshot GetTodaySnapshot(string sessionsPath, DateTimeOffset? now = null)
@@ -110,20 +654,83 @@ public class CodexUsageMonitor
         }
 
         var today = reference.LocalDateTime.Date;
-        var latestRateTs = DateTimeOffset.MinValue;
         var files = Directory.GetFiles(sessionsPath, "rollout-*.jsonl", SearchOption.AllDirectories);
-
-        foreach (var file in files)
+        var scans = new List<FileScan>(files.Length);
+        lock (_scanLock)
         {
-            try
+            var cache = new Dictionary<string, FileScan>(files.Length, StringComparer.OrdinalIgnoreCase);
+            var read = 0;
+            foreach (var file in files)
             {
-                ProcessFile(file, today, snapshot, ref latestRateTs);
+                try
+                {
+                    using var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                    var length = fs.Length;
+                    var lastWrite = File.GetLastWriteTimeUtc(fs.SafeFileHandle);
+                    if (!_scanCache.TryGetValue(file, out var scan) ||
+                        scan.Length != length || scan.LastWriteUtc != lastWrite || scan.Today != today)
+                    {
+                        scan = ScanFile(fs, length, lastWrite, today);
+                        read++;
+                    }
+                    cache[file] = scan;
+                    scans.Add(scan);
+                }
+                catch
+                {
+                    // Skip unreadable files
+                }
             }
-            catch
+            _scanCache = cache;
+            FilesReadLastScan = read;
+        }
+
+        // 파일 순서대로 합친다 — 같은 시각이면 먼저 읽은 파일이 이기고, 리셋 추정은 그 파일까지의 창 길이로 정한다
+        // (파일마다 바로 반영하던 예전 스캔과 같은 결과).
+        var latestRateTs = DateTimeOffset.MinValue;
+        var latestPlanTs = DateTimeOffset.MinValue;
+        var latestAdditional = new Dictionary<string, LoggedLimit>(StringComparer.OrdinalIgnoreCase);
+        foreach (var scan in scans)
+        {
+            if (scan.RateWindows is { } rateWindows && scan.RateTs > latestRateTs)
             {
-                // Skip unreadable files
+                latestRateTs = scan.RateTs;
+                ApplyRateWindows(rateWindows, snapshot);
+            }
+            if (scan.PlanType is { } plan && scan.PlanTs > latestPlanTs)
+            {
+                latestPlanTs = scan.PlanTs;
+                snapshot.PlanType = plan;
+            }
+            foreach (var (limitId, limit) in scan.Additional)
+            {
+                if (!latestAdditional.TryGetValue(limitId, out var known) || limit.Timestamp > known.Timestamp)
+                    latestAdditional[limitId] = limit;
+            }
+
+            snapshot.TotalInputTokens += scan.InputTokens;
+            snapshot.TotalOutputTokens += scan.OutputTokens;
+            snapshot.TotalCacheReadTokens += scan.CacheReadTokens;
+            for (var hour = 0; hour < 24; hour++) snapshot.HourlyTokens[hour] += scan.HourlyTokens[hour];
+            if (scan.HadTodayTokens)
+            {
+                snapshot.HasData = true;
+                snapshot.SessionCount++;
+            }
+
+            // 로그에 resets_at이 없으면 금번 초기화 전 첫 활동 시간 + 창 길이로 폴백(창 길이를 알 때만).
+            // 창 길이를 모르면 임의 추정 대신 표시하지 않는다(예전 5시간 하드코딩은 주간 창에 맞지 않았음).
+            if (snapshot.ShortResetAt is null && scan.FirstTodayActivityTs is { } firstToday &&
+                snapshot.ShortWindowMinutes is int shortWindowMinutes && shortWindowMinutes > 0)
+            {
+                snapshot.ShortResetAt = firstToday.AddMinutes(shortWindowMinutes);
+                snapshot.IsShortResetEstimated = true;
             }
         }
+
+        // 로그에는 서버의 한도 순서가 없어 ID 순으로 고정한다 — 파일 순서에 따라 게이지가 자리를 바꾸지 않게.
+        foreach (var limit in latestAdditional.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
+            snapshot.AdditionalQuotas.AddRange(limit.Value.Windows);
 
         DropExpiredWindows(snapshot, reference);
 
@@ -156,18 +763,44 @@ public class CodexUsageMonitor
             snapshot.LongResetAt = null;
             snapshot.LongWindowMinutes = null;
         }
+
+        snapshot.AdditionalQuotas.RemoveAll(window => window.ResetAt is { } reset && reset <= now);
     }
 
-    private static void ProcessFile(string filePath, DateTime today, ProviderUsageSnapshot snapshot,
-        ref DateTimeOffset latestRateTs)
+    /// <summary>
+    /// 로그 파일 하나에서 합칠 값만 뽑은 것. 캐시에 남으므로 다 만든 뒤에는 바꾸지 않는다.
+    /// </summary>
+    private sealed class FileScan
     {
-        using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        using var reader = new StreamReader(fs);
+        public long Length { get; init; }
+        public DateTime LastWriteUtc { get; init; }
+        public DateTime Today { get; init; }
+
+        /// <summary>기본 한도 줄 중 가장 최근 것(같은 시각이면 먼저 나온 것)의 시각과 창. 없으면 창이 null.</summary>
+        public DateTimeOffset RateTs { get; set; } = DateTimeOffset.MinValue;
+        public List<RateWindow>? RateWindows { get; set; }
+
+        /// <summary>plan_type 이 있는 기본 한도 줄 중 가장 최근 것.</summary>
+        public DateTimeOffset PlanTs { get; set; } = DateTimeOffset.MinValue;
+        public string? PlanType { get; set; }
+
+        public Dictionary<string, LoggedLimit> Additional { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+        public long InputTokens { get; set; }
+        public long OutputTokens { get; set; }
+        public long CacheReadTokens { get; set; }
+        public long[] HourlyTokens { get; } = new long[24];
+        public bool HadTodayTokens { get; set; }
+        public DateTimeOffset? FirstTodayActivityTs { get; set; }
+    }
+
+    private static FileScan ScanFile(FileStream fs, long length, DateTime lastWriteUtc, DateTime today)
+    {
+        var scan = new FileScan { Length = length, LastWriteUtc = lastWriteUtc, Today = today };
+        using var reader = new StreamReader(fs, leaveOpen: true);
 
         UsageTotals? prevTotals = null;
-        bool fileHadTodayActivity = false;
         string? line;
-        DateTimeOffset? firstTodayActivityTs = null;
 
         while ((line = reader.ReadLine()) != null)
         {
@@ -193,27 +826,49 @@ public class CodexUsageMonitor
                 // 이름 그대로 "오늘 첫 활동" 이어야 한다. 날짜를 안 보면 며칠 전 로그의 첫 줄이 잡혀
                 // 리셋 추정치가 과거로 계산되고, 시간선이 100% 경과(막대 오른쪽 끝)로 고정된다.
                 if (ts != DateTimeOffset.MinValue && ts.ToLocalTime().Date == today)
-                    firstTodayActivityTs ??= ts;
+                    scan.FirstTodayActivityTs ??= ts;
 
-                if (payloadEl.TryGetProperty("rate_limits", out var rateLimitsEl) && ts > latestRateTs)
+                if (payloadEl.TryGetProperty("rate_limits", out var rateLimitsEl) &&
+                    rateLimitsEl.ValueKind == JsonValueKind.Object)
                 {
-                    latestRateTs = ts;
-                    ApplyRateLimits(rateLimitsEl, snapshot);
+                    // 최신 CLI 는 한도마다 rate_limits 줄을 따로 남기고 limit_id 로 구분한다. 이 값을 안 보면
+                    // 추가 한도(이미지 생성 등) 줄이 기본 게이지를 덮어쓴다 — 기본 한도 줄만 기본 게이지에 쓰고,
+                    // 나머지는 한도별 최신 줄을 추가 한도로 모은다(#182).
+                    var limitId = ReadString(rateLimitsEl, "limit_id");
+                    if (limitId is null || IsDefaultLimit(limitId))
+                    {
+                        if (ts > scan.RateTs)
+                        {
+                            scan.RateTs = ts;
+                            scan.RateWindows = ReadLoggedWindows(rateLimitsEl);
+                        }
+                        if (ts > scan.PlanTs &&
+                            rateLimitsEl.TryGetProperty("plan_type", out var planEl) && planEl.ValueKind == JsonValueKind.String)
+                        {
+                            scan.PlanTs = ts;
+                            scan.PlanType = planEl.GetString();
+                        }
+                    }
+                    else if (!scan.Additional.TryGetValue(limitId, out var known) || ts > known.Timestamp)
+                    {
+                        // 읽을 창이 없는 줄이 앞서 읽은 정상 값을 지우지 않게 한다.
+                        var windows = ReadLoggedAdditionalWindows(rateLimitsEl, limitId, ts);
+                        if (windows.Count > 0)
+                            scan.Additional[limitId] = new LoggedLimit(ts, windows);
+                    }
                 }
 
-                if (!TryReadTotals(payloadEl, out var totals))
+                if (!TryReadTotals(payloadEl, prevTotals, out var totals))
                     continue;
 
                 if (ts != DateTimeOffset.MinValue && ts.ToLocalTime().Date == today)
                 {
                     var delta = prevTotals is null ? totals : totals.Subtract(prevTotals.Value);
-                    snapshot.TotalInputTokens += Math.Max(0, delta.InputTokens);
-                    snapshot.TotalOutputTokens += Math.Max(0, delta.OutputTokens + delta.ReasoningOutputTokens);
-                    snapshot.TotalCacheReadTokens += Math.Max(0, delta.CachedInputTokens);
-                    snapshot.TotalCacheWriteTokens += 0;
-                    snapshot.HourlyTokens[ts.ToLocalTime().Hour] += Math.Max(0, delta.TotalTokens);
-                    fileHadTodayActivity = true;
-                    snapshot.HasData = true;
+                    scan.InputTokens += Math.Max(0, delta.InputTokens);
+                    scan.OutputTokens += Math.Max(0, delta.OutputTokens + delta.ReasoningOutputTokens);
+                    scan.CacheReadTokens += Math.Max(0, delta.CachedInputTokens);
+                    scan.HourlyTokens[ts.ToLocalTime().Hour] += Math.Max(0, delta.TotalTokens);
+                    scan.HadTodayTokens = true;
                 }
 
                 prevTotals = totals;
@@ -224,48 +879,36 @@ public class CodexUsageMonitor
             }
         }
 
-        if (fileHadTodayActivity)
-            snapshot.SessionCount++;
-
-        // 로그에 resets_at이 없으면 금번 초기화 전 첫 활동 시간 + 창 길이로 폴백(창 길이를 알 때만).
-        // 창 길이를 모르면 임의 추정 대신 표시하지 않는다(예전 5시간 하드코딩은 주간 창에 맞지 않았음).
-        if (snapshot.ShortResetAt is null && firstTodayActivityTs.HasValue &&
-            snapshot.ShortWindowMinutes is int shortWindowMinutes && shortWindowMinutes > 0)
-        {
-            snapshot.ShortResetAt = firstTodayActivityTs.Value.AddMinutes(shortWindowMinutes);
-            snapshot.IsShortResetEstimated = true;
-        }
+        return scan;
     }
 
-    private static bool TryReadTotals(JsonElement payloadEl, out UsageTotals totals)
+    // 합계 값은 세션 누적이고, 오늘 사용량은 직전 줄과의 차분으로 센다. 그래서 읽지 못한 값을 0 으로 두면
+    // 차분의 기준이 0 으로 떨어져 다음 줄이 세션 누적 전체를 오늘 사용량으로 한 번 더 더한다(#201).
+    // 합계 객체가 없으면 이 줄을 쓰지 않고, 필드 하나만 숫자가 아니면(null 등) 그 필드만 직전 값을 이어 받아 증가 0 으로 둔다.
+    private static bool TryReadTotals(JsonElement payloadEl, UsageTotals? previous, out UsageTotals totals)
     {
         totals = default;
         if (!payloadEl.TryGetProperty("info", out var infoEl) ||
-            infoEl.ValueKind == JsonValueKind.Null ||
-            !infoEl.TryGetProperty("total_token_usage", out var totalEl))
+            infoEl.ValueKind != JsonValueKind.Object ||
+            !infoEl.TryGetProperty("total_token_usage", out var totalEl) ||
+            totalEl.ValueKind != JsonValueKind.Object)
             return false;
 
+        var baseline = previous ?? default;
         totals = new UsageTotals(
-            ReadLong(totalEl, "input_tokens"),
-            ReadLong(totalEl, "cached_input_tokens"),
-            ReadLong(totalEl, "output_tokens"),
-            ReadLong(totalEl, "reasoning_output_tokens"),
-            ReadLong(totalEl, "total_tokens"));
+            ReadCounter(totalEl, "input_tokens", baseline.InputTokens),
+            ReadCounter(totalEl, "cached_input_tokens", baseline.CachedInputTokens),
+            ReadCounter(totalEl, "output_tokens", baseline.OutputTokens),
+            ReadCounter(totalEl, "reasoning_output_tokens", baseline.ReasoningOutputTokens),
+            ReadCounter(totalEl, "total_tokens", baseline.TotalTokens));
         return true;
     }
 
     // rate_limits의 primary/secondary 창을 window_minutes 오름차순으로 정렬해
     // 짧은 창을 Short 슬롯, 긴 창을 Long 슬롯에 배치한다. 백엔드가 슬롯에 담는 창
     // 길이를 바꿔도(예: primary가 5시간→주간) 라벨/위치가 어긋나지 않는다.
-    private static void ApplyRateLimits(JsonElement rateLimitsEl, ProviderUsageSnapshot snapshot)
+    private static void ApplyRateWindows(List<RateWindow> windows, ProviderUsageSnapshot snapshot)
     {
-        var windows = new List<RateWindow>(2);
-        if (ReadWindow(rateLimitsEl, "primary") is { } primary) windows.Add(primary);
-        if (ReadWindow(rateLimitsEl, "secondary") is { } secondary) windows.Add(secondary);
-
-        // window_minutes 오름차순(길이를 모르는 창은 뒤로)
-        windows.Sort((a, b) => (a.WindowMinutes ?? int.MaxValue).CompareTo(b.WindowMinutes ?? int.MaxValue));
-
         snapshot.ShortUsagePercent = 0;
         snapshot.ShortResetAt = null;
         snapshot.ShortWindowMinutes = null;
@@ -286,10 +929,31 @@ public class CodexUsageMonitor
             snapshot.LongResetAt = windows[1].ResetAt;
             snapshot.LongWindowMinutes = windows[1].WindowMinutes;
         }
-
-        if (rateLimitsEl.TryGetProperty("plan_type", out var planEl) && planEl.ValueKind == JsonValueKind.String)
-            snapshot.PlanType = planEl.GetString();
     }
+
+    // primary/secondary 를 창 길이 오름차순으로 — Direct API 경로(ReadDirectApiWindows)와 같은 규칙.
+    private static List<RateWindow> ReadLoggedWindows(JsonElement rateLimitsEl)
+    {
+        var windows = new List<RateWindow>(2);
+        if (ReadWindow(rateLimitsEl, "primary") is { } primary) windows.Add(primary);
+        if (ReadWindow(rateLimitsEl, "secondary") is { } secondary) windows.Add(secondary);
+        windows.Sort(CompareByWindowLength);
+        return windows;
+    }
+
+    // 로그 줄의 limit_name 은 비어 있을 수 있다(공식 TUI 도 그때는 limit_id 로 부른다).
+    // 리셋 시각이 없는 창은 버린다 — 로그는 날짜와 무관하게 최신 줄을 집어오므로, 리셋 시각 없이는
+    // 그 값이 지금 창을 설명하는지 가릴 수 없어 며칠 전 사용률이 그대로 남는다.
+    private static List<AdditionalQuotaWindow> ReadLoggedAdditionalWindows(
+        JsonElement rateLimitsEl, string limitId, DateTimeOffset observedAt)
+    {
+        var windows = new List<AdditionalQuotaWindow>(2);
+        AddAdditionalWindows(windows, limitId, ReadString(rateLimitsEl, "limit_name") ?? "",
+            [.. ReadLoggedWindows(rateLimitsEl).Where(window => window.ResetAt is not null)], observedAt);
+        return windows;
+    }
+
+    private readonly record struct LoggedLimit(DateTimeOffset Timestamp, List<AdditionalQuotaWindow> Windows);
 
     // 창(primary/secondary)이 객체가 아니면(JSON null 포함) null 반환.
     private static RateWindow? ReadWindow(JsonElement rateLimitsEl, string windowName)
@@ -305,13 +969,11 @@ public class CodexUsageMonitor
 
         // epoch 가 0/음수면 "리셋 시각 없음"이다. 그대로 받으면 1970-01-01 이 되어
         // 시간선이 100% 경과로 계산되고 막대 오른쪽 끝에 박힌다(window_minutes 처럼 양수만 받는다).
-        DateTimeOffset? resetAt = windowEl.TryGetProperty("resets_at", out var resetEl) &&
-                                  resetEl.TryGetInt64(out var epoch) && epoch > 0
+        DateTimeOffset? resetAt = JsonNumber.TryReadInt64(windowEl, "resets_at", out var epoch) && epoch > 0
             ? DateTimeOffset.FromUnixTimeSeconds(epoch)
             : null;
 
-        int? windowMinutes = windowEl.TryGetProperty("window_minutes", out var wmEl) &&
-                             wmEl.TryGetInt32(out var wm) && wm > 0
+        int? windowMinutes = JsonNumber.TryReadInt32(windowEl, "window_minutes", out var wm) && wm > 0
             ? wm
             : null;
 
@@ -320,9 +982,10 @@ public class CodexUsageMonitor
 
     private readonly record struct RateWindow(double Percent, DateTimeOffset? ResetAt, int? WindowMinutes);
 
-    // TryGetInt64 는 숫자가 아니면(null 등) 예외 대신 false 를 반환하므로 GetInt64 보다 안전하다.
-    private static long ReadLong(JsonElement el, string name) =>
-        el.TryGetProperty(name, out var valueEl) && valueEl.TryGetInt64(out var value) ? value : 0;
+    // 없거나 숫자가 아니면(null 등) fallback — JsonElement.TryGetInt64 는 숫자가 아닌 값에서 false 가 아니라 예외를
+    // 던지므로 종류를 먼저 보는 JsonNumber 로 읽는다. 값 하나 때문에 줄 전체가 건너뛰어지지 않는다(#201).
+    private static long ReadCounter(JsonElement el, string name, long fallback) =>
+        JsonNumber.TryReadInt64(el, name, out var value) ? value : fallback;
 
     private readonly record struct UsageTotals(
         long InputTokens,

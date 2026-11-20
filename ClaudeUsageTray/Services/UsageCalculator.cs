@@ -62,19 +62,46 @@ public static class UsageCalculator
         if (resetAt is null) return "";
         var diff = resetAt.Value - now;
         if (diff.TotalSeconds <= 0) return "";
-        string time;
-        if (diff.TotalMinutes < 10) time = $"{(int)diff.TotalMinutes}m {diff.Seconds:D2}s";
-        else if (diff.TotalHours < 1) time = $"{(int)diff.TotalMinutes}m";
-        else if (diff.TotalDays < 1) time = $"{(int)diff.TotalHours}h {diff.Minutes}m";
-        else time = $"{(int)diff.TotalDays}d {diff.Hours}h";
+        var time = FormatRemaining(diff);
         var rel = isEstimated ? Loc.ResetsInEstimated(time) : Loc.ResetsIn(time);
-        if (!showAbsolute) return rel;
+        // 팝업 폭이 모자라 줄바꿈될 때 "(11-21" / "22:04)" 처럼 시각이 둘로 갈리지 않게,
+        // 괄호 안 날짜·시각 사이는 줄바꿈 없는 공백으로 묶는다(#234). 줄은 "(" 앞에서 넘어간다.
+        return showAbsolute ? $"{rel} ({FormatClockStamp(resetAt.Value, now).Replace(' ', ' ')})" : rel;
+    }
 
-        var local = resetAt.Value.ToLocalTime();
-        var stamp = local.Date == now.LocalDateTime.Date
+    /// <summary>남은 시간 "9m 05s"·"42m"·"3h 12m"·"2d 4h" — 초기화 라벨과 같은 표기.</summary>
+    public static string FormatRemaining(TimeSpan diff)
+    {
+        if (diff.TotalMinutes < 10) return $"{(int)diff.TotalMinutes}m {diff.Seconds:D2}s";
+        if (diff.TotalHours < 1) return $"{(int)diff.TotalMinutes}m";
+        if (diff.TotalDays < 1) return $"{(int)diff.TotalHours}h {diff.Minutes}m";
+        return $"{(int)diff.TotalDays}d {diff.Hours}h";
+    }
+
+    /// <summary>절대 시각 표기 — 오늘이면 "HH:mm", 아니면 "MM/dd HH:mm".</summary>
+    public static string FormatClockStamp(DateTimeOffset at, DateTimeOffset now)
+    {
+        var local = at.ToLocalTime();
+        return local.Date == now.LocalDateTime.Date
             ? local.ToString("HH:mm")
             : local.ToString("MM/dd HH:mm");
-        return $"{rel} ({stamp})";
+    }
+
+    /// <summary>
+    /// 동기화 스냅샷의 관측 시각 표기. 오늘 관측이면 시각만, 아니면 날짜를 붙인다 —
+    /// 최후 폴백은 최대 24시간 전 관측까지 쓰므로, 시각만 적으면 어제 값이 방금 값처럼 읽힌다.
+    /// 날짜 형식은 <see cref="FormatResetLabel"/> 의 절대 시각 표기와 맞춘다.
+    /// 두 시각은 각자 시스템 시간대로 변환한다 — 지금의 오프셋을 관측 시각에 그대로 적용하면
+    /// 24시간 안에 서머타임 전환이 끼었을 때 관측 시각이 1시간 어긋난다.
+    /// <paramref name="zone"/> 은 테스트용이며 생략하면 시스템 시간대다.
+    /// </summary>
+    public static string FormatObservedAt(DateTimeOffset observedAt, DateTimeOffset now, TimeZoneInfo? zone = null)
+    {
+        zone ??= TimeZoneInfo.Local;
+        var local = TimeZoneInfo.ConvertTime(observedAt, zone);
+        return local.Date == TimeZoneInfo.ConvertTime(now, zone).Date
+            ? local.ToString("HH:mm")
+            : local.ToString("MM/dd HH:mm");
     }
 
     /// <summary>
@@ -94,6 +121,14 @@ public static class UsageCalculator
         // elapsedRatio > 1: 리셋이 이미 지남(창 종료). < 0: 리셋이 창 길이보다 멀리 있음(창 길이가 어긋남).
         return elapsedRatio is >= 0 and <= 1 ? elapsedRatio : null;
     }
+
+    /// <summary>
+    /// 경과 시간이 최소 기준 이상이어야 페이스(빠름/여유 판정, 초과색)를 신뢰할 수 있다고 본다.
+    /// 창 초반 1~2분 사용이 "거의 전부 초과"로 과장돼 보이는 것을 막는다.
+    /// 진행률을 모르면(창 밖) 페이스도 판정하지 않는다.
+    /// </summary>
+    public static bool IsPaceSettled(double? timeProgress, TimeSpan window, TimeSpan minElapsed)
+        => timeProgress is double progress && progress * window.TotalSeconds >= minElapsed.TotalSeconds;
 
     /// <summary>
     /// 응답의 window_minutes 를 창 길이로 변환한다. 길이를 모르면 <paramref name="fallback"/>.
@@ -122,8 +157,6 @@ public static class UsageCalculator
         return providerKey switch
         {
             UsageProviderKind.Codex     => message == Loc.CodexNoUsageToday,
-            UsageProviderKind.GeminiCli => message == Loc.GeminiCliNoUsageToday
-                                       || message == Loc.GeminiCliEstimateOnly,
             UsageProviderKind.OpenCode  => message == Loc.OpenCodeNoUsageToday,
             _ => false,
         };

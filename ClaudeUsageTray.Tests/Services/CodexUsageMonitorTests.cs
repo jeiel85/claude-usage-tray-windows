@@ -1,7 +1,9 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Text.Json;
 using ClaudeUsageTray.Services;
+using ClaudeUsageTray.ViewModels;
 using Xunit;
 
 namespace ClaudeUsageTray.Tests.Services;
@@ -267,6 +269,22 @@ public class CodexUsageMonitorTests
             ts, input, cached, output, reasoning, total, primary, secondaryJson);
     }
 
+    /// <summary>
+    /// 토큰 집계 없이 rate_limits 만 있는 줄(info: null) — 한도별 줄을 흉내 낸다.
+    /// <paramref name="limitId"/> 가 null 이면 limit_id 필드 자체를 빼서 그 필드가 없던 버전의 로그를 만든다.
+    /// </summary>
+    private static string RateLimitsOnlyLine(string ts, string? limitId, double primaryPercent, int primaryWindowMinutes,
+        long? primaryResetsAt = 1900000000)
+    {
+        var resetsAtField = primaryResetsAt is null ? "" : string.Format(CultureInfo.InvariantCulture, @",""resets_at"":{0}", primaryResetsAt);
+        var primary = string.Format(CultureInfo.InvariantCulture,
+            @"{{""used_percent"":{0},""window_minutes"":{1}{2}}}", primaryPercent, primaryWindowMinutes, resetsAtField);
+        var limitIdField = limitId is null ? "" : $@"""limit_id"":""{limitId}"",""limit_name"":null,";
+        return string.Format(CultureInfo.InvariantCulture,
+            @"{{""timestamp"":""{0}"",""type"":""event_msg"",""payload"":{{""type"":""token_count"",""info"":null,""rate_limits"":{{{1}""primary"":{2},""secondary"":null}}}}}}",
+            ts, limitIdField, primary);
+    }
+
     /// <summary>resets_at 이 아예 없는 라인 — 리셋 추정 폴백 경로를 태운다.</summary>
     private static string TokenCountLineWithoutResetTime(string ts, long input, long output, long total,
         int primaryWindowMinutes)
@@ -292,5 +310,506 @@ public class CodexUsageMonitorTests
     {
         var local = DateTime.Today.AddHours(hour).AddMinutes(minute);
         return local.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture);
+    }
+
+    // 오늘 Codex 를 쓰지 않아 세션 로그에 rate_limits 가 없어도, 로그인 파일의 id_token 으로
+    // 요금제 배지를 채울 수 있어야 한다.
+    [Fact]
+    public void TryReadPlanTypeFromAuth_ReadsPlanFromIdTokenClaims()
+    {
+        var authPath = Path.Combine(CreateTempCodexRoot(), "auth.json");
+        WriteAuthFile(authPath, """{"chatgpt_plan_type":"plus","chatgpt_account_id":"acc"}""");
+
+        Assert.Equal("plus", CodexUsageMonitor.TryReadPlanTypeFromAuth(authPath));
+    }
+
+    [Fact]
+    public void TryReadPlanTypeFromAuth_ReturnsNullWhenClaimMissing()
+    {
+        var authPath = Path.Combine(CreateTempCodexRoot(), "auth.json");
+        WriteAuthFile(authPath, """{"chatgpt_account_id":"acc"}""");
+
+        Assert.Null(CodexUsageMonitor.TryReadPlanTypeFromAuth(authPath));
+    }
+
+    [Theory]
+    [InlineData("not-a-jwt")]
+    [InlineData("header.%%%.signature")]
+    [InlineData("")]
+    public void TryReadPlanTypeFromAuth_SurvivesMalformedToken(string idToken)
+    {
+        var authPath = Path.Combine(CreateTempCodexRoot(), "auth.json");
+        File.WriteAllText(authPath, "{\"tokens\":{\"id_token\":\"" + idToken + "\"}}");
+
+        Assert.Null(CodexUsageMonitor.TryReadPlanTypeFromAuth(authPath));
+    }
+
+    [Fact]
+    public void TryReadPlanTypeFromAuth_ReturnsNullWhenFileMissing()
+        => Assert.Null(CodexUsageMonitor.TryReadPlanTypeFromAuth(
+            Path.Combine(Path.GetTempPath(), $"codex-missing-{Guid.NewGuid():N}", "auth.json")));
+
+    // 회귀 방지(#148): auth.json 의 access_token/account_id 는 최상위가 아니라 tokens 아래에 있다.
+    // 실제 파일(2026-09-18 실측)에는 auth_mode·OPENAI_API_KEY·last_refresh 등 다른 최상위 필드도
+    // 섞여 있으므로, 이들이 있어도 tokens 아래 값을 정확히 골라내는지 함께 확인한다.
+    [Fact]
+    public void TryGetApiCredentials_ReadsFromNestedTokensObject()
+    {
+        var authPath = Path.Combine(CreateTempCodexRoot(), "auth.json");
+        File.WriteAllText(authPath, """
+        {
+            "auth_mode": "chatgpt",
+            "OPENAI_API_KEY": null,
+            "tokens": {
+                "id_token": "header.payload.signature",
+                "access_token": "test-access-token",
+                "refresh_token": "test-refresh-token",
+                "account_id": "test-account-id"
+            },
+            "last_refresh": "2026-09-18T00:00:00.000000000Z"
+        }
+        """);
+
+        var (token, accountId) = CodexUsageMonitor.TryGetApiCredentials(authPath);
+
+        Assert.Equal("test-access-token", token);
+        Assert.Equal("test-account-id", accountId);
+    }
+
+    [Fact]
+    public void TryGetApiCredentials_ReturnsNullWhenTopLevelAccessTokenOnly()
+    {
+        // 예전 버그가 읽으려던(그러나 실제 파일에는 없는) 모양 — 최상위에 access_token 만 있는 경우.
+        var authPath = Path.Combine(CreateTempCodexRoot(), "auth.json");
+        File.WriteAllText(authPath, """{"access_token":"should-not-be-read"}""");
+
+        var (token, accountId) = CodexUsageMonitor.TryGetApiCredentials(authPath);
+
+        Assert.Null(token);
+        Assert.Null(accountId);
+    }
+
+    [Fact]
+    public void TryGetApiCredentials_ReturnsNullWhenFileMissing()
+    {
+        var (token, accountId) = CodexUsageMonitor.TryGetApiCredentials(
+            Path.Combine(Path.GetTempPath(), $"codex-missing-{Guid.NewGuid():N}", "auth.json"));
+
+        Assert.Null(token);
+        Assert.Null(accountId);
+    }
+
+    // 회귀 방지: Direct API(/backend-api/wham/usage) 응답 스키마는 로컬 세션 로그와 완전히 다르다 —
+    // 창이 rate_limit.primary_window/secondary_window 로 한 겹 더 감싸이고, 필드명도
+    // limit_window_seconds(초)/reset_at 으로 다르다(로그는 window_minutes(분)/resets_at).
+    // 실제 openai/codex 저장소의 OpenAPI 모델(RateLimitWindowSnapshot 등, 2026-09-18 실측) 기준.
+    [Fact]
+    public void ParseDirectApiUsage_ReadsRealWhamUsageSchema()
+    {
+        var resetAt = DateTimeOffset.UtcNow.AddHours(3).ToUnixTimeSeconds();
+        var longResetAt = DateTimeOffset.UtcNow.AddDays(5).ToUnixTimeSeconds();
+        using var doc = JsonDocument.Parse($$"""
+        {
+            "plan_type": "plus",
+            "rate_limit": {
+                "allowed": true,
+                "limit_reached": false,
+                "primary_window": {
+                    "used_percent": 42,
+                    "limit_window_seconds": 18000,
+                    "reset_after_seconds": 10800,
+                    "reset_at": {{resetAt}}
+                },
+                "secondary_window": {
+                    "used_percent": 8,
+                    "limit_window_seconds": 604800,
+                    "reset_after_seconds": 432000,
+                    "reset_at": {{longResetAt}}
+                }
+            },
+            "account_id": "acc-1",
+            "user_id": "user-1"
+        }
+        """);
+
+        var snapshot = CodexUsageMonitor.ParseDirectApiUsage(doc.RootElement, DateTimeOffset.UtcNow);
+
+        Assert.NotNull(snapshot);
+        Assert.True(snapshot!.HasData);
+        Assert.Equal("Direct API", snapshot.DataSource);
+        Assert.Equal("plus", snapshot.PlanType);
+        Assert.Equal(0.42, snapshot.ShortUsagePercent, 3);
+        Assert.Equal(300, snapshot.ShortWindowMinutes); // 18000s / 60 = 5h
+        Assert.Equal(0.08, snapshot.LongUsagePercent, 3);
+        Assert.Equal(10080, snapshot.LongWindowMinutes); // 604800s / 60 = 7d
+        Assert.Empty(snapshot.AdditionalQuotas); // additional_rate_limits 가 없으면 추가 게이지도 없다
+    }
+
+    // #182: 이미지 생성 같은 추가 한도는 응답 최상위 additional_rate_limits 에 따로 온다
+    // (openai/codex codex-backend-openapi-models 의 AdditionalRateLimitDetails). 창마다 한 줄로 펴되
+    // 한도 안에서는 짧은 창이 먼저, 기본 한도(codex)가 다시 실려 오면 두 번 그리지 않고, 이미 리셋된 창은 버린다.
+    [Fact]
+    public void ParseDirectApiUsage_ReadsAdditionalRateLimits()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var fiveHourReset = now.AddHours(2).ToUnixTimeSeconds();
+        var weeklyReset = now.AddDays(3).ToUnixTimeSeconds();
+        var expiredReset = now.AddMinutes(-5).ToUnixTimeSeconds();
+        using var doc = JsonDocument.Parse($$"""
+        {
+            "plan_type": "plus",
+            "rate_limit": {
+                "primary_window": { "used_percent": 10, "limit_window_seconds": 18000, "reset_after_seconds": 100, "reset_at": {{fiveHourReset}} }
+            },
+            "additional_rate_limits": [
+                {
+                    "limit_name": "image_gen",
+                    "metered_feature": "codex_image_gen",
+                    "rate_limit": {
+                        "allowed": true,
+                        "limit_reached": false,
+                        "primary_window": { "used_percent": 70, "limit_window_seconds": 604800, "reset_after_seconds": 100, "reset_at": {{weeklyReset}} },
+                        "secondary_window": { "used_percent": 25, "limit_window_seconds": 18000, "reset_after_seconds": 100, "reset_at": {{fiveHourReset}} }
+                    }
+                },
+                {
+                    "limit_name": "codex",
+                    "metered_feature": "codex",
+                    "rate_limit": { "primary_window": { "used_percent": 99, "limit_window_seconds": 18000, "reset_after_seconds": 100, "reset_at": {{fiveHourReset}} } }
+                },
+                {
+                    "limit_name": "gpt-5.3-codex-spark",
+                    "metered_feature": "codex_bengalfox",
+                    "rate_limit": { "primary_window": { "used_percent": 50, "limit_window_seconds": 18000, "reset_after_seconds": 0, "reset_at": {{expiredReset}} } }
+                },
+                "not-an-object"
+            ]
+        }
+        """);
+
+        var snapshot = CodexUsageMonitor.ParseDirectApiUsage(doc.RootElement, now);
+
+        Assert.NotNull(snapshot);
+        Assert.Equal(0.10, snapshot!.ShortUsagePercent, 3); // 기본 게이지는 그대로
+        Assert.Collection(snapshot.AdditionalQuotas,
+            fiveHour =>
+            {
+                Assert.Equal("codex_image_gen", fiveHour.LimitId);
+                Assert.Equal("image_gen", fiveHour.LimitName);
+                Assert.Equal(300, fiveHour.WindowMinutes);
+                Assert.Equal(0.25, fiveHour.UsagePercent, 3);
+            },
+            weekly =>
+            {
+                Assert.Equal("codex_image_gen", weekly.LimitId);
+                Assert.Equal(10080, weekly.WindowMinutes);
+                Assert.Equal(0.70, weekly.UsagePercent, 3);
+                Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(weeklyReset), weekly.ResetAt);
+            });
+        // Direct API 값의 관측 시각은 조회 시각이다 — 다른 PC 의 로그 값과 겨룰 때 쓴다.
+        Assert.All(snapshot.AdditionalQuotas, window => Assert.Equal(now, window.ObservedAt));
+    }
+
+    // #182: 최신 CLI 는 한도마다 rate_limits 줄을 따로 남기고 limit_id 로 구분한다. limit_id 를 안 보면
+    // 더 늦게 찍힌 추가 한도 줄이 기본 게이지를 덮어써 5시간 창 자리에 이미지 한도 값이 뜬다.
+    // 같은 한도의 줄이 여럿이면 가장 늦은 줄을 쓴다.
+    [Fact]
+    public void LocalLog_AdditionalLimitLine_DoesNotOverwriteMainGauge()
+    {
+        var root = CreateTempCodexRoot();
+        try
+        {
+            var dir = Path.Combine(root, "s");
+            Directory.CreateDirectory(dir);
+            var latestImageTs = MakeTodayLocalIsoUtc(9, 30);
+            File.WriteAllLines(Path.Combine(dir, "rollout-today-limits.jsonl"), new[]
+            {
+                RateLimitsOnlyLine(MakeTodayLocalIsoUtc(8, 0), "codex_image_gen", primaryPercent: 30.0, primaryWindowMinutes: 10080),
+                TokenCountLine(MakeTodayLocalIsoUtc(9, 0), input: 1000, cached: 0, output: 10, reasoning: 0,
+                    total: 1010, primaryPercent: 12.0, primaryWindowMinutes: 300, secondaryJson: "null"),
+                RateLimitsOnlyLine(latestImageTs, "codex_image_gen", primaryPercent: 80.0, primaryWindowMinutes: 10080),
+            });
+
+            var snap = new CodexUsageMonitor().GetTodaySnapshot(root);
+
+            Assert.Equal(0.12, snap.ShortUsagePercent, 3);
+            Assert.Equal(300, snap.ShortWindowMinutes);
+            var image = Assert.Single(snap.AdditionalQuotas);
+            Assert.Equal("codex_image_gen", image.LimitId);
+            Assert.Equal("", image.LimitName); // 로그 줄의 limit_name 은 null 일 수 있다
+            Assert.Equal(0.80, image.UsagePercent, 3);
+            Assert.Equal(10080, image.WindowMinutes);
+            // 다른 PC 값과 겨룰 때 쓰는 관측 시각은 그 줄의 기록 시각이다.
+            Assert.Equal(DateTimeOffset.Parse(latestImageTs, CultureInfo.InvariantCulture), image.ObservedAt);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    // 리셋 시각이 없는 추가 한도 창은 지금 창인지 가릴 수 없어 버린다. 그래서 창이 하나도 남지 않는 더 늦은 줄이
+    // 앞서 읽은 정상 값을 지워서도 안 된다.
+    [Fact]
+    public void LocalLog_AdditionalLimit_IgnoresWindowsWithoutReset_AndKeepsTheLastUsableLine()
+    {
+        var root = CreateTempCodexRoot();
+        try
+        {
+            var dir = Path.Combine(root, "s");
+            Directory.CreateDirectory(dir);
+            File.WriteAllLines(Path.Combine(dir, "rollout-today-noreset.jsonl"), new[]
+            {
+                RateLimitsOnlyLine(MakeTodayLocalIsoUtc(8, 0), "codex_image_gen", primaryPercent: 30.0, primaryWindowMinutes: 10080),
+                RateLimitsOnlyLine(MakeTodayLocalIsoUtc(9, 0), "codex_image_gen", primaryPercent: 99.0, primaryWindowMinutes: 10080,
+                    primaryResetsAt: null),
+                RateLimitsOnlyLine(MakeTodayLocalIsoUtc(9, 0), "codex_other", primaryPercent: 50.0, primaryWindowMinutes: 300,
+                    primaryResetsAt: null),
+            });
+
+            var snap = new CodexUsageMonitor().GetTodaySnapshot(root);
+
+            var image = Assert.Single(snap.AdditionalQuotas);
+            Assert.Equal("codex_image_gen", image.LimitId);
+            Assert.Equal(0.30, image.UsagePercent, 3);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    // limit_id 가 생기기 전 버전의 로그(필드 없음)는 기본 한도로 읽어야 한다 — 추가 한도로 빠지면 기본 게이지가 빈다.
+    [Fact]
+    public void LocalLog_LineWithoutLimitId_IsTheMainLimit()
+    {
+        var root = CreateTempCodexRoot();
+        try
+        {
+            var dir = Path.Combine(root, "s");
+            Directory.CreateDirectory(dir);
+            File.WriteAllLines(Path.Combine(dir, "rollout-today-legacy.jsonl"), new[]
+            {
+                RateLimitsOnlyLine(MakeTodayLocalIsoUtc(9, 0), limitId: null, primaryPercent: 44.0, primaryWindowMinutes: 300),
+            });
+
+            var snap = new CodexUsageMonitor().GetTodaySnapshot(root);
+
+            Assert.Equal(0.44, snap.ShortUsagePercent, 3);
+            Assert.Empty(snap.AdditionalQuotas);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    // #201: 창 하나에 숫자가 아닌 값(null·문자열)이 섞여도 응답 전체가 버려지면 안 된다 — 그 필드만 "값 없음"이다.
+    // JsonElement.TryGetInt64/TryGetInt32 는 숫자가 아닌 요소에서 false 가 아니라 예외를 던져, 예전에는
+    // 추가 한도 창 하나의 "reset_at": null 때문에 API 결과가 통째로 버려지고 로컬 로그로 폴백했다.
+    [Fact]
+    public void ParseDirectApiUsage_NonNumericValues_SkipOnlyThatField()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var fiveHourReset = now.AddHours(2).ToUnixTimeSeconds();
+        var weeklyReset = now.AddDays(3).ToUnixTimeSeconds();
+        using var doc = JsonDocument.Parse($$"""
+        {
+            "plan_type": "plus",
+            "rate_limit": {
+                "primary_window": { "used_percent": 42, "limit_window_seconds": 18000, "reset_at": null },
+                "secondary_window": { "used_percent": 8, "limit_window_seconds": "604800", "reset_at": {{weeklyReset}} }
+            },
+            "additional_rate_limits": [
+                {
+                    "limit_name": "image_gen",
+                    "metered_feature": "codex_image_gen",
+                    "rate_limit": {
+                        "primary_window": { "used_percent": 70, "limit_window_seconds": null, "reset_at": "soon" },
+                        "secondary_window": { "used_percent": 25, "limit_window_seconds": 18000, "reset_at": {{fiveHourReset}} }
+                    }
+                }
+            ]
+        }
+        """);
+
+        var snapshot = CodexUsageMonitor.ParseDirectApiUsage(doc.RootElement, now);
+
+        Assert.NotNull(snapshot);
+        Assert.Equal("plus", snapshot!.PlanType);
+        Assert.Equal(0.42, snapshot.ShortUsagePercent, 3);
+        Assert.Equal(300, snapshot.ShortWindowMinutes);
+        Assert.Null(snapshot.ShortResetAt);
+        Assert.Equal(0.08, snapshot.LongUsagePercent, 3);
+        Assert.Null(snapshot.LongWindowMinutes); // 문자열은 숫자로 보지 않는다
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(weeklyReset), snapshot.LongResetAt);
+        Assert.Collection(snapshot.AdditionalQuotas,
+            fiveHour =>
+            {
+                Assert.Equal(300, fiveHour.WindowMinutes);
+                Assert.Equal(0.25, fiveHour.UsagePercent, 3);
+                Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(fiveHourReset), fiveHour.ResetAt);
+            },
+            unknownLength =>
+            {
+                Assert.Null(unknownLength.WindowMinutes);
+                Assert.Null(unknownLength.ResetAt);
+                Assert.Equal(0.70, unknownLength.UsagePercent, 3);
+            });
+    }
+
+    // #201: 로그 줄도 같다 — 값 하나가 숫자가 아니면 그 필드만 "값 없음"이고, 한도·토큰 합계는 그대로 읽는다.
+    // 예전에는 그 줄 전체(한도와 토큰 합계)가 건너뛰어졌다.
+    [Fact]
+    public void LocalLog_NonNumericValues_SkipOnlyThatField()
+    {
+        var root = CreateTempCodexRoot();
+        try
+        {
+            var dir = Path.Combine(root, "s");
+            Directory.CreateDirectory(dir);
+            var now = new DateTimeOffset(DateTime.Today.AddHours(10));
+            var ts = MakeTodayLocalIsoUtc(9, 0);
+            var weeklyReset = now.AddDays(3).ToUnixTimeSeconds();
+            File.WriteAllLines(Path.Combine(dir, "rollout-today-nonnumeric.jsonl"), new[]
+            {
+                $$$$"""{"timestamp":"{{{{ts}}}}","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":1000,"cached_input_tokens":null,"output_tokens":10,"reasoning_output_tokens":"n/a","total_tokens":1010}},"rate_limits":{"limit_id":"codex","primary":{"used_percent":30.0,"window_minutes":300,"resets_at":null},"secondary":{"used_percent":50.0,"window_minutes":"10080","resets_at":{{{{weeklyReset}}}}},"plan_type":"plus"}}}""",
+            });
+
+            var snap = new CodexUsageMonitor().GetTodaySnapshot(root, now);
+
+            Assert.True(snap.HasData);
+            Assert.Equal(1000, snap.TotalInputTokens);
+            Assert.Equal(0, snap.TotalCacheReadTokens);
+            Assert.Equal(10, snap.TotalOutputTokens);
+            Assert.Equal("plus", snap.PlanType);
+            Assert.Equal(0.30, snap.ShortUsagePercent, 3);
+            Assert.Equal(300, snap.ShortWindowMinutes);
+            // resets_at 이 null 이면 다른 "리셋 시각 없음" 과 똑같이 오늘 첫 활동 + 창 길이로 추정한다.
+            Assert.True(snap.IsShortResetEstimated);
+            Assert.Equal(DateTimeOffset.Parse(ts, CultureInfo.InvariantCulture).AddMinutes(300), snap.ShortResetAt);
+            Assert.Equal(0.50, snap.LongUsagePercent, 3);
+            Assert.Null(snap.LongWindowMinutes);
+            Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(weeklyReset), snap.LongResetAt);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    // total_token_usage 자체가 객체가 아니면 그 줄의 합계는 쓰지 않는다. 0 으로 읽으면 누적값 차분의 기준이 0 으로
+    // 떨어져, 다음 줄이 세션 누적 전체를 오늘 사용량으로 한 번 더 더한다.
+    [Fact]
+    public void LocalLog_NonObjectTotals_AreSkipped_WithoutInflatingTheNextDelta()
+    {
+        var root = CreateTempCodexRoot();
+        try
+        {
+            var dir = Path.Combine(root, "s");
+            Directory.CreateDirectory(dir);
+            var nullTotalsTs = MakeTodayLocalIsoUtc(9, 10);
+            File.WriteAllLines(Path.Combine(dir, "rollout-today-nulltotals.jsonl"), new[]
+            {
+                TokenCountLine(MakeTodayLocalIsoUtc(9, 0), input: 1000, cached: 0, output: 10, reasoning: 0,
+                    total: 1010, primaryPercent: 10.0, primaryWindowMinutes: 300, secondaryJson: "null"),
+                $$$"""{"timestamp":"{{{nullTotalsTs}}}","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":null},"rate_limits":null}}""",
+                TokenCountLine(MakeTodayLocalIsoUtc(9, 20), input: 1500, cached: 0, output: 20, reasoning: 0,
+                    total: 1520, primaryPercent: 12.0, primaryWindowMinutes: 300, secondaryJson: "null"),
+            });
+
+            var snap = new CodexUsageMonitor().GetTodaySnapshot(root);
+
+            Assert.Equal(1500, snap.TotalInputTokens);
+            Assert.Equal(20, snap.TotalOutputTokens);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    // 합계 필드 하나만 숫자가 아니면 그 필드는 직전 값을 이어 받는다(이 줄의 증가 0). 0 으로 읽으면 차분의 기준이 0 으로
+    // 떨어져 input 1000 → null → 1500 이 2500 으로 세어진다. 같은 줄의 다른 필드(output)는 그대로 센다.
+    [Fact]
+    public void LocalLog_NonNumericCounterMidStream_KeepsItsBaseline()
+    {
+        var root = CreateTempCodexRoot();
+        try
+        {
+            var dir = Path.Combine(root, "s");
+            Directory.CreateDirectory(dir);
+            var nullInputTs = MakeTodayLocalIsoUtc(9, 10);
+            File.WriteAllLines(Path.Combine(dir, "rollout-today-nullcounter.jsonl"), new[]
+            {
+                TokenCountLine(MakeTodayLocalIsoUtc(9, 0), input: 1000, cached: 0, output: 10, reasoning: 0,
+                    total: 1010, primaryPercent: 10.0, primaryWindowMinutes: 300, secondaryJson: "null"),
+                $$$"""{"timestamp":"{{{nullInputTs}}}","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":null,"cached_input_tokens":0,"output_tokens":15,"reasoning_output_tokens":0,"total_tokens":1215}},"rate_limits":null}}""",
+                TokenCountLine(MakeTodayLocalIsoUtc(9, 20), input: 1500, cached: 0, output: 20, reasoning: 0,
+                    total: 1520, primaryPercent: 12.0, primaryWindowMinutes: 300, secondaryJson: "null"),
+            });
+
+            var snap = new CodexUsageMonitor().GetTodaySnapshot(root);
+
+            Assert.Equal(1500, snap.TotalInputTokens);
+            Assert.Equal(20, snap.TotalOutputTokens);
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    // #201: Codex 가 토큰을 저장하려고 auth.json 을 쓰기로 열어 둔 순간에도 읽혀야 한다.
+    // File.ReadAllText 는 FileShare.Read 로 열어, 다른 프로세스가 쓰기 핸들을 쥐고 있으면 공유 위반으로 실패했다.
+    [Fact]
+    public void AuthReaders_ReadWhileCodexHoldsTheFileOpenForWriting()
+    {
+        var root = CreateTempCodexRoot();
+        try
+        {
+            var authPath = Path.Combine(root, "auth.json");
+            File.WriteAllText(authPath,
+                "{\"tokens\":{\"id_token\":\"" + IdToken("""{"chatgpt_plan_type":"plus","chatgpt_user_id":"user-1"}""") +
+                "\",\"access_token\":\"test-access-token\",\"account_id\":\"acc-1\"}}");
+
+            // Rust 의 std::fs::File 은 Windows 에서 읽기·쓰기·삭제 공유를 모두 허용해 연다 — Codex 의 쓰기 핸들을 흉내 낸다.
+            using (new FileStream(authPath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete))
+            {
+                var (token, accountId) = CodexUsageMonitor.TryGetApiCredentials(authPath);
+
+                Assert.Equal("test-access-token", token);
+                Assert.Equal("acc-1", accountId);
+                Assert.Equal("plus", CodexUsageMonitor.TryReadPlanTypeFromAuth(authPath));
+                Assert.Equal("acc-1|user-1", CodexUsageMonitor.TryReadAccountIdentity(authPath));
+            }
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public void ParseDirectApiUsage_ReturnsNullWhenRateLimitMissing()
+    {
+        using var doc = JsonDocument.Parse("""{"plan_type":"plus"}""");
+
+        Assert.Null(CodexUsageMonitor.ParseDirectApiUsage(doc.RootElement, DateTimeOffset.UtcNow));
+    }
+
+    [Fact]
+    public void ParseDirectApiUsage_FreePlan_IsNotAPaidSubscription()
+    {
+        using var doc = JsonDocument.Parse($$"""
+        {
+            "plan_type": "free",
+            "rate_limit": {
+                "primary_window": {
+                    "used_percent": 5,
+                    "limit_window_seconds": 18000,
+                    "reset_after_seconds": 100,
+                    "reset_at": {{DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds()}}
+                }
+            }
+        }
+        """);
+
+        var snapshot = CodexUsageMonitor.ParseDirectApiUsage(doc.RootElement, DateTimeOffset.UtcNow);
+
+        Assert.NotNull(snapshot);
+        Assert.Equal("free", snapshot!.PlanType);
+        Assert.False(MainViewModel.IsPaidCodexSubscription(snapshot.PlanType));
+    }
+
+    /// <summary>서명 없는 표시용 id_token 을 만들어 auth.json 형태로 저장한다(payload 만 base64url).</summary>
+    private static void WriteAuthFile(string authPath, string authClaimJson) =>
+        File.WriteAllText(authPath, "{\"tokens\":{\"id_token\":\"" + IdToken(authClaimJson) + "\"}}");
+
+    private static string IdToken(string authClaimJson)
+    {
+        var payload = "{\"https://api.openai.com/auth\":" + authClaimJson + "}";
+        var encoded = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(payload))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        return "header." + encoded + ".signature";
     }
 }

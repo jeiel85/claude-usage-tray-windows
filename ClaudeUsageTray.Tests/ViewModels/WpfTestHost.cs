@@ -34,7 +34,9 @@ internal static class WpfTestHost
 
             if (Application.Current is null)
             {
-                var app = new ClaudeUsageTray.App { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+                // 뷰가 쓰는 App.xaml 리소스만 필요하다. 트레이 앱까지 띄우면 실제 설정·히스토리·
+                // OpenCode 웹 세션을 쓰는 앱이 테스트 프로세스 안에서 돈다(#186).
+                var app = new ClaudeUsageTray.App(startsTrayApp: false) { ShutdownMode = ShutdownMode.OnExplicitShutdown };
                 app.InitializeComponent();
             }
 

@@ -52,6 +52,32 @@ public class UpdateDialogTests
         await WpfTestHost.RunAsync(() => dialog!.Close());
     }
 
+    // #300: 받기 직전 재확인에서 더 새 버전으로 바뀌면 제목·노트도 그 버전이어야 한다. 백그라운드 스레드에서 부른다.
+    [Fact]
+    public async Task ChangeVersion_ShowsTheVersionActuallyBeingInstalled()
+    {
+        UpdateDialog? dialog = null;
+        await WpfTestHost.RunAsync(() =>
+            dialog = new UpdateDialog("v1.41.0", "## v1.41.0\n- forty-one", onSkip: () => { }));
+
+        await Task.Run(() => dialog!.ChangeVersion("v1.42.0", "## v1.42.0\n- forty-two"));
+
+        await WpfTestHost.RunAsync(() =>
+        {
+            Assert.EndsWith("v1.42.0", dialog!.TitleText.Text);
+            var notes = new System.Windows.Documents.TextRange(
+                dialog.NotesRichText.Document.ContentStart, dialog.NotesRichText.Document.ContentEnd).Text;
+            Assert.Contains("forty-two", notes);
+            Assert.DoesNotContain("forty-one", notes);
+
+            dialog.ChangeVersion("v1.43.0", "");
+            notes = new System.Windows.Documents.TextRange(
+                dialog.NotesRichText.Document.ContentStart, dialog.NotesRichText.Document.ContentEnd).Text;
+            Assert.DoesNotContain("forty-two", notes); // 노트가 없는 버전이면 옛 노트를 남기지 않는다
+            dialog.Close();
+        });
+    }
+
     // autoUpdateSeconds 를 주지 않으면(수동 확인 경로, 또는 직전 자동 적용이 실패한 버전)
     // 모달은 스스로 설치를 시작하지 않아야 한다.
     [Fact]

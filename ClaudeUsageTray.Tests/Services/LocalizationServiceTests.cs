@@ -1,3 +1,5 @@
+using System.Reflection;
+using System.Text.RegularExpressions;
 using ClaudeUsageTray.Services;
 using Xunit;
 
@@ -63,6 +65,66 @@ public class LocalizationServiceTests
         }
     }
 
+    // #198: Codex 로그인 만료 안내는 언어마다 따로 있어야 하고(영어로 떨어지지 않게), 어느 앱 얘기인지 담아야 한다.
+    [Theory]
+    [InlineData("ko")]
+    [InlineData("zh")]
+    [InlineData("ja")]
+    [InlineData("en")]
+    public void CodexSignInExpiredNotice_IsLocalized_AndNamesCodex(string lang)
+    {
+        var originalLang = Loc.CurrentLang;
+
+        try
+        {
+            Loc.SetLanguage("en");
+            var english = Loc.CodexSignInExpiredNotice;
+            Loc.SetLanguage(lang);
+
+            var msg = Loc.CodexSignInExpiredNotice;
+
+            Assert.Contains("Codex", msg);
+            if (lang != "en")
+                Assert.NotEqual(english, msg);
+        }
+        finally
+        {
+            Loc.SetLanguage(originalLang);
+        }
+    }
+
+    // 일본어·중국어 화면에 한글이 섞이지 않는다 — CodexNoUsageToday(ja) 가 "本지의 …" 였던 회귀 방지(#198).
+    // Loc 의 매개변수 없는 문자열 속성을 전부 훑으므로 새 문구도 자동으로 검사된다.
+    [Theory]
+    [InlineData("ja")]
+    [InlineData("zh")]
+    public void JapaneseAndChineseTexts_ContainNoHangul(string lang)
+    {
+        var originalLang = Loc.CurrentLang;
+
+        try
+        {
+            Loc.SetLanguage(lang);
+
+            var offenders = typeof(Loc)
+                .GetProperties(BindingFlags.Public | BindingFlags.Static)
+                .Where(p => p.PropertyType == typeof(string) && p.GetIndexParameters().Length == 0)
+                .Select(p => (p.Name, Text: (string?)p.GetValue(null) ?? ""))
+                .Where(entry => Hangul.IsMatch(entry.Text))
+                .Select(entry => $"{entry.Name}: {entry.Text}")
+                .ToList();
+
+            Assert.Empty(offenders);
+        }
+        finally
+        {
+            Loc.SetLanguage(originalLang);
+        }
+    }
+
+    // 완성형 음절뿐 아니라 자모(ㄱ·ㅏ 등 IME 실수로 섞이기 쉬운 글자)도 잡는다.
+    private static readonly Regex Hangul = new("[ᄀ-ᇿ㄰-㆏가-힣]");
+
     // window_minutes 를 창 길이에 맞는 라벨로 변환한다(주간/5시간/일 단위).
     [Theory]
     [InlineData(10080, "ko", "주간 윈도우")]
@@ -79,6 +141,50 @@ public class LocalizationServiceTests
         {
             Loc.SetLanguage(lang);
             Assert.Equal(expected, Loc.CodexWindowLabel(minutes));
+        }
+        finally
+        {
+            Loc.SetLanguage(originalLang);
+        }
+    }
+
+    // 초기화 알림은 공급자 이름을 그대로 써야 한다 — 예전에는 Codex 초기화도 "Claude 할당량 초기화됨" 으로 나갔다.
+    [Theory]
+    [InlineData("ko", "Codex 할당량 초기화됨", "이제 다시 Codex를 사용할 수 있습니다!")]
+    [InlineData("zh", "Codex 配额已重置", "现在可以再次使用 Codex 了！")]
+    [InlineData("ja", "Codex クォータがリセットされました", "Codex を再び使用できるようになりました！")]
+    [InlineData("en", "Codex Quota Reset", "You can use Codex again now!")]
+    public void QuotaReset_UsesTheGivenAgentName(string lang, string expectedTitle, string expectedBody)
+    {
+        var originalLang = Loc.CurrentLang;
+        try
+        {
+            Loc.SetLanguage(lang);
+
+            Assert.Equal(expectedTitle, Loc.QuotaResetTitle("Codex"));
+            Assert.Equal(expectedBody, Loc.QuotaResetBody("Codex"));
+            Assert.DoesNotContain("Claude", Loc.QuotaResetTitle("Codex"));
+            Assert.DoesNotContain("Claude", Loc.QuotaResetBody("Codex"));
+        }
+        finally
+        {
+            Loc.SetLanguage(originalLang);
+        }
+    }
+
+    // Claude 의 초기화 알림 문구는 이번 변경 전과 한 글자도 달라지면 안 된다.
+    [Theory]
+    [InlineData("ko", "Claude 할당량 초기화됨", "이제 다시 Claude를 사용할 수 있습니다!")]
+    [InlineData("en", "Claude Quota Reset", "You can use Claude again now!")]
+    public void QuotaReset_ClaudeTextIsUnchanged(string lang, string expectedTitle, string expectedBody)
+    {
+        var originalLang = Loc.CurrentLang;
+        try
+        {
+            Loc.SetLanguage(lang);
+
+            Assert.Equal(expectedTitle, Loc.QuotaResetTitle("Claude"));
+            Assert.Equal(expectedBody, Loc.QuotaResetBody("Claude"));
         }
         finally
         {

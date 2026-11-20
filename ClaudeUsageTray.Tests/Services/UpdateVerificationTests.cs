@@ -1,4 +1,10 @@
+using System.IO;
+using System.Net;
 using System.Net.Http;
+using System.Net.Sockets;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using ClaudeUsageTray.Services;
 using ClaudeUsageTray.ViewModels;
 using Xunit;
@@ -6,14 +12,15 @@ using Xunit;
 namespace ClaudeUsageTray.Tests.Services;
 
 /// <summary>
-/// 무결성 검증 자산(SHA256)이 없는 릴리스를 무인 설치하지 않는다는 정책을 검증한다.
-/// 카운트다운 자동 적용이 들어간 뒤로, 사용자가 보지 않는 사이에 검증 불가능한 바이너리가
-/// 설치되는 경로가 생기지 않아야 한다.
+/// 자동 업데이트는 서명(<see cref="UpdateSignature"/>, #290)을 확인한 exe 만 설치한다. 서명 없는 릴리스는 고르지 않고,
+/// 서명이 맞지 않는 다운로드는 지운다. 검증 없이 설치하는 경로는 없다.
+/// 오류 문구를 <c>Loc</c> 로 비교하므로, 언어를 바꾸는 테스트와 나란히 돌지 않게 같은 컬렉션에 둔다(#213).
 /// </summary>
+[Collection("WpfTests")]
 public class UpdateVerificationTests
 {
     [Fact]
-    public async Task Download_RefusesUnverifiableRelease_BeforeFetchingAnything()
+    public async Task Download_RefusesReleaseWithoutSignature_BeforeFetchingAnything()
     {
         var service = new UpdateService();
         var progressCalls = 0;
@@ -21,48 +28,144 @@ public class UpdateVerificationTests
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.DownloadAndPrepareUpdateAsync(
                 "https://example.invalid/ClaudeUsageTray.exe",
-                sha256Url: "",
+                signatureUrl: "",
+                new Version(9, 0, 0),
                 onProgress: (_, _) => progressCalls++));
 
-        Assert.Contains("SHA256", ex.Message);
-        // onProgress 는 다운로드 시작 시점에 처음 호출된다 — 0 이면 네트워크에 나가기 전에 막힌 것이다.
+        Assert.Equal(Loc.UpdateSignatureInvalid, ex.Message);
+        // onProgress 는 내려받기를 시작할 때 처음 불린다 — 0 이면 네트워크에 나가기 전에 막힌 것이다.
         Assert.Equal(0, progressCalls);
     }
 
     [Fact]
-    public async Task Download_ProceedsWithoutChecksum_OnlyWhenExplicitlyAllowed()
+    public async Task Download_RejectsAndDeletesAnExeWhoseSignatureIsNotFromTheReleaseKey()
     {
-        var service = new UpdateService();
+        // 릴리스를 바꿀 수 있는 쪽이 exe 와 "서명" 을 함께 바꾼 경우: 자기 키로는 올바른 서명이어도 앱에 내장한 키로는 틀려야 한다.
+        var exe = Encoding.ASCII.GetBytes("MZ not really an exe");
+        var version = new Version(9, 0, 0);
+        using var attackerKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var forged = Convert.ToBase64String(attackerKey.SignData(
+            UpdateSignature.Message(version, Convert.ToHexString(SHA256.HashData(exe))), HashAlgorithmName.SHA256,
+            DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
 
-        var ex = await Record.ExceptionAsync(() =>
-            service.DownloadAndPrepareUpdateAsync(
-                "https://example.invalid/ClaudeUsageTray.exe",
-                sha256Url: "",
-                onProgress: (_, _) => { },
-                allowUnverified: true));
+        await using var server = await FileServer.StartAsync(new Dictionary<string, byte[]>
+        {
+            ["/ClaudeUsageTray.exe"] = exe,
+            ["/ClaudeUsageTray.exe.sig"] = Encoding.ASCII.GetBytes(forged),
+        });
+        var before = TempUpdateFiles();
 
-        // 도달 불가 호스트라 실패는 하지만, 그 실패가 '검증 거부'여서는 안 된다(=가드를 통과했다).
-        Assert.NotNull(ex);
-        Assert.IsNotType<InvalidOperationException>(ex);
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            new UpdateService().DownloadAndPrepareUpdateAsync(
+                server.Url("/ClaudeUsageTray.exe"), server.Url("/ClaudeUsageTray.exe.sig"), version, (_, _) => { }));
+
+        Assert.Equal(Loc.UpdateSignatureInvalid, ex.Message);
+        Assert.Equal(2, server.Requests); // 서명과 exe 를 실제로 받은 뒤 거부했다
+        Assert.Empty(TempUpdateFiles().Except(before)); // 받은 파일은 남지 않는다
     }
 
     [Fact]
-    public void AutoUpdatePlan_DisablesCountdown_WhenChecksumIsMissing()
+    public void SelectUpdate_PicksTheNewestSignedRelease_AndSkipsUnsignedOnes()
     {
-        var (seconds, notice) = Plan(canVerify: false);
+        // 1.70.0 은 서명 전(CI 가 막 올린 상태) — 건너뛰고 1.69.0 을 고른다. 노트는 1.69.0 까지의 새 버전만.
+        var releases = Releases(
+            Release("v1.70.0", sig: false, notes: "seventy"),
+            Release("v1.69.0", sig: true, notes: "sixty-nine"),
+            Release("v1.68.5", sig: false, notes: "sixty-eight-five"),
+            Release("v1.68.0", sig: true, notes: "current"));
 
-        Assert.Equal(0, seconds);
-        Assert.NotNull(notice);
+        var update = UpdateService.SelectUpdate(releases, new Version(1, 68, 0));
+
+        Assert.NotNull(update);
+        Assert.Equal(new Version(1, 69, 0), update!.version);
+        Assert.EndsWith("/v1.69.0/ClaudeUsageTray.exe", update.downloadUrl);
+        Assert.EndsWith("/v1.69.0/" + UpdateSignature.AssetName, update.signatureUrl);
+        Assert.Contains("sixty-nine", update.releaseNotes);
+        Assert.Contains("sixty-eight-five", update.releaseNotes);
+        Assert.DoesNotContain("seventy", update.releaseNotes);
+        Assert.DoesNotContain("current", update.releaseNotes);
     }
 
-    // 자동 설치를 꺼 두었더라도 검증 불가 사실은 알려야 한다 — 직접 실행할지 판단하는 데 필요하다.
     [Fact]
-    public void AutoUpdatePlan_StillWarnsAboutMissingChecksum_WhenAutoUpdateIsOff()
+    public void SelectUpdate_OffersNothing_WhenNoNewerReleaseIsSigned()
     {
-        var (seconds, notice) = Plan(canVerify: false, autoUpdateEnabled: false);
+        // 서명 이전 릴리스, 서명 없이 올라온 릴리스(탈취된 계정 등), 초안·사전 릴리스는 업데이트로 보지 않는다.
+        var releases = Releases(
+            Release("v2.0.0", sig: false),
+            Release("v1.99.0", sig: true, draft: true),
+            Release("v1.98.0", sig: true, prerelease: true),
+            Release("v1.0.0", sig: true));
 
-        Assert.Equal(0, seconds);
-        Assert.NotNull(notice);
+        Assert.Null(UpdateService.SelectUpdate(releases, new Version(1, 50, 0)));
+    }
+
+    // #300: 1.41.0 을 찾아 둔 뒤 1.42.0 이 나왔으면 받기 직전 재확인이 1.42.0 을 골라야 한다. 아니면 1.41.0 을 설치하고
+    // 재시작 직후 시작 시 확인이 1.42.0 을 찾아 한 번 더 업데이트한다.
+    [Fact]
+    public async Task InstallTarget_MovesToTheNewerRelease_PublishedAfterTheOfferWasCached()
+    {
+        var current = new Version(1, 40, 0);
+        var offered = UpdateService.SelectUpdate(Releases(Release("v1.41.0", sig: true, notes: "forty-one")), current)!;
+        var latest = UpdateService.SelectUpdate(Releases(
+            Release("v1.42.0", sig: true, notes: "forty-two"),
+            Release("v1.41.0", sig: true, notes: "forty-one")), current);
+
+        var target = await UpdateService.ResolveInstallTargetAsync(offered, () => Task.FromResult(latest));
+
+        Assert.Equal(new Version(1, 42, 0), target.version);
+        Assert.EndsWith("/v1.42.0/ClaudeUsageTray.exe", target.downloadUrl);
+        Assert.EndsWith("/v1.42.0/" + UpdateSignature.AssetName, target.signatureUrl);
+        Assert.Contains("forty-two", target.releaseNotes);
+        Assert.Contains("forty-one", target.releaseNotes); // 건너뛰는 중간 버전의 변경도 노트에 남는다
+    }
+
+    // 새 버전이 아직 서명 전이면(CI 릴리스와 sign-release.ps1 사이) 찾아 둔 버전을 그대로 받는다 — 서명된 것만 설치한다(D-1).
+    [Fact]
+    public async Task InstallTarget_KeepsTheOffer_WhenTheNewerReleaseIsNotSignedYet()
+    {
+        var current = new Version(1, 40, 0);
+        var offered = UpdateService.SelectUpdate(Releases(Release("v1.41.0", sig: true)), current)!;
+        var latest = UpdateService.SelectUpdate(Releases(
+            Release("v1.42.0", sig: false),
+            Release("v1.41.0", sig: true)), current);
+
+        var target = await UpdateService.ResolveInstallTargetAsync(offered, () => Task.FromResult(latest));
+
+        Assert.Same(offered, target);
+    }
+
+    [Theory]
+    [InlineData(null)]       // 다시 확인하니 받을 것이 없음(릴리스가 내려간 경우 등)
+    [InlineData("1.41.0")]   // 같은 버전
+    [InlineData("1.40.5")]   // 더 옛 버전
+    public async Task InstallTarget_KeepsTheOffer_WhenTheRecheckFindsNothingNewer(string? recheckedVersion)
+    {
+        var offered = Info("1.41.0");
+        var rechecked = recheckedVersion is null ? null : Info(recheckedVersion);
+
+        var target = await UpdateService.ResolveInstallTargetAsync(offered, () => Task.FromResult(rechecked));
+
+        Assert.Same(offered, target);
+    }
+
+    // 재확인 실패는 설치를 막지 않는다 — 찾아 둔 버전도 서명이 맞아야 설치되는 정상 릴리스다.
+    public static TheoryData<Exception> RecheckFailures => new()
+    {
+        new UpdateCheckException("rate limited", UpdateCheckErrorKind.RateLimit, statusCode: 403),
+        new UpdateCheckException("timeout", UpdateCheckErrorKind.Timeout),
+        new HttpRequestException("offline"),
+        new JsonException("broken body"),
+    };
+
+    [Theory]
+    [MemberData(nameof(RecheckFailures))]
+    public async Task InstallTarget_FallsBackToTheOffer_WhenTheRecheckFails(Exception failure)
+    {
+        var offered = Info("1.41.0");
+
+        var target = await UpdateService.ResolveInstallTargetAsync(offered, () => Task.FromException<UpdateService.UpdateInfo?>(failure));
+
+        Assert.Same(offered, target);
     }
 
     [Fact]
@@ -105,7 +208,83 @@ public class UpdateVerificationTests
     }
 
     private static (int seconds, string? notice) Plan(
-        bool canVerify = true, bool autoRetryExhausted = false,
-        bool autoUpdateEnabled = true, int countdownSeconds = 60) =>
-        MainViewModel.ResolveAutoUpdatePlan(canVerify, autoRetryExhausted, autoUpdateEnabled, countdownSeconds);
+        bool autoRetryExhausted = false, bool autoUpdateEnabled = true, int countdownSeconds = 60) =>
+        MainViewModel.ResolveAutoUpdatePlan(autoRetryExhausted, autoUpdateEnabled, countdownSeconds);
+
+    private static UpdateService.UpdateInfo Info(string version) => new(
+        Version.Parse(version),
+        $"https://example.invalid/v{version}/ClaudeUsageTray.exe",
+        $"https://example.invalid/v{version}/{UpdateSignature.AssetName}",
+        $"## v{version}");
+
+    private static HashSet<string> TempUpdateFiles() =>
+        Directory.GetFiles(Path.GetTempPath(), "ClaudeUsageTray_new_*.exe").ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    private static string Release(string tag, bool sig, string notes = "", bool draft = false, bool prerelease = false)
+    {
+        var assets = new List<object>
+        {
+            new { name = "ClaudeUsageTray.exe", browser_download_url = $"https://example.invalid/{tag}/ClaudeUsageTray.exe" },
+            new { name = "SHA256.txt", browser_download_url = $"https://example.invalid/{tag}/SHA256.txt" },
+        };
+        if (sig) assets.Add(new { name = UpdateSignature.AssetName, browser_download_url = $"https://example.invalid/{tag}/{UpdateSignature.AssetName}" });
+        return JsonSerializer.Serialize(new { tag_name = tag, draft, prerelease, body = notes, assets });
+    }
+
+    private static JsonElement Releases(params string[] releases) =>
+        JsonDocument.Parse("[" + string.Join(",", releases) + "]").RootElement.Clone();
+
+    /// <summary>경로별 고정 바이트를 돌려주는 루프백 HTTP 서버(연결당 요청 하나).</summary>
+    private sealed class FileServer : IAsyncDisposable
+    {
+        private readonly TcpListener _listener;
+        private readonly CancellationTokenSource _cts = new();
+        private readonly Task _loop;
+        private int _requests;
+
+        private FileServer(IReadOnlyDictionary<string, byte[]> files)
+        {
+            _listener = new TcpListener(IPAddress.Loopback, 0);
+            _listener.Start();
+            _loop = Task.Run(() => ServeAsync(files));
+        }
+
+        public int Requests => Volatile.Read(ref _requests);
+
+        public static Task<FileServer> StartAsync(IReadOnlyDictionary<string, byte[]> files) => Task.FromResult(new FileServer(files));
+
+        public string Url(string path) => $"http://127.0.0.1:{((IPEndPoint)_listener.LocalEndpoint).Port}{path}";
+
+        private async Task ServeAsync(IReadOnlyDictionary<string, byte[]> files)
+        {
+            while (!_cts.IsCancellationRequested)
+            {
+                TcpClient client;
+                try { client = await _listener.AcceptTcpClientAsync(_cts.Token); }
+                catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException or SocketException) { return; }
+                using (client)
+                {
+                    var stream = client.GetStream();
+                    var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
+                    var requestLine = await reader.ReadLineAsync() ?? "";
+                    while (!string.IsNullOrEmpty(await reader.ReadLineAsync())) { }
+                    Interlocked.Increment(ref _requests);
+                    var path = requestLine.Split(' ') is { Length: >= 2 } parts ? parts[1] : "";
+                    var found = files.TryGetValue(path, out var body);
+                    body ??= [];
+                    var head = $"HTTP/1.1 {(found ? "200 OK" : "404 Not Found")}\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n";
+                    await stream.WriteAsync(Encoding.ASCII.GetBytes(head));
+                    await stream.WriteAsync(body);
+                }
+            }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            _cts.Cancel();
+            _listener.Stop();
+            await _loop;
+            _cts.Dispose();
+        }
+    }
 }

@@ -1,4 +1,5 @@
 using System.Globalization;
+using ClaudeUsageTray.Models;
 
 namespace ClaudeUsageTray.Services;
 
@@ -51,14 +52,6 @@ public static class Loc
         _ => "Codex Usage"
     };
 
-    public static string GeminiCliUsageTitle => Lang switch
-    {
-        "ko" => "Gemini CLI 사용량",
-        "zh" => "Gemini CLI 用量",
-        "ja" => "Gemini CLI 使用量",
-        _ => "Gemini CLI Usage"
-    };
-
     public static string ProviderSection => Lang switch
     {
         "ko" => "차트 표시 기준",
@@ -83,14 +76,6 @@ public static class Loc
         _ => "Codex (ChatGPT plan)"
     };
 
-    public static string ProviderGeminiCli => Lang switch
-    {
-        "ko" => "Gemini CLI",
-        "zh" => "Gemini CLI",
-        "ja" => "Gemini CLI",
-        _ => "Gemini CLI"
-    };
-
     public static string ProviderCodexNote => Lang switch
     {
         "ko" => "ChatGPT plan 기준 · 로컬 Codex 세션 데이터",
@@ -99,12 +84,13 @@ public static class Loc
         _ => "Based on ChatGPT plan · local Codex session data"
     };
 
-    public static string ProviderGeminiCliNote => Lang switch
+    /// <summary>Antigravity 상세 하단 안내 — Codex·OpenCode 의 같은 자리 문구와 같은 톤.</summary>
+    public static string ProviderAntigravityNote => Lang switch
     {
-        "ko" => "Gemini CLI 로컬 기준 · 공식 수치 아님",
-        "zh" => "Gemini CLI 本地基准 · 非官方数据",
-        "ja" => "Gemini CLI ローカル基準 · 公式数値ではありません",
-        _ => "Gemini CLI local logs · not official quota"
+        "ko" => "Google 계정 할당량 기준 · Antigravity 공식 수치",
+        "zh" => "基于 Google 账号配额 · Antigravity 官方数据",
+        "ja" => "Google アカウントの割当基準 · Antigravity 公式数値",
+        _ => "Based on the Google account quota · official Antigravity figures"
     };
 
     // Header
@@ -333,6 +319,206 @@ public static class Loc
         _ => $"{count} session(s) today"
     };
 
+    // 오늘 세션 목록
+    public static string SessionListEmpty => Lang switch
+    {
+        "ko" => "이 PC 에 오늘 기록된 세션이 없습니다",
+        "zh" => "本机今日没有会话记录",
+        "ja" => "この PC に本日のセッション記録はありません",
+        _ => "No sessions recorded on this PC today"
+    };
+
+    public static string SessionListMore(int count) => Lang switch
+    {
+        "ko" => $"+{count}개 더",
+        "zh" => $"另外 {count} 个",
+        "ja" => $"他 {count} 件",
+        _ => $"+{count} more"
+    };
+
+    /// <summary>다중 PC 합계에는 잡히지만 이 PC 에 트랜스크립트가 없어 목록에 못 넣는 세션 수.</summary>
+    public static string SessionListRemoteOnly(int count) => Lang switch
+    {
+        "ko" => $"다른 PC 세션 {count}개는 목록에 없음",
+        "zh" => $"其他电脑的 {count} 个会话不在列表中",
+        "ja" => $"他の PC のセッション {count} 件は一覧に含まれません",
+        _ => $"{count} session(s) from other PCs not listed"
+    };
+
+    /// <summary>
+    /// Antigravity 할당량 한 칸의 이름. 서버는 이 값을 영어로만 내려주므로 아는 버킷은 직접 번역한다.
+    /// 앱이 모르는 그룹이라도 서버가 그룹 이름을 주면(<paramref name="groupName"/>, 예: "Gemini 4 Argon", #204)
+    /// 그 이름에 앱 언어의 창 이름을 붙인다 — 모델 이름은 번역하지 않는 고유 명사다.
+    /// 그룹 이름도 모르거나 창 종류를 모르면 null 을 돌려주고, 화면은 서버가 준 문구를 그대로 쓴다.
+    /// </summary>
+    public static string? AntigravityBucketLabel(string bucketId, string window, string groupName = "")
+    {
+        var group = AntigravityGroupName(bucketId)
+                    ?? (string.IsNullOrWhiteSpace(groupName) ? null : groupName.Trim());
+        var span = AntigravityWindowName(window);
+        if (group is null || span is null) return null;
+        return $"{group} · {span}";
+    }
+
+    /// <summary>Antigravity 상세 게이지 아래 크레딧 줄의 이름 — gemini-cli /stats 의 "Google AI Credits" 와 같은 이름.</summary>
+    public static string AntigravityAiCredits => Lang switch
+    {
+        "ko" => "Google AI 크레딧",
+        "zh" => "Google AI 积分",
+        "ja" => "Google AI クレジット",
+        _ => "Google AI Credits"
+    };
+
+    public static string AntigravityAiCreditsTip => Lang switch
+    {
+        "ko" => "Google One AI 크레딧 잔액입니다. 사용 한도에 도달한 뒤 일부 모델을 계속 쓰면 차감됩니다.",
+        "zh" => "Google One AI 积分余额。达到用量上限后继续使用部分模型时会扣除。",
+        "ja" => "Google One AI クレジットの残高です。使用上限に達した後も一部のモデルを使い続けると差し引かれます。",
+        _ => "Your Google One AI credit balance. Credits are used when you keep using some models after reaching a limit."
+    };
+
+    /// <summary>
+    /// 버킷 식별자는 "그룹-창" 형식이다 (gemini-weekly, 3p-5h). 창을 뗀 그룹 키를 정확히 비교한다 —
+    /// 앞부분만 보면 gemini 로 시작하는 새 그룹(예: 이미지 생성)이 Gemini 모델 칸과 같은 이름으로 불린다.
+    /// </summary>
+    private static string? AntigravityGroupName(string bucketId)
+    {
+        var dash = bucketId.LastIndexOf('-');
+        var group = dash > 0 ? bucketId[..dash] : bucketId;
+
+        // 이미지 생성 한도는 요약 응답에서 실제로 확인된 적이 없다. 그런 그룹이 오면 Codex 추가 한도(#182)와
+        // 같은 규칙으로 부르고, 이름을 모르는 다른 그룹은 null 을 돌려 서버 문구를 그대로 쓰게 한다.
+        if (group.Contains("image", StringComparison.OrdinalIgnoreCase))
+            return CodexImageGenerationLimit;
+
+        if (group.Equals("gemini", StringComparison.OrdinalIgnoreCase))
+        {
+            return Lang switch
+            {
+                "ko" => "Gemini 모델",
+                "zh" => "Gemini 模型",
+                "ja" => "Gemini モデル",
+                _ => "Gemini Models"
+            };
+        }
+
+        // Google 이 자사 모델과 구분해 부르는 이름(third-party) 이 3p 다.
+        if (group.Equals("3p", StringComparison.OrdinalIgnoreCase))
+        {
+            return Lang switch
+            {
+                "ko" => "Claude · GPT 모델",
+                "zh" => "Claude 和 GPT 模型",
+                "ja" => "Claude・GPT モデル",
+                _ => "Claude and GPT models"
+            };
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 창 이름 — 다른 provider 의 "5시간 윈도우 / 7일 윈도우" 와 같은 자리에 오므로 같은 톤으로 짧게 쓴다.
+    /// 게이지가 사용률을 보여주므로 "잔여량"이라고 부르지 않는다(값의 방향이 반대로 읽힌다).
+    /// </summary>
+    private static string? AntigravityWindowName(string window) => window switch
+    {
+        "weekly" => QuotaWindowShortName(10080),
+        "5h" => QuotaWindowShortName(300),
+        _ => null
+    };
+
+    /// <summary>
+    /// 게이지 행 이름 뒤에 붙는 짧은 창 이름 ("주간", "5시간") — Antigravity 행과 Codex 추가 한도 행이 같이 쓴다.
+    /// 창 길이를 모르면 null — 이름만 쓰고 창을 지어내지 않는다.
+    /// </summary>
+    public static string? QuotaWindowShortName(int? windowMinutes)
+    {
+        if (windowMinutes is not int m || m <= 0)
+            return null;
+
+        if (m % 10080 == 0)
+        {
+            int weeks = m / 10080;
+            return Lang switch
+            {
+                "ko" => weeks == 1 ? "주간" : $"{weeks}주",
+                "zh" => weeks == 1 ? "每周" : $"{weeks} 周",
+                "ja" => weeks == 1 ? "週間" : $"{weeks}週間",
+                _ => weeks == 1 ? "Weekly" : $"{weeks}-week"
+            };
+        }
+        if (m % 1440 == 0)
+        {
+            int days = m / 1440;
+            return Lang switch
+            {
+                "ko" => $"{days}일",
+                "zh" => $"{days} 天",
+                "ja" => $"{days}日",
+                _ => $"{days}-day"
+            };
+        }
+        // 시간으로 나누어떨어지지 않으면 분으로 — 90분 창을 "1시간"으로 내려 부르지 않는다.
+        if (m % 60 != 0)
+        {
+            return Lang switch
+            {
+                "ko" => $"{m}분",
+                "zh" => $"{m} 分钟",
+                "ja" => $"{m}分",
+                _ => $"{m}-minute"
+            };
+        }
+
+        int hours = m / 60;
+        return Lang switch
+        {
+            "ko" => $"{hours}시간",
+            "zh" => $"{hours} 小时",
+            "ja" => $"{hours}時間",
+            _ => $"{hours}-hour"
+        };
+    }
+
+    /// <summary>추가 한도 행 이름 — "이미지 생성 · 주간". 창 길이를 모르면 한도 이름만.</summary>
+    public static string AdditionalQuotaLabel(string limitName, int? windowMinutes) =>
+        QuotaWindowShortName(windowMinutes) is { } window ? $"{limitName} · {window}" : limitName;
+
+    /// <summary>Codex 의 이미지 생성 한도 이름(#182). 서버는 한도 이름을 영어 식별자로만 준다.</summary>
+    public static string CodexImageGenerationLimit => Lang switch
+    {
+        "ko" => "이미지 생성",
+        "zh" => "图像生成",
+        "ja" => "画像生成",
+        _ => "Image generation"
+    };
+
+    /// <summary>ChatGPT 이미지 생성 잔여 횟수 줄의 이름(#206) — Codex 한도가 아니라 같은 계정의 ChatGPT 값임을 이름에 드러낸다.</summary>
+    public static string ChatGptImageGeneration => Lang switch
+    {
+        "ko" => "ChatGPT 이미지 생성",
+        "zh" => "ChatGPT 图像生成",
+        "ja" => "ChatGPT 画像生成",
+        _ => "ChatGPT image generation"
+    };
+
+    public static string ChatGptImageGenerationTip => Lang switch
+    {
+        "ko" => "같은 OpenAI 계정의 ChatGPT 이미지 생성 남은 횟수입니다. 서버가 총 한도는 알려주지 않아 사용률은 표시하지 않습니다. 아직 쓰지 않았다면 초기화 시각은 지금부터 한도 기간이 끝나는 시점으로 표시됩니다.",
+        "zh" => "同一 OpenAI 账户的 ChatGPT 图像生成剩余次数。服务器不提供总额度，因此不显示使用率。如果尚未使用，重置时间显示为从现在起额度周期结束的时间。",
+        "ja" => "同じ OpenAI アカウントの ChatGPT 画像生成の残り回数です。サーバーが総上限を返さないため使用率は表示しません。まだ使っていない場合、リセット時刻は今から上限期間が終わる時点として表示されます。",
+        _ => "Remaining ChatGPT image generations for the same OpenAI account. The server does not report the total limit, so no usage percentage is shown. If you have not used any yet, the reset time is shown as the end of a period starting now."
+    };
+
+    public static string RemainingCount(int count) => Lang switch
+    {
+        "ko" => $"{count}회 남음",
+        "zh" => $"剩余 {count} 次",
+        "ja" => $"残り {count} 回",
+        _ => $"{count} left"
+    };
+
     public static string ResetsIn(string time) => Lang switch
     {
         "ko" => $" · {time} 후 초기화",
@@ -426,45 +612,85 @@ public static class Loc
         _ => "Usage"
     };
 
-    // Notifications
-    public static string NotificationTitle => Lang switch
+    // Notifications (#262) — 제목에 서비스·창·퍼센트, 본문에 초기화 시각. 풍선·ntfy·앱 푸시가 함께 쓴다.
+    // 서비스·퍼센트를 앞에 둔다: Android 16 접힌 알림은 제목·계정 이름·시각을 한 줄에 놓아 제목 끝부터 잘리므로,
+    // 잘려도 "Claude 90%" 는 남게 한다(에뮬레이터 API 36 에서 확인).
+    public static string UsageAlertTitle(string agent, string window, int percent) => $"{agent} {percent}% · {window}";
+
+    /// <summary>알림 제목의 창 이름(UsageAlertTitle 의 window). 팝업의 "5시간 윈도우" 보다 짧은 말.</summary>
+    public static string AlertWindowFiveHour => Lang switch
     {
-        "ko" => "에이전트 사용량 알림",
-        "zh" => "智能体用量提醒",
-        "ja" => "エージェント使用量アラート",
-        _ => "Agent Usage Alert"
+        "ko" => "5시간 한도",
+        "zh" => "5小时额度",
+        "ja" => "5時間枠",
+        _ => "5h limit"
     };
 
-    public static string NotificationBody(int percent, string window, string resetLabel, string agent = "") => Lang switch
+    public static string AlertWindowExtra => Lang switch
     {
-        "ko" => $"{(agent.Length > 0 ? $"[{agent}] " : "")}{window}{(window.EndsWith("량") ? "이" : "가")} {percent}%에 도달했습니다{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}",
-        "zh" => $"{(agent.Length > 0 ? $"[{agent}] " : "")}{window} 已达到 {percent}%{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}",
-        "ja" => $"{(agent.Length > 0 ? $"[{agent}] " : "")}{window} が {percent}% に達しました{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}",
-        _ => $"{(agent.Length > 0 ? $"[{agent}] " : "")}{window} reached {percent}%{(resetLabel.Length > 0 ? " ·" + resetLabel : "")}"
+        "ko" => "추가 사용량",
+        "zh" => "额外用量",
+        "ja" => "追加使用量",
+        _ => "extra usage"
+    };
+
+    public static string AlertWindowUsage => Lang switch
+    {
+        "ko" => "사용량",
+        "zh" => "用量",
+        "ja" => "使用量",
+        _ => "usage"
+    };
+
+    /// <summary>clock: "15:30" 또는 "11/21 15:30", remaining: "3h 12m".</summary>
+    public static string AlertResetsAt(string clock, string remaining) => Lang switch
+    {
+        "ko" => $"{clock} 초기화 · {remaining} 남음",
+        "zh" => $"{clock} 重置 · 还剩 {remaining}",
+        "ja" => $"{clock} にリセット · 残り {remaining}",
+        _ => $"Resets at {clock} · {remaining} left"
+    };
+
+    /// <summary>리셋 시각이 없는 한도(추가 사용량)의 본문.</summary>
+    public static string AlertThresholdPassed(int percent) => Lang switch
+    {
+        "ko" => $"설정한 알림 기준 {percent}%를 넘었습니다",
+        "zh" => $"已超过设定的 {percent}% 提醒线",
+        "ja" => $"設定した通知ライン {percent}% を超えました",
+        _ => $"Passed your {percent}% alert threshold"
     };
 
     public static string RateLimitTitle => Lang switch
     {
-        "ko" => "Claude 실시간 사용 제한 발생",
-        "zh" => "Claude 已达到速率限制",
-        "ja" => "Claude レート制限に達しました",
-        _ => "Claude Rate Limit Reached"
+        "ko" => "Claude 사용 제한 발생",
+        "zh" => "Claude 触发使用限制",
+        "ja" => "Claude 利用制限が発生",
+        _ => "Claude rate limited"
     };
 
-    public static string EarlyExhaustionTitle => Lang switch
+    public static string RateLimitAlertBody => Lang switch
     {
-        "ko" => "Claude 조기 소진 경고",
-        "zh" => "Claude 提前耗尽警告",
-        "ja" => "Claude 早期枯渇警告",
-        _ => "Claude Early Exhaustion"
+        "ko" => "Claude Code 요청이 사용 제한에 걸렸습니다. 잠시 뒤 다시 시도하세요.",
+        "zh" => "Claude Code 的请求触发了使用限制，请稍后再试。",
+        "ja" => "Claude Code のリクエストが利用制限にかかりました。しばらくしてから再試行してください。",
+        _ => "Claude Code hit a usage limit. Try again in a moment."
     };
 
-    public static string EarlyExhaustionBody(string depletionTime, string resetTime) => Lang switch
+    public static string EarlyExhaustionAlertTitle => Lang switch
     {
-        "ko" => $"예상보다 빠른 소진 속도입니다. 이대로면 {depletionTime}경 소진 예상 (원래 초기화: {resetTime})",
-        "zh" => $"消耗速度超出预期。按此速度将于 {depletionTime} 耗尽（原重置时间：{resetTime}）",
-        "ja" => $"予想より早い枯渇ペースです。このままでは {depletionTime} 頃に枯渇する見込み（本来のリセット：{resetTime}）",
-        _ => $"Depleting faster than expected. At this rate will exhaust by {depletionTime} (original reset: {resetTime})"
+        "ko" => "Claude 조기 소진 예상",
+        "zh" => "Claude 可能提前耗尽",
+        "ja" => "Claude 早期枯渇の見込み",
+        _ => "Claude may run out early"
+    };
+
+    /// <summary>depletion·reset: "15:30" 또는 "11/21 15:30".</summary>
+    public static string EarlyExhaustionAlertBody(string depletion, string reset) => Lang switch
+    {
+        "ko" => $"지금 속도면 {depletion}쯤 다 씁니다 · 초기화는 {reset}",
+        "zh" => $"按当前速度约 {depletion} 用完 · {reset} 重置",
+        "ja" => $"このペースだと {depletion} 頃に使い切ります · リセットは {reset}",
+        _ => $"At this pace it runs out around {depletion} · resets at {reset}"
     };
 
     // Settings
@@ -500,28 +726,29 @@ public static class Loc
         _ => "Quota reset alert"
     };
 
-    public static string QuotaResetTitle => Lang switch
+    // agent 를 받는 이유: 초기화 알림이 Claude 문구로 고정돼 있어 Codex 초기화도 "Claude 할당량 초기화됨" 으로 발송됐다.
+    public static string QuotaResetTitle(string agent) => Lang switch
     {
-        "ko" => "Claude 할당량 초기화됨",
-        "zh" => "Claude 配额已重置",
-        "ja" => "Claude クォータがリセットされました",
-        _ => "Claude Quota Reset"
+        "ko" => $"{agent} 할당량 초기화됨",
+        "zh" => $"{agent} 配额已重置",
+        "ja" => $"{agent} クォータがリセットされました",
+        _ => $"{agent} Quota Reset"
     };
 
-    public static string QuotaResetBody => Lang switch
+    public static string QuotaResetBody(string agent) => Lang switch
     {
-        "ko" => "이제 다시 Claude를 사용할 수 있습니다!",
-        "zh" => "现在可以再次使用 Claude 了！",
-        "ja" => "Claude を再び使用できるようになりました！",
-        _ => "You can use Claude again now!"
+        "ko" => $"이제 다시 {agent}를 사용할 수 있습니다!",
+        "zh" => $"现在可以再次使用 {agent} 了！",
+        "ja" => $"{agent} を再び使用できるようになりました！",
+        _ => $"You can use {agent} again now!"
     };
 
     public static string NtfyTitle => Lang switch
     {
-        "ko" => "스마트폰 알림 (ntfy)",
-        "zh" => "手机推送通知 (ntfy)",
-        "ja" => "スマホ通知 (ntfy)",
-        _ => "Phone Push Notifications (ntfy)"
+        "ko" => "ntfy 토픽 (앱 없이 받을 때)",
+        "zh" => "ntfy 主题 (无应用时使用)",
+        "ja" => "ntfy トピック (アプリなしで受け取る場合)",
+        _ => "ntfy topic (without the app)"
     };
 
     public static string NtfyDesc => Lang switch
@@ -598,18 +825,18 @@ public static class Loc
 
     public static string NtfySendFromThisPc => Lang switch
     {
-        "ko" => "이 PC에서 ntfy 알림 발송",
-        "zh" => "从此电脑发送 ntfy 通知",
-        "ja" => "このPCからntfy通知を送信",
-        _ => "Send ntfy notifications from this PC"
+        "ko" => "이 PC에서 휴대폰 알림 보내기",
+        "zh" => "从此电脑发送手机通知",
+        "ja" => "このPCからスマホ通知を送る",
+        _ => "Send phone alerts from this PC"
     };
 
     public static string NtfySendFromThisPcHint => Lang switch
     {
-        "ko" => "여러 PC에서 같은 토픽 사용 시, 한 PC에서만 활성화하세요",
-        "zh" => "多台电脑使用相同主题时，只在一台上启用",
-        "ja" => "複数のPCで同じトピックを使う場合、1台のみ有効にしてください",
-        _ => "If multiple PCs share the same topic, enable only on one"
+        "ko" => "휴대폰 앱 알림은 여러 PC가 보내도 한 번만 뜹니다. ntfy 토픽만 쓸 때는 같은 토픽을 쓰는 PC 중 한 대에서만 켜세요",
+        "zh" => "手机应用通知即使多台电脑发送也只显示一次。仅使用 ntfy 主题时，请只在使用相同主题的一台电脑上开启",
+        "ja" => "スマホアプリの通知は複数のPCが送っても1回だけ表示されます。ntfy トピックだけを使う場合は、同じトピックのPCのうち1台だけオンにしてください",
+        _ => "Phone-app alerts show once even when several PCs send them. If you only use an ntfy topic, enable this on just one PC sharing it"
     };
 
     // v1.27.0 표시 옵션 토글
@@ -621,12 +848,29 @@ public static class Loc
         _ => "Display options"
     };
 
-    public static string ShowCodexPlanBadge => Lang switch
+    public static string ShowPlanBadge => Lang switch
     {
-        "ko" => "Codex 플랜 배지 표시 (예: ChatGPT Plus)",
-        "zh" => "显示 Codex 套餐徽章 (例: ChatGPT Plus)",
-        "ja" => "Codex プランバッジを表示 (例: ChatGPT Plus)",
-        _ => "Show Codex plan badge (e.g. ChatGPT Plus)"
+        "ko" => "구독 등급 배지 표시 (예: Claude Max 5x, ChatGPT Plus)",
+        "zh" => "显示订阅等级徽章 (例: Claude Max 5x, ChatGPT Plus)",
+        "ja" => "サブスクリプション等級バッジを表示 (例: Claude Max 5x, ChatGPT Plus)",
+        _ => "Show subscription plan badge (e.g. Claude Max 5x, ChatGPT Plus)"
+    };
+
+    // #218 Claude 등급 배지 줄 뒤에 붙는 계정 이름·조직
+    public static string ShowClaudeAccount => Lang switch
+    {
+        "ko" => "Claude 계정 이름·조직 표시",
+        "zh" => "显示 Claude 账户名称和组织",
+        "ja" => "Claude のアカウント名と組織を表示",
+        _ => "Show Claude account name and organization"
+    };
+
+    public static string ShowClaudeAccountHint => Lang switch
+    {
+        "ko" => "Claude 클라이언트 왼쪽 아래와 같은 정보입니다. 조직은 팀·엔터프라이즈일 때만 보이고, 이메일은 보이지 않습니다.",
+        "zh" => "与 Claude 客户端左下角显示的信息相同。仅团队或企业组织会显示组织名称，不显示邮箱。",
+        "ja" => "Claude クライアント左下と同じ情報です。組織名はチーム・エンタープライズのときだけ表示し、メールアドレスは表示しません。",
+        _ => "Same info as the bottom left of the Claude app. The organization shows only for Team or Enterprise, and your email is never shown."
     };
 
     public static string ShowAbsoluteResetTime => Lang switch
@@ -643,6 +887,22 @@ public static class Loc
         "zh" => "示例: \"1h 23m 后重置 (18:30)\"",
         "ja" => "例: \"1h 23m 後にリセット (18:30)\"",
         _ => "e.g. \"resets in 1h 23m (18:30)\""
+    };
+
+    public static string AntigravityShowThirdPartyQuota => Lang switch
+    {
+        "ko" => "Antigravity 의 Claude·GPT 한도도 표시",
+        "zh" => "同时显示 Antigravity 的 Claude 和 GPT 额度",
+        "ja" => "Antigravity の Claude・GPT 上限も表示",
+        _ => "Also show Antigravity's Claude and GPT limits"
+    };
+
+    public static string AntigravityShowThirdPartyQuotaHint => Lang switch
+    {
+        "ko" => "끄면 Gemini 한도만 보여주고, 트레이 숫자에서도 Claude·GPT 창을 뺍니다.",
+        "zh" => "关闭时只显示 Gemini 额度，托盘数值也不计入 Claude 和 GPT 窗口。",
+        "ja" => "オフにすると Gemini の上限だけを表示し、トレイの数値からも Claude・GPT の枠を除きます。",
+        _ => "When off, only Gemini limits are shown and the tray figure leaves out the Claude and GPT windows."
     };
 
     public static string KeepPopupAboveTaskbar => Lang switch
@@ -697,13 +957,114 @@ public static class Loc
     // Errors
     // 액세스 토큰 파일(.credentials.json 의 claudeAiOauth)이 없어 usage API 호출 전에 실패한 경우.
     // 데스크톱 앱만 쓰거나 새 PC라 CLI 로그인을 한 적 없는 환경에서 발생 — 재로그인이 유일한 해결책이라
-    // 막연한 에러 대신 구체적 조치(터미널에서 claude 로그인)를 안내한다.
+    // 막연한 에러 대신 구체적 조치(터미널에서 claude 로그인)를 안내한다. 새로고침마다 자격 파일을 다시 읽으므로
+    // 로그인 후 재시작은 필요 없다(#180 — 버튼으로 로그인하면 완료 즉시 갱신된다).
     public static string NoToken => Lang switch
     {
-        "ko" => "액세스 토큰이 없습니다 — 터미널에서 claude auth login 으로 로그인한 뒤 앱을 다시 시작하세요",
-        "zh" => "未找到访问令牌 — 请在终端执行 claude auth login 登录后重启本应用",
-        "ja" => "アクセストークンがありません — ターミナルで claude auth login を実行してログイン後、アプリを再起動してください",
-        _ => "No access token — run `claude auth login` in a terminal, then restart the app"
+        "ko" => "액세스 토큰이 없습니다 — 터미널에서 claude auth login 으로 로그인하면 자동으로 갱신됩니다",
+        "zh" => "未找到访问令牌 — 请在终端执行 claude auth login 登录，登录后会自动刷新",
+        "ja" => "アクセストークンがありません — ターミナルで claude auth login を実行してログインすると自動的に更新されます",
+        _ => "No access token — run `claude auth login` in a terminal to sign in; usage refreshes automatically"
+    };
+
+    /// <summary>만료된 로그인 토큰의 갱신이 토큰 서버에서 일시 제한(429)됐을 때의 안내(#177).</summary>
+    public static string ClaudeTokenRefreshRateLimited(string time) => Lang switch
+    {
+        "ko" => $"로그인 토큰이 만료됐고 갱신이 일시 제한됐습니다 · {time} 이후 자동 재시도",
+        "zh" => $"登录令牌已过期，刷新暂时受限 · {time} 后自动重试",
+        "ja" => $"ログイントークンの有効期限が切れ、更新が一時的に制限されています · {time} 以降に自動再試行",
+        _ => $"Login token expired and refresh is temporarily rate-limited · retrying after {time}"
+    };
+
+    /// <summary>만료된 로그인 토큰의 갱신이 그 밖의 이유로 실패했을 때의 안내(#177).</summary>
+    public static string ClaudeTokenRefreshRetrying(string time) => Lang switch
+    {
+        "ko" => $"로그인 토큰이 만료됐고 갱신에 실패했습니다 · {time} 이후 자동 재시도",
+        "zh" => $"登录令牌已过期，刷新失败 · {time} 后自动重试",
+        "ja" => $"ログイントークンの有効期限が切れ、更新に失敗しました · {time} 以降に自動再試行",
+        _ => $"Login token expired and refresh failed · retrying after {time}"
+    };
+
+    /// <summary>refresh 토큰이 거절(invalid_grant)돼 다시 로그인해야 할 때의 안내(#177).</summary>
+    public static string ClaudeTokenRefreshRejected => Lang switch
+    {
+        "ko" => "로그인이 만료됐습니다 — 터미널에서 claude auth login 으로 다시 로그인하세요",
+        "zh" => "登录已过期 — 请在终端执行 claude auth login 重新登录",
+        "ja" => "ログインの有効期限が切れました — ターミナルで claude auth login を実行して再ログインしてください",
+        _ => "Login expired — run `claude auth login` in a terminal to sign in again"
+    };
+
+    // 로그인 만료·토큰 없음 상태의 "터미널에서 로그인" 버튼과 그 터미널 안내(#180).
+    public static string ClaudeLoginInTerminal => Lang switch
+    {
+        "ko" => "터미널에서 로그인",
+        "zh" => "在终端中登录",
+        "ja" => "ターミナルでログイン",
+        _ => "Sign in via terminal"
+    };
+
+    public static string ClaudeInstallAndLogin => Lang switch
+    {
+        "ko" => "Claude Code 설치 후 로그인",
+        "zh" => "安装 Claude Code 并登录",
+        "ja" => "Claude Code をインストールしてログイン",
+        _ => "Install Claude Code and sign in"
+    };
+
+    public static string ClaudeLoginInTerminalTooltip => Lang switch
+    {
+        "ko" => "새 터미널 창에서 claude auth login 을 실행합니다",
+        "zh" => "在新的终端窗口中运行 claude auth login",
+        "ja" => "新しいターミナルウィンドウで claude auth login を実行します",
+        _ => "Runs `claude auth login` in a new terminal window"
+    };
+
+    public static string ClaudeInstallAndLoginTooltip => Lang switch
+    {
+        "ko" => "Claude Code CLI 가 없어 공식 설치 스크립트(claude.ai/install.ps1)로 설치한 뒤 claude auth login 을 실행합니다",
+        "zh" => "未找到 Claude Code CLI — 将通过官方安装脚本 (claude.ai/install.ps1) 安装后运行 claude auth login",
+        "ja" => "Claude Code CLI が見つからないため、公式インストールスクリプト (claude.ai/install.ps1) でインストールしてから claude auth login を実行します",
+        _ => "Claude Code CLI not found — installs it with the official script (claude.ai/install.ps1), then runs `claude auth login`"
+    };
+
+    public static string ClaudeCliInstalling => Lang switch
+    {
+        "ko" => "Claude Code CLI 가 설치되어 있지 않아 공식 설치 스크립트(https://claude.ai/install.ps1)로 설치합니다. 다운로드 중에는 진행 표시가 없으니 잠시 기다려 주세요...",
+        "zh" => "未安装 Claude Code CLI — 正在通过官方安装脚本 (https://claude.ai/install.ps1) 安装。下载期间不显示进度，请稍候...",
+        "ja" => "Claude Code CLI がインストールされていないため、公式インストールスクリプト (https://claude.ai/install.ps1) でインストールします。ダウンロード中は進捗が表示されません。しばらくお待ちください...",
+        _ => "Claude Code CLI is not installed — installing with the official script (https://claude.ai/install.ps1). No progress is shown while downloading; please wait..."
+    };
+
+    public static string ClaudeCliInstallFailed => Lang switch
+    {
+        "ko" => "Claude Code 설치에 실패했습니다. 위 메시지를 확인하세요 (도움말: https://code.claude.com/docs/en/troubleshoot-install)",
+        "zh" => "Claude Code 安装失败。请查看上方信息 (帮助: https://code.claude.com/docs/en/troubleshoot-install)",
+        "ja" => "Claude Code のインストールに失敗しました。上のメッセージを確認してください (ヘルプ: https://code.claude.com/docs/en/troubleshoot-install)",
+        _ => "Claude Code installation failed. Check the messages above (help: https://code.claude.com/docs/en/troubleshoot-install)"
+    };
+
+    public static string ClaudeCliNotFoundAfterInstall => Lang switch
+    {
+        "ko" => "설치는 끝났지만 claude 실행 파일을 찾지 못했습니다. 새 터미널을 열어 claude auth login 을 실행하세요",
+        "zh" => "安装已完成，但未找到 claude 可执行文件。请打开新的终端运行 claude auth login",
+        "ja" => "インストールは完了しましたが claude の実行ファイルが見つかりません。新しいターミナルで claude auth login を実行してください",
+        _ => "Installation finished but the claude executable was not found. Open a new terminal and run `claude auth login`"
+    };
+
+    public static string ClaudeLoginTerminalDone => Lang switch
+    {
+        "ko" => "로그인을 마쳤으면 이 창을 닫아도 됩니다. 사용량은 자동으로 갱신됩니다.",
+        "zh" => "登录完成后即可关闭此窗口，用量会自动刷新。",
+        "ja" => "ログインが完了したら、このウィンドウを閉じて構いません。使用量は自動的に更新されます。",
+        _ => "Once you're signed in, you can close this window. Usage refreshes automatically."
+    };
+
+    public static string ClaudeLoginLaunchFailed(string error) => Lang switch
+    {
+        "ko" => $"터미널을 열지 못했습니다: {error}",
+        "zh" => $"无法打开终端：{error}",
+        "ja" => $"ターミナルを開けませんでした: {error}",
+        _ => $"Couldn't open a terminal: {error}"
     };
 
     public static string RateLimited => Lang switch
@@ -827,10 +1188,10 @@ public static class Loc
 
     public static string TestNotificationHint => Lang switch
     {
-        "ko" => "Windows 토스트 + 스마트폰 알림(ntfy 설정 시) 동시 테스트",
-        "zh" => "同时测试 Windows 通知 + 手机推送（已设置 ntfy 时）",
-        "ja" => "Windows トースト + スマホ通知（ntfy 設定済みの場合）を同時テスト",
-        _ => "Tests Windows toast + phone push (if ntfy topic is set)"
+        "ko" => "Windows 토스트 + 휴대폰 앱(연결 시)·ntfy 토픽(설정 시) 동시 테스트",
+        "zh" => "同时测试 Windows 通知 + 手机应用(已连接时)·ntfy 主题(已设置时)",
+        "ja" => "Windows トースト + スマホアプリ(接続時)・ntfy トピック(設定時)を同時テスト",
+        _ => "Tests Windows toast + phone app (if paired) + ntfy topic (if set)"
     };
 
     public static string TestNotificationSent => Lang switch
@@ -1085,14 +1446,14 @@ public static class Loc
     };
 
     /// <summary>
-    /// 릴리스에 SHA256 자산이 없어 무결성 검증이 불가능한 경우 — 무인 설치를 하지 않는다.
+    /// 업데이트 서명이 없거나 맞지 않아 설치를 거부한 경우(#290). 검증 없이 설치하는 경로는 없다.
     /// </summary>
-    public static string UpdateNoChecksumWarning => Lang switch
+    public static string UpdateSignatureInvalid => Lang switch
     {
-        "ko" => "무결성 검증 파일(SHA256)이 없는 릴리스입니다 — 자동 설치를 건너뜁니다",
-        "zh" => "此版本未提供完整性校验文件(SHA256) — 已跳过自动安装",
-        "ja" => "整合性検証ファイル(SHA256)がないリリースです — 自動インストールは行いません",
-        _ => "This release ships no SHA256 checksum — skipping the automatic install"
+        "ko" => "업데이트 서명을 확인하지 못해 설치하지 않았습니다 (받은 파일은 지웠습니다)",
+        "zh" => "无法验证更新签名，未安装（已删除下载的文件）",
+        "ja" => "更新の署名を確認できなかったため、インストールしませんでした（ダウンロードしたファイルは削除しました）",
+        _ => "Could not verify the update signature, so it was not installed (the download was deleted)"
     };
 
     /// <summary>
@@ -1262,7 +1623,7 @@ public static class Loc
     {
         "ko" => "오늘 Codex 사용 기록이 아직 없습니다.",
         "zh" => "今天还没有 Codex 使用记录。",
-        "ja" => "本지의 Codex 使用記録はまだありません。",
+        "ja" => "本日の Codex 使用記録はまだありません。",
         _ => "No Codex usage has been recorded today yet."
     };
 
@@ -1274,52 +1635,23 @@ public static class Loc
         _ => "Loading Codex session data…"
     };
 
+    // 서버가 이 PC 의 Codex 로그인 토큰을 거부했을 때의 안내(#198). 게이지 출처는 단정하지 않는다 — 로컬 로그일 수도,
+    // 동기화로 받은 다른 PC 값일 수도 있다. 그동안 값이 최신이 아닐 수 있고 모델별 추가 한도(Spark 등)는 공식 조회에서만
+    // 온다. 앱은 토큰을 갱신하지 않으므로 사용자가 할 수 있는 조치(Codex 실행 → 자동 갱신, 안 되면 다시 로그인)를 알린다.
+    public static string CodexSignInExpiredNotice => Lang switch
+    {
+        "ko" => "이 PC 의 Codex 로그인이 만료됐습니다. Codex 를 실행하거나 다시 로그인하세요(그동안 사용량이 최신이 아니거나 모델별 추가 한도가 빠질 수 있습니다).",
+        "zh" => "此电脑上的 Codex 登录已过期。请运行 Codex 或重新登录（在此之前，用量可能不是最新的，也可能缺少按模型的额外限额）。",
+        "ja" => "この PC の Codex ログインの有効期限が切れています。Codex を起動するか再ログインしてください（それまでは使用量が最新でなかったり、モデル別の追加制限が表示されなかったりすることがあります）。",
+        _ => "This PC's Codex sign-in has expired. Run Codex or sign in again (until then, usage may be out of date and per-model extra limits may be missing)."
+    };
+
     public static string ClaudeNoUsageToday => Lang switch
     {
         "ko" => "오늘 사용 기록이 아직 없습니다.",
         "zh" => "今天还没有使用记录。",
         "ja" => "本日の使用記録はまだありません。",
         _ => "No usage has been recorded today yet."
-    };
-
-    public static string GeminiCliSourceNotFound => Lang switch
-    {
-        "ko" => "Gemini CLI 사용자 폴더를 찾지 못했습니다.",
-        "zh" => "未找到 Gemini CLI 用户目录。",
-        "ja" => "Gemini CLI のユーザーディレクトリが見つかりません。",
-        _ => "Gemini CLI user directory was not found."
-    };
-
-    public static string GeminiCliSessionPathMissing => Lang switch
-    {
-        "ko" => "Gemini CLI 세션 폴더를 아직 찾지 못했습니다.",
-        "zh" => "尚未找到 Gemini CLI 会话文件夹。",
-        "ja" => "Gemini CLI のセッションフォルダがまだ見つかりません。",
-        _ => "Gemini CLI session folder was not found yet."
-    };
-
-    public static string GeminiCliNoUsageToday => Lang switch
-    {
-        "ko" => "오늘 Gemini CLI 세션 기록이 아직 없습니다.",
-        "zh" => "今天还没有 Gemini CLI 会话记录。",
-        "ja" => "本日の Gemini CLI セッション記録はまだありません。",
-        _ => "No Gemini CLI session has been recorded today yet."
-    };
-
-    public static string GeminiCliEstimateOnly => Lang switch
-    {
-        "ko" => "Gemini CLI 로컬 로그 기반 추정치입니다. 공식 대시보드와 차이가 있을 수 있습니다.",
-        "zh" => "基于 Gemini CLI 本地日志的估算值，可能与官方数据存在差异。",
-        "ja" => "Gemini CLI のローカルログに基づく推定値です。公式値と差が出る場合があります。",
-        _ => "Estimated from Gemini CLI local logs and may differ from official dashboard values."
-    };
-
-    public static string GeminiCliRequestSummary(int requests, long outputTokens) => Lang switch
-    {
-        "ko" => $"오늘 {requests}회 요청 · 출력 {FormatTokenShort(outputTokens)} 토큰",
-        "zh" => $"今日 {requests} 次请求 · 输出 {FormatTokenShort(outputTokens)} 词元",
-        "ja" => $"本日 {requests} リクエスト · 出力 {FormatTokenShort(outputTokens)} トークン",
-        _ => $"Today {requests} requests · {FormatTokenShort(outputTokens)} output tokens"
     };
 
     public static string TrayStatusClaude(double percent) => Lang switch
@@ -1330,15 +1662,14 @@ public static class Loc
 
     public static string TrayStatusCodex(double percent, string? dataSource) => Lang switch
     {
-        "ko" => dataSource == "Direct API" ? $"Codex {percent:P0}" : $"Codex {percent:P0} (Log)",
-        _ => dataSource == "Direct API" ? $"Codex {percent:P0}" : $"Codex {percent:P0} (Log)"
+        "ko" => dataSource == CodexUsageMonitor.DirectApiSource ? $"Codex {percent:P0}" : $"Codex {percent:P0} (Log)",
+        _ => dataSource == CodexUsageMonitor.DirectApiSource ? $"Codex {percent:P0}" : $"Codex {percent:P0} (Log)"
     };
 
-    public static string TrayStatusGemini(int requests, long outputTokens) => Lang switch
-    {
-        "ko" => requests > 0 ? $"Gemini {requests}회 · {FormatTokenShort(outputTokens)}" : "Gemini",
-        _ => requests > 0 ? $"Gemini {requests} req · {FormatTokenShort(outputTokens)}" : "Gemini"
-    };
+    // 할당량을 아직 받지 못했을 때 "Antigravity 0%" 라고 쓰면 여유가 100% 라는 뜻으로 읽힌다.
+    // 제품명·퍼센트만으로 이뤄져 Claude 처럼 언어별로 다르게 쓸 문구가 없다.
+    public static string TrayStatusAntigravity(double percent, bool hasData) =>
+        hasData ? $"Antigravity {percent:P0}" : $"Antigravity {QuotaUnknownMark}";
 
     public static string TrayStatusOpenCode(int requests, long inputTokens, long outputTokens) => Lang switch
     {
@@ -1393,6 +1724,169 @@ public static class Loc
         "ja" => "OpenCode のログインが完了していません。",
         _ => "OpenCode sign-in was not completed."
     };
+
+    /// <summary>
+    /// 로그인이 풀린 게 아니라 이번 확인만 실패한 상태.
+    /// 부팅 직후 네트워크가 늦게 올라오는 경우가 대표적이라 로그인 버튼 대신 이 안내를 보여준다.
+    /// </summary>
+    public static string OpenCodeQuotaUnavailable => Lang switch
+    {
+        "ko" => "공식 할당량을 잠시 못 읽었습니다 · 곧 다시 시도",
+        "zh" => "暂时无法读取官方配额 · 稍后重试",
+        "ja" => "公式割り当てを一時的に取得できません · まもなく再試行",
+        _ => "Couldn't read the official quota right now · retrying soon"
+    };
+
+    public static string OpenCodeWebNavigationFailed(string detail) => Lang switch
+    {
+        "ko" => $"OpenCode 페이지를 열지 못했습니다 ({detail})",
+        "zh" => $"无法打开 OpenCode 页面（{detail}）",
+        "ja" => $"OpenCode ページを開けませんでした（{detail}）",
+        _ => $"Could not open the OpenCode page ({detail})"
+    };
+
+    public static string OpenCodeWebNavigationTimedOut => Lang switch
+    {
+        "ko" => "OpenCode 페이지 응답이 없어 시간이 초과됐습니다.",
+        "zh" => "OpenCode 页面无响应，已超时。",
+        "ja" => "OpenCode ページの応答がなくタイムアウトしました。",
+        _ => "The OpenCode page did not respond in time."
+    };
+
+    public static string OpenCodeWebQuotaNotFound(string detail) => Lang switch
+    {
+        "ko" => $"OpenCode 페이지에서 할당량을 찾지 못했습니다 ({detail})",
+        "zh" => $"未能在 OpenCode 页面中找到配额（{detail}）",
+        "ja" => $"OpenCode ページで割り当てを見つけられませんでした（{detail}）",
+        _ => $"Could not find the quota on the OpenCode page ({detail})"
+    };
+
+    /// <summary>콘솔에 로그인은 됐지만 Go 할당량이 있는 작업공간이 없다(미구독·일시정지·결제 대기).</summary>
+    public static string OpenCodeWebNoGoQuota => Lang switch
+    {
+        "ko" => "OpenCode 콘솔에서 Go 할당량을 찾지 못했습니다 — Go 를 구독한 계정으로 로그인하세요",
+        "zh" => "未在 OpenCode 控制台中找到 Go 配额 — 请使用订阅了 Go 的账户登录",
+        "ja" => "OpenCode コンソールで Go の割り当てが見つかりませんでした — Go を購読しているアカウントでログインしてください",
+        _ => "No OpenCode Go quota found in the console — sign in with the account that subscribes to Go"
+    };
+
+    /// <summary>Go 구독은 있지만 지금 할당량을 못 쓰는 이유(<c>access: null</c>) — 콘솔 Go 카드의 안내와 같은 뜻.</summary>
+    public static string OpenCodeGoInactive(OpenCodeGoSubscriptionStatus reason) => reason switch
+    {
+        OpenCodeGoSubscriptionStatus.ApprovalNeeded => Lang switch
+        {
+            "ko" => "OpenCode Go 결제 승인 대기 — 은행에서 갱신 결제를 승인해야 계속 쓸 수 있습니다",
+            "zh" => "OpenCode Go 正在等待付款批准 — 需在银行批准续订付款后才能继续使用",
+            "ja" => "OpenCode Go は支払いの承認待ちです — 銀行で更新の支払いを承認すると引き続き使えます",
+            _ => "OpenCode Go is waiting for payment approval — approve the renewal payment with your bank to continue"
+        },
+        OpenCodeGoSubscriptionStatus.RenewalProcessing => Lang switch
+        {
+            "ko" => "OpenCode Go 갱신 결제 처리 중 — 결제가 끝나는 대로 다시 쓸 수 있습니다",
+            "zh" => "OpenCode Go 续订付款处理中 — 付款完成后即可恢复使用",
+            "ja" => "OpenCode Go の更新支払いを処理中 — 支払いが完了しだい再開します",
+            _ => "OpenCode Go renewal is processing — Go resumes as soon as the payment completes"
+        },
+        OpenCodeGoSubscriptionStatus.ReauthorizationNeeded => Lang switch
+        {
+            "ko" => "OpenCode Go 재승인 필요 — 결제 승인이 필요해 구독이 만료됐습니다. 콘솔의 Go 에서 다시 활성화하세요",
+            "zh" => "OpenCode Go 需要重新授权 — 因需要付款授权，订阅已过期。请在控制台的 Go 页面重新激活",
+            "ja" => "OpenCode Go の再承認が必要です — 支払いの承認が必要なため購読が期限切れになりました。コンソールの Go から再開してください",
+            _ => "OpenCode Go needs reauthorization — the subscription expired because payment authorization is required. Reactivate it from Go in the console"
+        },
+        OpenCodeGoSubscriptionStatus.Paused => Lang switch
+        {
+            "ko" => "OpenCode Go 일시정지 — 갱신 결제가 성공하면 다시 쓸 수 있습니다",
+            "zh" => "OpenCode Go 已暂停 — 续订付款成功后即可恢复",
+            "ja" => "OpenCode Go は一時停止中です — 更新の支払いが成功すると再開します",
+            _ => "OpenCode Go is paused — it resumes once the renewal payment succeeds"
+        },
+        _ => OpenCodeWebNoGoQuota
+    };
+
+    /// <summary>할당량을 쓸 수 있는 동안의 구독 상태 한 줄. 정상 갱신이면 빈 문자열이라 줄이 숨는다.</summary>
+    public static string OpenCodeGoSubscription(OpenCodeGoSubscriptionStatus status, string date) => status switch
+    {
+        OpenCodeGoSubscriptionStatus.PaymentFailed => Lang switch
+        {
+            "ko" => "Go 갱신 결제 실패 — 결제 수단을 확인하세요",
+            "zh" => "Go 续订付款失败 — 请检查付款方式",
+            "ja" => "Go の更新支払いに失敗しました — 支払い方法を確認してください",
+            _ => "Go renewal payment failed — check your payment method"
+        },
+        OpenCodeGoSubscriptionStatus.ActionNeeded => Lang switch
+        {
+            "ko" => "Go 갱신에 결제 조치 필요 — 그때까지는 계속 쓸 수 있습니다",
+            "zh" => "Go 续订需要处理付款 — 在此之前可继续使用",
+            "ja" => "Go の更新に支払いの対応が必要です — それまでは引き続き使えます",
+            _ => "Go renewal needs payment action — access continues until then"
+        },
+        OpenCodeGoSubscriptionStatus.Ends => Lang switch
+        {
+            "ko" => $"Go 구독 {date} 종료",
+            "zh" => $"Go 订阅将于 {date} 结束",
+            "ja" => $"Go の購読は {date} に終了します",
+            _ => $"Go subscription ends {date}"
+        },
+        OpenCodeGoSubscriptionStatus.SwitchesToGo => Lang switch
+        {
+            "ko" => $"{date} 부터 Go Plus 에서 Go 로 전환",
+            "zh" => $"{date} 起从 Go Plus 切换为 Go",
+            "ja" => $"{date} から Go Plus が Go に切り替わります",
+            _ => $"Switches from Go Plus to Go on {date}"
+        },
+        _ => ""
+    };
+
+    public static string OpenCodeRollingWindow => Lang switch { "ko" => "롤링", "zh" => "滚动", "ja" => "ローリング", _ => "Rolling" };
+    public static string OpenCodeWeeklyWindow => Lang switch { "ko" => "주간", "zh" => "每周", "ja" => "週間", _ => "Weekly" };
+    public static string OpenCodeMonthlyWindow => Lang switch { "ko" => "월간", "zh" => "每月", "ja" => "月間", _ => "Monthly" };
+
+    /// <summary>"주간 한도 도달 · 2d 3h 후 재개" — 콘솔의 한도 도달 배너와 같은 구성.</summary>
+    public static string OpenCodeLimitReached(string window, string detail) => Lang switch
+    {
+        "ko" => $"{window} 한도 도달 · {detail}",
+        "zh" => $"{window}限额已用尽 · {detail}",
+        "ja" => $"{window}の上限に到達 · {detail}",
+        _ => $"{window} limit reached · {detail}"
+    };
+    public static string OpenCodeLimitUsingCredits(string time) => Lang switch
+    {
+        "ko" => $"{time} 동안 크레딧으로 계속 사용",
+        "zh" => $"接下来 {time} 使用额度继续",
+        "ja" => $"今後 {time} はクレジットで継続",
+        _ => $"using credits for the next {time}"
+    };
+    public static string OpenCodeLimitGoEnds(string time) => Lang switch
+    {
+        "ko" => $"{time} 후 Go 종료",
+        "zh" => $"{time} 后 Go 结束",
+        "ja" => $"{time} 後に Go 終了",
+        _ => $"Go ends in {time}"
+    };
+    public static string OpenCodeLimitResumes(string time) => Lang switch
+    {
+        "ko" => $"{time} 후 재개",
+        "zh" => $"{time} 后恢复",
+        "ja" => $"{time} 後に再開",
+        _ => $"Go resumes in {time}"
+    };
+
+    /// <summary>추가 사용 켜짐 — 한도를 넘기면 작업공간 크레딧으로 이어 쓴다.</summary>
+    public static string OpenCodeExtraUsageOn => Lang switch
+    {
+        "ko" => "추가 사용 켜짐",
+        "zh" => "额外用量已开启",
+        "ja" => "追加利用オン",
+        _ => "Extra usage on"
+    };
+    public static string OpenCodeCredits(string amount) => Lang switch
+    {
+        "ko" => $"크레딧 {amount}",
+        "zh" => $"额度 {amount}",
+        "ja" => $"クレジット {amount}",
+        _ => $"Credits {amount}"
+    };
     public static string OpenCodeResetAt(string value) => Lang switch
     {
         "ko" => $"초기화 {value}",
@@ -1432,14 +1926,6 @@ public static class Loc
         "zh" => "今天还没有 OpenCode 使用记录。",
         "ja" => "本日の OpenCode 使用記録はまだありません。",
         _ => "No OpenCode usage has been recorded today yet."
-    };
-
-    public static string GeminiRequests => CurrentLang switch
-    {
-        "ko" => "요청 횟수",
-        "zh" => "请求次数",
-        "ja" => "リクエスト数",
-        _ => "Requests"
     };
 
     public static string TrayDisplayMode => CurrentLang switch
@@ -1581,10 +2067,10 @@ public static class Loc
 
     public static string UsageSyncTitle => Lang switch
     {
-        "ko" => "다중 PC 동기화",
-        "zh" => "多设备同步",
-        "ja" => "複数PC同期",
-        _ => "Multi-PC Sync"
+        "ko" => "공유 폴더 동기화 (네트워크가 다른 PC용)",
+        "zh" => "共享文件夹同步 (用于不同网络的电脑)",
+        "ja" => "共有フォルダー同期 (別ネットワークのPC向け)",
+        _ => "Shared-folder sync (for PCs on other networks)"
     };
 
     public static string UsageSyncEnabled => Lang switch
@@ -1681,6 +2167,18 @@ public static class Loc
         "zh" => $"正在显示 {deviceName} 于 {observedAt} 的快照",
         "ja" => $"{deviceName} の {observedAt} スナップショットを表示中",
         _ => $"Showing {deviceName} snapshot from {observedAt}"
+    };
+
+    /// <summary>
+    /// 다른 PC 가 오늘 관측한 공식 할당량은 있는데 유효시간만 지난 상태.
+    /// 이 PC 는 로그인한 적도, 할 이유도 없으므로 로그인 버튼 대신 이 안내를 보여준다.
+    /// </summary>
+    public static string UsageSyncQuotaStale(string deviceName, string observedAt) => Lang switch
+    {
+        "ko" => $"{deviceName}의 {observedAt} 값 · 갱신 대기 중",
+        "zh" => $"{deviceName} 于 {observedAt} 的数据 · 等待更新",
+        "ja" => $"{deviceName} の {observedAt} の値 · 更新待ち",
+        _ => $"{deviceName} value from {observedAt} · awaiting refresh"
     };
 
     // ===== 날씨 (v1.29.0) =====
@@ -2110,5 +2608,779 @@ public static class Loc
         "zh" => $"体感 {temp:F0}°C",
         "ja" => $"体感 {temp:F0}°C",
         _ => $"feels like {temp:F0}°C"
+    };
+
+    // ── 휴대폰 앱 연동 (#220) ──────────────────────────────────────────────
+
+    public static string PcAliasTitle => Lang switch
+    {
+        "ko" => "이 PC 이름",
+        "zh" => "此电脑名称",
+        "ja" => "このPCの名前",
+        _ => "This PC's name"
+    };
+
+    public static string PcAliasHint(string machineName) => Lang switch
+    {
+        "ko" => $"휴대폰·다른 PC·ntfy 알림에 이 이름으로 보입니다. 비우면 컴퓨터 이름({machineName})을 씁니다.",
+        "zh" => $"手机、其他电脑和 ntfy 通知中显示此名称。留空则使用计算机名（{machineName}）。",
+        "ja" => $"スマホ・他のPC・ntfy通知にこの名前で表示されます。空欄ならコンピューター名（{machineName}）を使います。",
+        _ => $"Phones, other PCs and ntfy alerts show this name. Leave empty to use the computer name ({machineName})."
+    };
+
+    // ── Claude 계정 별명 (#307) ──────────────────────────────────────────────
+
+    public static string ClaudeAccountAliasTitle => Lang switch
+    {
+        "ko" => "Claude 계정 별명",
+        "zh" => "Claude 账户别名",
+        "ja" => "Claude アカウントの別名",
+        _ => "Claude account nickname"
+    };
+
+    /// <summary>accountLabel: 지금 로그인한 계정 이름("김민준 · Acme Corp"). 읽지 못했으면 빈 문자열.</summary>
+    public static string ClaudeAccountAliasHint(string accountLabel)
+    {
+        var account = string.IsNullOrWhiteSpace(accountLabel) ? "" : accountLabel.Trim();
+        return Lang switch
+        {
+            "ko" => (account.Length > 0 ? $"지금 로그인한 계정({account})에만 붙습니다. " : "지금 로그인한 계정에만 붙습니다. ")
+                    + "휴대폰 앱 알림 제목 앞에 [별명]으로 보이고, 팝업·휴대폰 계정 카드에는 계정 이름 대신 보입니다. PC 동기화로 연결된 다른 PC 도 같은 별명을 씁니다. 비우면 계정 이름을 씁니다.",
+            "zh" => (account.Length > 0 ? $"仅用于当前登录的账户（{account}）。" : "仅用于当前登录的账户。")
+                    + "手机应用通知标题前会显示 [别名]，弹出窗口和手机账户卡片会用它代替账户名称。通过电脑同步连接的其他电脑也会使用同一别名。留空则使用账户名称。",
+            "ja" => (account.Length > 0 ? $"いまログインしているアカウント（{account}）にだけ付きます。" : "いまログインしているアカウントにだけ付きます。")
+                    + "スマホアプリの通知タイトルの先頭に [別名] と表示され、ポップアップとスマホのアカウントカードではアカウント名の代わりに表示されます。PC同期でつながった他のPCも同じ別名を使います。空欄ならアカウント名を使います。",
+            _ => (account.Length > 0 ? $"Applies only to the account you're signed in to ({account}). " : "Applies only to the account you're signed in to. ")
+                 + "Phone app alerts start with [nickname], and the popup and phone account cards show it instead of the account name. PCs linked by PC sync use the same nickname. Leave empty to use the account name."
+        };
+    }
+
+    public static string ClaudeAccountAliasSignedOut => Lang switch
+    {
+        "ko" => "Claude 에 로그인하면 계정마다 별명을 붙일 수 있습니다.",
+        "zh" => "登录 Claude 后即可为每个账户设置别名。",
+        "ja" => "Claude にログインすると、アカウントごとに別名を付けられます。",
+        _ => "Sign in to Claude to give each account a nickname."
+    };
+
+    public static string MobileTitle => Lang switch
+    {
+        "ko" => "휴대폰·PC 연결",
+        "zh" => "手机·电脑连接",
+        "ja" => "スマホ・PC接続",
+        _ => "Phone & PC link"
+    };
+
+    public static string MobileEnabled => Lang switch
+    {
+        "ko" => "이 PC에 연결 허용 (휴대폰 앱·다른 PC)",
+        "zh" => "允许连接到此电脑 (手机应用·其他电脑)",
+        "ja" => "このPCへの接続を許可 (スマホアプリ・他のPC)",
+        _ => "Allow connections to this PC (phone app, other PCs)"
+    };
+
+    public static string MobileDescription => Lang switch
+    {
+        "ko" => "휴대폰 앱이 QR 한 번으로 이 PC에 직접 연결해 실시간 사용량을 받습니다. 중계 서버는 없고, 같은 계정을 쓰는 PC들은 앱에서 한 계정으로 묶여 보입니다.",
+        "zh" => "手机应用扫描一次二维码即可直接连接此电脑并实时接收用量。没有中转服务器，使用同一账号的电脑在应用中会合并为一个账号显示。",
+        "ja" => "スマホアプリがQRコード1回でこのPCに直接つながり、使用量をリアルタイムで受け取ります。中継サーバーはなく、同じアカウントのPCはアプリで1つのアカウントにまとまって表示されます。",
+        _ => "The phone app connects straight to this PC with one QR scan and gets live usage. There is no relay server, and PCs that share an account appear as one account in the app."
+    };
+
+    public static string MobilePathLan => Lang switch
+    {
+        "ko" => "같은 Wi-Fi·LAN (암호화)",
+        "zh" => "同一 Wi-Fi/局域网 (加密)",
+        "ja" => "同じWi-Fi・LAN (暗号化)",
+        _ => "Same Wi-Fi / LAN (encrypted)"
+    };
+
+    public static string MobilePathTailscale => Lang switch
+    {
+        "ko" => "Tailscale (밖에서도 연결)",
+        "zh" => "Tailscale (外网也可连接)",
+        "ja" => "Tailscale (外出先からも接続)",
+        _ => "Tailscale (works away from home)"
+    };
+
+    public static string MobileConnectButton => Lang switch
+    {
+        "ko" => "휴대폰 연결… (QR 표시)",
+        "zh" => "连接手机… (显示二维码)",
+        "ja" => "スマホを接続… (QR表示)",
+        _ => "Connect phone… (show QR)"
+    };
+
+    public static string MobileStatusOff => Lang switch
+    {
+        "ko" => "꺼짐 — 휴대폰용 포트를 열지 않습니다",
+        "zh" => "已关闭 — 不开放手机端口",
+        "ja" => "オフ — スマホ用ポートを開きません",
+        _ => "Off — no port is opened for phones"
+    };
+
+    public static string MobileStatusPaired(int count) => Lang switch
+    {
+        "ko" => count == 0 ? "켜짐 · 연결된 휴대폰 없음" : $"켜짐 · 연결된 휴대폰 {count}대",
+        "zh" => count == 0 ? "已开启 · 没有已连接的手机" : $"已开启 · 已连接 {count} 部手机",
+        "ja" => count == 0 ? "オン · 接続済みのスマホなし" : $"オン · 接続済みのスマホ {count}台",
+        _ => count == 0 ? "On · no phone paired" : $"On · {count} phone(s) paired"
+    };
+
+    public static string MobileConnectTitle => Lang switch
+    {
+        "ko" => "휴대폰 연결",
+        "zh" => "连接手机",
+        "ja" => "スマホを接続",
+        _ => "Connect Phone"
+    };
+
+    public static string MobileScanHint => Lang switch
+    {
+        "ko" => "휴대폰 앱에서 'PC 추가'를 누르고 이 QR을 스캔하세요. 앱이 없으면 휴대폰 기본 카메라로 찍으면 설치 안내 페이지가 열립니다.",
+        "zh" => "在手机应用中点击\"添加电脑\"并扫描此二维码。如果还没有安装应用，用手机自带相机扫描会打开安装说明页面。",
+        "ja" => "スマホアプリで「PCを追加」を押してこのQRをスキャンしてください。アプリがなければスマホの標準カメラで撮ると、インストール案内ページが開きます。",
+        _ => "In the phone app, tap \"Add PC\" and scan this QR. Without the app, scan it with the phone's camera to open the install guide."
+    };
+
+    public static string MobileQrExpiresIn(int seconds) => Lang switch
+    {
+        "ko" => $"{seconds / 60}:{seconds % 60:00} 후 만료 · 한 번만 쓸 수 있습니다",
+        "zh" => $"{seconds / 60}:{seconds % 60:00} 后过期 · 只能使用一次",
+        "ja" => $"{seconds / 60}:{seconds % 60:00} 後に期限切れ · 1回のみ使用可",
+        _ => $"Expires in {seconds / 60}:{seconds % 60:00} · single use"
+    };
+
+    public static string MobileQrExpired => Lang switch
+    {
+        "ko" => "QR이 만료되었습니다. '새 QR'을 누르세요.",
+        "zh" => "二维码已过期，请点击\"新二维码\"。",
+        "ja" => "QRの期限が切れました。「新しいQR」を押してください。",
+        _ => "The QR expired. Click \"New QR\"."
+    };
+
+    public static string MobileNewQr => Lang switch
+    {
+        "ko" => "새 QR",
+        "zh" => "新二维码",
+        "ja" => "新しいQR",
+        _ => "New QR"
+    };
+
+    public static string MobileStarting => Lang switch
+    {
+        "ko" => "연결 경로를 여는 중입니다…",
+        "zh" => "正在打开连接路径…",
+        "ja" => "接続経路を開いています…",
+        _ => "Opening connection paths…"
+    };
+
+    public static string MobileNoPath => Lang switch
+    {
+        "ko" => "휴대폰이 닿을 주소가 없습니다. Wi-Fi·LAN에 연결되어 있는지, Tailscale이 켜져 있는지, 또는 '밖에서도 연결(Cloudflare)'을 켰는지 확인하세요.",
+        "zh" => "没有手机可访问的地址。请确认已连接 Wi-Fi/局域网、Tailscale 已开启，或已开启\"外网也可连接(Cloudflare)\"。",
+        "ja" => "スマホが届くアドレスがありません。Wi-Fi・LANに接続しているか、Tailscaleがオンか、「外出先からも接続(Cloudflare)」をオンにしたか確認してください。",
+        _ => "No address a phone can reach. Check that this PC is on Wi-Fi/LAN, that Tailscale is on, or turn on \"Connect from anywhere (Cloudflare)\"."
+    };
+
+    public static string MobileServerError(string message) => Lang switch
+    {
+        "ko" => $"서버 오류: {message}",
+        "zh" => $"服务器错误: {message}",
+        "ja" => $"サーバーエラー: {message}",
+        _ => $"Server error: {message}"
+    };
+
+    public static string MobilePathsHeader => Lang switch
+    {
+        "ko" => "연결 경로",
+        "zh" => "连接路径",
+        "ja" => "接続経路",
+        _ => "Connection paths"
+    };
+
+    public static string MobileFirewallOk => Lang switch
+    {
+        "ko" => "방화벽 규칙: 설치됨 (LAN은 '개인' 네트워크에서만 열림)",
+        "zh" => "防火墙规则: 已安装 (局域网仅在\"专用\"网络开放)",
+        "ja" => "ファイアウォール規則: 設定済み (LANは「プライベート」ネットワークのみ)",
+        _ => "Firewall rules: installed (LAN opens on Private networks only)"
+    };
+
+    public static string MobileFirewallMissing => Lang switch
+    {
+        "ko" => "방화벽 규칙이 없습니다. 추가하지 않으면 Windows가 연결을 막거나 허용 여부를 묻습니다.",
+        "zh" => "没有防火墙规则。如果不添加，Windows 会阻止连接或询问是否允许。",
+        "ja" => "ファイアウォール規則がありません。追加しないとWindowsが接続をブロックするか許可を尋ねます。",
+        _ => "No firewall rules. Without them Windows blocks the connection or asks whether to allow it."
+    };
+
+    public static string MobileFirewallAdd => Lang switch
+    {
+        "ko" => "방화벽 규칙 추가 (관리자)",
+        "zh" => "添加防火墙规则 (管理员)",
+        "ja" => "ファイアウォール規則を追加 (管理者)",
+        _ => "Add firewall rules (admin)"
+    };
+
+    public static string MobileFirewallCancelled => Lang switch
+    {
+        "ko" => "관리자 승인이 취소되어 규칙을 추가하지 않았습니다.",
+        "zh" => "管理员授权已取消，未添加规则。",
+        "ja" => "管理者の承認がキャンセルされたため、規則を追加しませんでした。",
+        _ => "Admin approval was cancelled; no rules were added."
+    };
+
+    public static string MobileFirewallFailed => Lang switch
+    {
+        "ko" => "방화벽 규칙을 추가하지 못했습니다.",
+        "zh" => "未能添加防火墙规则。",
+        "ja" => "ファイアウォール規則を追加できませんでした。",
+        _ => "Could not add the firewall rules."
+    };
+
+    public static string MobileDevicesHeader => Lang switch
+    {
+        "ko" => "연결된 휴대폰",
+        "zh" => "已连接的手机",
+        "ja" => "接続済みのスマホ",
+        _ => "Paired phones"
+    };
+
+    public static string MobileNoDevices => Lang switch
+    {
+        "ko" => "아직 연결된 휴대폰이 없습니다.",
+        "zh" => "还没有已连接的手机。",
+        "ja" => "まだ接続済みのスマホはありません。",
+        _ => "No phone is paired yet."
+    };
+
+    public static string MobileRevoke => Lang switch
+    {
+        "ko" => "연결 해제",
+        "zh" => "解除连接",
+        "ja" => "接続解除",
+        _ => "Revoke"
+    };
+
+    public static string MobileRevokeConfirm(string name) => Lang switch
+    {
+        "ko" => $"'{name}'의 연결을 해제할까요? 다시 쓰려면 QR로 다시 연결해야 합니다.",
+        "zh" => $"要解除\"{name}\"的连接吗？之后需要重新扫描二维码。",
+        "ja" => $"「{name}」の接続を解除しますか？再び使うにはQRで再接続が必要です。",
+        _ => $"Revoke '{name}'? It will need to scan a new QR to connect again."
+    };
+
+    public static string MobileDeviceSeen(string when) => Lang switch
+    {
+        "ko" => $"마지막 접속 {when}",
+        "zh" => $"最后连接 {when}",
+        "ja" => $"最終接続 {when}",
+        _ => $"last seen {when}"
+    };
+
+    public static string MobileDeviceNeverSeen => Lang switch
+    {
+        "ko" => "아직 접속 기록 없음",
+        "zh" => "尚无连接记录",
+        "ja" => "まだ接続記録なし",
+        _ => "not seen yet"
+    };
+
+    // ===== Cloudflare Tunnel (#225) — Tailscale 없이 밖에서 연결 =====
+    public static string MobilePathCloudflare => Lang switch
+    {
+        "ko" => "밖에서도 연결 (Cloudflare Tunnel — Tailscale 불필요)",
+        "zh" => "外网也可连接 (Cloudflare Tunnel — 无需 Tailscale)",
+        "ja" => "外出先からも接続 (Cloudflare Tunnel — Tailscale不要)",
+        _ => "Connect from anywhere (Cloudflare Tunnel — no Tailscale needed)"
+    };
+
+    public static string MobileCloudflareHint => Lang switch
+    {
+        "ko" => "이 PC가 Cloudflare로 바깥 연결만 열어 포트·방화벽 설정이 필요 없습니다. 기본은 계정 없는 임시 주소이며, 이 앱을 다시 시작할 때마다 바뀝니다(휴대폰 알림이 켜져 있으면 새 주소가 자동으로 전달됩니다).",
+        "zh" => "这台电脑只向 Cloudflare 建立外向连接，无需端口或防火墙设置。默认使用无需账户的临时地址，每次重启本应用都会改变(手机通知开启时会自动发送新地址)。",
+        "ja" => "このPCはCloudflareへの外向き接続だけを開くため、ポート・ファイアウォール設定は不要です。既定はアカウント不要の一時アドレスで、このアプリを再起動するたびに変わります(スマホ通知がオンなら新しいアドレスが自動で届きます)。",
+        _ => "This PC only dials out to Cloudflare, so no port or firewall setup is needed. By default it uses an account-free temporary address that changes each time this app restarts (with phone alerts on, the new address reaches the phone automatically)."
+    };
+
+    public static string CloudflareStarting => Lang switch
+    {
+        "ko" => "Cloudflare 터널을 여는 중…",
+        "zh" => "正在打开 Cloudflare 隧道…",
+        "ja" => "Cloudflareトンネルを開いています…",
+        _ => "Opening the Cloudflare tunnel…"
+    };
+
+    public static string CloudflareRunning(string host, bool quick) => Lang switch
+    {
+        "ko" => quick ? $"열림: {host} (임시 주소)" : $"열림: {host}",
+        "zh" => quick ? $"已打开: {host} (临时地址)" : $"已打开: {host}",
+        "ja" => quick ? $"接続中: {host} (一時アドレス)" : $"接続中: {host}",
+        _ => quick ? $"Open: {host} (temporary address)" : $"Open: {host}"
+    };
+
+    public static string CloudflareNotInstalled => Lang switch
+    {
+        "ko" => "cloudflared가 설치되어 있지 않습니다.",
+        "zh" => "未安装 cloudflared。",
+        "ja" => "cloudflaredがインストールされていません。",
+        _ => "cloudflared is not installed."
+    };
+
+    public static string CloudflareInstall => Lang switch
+    {
+        "ko" => "설치 (winget)",
+        "zh" => "安装 (winget)",
+        "ja" => "インストール (winget)",
+        _ => "Install (winget)"
+    };
+
+    public static string CloudflareInstalling => Lang switch
+    {
+        "ko" => "설치하는 중… Windows가 관리자 승인을 물을 수 있습니다.",
+        "zh" => "正在安装… Windows 可能会请求管理员批准。",
+        "ja" => "インストール中… Windowsが管理者の承認を求めることがあります。",
+        _ => "Installing… Windows may ask for administrator approval."
+    };
+
+    public static string CloudflareInstalled => Lang switch
+    {
+        "ko" => "설치했습니다. 1분 안에 터널이 열립니다.",
+        "zh" => "已安装。隧道将在 1 分钟内打开。",
+        "ja" => "インストールしました。1分以内にトンネルが開きます。",
+        _ => "Installed. The tunnel opens within a minute."
+    };
+
+    public static string CloudflareInstallFailed(string reason) => Lang switch
+    {
+        "ko" => reason == "winget_missing"
+            ? "winget(앱 설치 관리자)이 없습니다. Microsoft Store의 '앱 설치 관리자'를 설치하거나 cloudflared를 직접 설치하세요."
+            : $"설치하지 못했습니다: {reason}",
+        "zh" => reason == "winget_missing"
+            ? "没有 winget(应用安装程序)。请从 Microsoft Store 安装\"应用安装程序\"，或手动安装 cloudflared。"
+            : $"安装失败: {reason}",
+        "ja" => reason == "winget_missing"
+            ? "winget(アプリ インストーラー)がありません。Microsoft Storeの「アプリ インストーラー」を入れるか、cloudflaredを手動でインストールしてください。"
+            : $"インストールできませんでした: {reason}",
+        _ => reason == "winget_missing"
+            ? "winget (App Installer) is missing. Install \"App Installer\" from the Microsoft Store or install cloudflared manually."
+            : $"Install failed: {reason}"
+    };
+
+    public static string CloudflareError(string? detail) => Lang switch
+    {
+        "ko" => detail == "hostname_required" ? "터널 토큰을 쓰려면 그 터널에 연결한 공개 호스트명도 넣으세요." : $"터널 오류: {detail} — 잠시 뒤 다시 시도합니다.",
+        "zh" => detail == "hostname_required" ? "使用隧道令牌时，还需填写该隧道绑定的公共主机名。" : $"隧道错误: {detail} — 稍后重试。",
+        "ja" => detail == "hostname_required" ? "トンネルトークンを使うには、そのトンネルに接続した公開ホスト名も入力してください。" : $"トンネルエラー: {detail} — しばらくして再試行します。",
+        _ => detail == "hostname_required" ? "With a tunnel token, also enter the public hostname routed to that tunnel." : $"Tunnel error: {detail} — retrying shortly."
+    };
+
+    public static string CloudflareAdvanced => Lang switch
+    {
+        "ko" => "고정 주소 사용 (Cloudflare 계정·도메인)…",
+        "zh" => "使用固定地址 (Cloudflare 账户·域名)…",
+        "ja" => "固定アドレスを使う (Cloudflareアカウント・ドメイン)…",
+        _ => "Use a fixed address (Cloudflare account and domain)…"
+    };
+
+    public static string CloudflareNamedHint(int port) => Lang switch
+    {
+        "ko" => $"Cloudflare 대시보드(Zero Trust → Networks → Tunnels)에서 만든 터널의 토큰과, 그 터널을 http://127.0.0.1:{port} 으로 보내도록 연결한 공개 호스트명을 넣으세요. 비워 두면 임시 주소를 씁니다.",
+        "zh" => $"请填写在 Cloudflare 控制台(Zero Trust → Networks → Tunnels)中创建的隧道令牌，以及将该隧道指向 http://127.0.0.1:{port} 的公共主机名。留空则使用临时地址。",
+        "ja" => $"Cloudflareダッシュボード(Zero Trust → Networks → Tunnels)で作ったトンネルのトークンと、そのトンネルを http://127.0.0.1:{port} に向けた公開ホスト名を入力してください。空欄なら一時アドレスを使います。",
+        _ => $"Enter the token of a tunnel created in the Cloudflare dashboard (Zero Trust → Networks → Tunnels) and the public hostname that routes that tunnel to http://127.0.0.1:{port}. Leave empty to use a temporary address."
+    };
+
+    public static string CloudflareHostname => Lang switch
+    {
+        "ko" => "공개 호스트명 (예: pc.example.com)",
+        "zh" => "公共主机名 (例: pc.example.com)",
+        "ja" => "公開ホスト名 (例: pc.example.com)",
+        _ => "Public hostname (e.g. pc.example.com)"
+    };
+
+    public static string CloudflareToken => Lang switch
+    {
+        "ko" => "터널 토큰",
+        "zh" => "隧道令牌",
+        "ja" => "トンネルトークン",
+        _ => "Tunnel token"
+    };
+
+    public static string CloudflareTokenSaved => Lang switch
+    {
+        "ko" => "저장된 토큰이 있습니다(암호화됨). 새로 넣으면 바뀝니다.",
+        "zh" => "已保存令牌(已加密)。输入新令牌即可替换。",
+        "ja" => "保存済みのトークンがあります(暗号化)。新しく入力すると置き換わります。",
+        _ => "A token is saved (encrypted). Enter a new one to replace it."
+    };
+
+    public static string CloudflareTokenClear => Lang switch
+    {
+        "ko" => "토큰 지우기",
+        "zh" => "清除令牌",
+        "ja" => "トークンを消去",
+        _ => "Clear token"
+    };
+
+    // ── 100milionseek(DeepSeek 무료 API) 일일 한도 (#306) ──
+
+    /// <summary>팝업의 DeepSeek 섹션 이름(#311) — OpenCode 와 별도 줄.</summary>
+    public static string HmsSectionTitle => Lang switch
+    {
+        "ko" => "DeepSeek",
+        "zh" => "DeepSeek",
+        "ja" => "DeepSeek",
+        _ => "DeepSeek"
+    };
+
+    /// <summary>섹션 안 게이지 이름. 초기화 문구와 한 줄을 나눠 쓰므로 짧게 둔다.</summary>
+    public static string HmsDailyLabel => Lang switch
+    {
+        "ko" => "오늘 토큰 한도",
+        "zh" => "今日令牌额度",
+        "ja" => "今日のトークン上限",
+        _ => "Today's token allowance"
+    };
+
+    /// <summary>섹션 하단 출처 안내.</summary>
+    public static string HmsSourceNote => Lang switch
+    {
+        "ko" => "100milionseek.top 에서 API 키로 읽음 · 매일 UTC 자정 초기화",
+        "zh" => "通过 API 密钥从 100milionseek.top 读取 · 每天 UTC 零点重置",
+        "ja" => "100milionseek.top から API キーで取得 · 毎日 UTC 0 時にリセット",
+        _ => "Read from 100milionseek.top with your API key · resets daily at UTC midnight"
+    };
+
+    /// <summary>게이지 아래 한 줄 — "32.3M / 400.0M 사용 · 281회".</summary>
+    public static string HmsSummary(string used, string limit, long requests) => Lang switch
+    {
+        "ko" => $"{used} / {limit} 사용 · {requests:N0}회",
+        "zh" => $"已用 {used} / {limit} · {requests:N0} 次",
+        "ja" => $"{used} / {limit} 使用 · {requests:N0} 回",
+        _ => $"{used} / {limit} used · {requests:N0} req"
+    };
+
+    /// <summary>보너스 한도가 끝나는 시각 — 끝나면 하루 한도가 줄어든다.</summary>
+    public static string HmsBonusEnds(string when) => Lang switch
+    {
+        "ko" => $"보너스 한도 {when}까지",
+        "zh" => $"奖励额度至 {when}",
+        "ja" => $"ボーナス枠は {when} まで",
+        _ => $"bonus allowance until {when}"
+    };
+
+    public static string HmsInvalidKey => Lang switch
+    {
+        "ko" => "100milionseek 가 API 키를 거절했습니다 · 설정에서 키를 다시 넣어 주세요",
+        "zh" => "100milionseek 拒绝了 API 密钥 · 请在设置中重新输入",
+        "ja" => "100milionseek が API キーを拒否しました · 設定でキーを入れ直してください",
+        _ => "100milionseek rejected the API key · enter it again in Settings"
+    };
+
+    public static string HmsUnavailable => Lang switch
+    {
+        "ko" => "100milionseek 사용량을 잠시 못 읽었습니다 · 곧 다시 시도",
+        "zh" => "暂时无法读取 100milionseek 使用量 · 稍后重试",
+        "ja" => "100milionseek の使用量を一時的に読めません · まもなく再試行",
+        _ => "Couldn't read 100milionseek usage · retrying soon"
+    };
+
+    public static string HmsKeyTitle => Lang switch
+    {
+        "ko" => "DeepSeek (100milionseek) API 키",
+        "zh" => "DeepSeek (100milionseek) API 密钥",
+        "ja" => "DeepSeek (100milionseek) API キー",
+        _ => "DeepSeek (100milionseek) API key"
+    };
+
+    public static string HmsKeyHint => Lang switch
+    {
+        "ko" => "키를 붙여넣고 [저장]을 누르면 팝업에 'DeepSeek' 줄이 생겨 오늘 토큰 한도를 보여 줍니다. 키는 암호화해 이 PC 에만 저장하고 100milionseek.top 에만 보냅니다.",
+        "zh" => "粘贴密钥并点击 [保存] 后，弹窗中会出现“DeepSeek”一行，显示今日令牌额度。密钥加密后仅保存在本机，只发送到 100milionseek.top。",
+        "ja" => "キーを貼り付けて [保存] を押すと、ポップアップに「DeepSeek」の行が現れ今日のトークン上限を表示します。キーは暗号化してこの PC にのみ保存し、100milionseek.top にだけ送ります。",
+        _ => "Paste the key and press [Save] — a 'DeepSeek' row appears in the popup with today's token allowance. The key is encrypted, stored only on this PC, and sent only to 100milionseek.top."
+    };
+
+    public static string HmsKeySave => Lang switch
+    {
+        "ko" => "저장",
+        "zh" => "保存",
+        "ja" => "保存",
+        _ => "Save"
+    };
+
+    /// <summary>저장 직후 한 번 — 다음 조회가 끝나면 팝업에 나타난다는 것을 알려 준다.</summary>
+    public static string HmsKeyJustSaved => Lang switch
+    {
+        "ko" => "저장했습니다. 잠시 뒤 팝업의 'DeepSeek' 줄에 나타납니다.",
+        "zh" => "已保存。稍后会出现在弹窗的“DeepSeek”一行中。",
+        "ja" => "保存しました。まもなくポップアップの「DeepSeek」の行に表示されます。",
+        _ => "Saved. It will appear in the popup's 'DeepSeek' row shortly."
+    };
+
+    public static string HmsKeySaved => Lang switch
+    {
+        "ko" => "저장된 키가 있습니다(암호화됨). 새로 넣으면 바뀝니다.",
+        "zh" => "已保存密钥(已加密)。输入新密钥即可替换。",
+        "ja" => "保存済みのキーがあります(暗号化済み)。新しく入力すると置き換わります。",
+        _ => "A key is saved (encrypted). Enter a new one to replace it."
+    };
+
+    public static string HmsKeyClear => Lang switch
+    {
+        "ko" => "키 지우기",
+        "zh" => "清除密钥",
+        "ja" => "キーを消去",
+        _ => "Clear key"
+    };
+
+    public static string CloudflareQuickSuffix => Lang switch
+    {
+        "ko" => "임시 주소",
+        "zh" => "临时地址",
+        "ja" => "一時アドレス",
+        _ => "temporary address"
+    };
+
+    public static string MobileWatching(int count) => Lang switch
+    {
+        "ko" => count == 0 ? "" : $"지금 휴대폰 {count}대가 보는 중",
+        "zh" => count == 0 ? "" : $"现在有 {count} 部手机正在查看",
+        "ja" => count == 0 ? "" : $"いまスマホ {count}台が表示中",
+        _ => count == 0 ? "" : $"{count} phone(s) watching now"
+    };
+
+    public static string MobileGetApp => Lang switch
+    {
+        "ko" => "휴대폰 앱 받기 (Android)",
+        "zh" => "获取手机应用 (Android)",
+        "ja" => "スマホアプリを入手 (Android)",
+        _ => "Get the phone app (Android)"
+    };
+
+    public static string MobileClose => Lang switch
+    {
+        "ko" => "닫기",
+        "zh" => "关闭",
+        "ja" => "閉じる",
+        _ => "Close"
+    };
+
+    public static string TestNotificationSentApp => Lang switch
+    {
+        "ko" => "✓ 전송됨 (Windows + 휴대폰 앱)",
+        "zh" => "✓ 已发送（Windows + 手机应用）",
+        "ja" => "✓ 送信済み（Windows + スマホアプリ）",
+        _ => "✓ Sent (Windows + phone app)"
+    };
+
+    public static string TabConnect => Lang switch
+    {
+        "ko" => "연결",
+        "zh" => "连接",
+        "ja" => "接続",
+        _ => "Connect"
+    };
+
+    public static string PhoneAlertsTitle => Lang switch
+    {
+        "ko" => "휴대폰 알림",
+        "zh" => "手机通知",
+        "ja" => "スマホ通知",
+        _ => "Phone alerts"
+    };
+
+    public static string PhoneAlertsViaApp(int count) => Lang switch
+    {
+        "ko" => $"휴대폰 앱 {count}대로 암호화해 보냅니다(토픽 설정 불필요). 아래 ntfy 토픽은 앱 알림이 실패할 때만 씁니다.",
+        "zh" => $"通过手机应用加密发送到 {count} 部手机(无需设置主题)。下方 ntfy 主题仅在应用通知失败时使用。",
+        "ja" => $"スマホアプリ {count}台へ暗号化して送ります(トピック設定不要)。下の ntfy トピックはアプリ通知が失敗したときだけ使います。",
+        _ => $"Sent encrypted to {count} phone app(s) — no topic needed. The ntfy topic below is used only if app delivery fails."
+    };
+
+    public static string PhoneAlertsNoApp => Lang switch
+    {
+        "ko" => "'연결' 탭에서 휴대폰 앱을 QR로 연결하면 토픽 없이 알림이 자동으로 연결됩니다. 앱이 없으면(iOS 등) 아래 ntfy 토픽으로 받습니다.",
+        "zh" => "在\"连接\"标签用二维码连接手机应用后，无需主题即可自动接收通知。没有应用时(如 iOS)通过下方 ntfy 主题接收。",
+        "ja" => "「接続」タブでスマホアプリをQRで接続すると、トピックなしで通知が自動で届きます。アプリがない場合(iOSなど)は下の ntfy トピックで受け取ります。",
+        _ => "Connect the phone app by QR on the Connect tab and alerts are set up automatically, no topic needed. Without the app (e.g. iOS), use the ntfy topic below."
+    };
+
+    public static string PeerSyncTitle => Lang switch
+    {
+        "ko" => "PC 동기화",
+        "zh" => "电脑同步",
+        "ja" => "PC同期",
+        _ => "PC sync"
+    };
+
+    public static string PeerSyncDescription => Lang switch
+    {
+        "ko" => "다른 PC의 동기화 코드를 붙여 넣으면 두 PC가 사용량을 직접 주고받습니다. 한 PC에만 연결해도 그룹 전체가 공유되고, Claude Code가 없는 PC도 그룹의 사용량을 보여 줍니다. 같은 Wi-Fi·LAN, Tailscale, 또는 상대 PC의 '밖에서도 연결(Cloudflare)'로 닿아야 합니다.",
+        "zh" => "粘贴另一台电脑的同步代码后，两台电脑直接交换用量。只需连接其中一台即可在整个组内共享，没有 Claude Code 的电脑也能显示组内用量。需要通过同一 Wi-Fi/局域网、Tailscale，或对方电脑的\"外网也可连接(Cloudflare)\"互通。",
+        "ja" => "別のPCの同期コードを貼り付けると、2台のPCが使用量を直接やり取りします。1台に接続するだけでグループ全体で共有され、Claude CodeのないPCでもグループの使用量を表示します。同じWi-Fi・LAN、Tailscale、または相手PCの「外出先からも接続(Cloudflare)」で届く必要があります。",
+        _ => "Paste another PC's sync code and the two PCs exchange usage directly. Linking to one PC shares with the whole group, and a PC without Claude Code still shows the group's usage. The PCs must reach each other over the same Wi-Fi/LAN, Tailscale, or the other PC's \"Connect from anywhere (Cloudflare)\"."
+    };
+
+    public static string PeerSyncCopyCode => Lang switch
+    {
+        "ko" => "이 PC의 동기화 코드 복사",
+        "zh" => "复制此电脑的同步代码",
+        "ja" => "このPCの同期コードをコピー",
+        _ => "Copy this PC's sync code"
+    };
+
+    public static string PeerSyncCopied => Lang switch
+    {
+        "ko" => "복사했습니다. 5분 안에 다른 PC의 설정 → 연결에 붙여 넣으세요(한 번만 쓸 수 있습니다).",
+        "zh" => "已复制。请在 5 分钟内粘贴到另一台电脑的 设置 → 连接 (仅可使用一次)。",
+        "ja" => "コピーしました。5分以内に別のPCの 設定 → 接続 に貼り付けてください(1回のみ使用可)。",
+        _ => "Copied. Paste it into the other PC's Settings → Connect within 5 minutes (single use)."
+    };
+
+    public static string PeerSyncCopyFailed => Lang switch
+    {
+        "ko" => "클립보드에 복사하지 못했습니다. 다시 눌러 주세요.",
+        "zh" => "无法复制到剪贴板，请重试。",
+        "ja" => "クリップボードにコピーできませんでした。もう一度押してください。",
+        _ => "Couldn't copy to the clipboard. Please try again."
+    };
+
+    public static string PeerSyncCodeUnavailable => Lang switch
+    {
+        "ko" => "먼저 위의 '이 PC에 연결 허용'을 켜세요. 다른 PC가 이 PC에 닿을 주소가 있어야 코드를 만들 수 있습니다.",
+        "zh" => "请先开启上方的\"允许连接到此电脑\"。需要有其他电脑可访问的地址才能生成代码。",
+        "ja" => "先に上の「このPCへの接続を許可」をオンにしてください。他のPCが届くアドレスがないとコードを作れません。",
+        _ => "Turn on \"Allow connections to this PC\" above first. A code needs an address the other PC can reach."
+    };
+
+    public static string PeerSyncPasteLabel => Lang switch
+    {
+        "ko" => "다른 PC의 동기화 코드",
+        "zh" => "另一台电脑的同步代码",
+        "ja" => "別のPCの同期コード",
+        _ => "Another PC's sync code"
+    };
+
+    public static string PeerSyncJoin => Lang switch
+    {
+        "ko" => "연결",
+        "zh" => "连接",
+        "ja" => "接続",
+        _ => "Link"
+    };
+
+    public static string PeerSyncJoining => Lang switch
+    {
+        "ko" => "연결하는 중…",
+        "zh" => "正在连接…",
+        "ja" => "接続中…",
+        _ => "Linking…"
+    };
+
+    public static string PeerSyncJoined(string name) => Lang switch
+    {
+        "ko" => $"{name}와(과) 연결했습니다.",
+        "zh" => $"已与 {name} 连接。",
+        "ja" => $"{name} と接続しました。",
+        _ => $"Linked with {name}."
+    };
+
+    public static string PeerSyncErrNotACode => Lang switch
+    {
+        "ko" => "동기화 코드가 아닙니다. 다른 PC에서 '이 PC의 동기화 코드 복사'로 받은 내용을 그대로 붙여 넣으세요.",
+        "zh" => "这不是同步代码。请粘贴在另一台电脑上\"复制此电脑的同步代码\"得到的内容。",
+        "ja" => "同期コードではありません。別のPCの「このPCの同期コードをコピー」で得た内容をそのまま貼り付けてください。",
+        _ => "That isn't a sync code. Paste exactly what \"Copy this PC's sync code\" gave you on the other PC."
+    };
+
+    public static string PeerSyncErrSelf => Lang switch
+    {
+        "ko" => "이 PC 자신의 코드입니다. 다른 PC의 코드를 붙여 넣으세요.",
+        "zh" => "这是本机的代码。请粘贴另一台电脑的代码。",
+        "ja" => "このPC自身のコードです。別のPCのコードを貼り付けてください。",
+        _ => "That's this PC's own code. Paste the other PC's code."
+    };
+
+    public static string PeerSyncErrExpired => Lang switch
+    {
+        "ko" => "코드가 만료되었습니다. 다른 PC에서 다시 복사하세요.",
+        "zh" => "代码已过期。请在另一台电脑上重新复制。",
+        "ja" => "コードの期限が切れました。別のPCでもう一度コピーしてください。",
+        _ => "The code expired. Copy a new one on the other PC."
+    };
+
+    public static string PeerSyncErrLocked => Lang switch
+    {
+        "ko" => "잘못된 코드가 너무 많습니다. 몇 분 뒤 다시 시도하세요.",
+        "zh" => "错误代码过多。请几分钟后再试。",
+        "ja" => "誤ったコードが多すぎます。数分後に再試行してください。",
+        _ => "Too many wrong codes. Try again in a few minutes."
+    };
+
+    public static string PeerSyncErrInvalid => Lang switch
+    {
+        "ko" => "코드가 맞지 않거나 이미 사용되었습니다. 다른 PC에서 다시 복사하세요.",
+        "zh" => "代码不正确或已被使用。请在另一台电脑上重新复制。",
+        "ja" => "コードが正しくないか、すでに使われています。別のPCでもう一度コピーしてください。",
+        _ => "The code is wrong or already used. Copy a new one on the other PC."
+    };
+
+    public static string PeerSyncErrUnreachable(string reason) => Lang switch
+    {
+        "ko" => $"그 PC에 닿지 않습니다. 같은 Wi-Fi·LAN(Windows '개인' 네트워크)인지, 또는 Tailscale이 켜져 있는지, 그 PC의 방화벽 규칙을 확인하세요. 그 PC가 Cloudflare 임시 주소만 쓰고 다시 시작했다면 새 코드가 필요합니다. ({reason})",
+        "zh" => $"无法连接到该电脑。请确认在同一 Wi-Fi/局域网(Windows\"专用\"网络)或已开启 Tailscale，并检查该电脑的防火墙规则。如果该电脑只用 Cloudflare 临时地址且已重启，需要新的代码。({reason})",
+        "ja" => $"そのPCに届きません。同じWi-Fi・LAN(Windowsの「プライベート」ネットワーク)か、Tailscaleがオンか、そのPCのファイアウォール規則を確認してください。そのPCがCloudflareの一時アドレスだけで再起動した場合は新しいコードが必要です。({reason})",
+        _ => $"Can't reach that PC. Check the same Wi-Fi/LAN (a Private network in Windows) or Tailscale, and that PC's firewall rules. If that PC only uses a temporary Cloudflare address and has restarted, you need a new code. ({reason})"
+    };
+
+    public static string PeerSyncConnected(string via) => Lang switch
+    {
+        "ko" => $"연결됨 · {via}",
+        "zh" => $"已连接 · {via}",
+        "ja" => $"接続中 · {via}",
+        _ => $"Connected · {via}"
+    };
+
+    public static string PeerSyncNotConnected => Lang switch
+    {
+        "ko" => "연결 안 됨 — 그 PC가 켜지면 자동으로 다시 연결합니다",
+        "zh" => "未连接 — 该电脑开机后会自动重连",
+        "ja" => "未接続 — そのPCが起動すると自動で再接続します",
+        _ => "Not connected — reconnects automatically when that PC is on"
+    };
+
+    public static string PeerSyncRevoked => Lang switch
+    {
+        "ko" => "그 PC에서 연결이 해제되었습니다. 지우고 새 코드로 다시 연결하세요.",
+        "zh" => "该电脑已解除连接。请删除后用新代码重新连接。",
+        "ja" => "そのPCで接続が解除されました。削除して新しいコードで再接続してください。",
+        _ => "That PC removed this link. Remove it and link again with a new code."
+    };
+
+    public static string PeerSyncIncoming => Lang switch
+    {
+        "ko" => "이 PC에 연결해 둔 PC",
+        "zh" => "已连接到此电脑的电脑",
+        "ja" => "このPCに接続しているPC",
+        _ => "Linked to this PC"
+    };
+
+    public static string PeerSyncRemove => Lang switch
+    {
+        "ko" => "해제",
+        "zh" => "解除",
+        "ja" => "解除",
+        _ => "Remove"
+    };
+
+    public static string MobileDevicesPcSuffix => Lang switch
+    {
+        "ko" => "PC 동기화",
+        "zh" => "电脑同步",
+        "ja" => "PC同期",
+        _ => "PC sync"
     };
 }

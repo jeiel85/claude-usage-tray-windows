@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ClaudeUsageTray.Models;
 using ClaudeUsageTray.Services;
+using ClaudeUsageTray.Services.Mobile;
 using ClaudeUsageTray.Services.Forecasts;
 using ClaudeUsageTray.Views;
 using Timer = System.Timers.Timer;
@@ -15,9 +16,9 @@ namespace ClaudeUsageTray.ViewModels;
 {
     private readonly UsageApiService _api;
     private readonly CredentialService _credentials;
+    private readonly ClaudeAccountProfileReader _claudeAccount;
     private readonly SessionMonitor _session;
     private readonly CodexUsageMonitor _codex;
-    private readonly GeminiCliUsageMonitor _geminiCli;
     private readonly OpenCodeUsageMonitor _openCode;
     private readonly AntigravityUsageMonitor _antigravity;
     private readonly NotificationService _notifier;
@@ -35,14 +36,18 @@ namespace ClaudeUsageTray.ViewModels;
     public AntigravityViewModel AntigravityVm { get; }
     public WeatherViewModel WeatherVm { get; }
     public OpenCodeViewModel OpenCodeVm { get; }
-    public GeminiViewModel GeminiVm { get; }
+    /// <summary>100milionseek(DeepSeek 무료 API) 일일 한도 — OpenCode 와 별도 섹션(#311).</summary>
+    public HmsViewModel HmsVm { get; }
+    /// <summary>
+    /// 펼침 상태 키. <see cref="UsageProviderKind"/> 가 아니다 — 트레이 표시 기준·공급자 표시 목록에는 넣지 않는
+    /// 임시 섹션이라 펼침에만 쓴다.
+    /// </summary>
+    public const string HmsFocusKey = "hms";
     public CodexViewModel CodexVm { get; }
     public ClaudeViewModel ClaudeVm { get; }
 
     // Tracks previous 5h usage to detect threshold crossings
     private double _prevShortPercent = -1;
-    private double _prevCodexPercent = -1;
-    private double _prevGeminiPercent = -1;
     private double _prevExtraPercent = -1;
     private bool _prevHadRateLimit = false;
 
@@ -60,6 +65,10 @@ namespace ClaudeUsageTray.ViewModels;
 
     // Rate limit backoff — skip API calls until this time
     private DateTimeOffset _apiRetryAfter = DateTimeOffset.MinValue;
+    // "터미널에서 로그인" 뒤 자격 파일 변경을 기다리는 감시(#180). 새로 누르거나 종료하면 취소한다.
+    private CancellationTokenSource? _claudeLoginWatchCts;
+    // 버튼 문구용 CLI 설치 확인이 진행 중인지(0/1) — 막힌 탐색이 새로고침마다 쌓이지 않게 한다.
+    private int _claudeCliProbeRunning;
     private DateTimeOffset _weatherLastRefresh = DateTimeOffset.MinValue;
 
     [ObservableProperty] private string _statusText = "Loading...";
@@ -77,6 +86,8 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private string _codexDataSource = "";
     [ObservableProperty] private bool _codexHasError = false;
     [ObservableProperty] private string _codexErrorMessage = "";
+    // 이 PC 의 Codex 로그인이 서버에서 거부돼 로컬 로그로 표시 중인지(#198) — 다른 PC 값으로 게이지를 채워도 이 PC 사정이라 그대로 둔다.
+    [ObservableProperty] private bool _codexNeedsSignIn;
     [ObservableProperty] private string _codexNote = Loc.ProviderCodexNote;
     [ObservableProperty] private string _codexSummary = "";
     // v1.26.0: 보조(secondary) 윈도우 — Anthropic 의 7d 와 같은 위치
@@ -91,29 +102,31 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private bool _hasCodexLongTimeline = false;
     [ObservableProperty] private string _codexShortPaceTip = "";
     [ObservableProperty] private string _codexLongPaceTip = "";
-    // v1.26.0: PlanType 라벨 — 응답에 PlanType 있으면 "ChatGPT Plus" 식으로, 없으면 "ChatGPT plan"
-    [ObservableProperty] private string _codexPlanLabel = "ChatGPT plan";
+    // v1.26.0: PlanType 라벨 ("ChatGPT Plus"). 요금제를 모르면 비워 두고 배지를 숨긴다.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCodexPlanBadgeVisible))]
+    private string _codexPlanLabel = "";
+    // 지금 유료 ChatGPT 구독으로 로그인돼 있는지. 근거는 배지 문구도 세션 로그의 plan_type 도 아닌
+    // CodexUsageMonitor.GetCurrentPlanType() 이다 — 로그의 plan_type 은 로그아웃 뒤에도 남기 때문이다.
+    private bool _isCodexSubscribed;
     [ObservableProperty] private string _codexShortWindowLabel = Loc.ShortWindow;
     [ObservableProperty] private string _codexLongWindowLabel = Loc.LongWindow;
-    // 오늘의 토큰 4타일 (Input / Output / CacheRead / CacheWrite — Codex는 cache write 개념 없어 "—")
-    [ObservableProperty] private string _codexInputLabel = "—";
-    [ObservableProperty] private string _codexOutputLabel = "—";
-    [ObservableProperty] private string _codexCacheReadLabel = "—";
-    [ObservableProperty] private string _codexCacheWriteLabel = "—";
-
-    // Gemini Usage
-    [ObservableProperty] private double _geminiPercent = 0;
-    [ObservableProperty] private string _geminiReset = "";
-    [ObservableProperty] private bool _geminiHasError = false;
-    [ObservableProperty] private string _geminiErrorMessage = "";
-    [ObservableProperty] private string _geminiNote = Loc.ProviderGeminiCliNote;
-    [ObservableProperty] private string _geminiSummary = "";
-    [ObservableProperty] private string _geminiRequestsLabel = "";
-    [ObservableProperty] private string _geminiOutputTokensLabel = "";
-    // 오늘의 토큰 4타일 (Input / Output / CacheRead / CacheWrite — Gemini는 cache write 없어 "—")
-    [ObservableProperty] private string _geminiInputLabel = "—";
-    [ObservableProperty] private string _geminiCacheReadLabel = "—";
-    [ObservableProperty] private string _geminiCacheWriteLabel = "—";
+    // 오늘의 토큰 3타일 (Input / Output / CacheRead — Codex는 cache write 개념 없어 타일 자체를 두지 않음)
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCodexTokenRowVisible))]
+    private string _codexInputLabel = "—";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCodexTokenRowVisible))]
+    private string _codexOutputLabel = "—";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCodexTokenRowVisible))]
+    private string _codexCacheReadLabel = "—";
+    // 기본 창 말고 따로 걸린 한도(이미지 생성 등, #182) — 창마다 한 줄.
+    [ObservableProperty] private System.Collections.Generic.IReadOnlyList<QuotaGaugeRow> _codexAdditionalLimits =
+        System.Array.Empty<QuotaGaugeRow>();
+    // 행 이름은 만들 때 정해지므로, 언어가 바뀌면 이 원본으로 다시 만든다.
+    private System.Collections.Generic.IReadOnlyList<AdditionalQuotaWindow> _codexAdditionalSource =
+        System.Array.Empty<AdditionalQuotaWindow>();
 
     // OpenCode Usage
     [ObservableProperty] private bool _openCodeHasError = false;
@@ -133,10 +146,133 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private string _antigravityErrorMessage = "";
     [ObservableProperty] private string _antigravityTierName = "";       // e.g. "Gemini Code Assist"
     [ObservableProperty] private string _antigravityPaidTierName = "";   // e.g. "Gemini Code Assist in Google One AI Pro"
-    [ObservableProperty] private System.Collections.Generic.IReadOnlyList<AntigravityModelRow> _antigravityModels =
-        System.Array.Empty<AntigravityModelRow>();
-    [ObservableProperty] private bool _isAntigravityEnabled = true;
+    // Google AI 크레딧 잔액 — 비어 있으면(크레딧 대상 아님) 게이지 아래 줄이 접힌다.
+    [ObservableProperty] private string _antigravityAiCreditsText = "";
+    [ObservableProperty] private System.Collections.Generic.IReadOnlyList<QuotaGaugeRow> _antigravityModels =
+        System.Array.Empty<QuotaGaugeRow>();
     [ObservableProperty] private double _antigravityPercent = 0.0;
+    // 상세 하단 안내 + 출처 — Codex 상세의 같은 자리(왼쪽 안내 / 오른쪽 출처)와 같은 구성.
+    [ObservableProperty] private string _antigravityNote = Loc.ProviderAntigravityNote;
+    [ObservableProperty] private string _antigravityDataSource = "";
+    // 출처 문구는 언어가 바뀌면 다시 만들어야 하므로 완성된 문장 대신 재료(기기·관측 시각)를 들고 있는다.
+    private (string Device, DateTimeOffset ObservedAt)? _antigravityQuotaOrigin;
+
+    /// <summary>플랜 배지 문구 — Codex 의 플랜 라벨과 같은 자리에 쓴다. 요금제 이름이 없으면 tier 이름으로 대신한다.</summary>
+    public string AntigravityPlanLabel =>
+        string.IsNullOrWhiteSpace(AntigravityPaidTierName) ? AntigravityTierName : AntigravityPaidTierName;
+
+    partial void OnAntigravityTierNameChanged(string value)
+    {
+        OnPropertyChanged(nameof(AntigravityPlanLabel));
+        OnPropertyChanged(nameof(IsAntigravityPlanBadgeVisible));
+    }
+
+    partial void OnAntigravityPaidTierNameChanged(string value)
+    {
+        OnPropertyChanged(nameof(AntigravityPlanLabel));
+        OnPropertyChanged(nameof(IsAntigravityPlanBadgeVisible));
+    }
+
+    // 구독 등급 배지 (v1.41.0) — 공급자마다 등급을 알아내는 출처가 다르지만 표시 규칙은 하나다:
+    // 등급을 알아낸 공급자만 배지를 그리고, 모르는 공급자는 자리 자체를 비운다.
+    //   Claude       ~/.claude/.credentials.json 의 subscriptionType + rateLimitTier
+    //   Codex        세션 로그·API 의 rate_limits.plan_type, 없으면 ~/.codex/auth.json 의 id_token
+    //   OpenCode     ~/.local/share/opencode/auth.json 에 저장된 OpenCode 로그인 항목
+    //   Antigravity  loadCodeAssist 응답의 tier 이름
+    [ObservableProperty]
+    private string _claudePlanLabel = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsOpenCodePlanBadgeVisible))]
+    private string _openCodePlanLabel = "";
+
+    // Claude 계정 이름·조직(#218) — 등급 배지 줄 뒤에 흐린 색으로 붙인다. 출처는 ~/.claude.json 의 oauthAccount.
+    [ObservableProperty]
+    private string _claudeAccountLabel = "";
+
+    [ObservableProperty]
+    private bool _showClaudeAccount = true;
+
+    // Claude 계정 별명(#307). 키는 휴대폰 계정 카드와 같은 Claude 계정 키(BuildClaudeMobileAccountKey).
+    // 갱신·알림·동기화 경로가 백그라운드 스레드에서 읽으므로 고쳐 쓰지 않고 새 사전으로 통째 바꾼다(AccountAlias.With).
+    // 바꾼 시각도 함께 둔다 — PC 간 동기화에서 더 최근에 바꾼 쪽을 따른다(#313). 지운 별명은 Alias "" 기록으로 남는다.
+    private volatile IReadOnlyDictionary<string, AccountAliasEntry> _claudeAccountAliases = new Dictionary<string, AccountAliasEntry>();
+
+    /// <summary>지금 로그인한 Claude 계정의 별명(설정 칸). 계정이 바뀌면 그 계정의 별명으로 바뀐다. 없으면 "".</summary>
+    [ObservableProperty]
+    private string _claudeAccountAlias = "";
+
+    /// <summary>별명을 붙일 계정이 있는지 — 로그인해 계정 키를 알 때만 설정 칸을 쓸 수 있다.</summary>
+    [ObservableProperty]
+    private bool _canEditClaudeAccountAlias;
+
+    partial void OnClaudePlanLabelChanged(string value) => NotifyClaudeBadgeChanged();
+    partial void OnClaudeAccountLabelChanged(string value) => NotifyClaudeBadgeChanged();
+    partial void OnClaudeAccountAliasChanged(string value) => NotifyClaudeBadgeChanged();
+    partial void OnShowClaudeAccountChanged(bool value) => NotifyClaudeBadgeChanged();
+    partial void OnShowPlanBadgeChanged(bool value) => NotifyClaudeBadgeChanged();
+
+    private void NotifyClaudeBadgeChanged()
+    {
+        OnPropertyChanged(nameof(IsClaudePlanBadgeVisible));
+        OnPropertyChanged(nameof(ClaudePlanBadgeText));
+        OnPropertyChanged(nameof(ClaudeAccountBadgeText));
+        OnPropertyChanged(nameof(ClaudePlanBadgeToolTip));
+    }
+
+    // 별명(#307)이 있으면 계정 이름 대신 별명을 보인다 — 휴대폰 카드·알림과 같은 이름.
+    private ClaudeBadgeParts ClaudeBadge =>
+        ComposeClaudeBadge(ShowPlanBadge, ClaudePlanLabel, ShowClaudeAccount, AccountAlias.Display(ClaudeAccountAlias, ClaudeAccountLabel));
+
+    /// <summary>등급 배지 줄 — 등급이나 계정 중 하나라도 보이면 줄을 그린다.</summary>
+    public bool IsClaudePlanBadgeVisible => ClaudeBadge.IsVisible;
+    /// <summary>등급 부분("Claude Team 5x"). 강조색.</summary>
+    public string ClaudePlanBadgeText => ClaudeBadge.Plan;
+    /// <summary>계정 부분(" · 김민준 · Acme Corp", 별명이 있으면 " · 회사"). 흐린 색.</summary>
+    public string ClaudeAccountBadgeText => ClaudeBadge.Account;
+    /// <summary>
+    /// 말줄임으로 잘린 줄의 전체 문구. 계정이 안 보이면 지금처럼 툴팁 없음.
+    /// 별명을 보이고 있으면 원래 계정 이름을 괄호로 덧붙인다 — 별명만으로는 어느 로그인인지 확인할 수 없다.
+    /// </summary>
+    public string? ClaudePlanBadgeToolTip =>
+        ComposeClaudeBadgeToolTip(ClaudeBadge, ClaudeAccountAlias, ClaudeAccountLabel);
+
+    internal static string? ComposeClaudeBadgeToolTip(ClaudeBadgeParts badge, string? alias, string? accountLabel)
+    {
+        if (string.IsNullOrEmpty(badge.Account)) return null;
+        var text = badge.Plan + badge.Account;
+        return AccountAlias.Clean(alias).Length > 0 && !string.IsNullOrWhiteSpace(accountLabel)
+            ? $"{text} ({accountLabel.Trim()})"
+            : text;
+    }
+
+    internal readonly record struct ClaudeBadgeParts(string Plan, string Account)
+    {
+        public bool IsVisible => Plan.Length > 0 || Account.Length > 0;
+    }
+
+    /// <summary>
+    /// 등급 배지 줄을 등급·계정 두 부분으로 나눈다. 둘 다 보이면 계정 앞에 " · " 를 붙이고,
+    /// 등급을 끄고 계정만 켰으면 계정만 구분자 없이 보인다.
+    /// </summary>
+    internal static ClaudeBadgeParts ComposeClaudeBadge(
+        bool showPlan, string? planLabel, bool showAccount, string? accountLabel)
+    {
+        var plan = showPlan && !string.IsNullOrWhiteSpace(planLabel) ? planLabel.Trim() : "";
+        var account = showAccount && !string.IsNullOrWhiteSpace(accountLabel) ? accountLabel.Trim() : "";
+        if (plan.Length > 0 && account.Length > 0) account = " · " + account;
+        return new ClaudeBadgeParts(plan, account);
+    }
+
+    public bool IsCodexPlanBadgeVisible => ShowPlanBadge && !string.IsNullOrWhiteSpace(CodexPlanLabel);
+    public bool IsOpenCodePlanBadgeVisible => ShowPlanBadge && !string.IsNullOrWhiteSpace(OpenCodePlanLabel);
+    public bool IsAntigravityPlanBadgeVisible => ShowPlanBadge && !string.IsNullOrWhiteSpace(AntigravityPlanLabel);
+
+    // 구분선+토큰 그리드를 함께 여닫는 기준. IsCodexUsageEmpty 만으로는 부족하다 — 요금제/한도는
+    // 알고 있지만(HasData=true) 오늘 로컬 토큰 기록이 전혀 없어 세 라벨이 모두 "—" 인 경우가 있어,
+    // 그때는 타일이 각자 접혀 빈 줄만 남고 구분선은 그대로 남는 문제가 있었다.
+    public bool IsCodexTokenRowVisible => !IsCodexUsageEmpty &&
+        (CodexInputLabel != Loc.QuotaUnknownMark || CodexOutputLabel != Loc.QuotaUnknownMark || CodexCacheReadLabel != Loc.QuotaUnknownMark);
 
     // Weather (v1.29.0)
     [ObservableProperty] private bool _weatherEnabled;
@@ -236,18 +372,33 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private double _longUsagePercent = 0;
     [ObservableProperty] private string _longResetLabel = "";
 
-    // Per-model usage (7d)
-    [ObservableProperty] private double _opusPercent = 0;
-    [ObservableProperty] private double _sonnetPercent = 0;
-    [ObservableProperty] private long _opusTokens = 0;
-    [ObservableProperty] private long _sonnetTokens = 0;
-
     // Today's local session stats
     [ObservableProperty] private long _todayInputTokens = 0;
     [ObservableProperty] private long _todayOutputTokens = 0;
     [ObservableProperty] private long _todayCacheRead = 0;
     [ObservableProperty] private long _todayCacheWrite = 0;
     [ObservableProperty] private string _sessionsLabel = "";
+
+    // 오늘 세션 목록 — "오늘 N개 세션" 라벨을 눌러 펼친다. 목록은 이 PC 의 트랜스크립트에서만
+    // 나오므로, 다중 PC 동기화가 켜져 있으면 합계 세션 수보다 짧을 수 있다(차이는 안내로 표시).
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsSessionListEmpty))]
+    private IReadOnlyList<SessionListItem> _todaySessions = [];
+
+    [ObservableProperty] private bool _isSessionListExpanded = false;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SessionListMoreLabel))]
+    private int _sessionListHiddenCount = 0;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SessionListNote))]
+    private int _sessionListRemoteCount = 0;
+
+    public bool IsSessionListEmpty => TodaySessions.Count == 0;
+    public string SessionListMoreLabel => SessionListHiddenCount > 0 ? Loc.SessionListMore(SessionListHiddenCount) : "";
+    public string SessionListNote => SessionListRemoteCount > 0 ? Loc.SessionListRemoteOnly(SessionListRemoteCount) : "";
+
     [ObservableProperty] private bool _hasRateLimitHit = false;
     [ObservableProperty] private string _rateLimitInfo = "";
 
@@ -272,9 +423,30 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private int _usageSyncLocalSnapshotTtlHours = UsageSyncService.DefaultLocalSnapshotTtlHours;
     [ObservableProperty] private string _usageSyncStatusLabel = Loc.UsageSyncDisabled;
 
-    // v1.27.0 표시 옵션 토글
-    [ObservableProperty] private bool _showCodexPlanBadge = true;
+    // 휴대폰 연동(#220)
+    [ObservableProperty] private bool _mobileEnabled;
+    [ObservableProperty] private bool _mobileLan = true;
+    [ObservableProperty] private bool _mobileTailscale = true;
+    [ObservableProperty] private bool _mobileCloudflare;
+    [ObservableProperty] private string _mobileCloudflareHostname = "";
+    /// <summary>다른 기기에 보여 줄 이 PC 의 이름(#271). 비어 있으면 컴퓨터 이름.</summary>
+    [ObservableProperty] private string _pcAlias = "";
+    /// <summary>DPAPI 로 감싼 터널 토큰(<see cref="Services.Mobile.MobileSecret"/>). 원문은 메모리에도 들고 있지 않는다.</summary>
+    [ObservableProperty] private string _mobileCloudflareTokenProtected = "";
+    /// <summary>DPAPI 로 감싼 100milionseek 키(#306). 원문은 조회할 때만 풀어 쓴다.</summary>
+    [ObservableProperty] private string _hmsApiKeyProtected = "";
+
+    /// <summary>휴대폰 연동(서버·페어링·사용량 피드). 설정 창의 "휴대폰 연결" 창이 이것을 쓴다.</summary>
+    public MobileLinkService Mobile { get; } = new();
+
+    // v1.27.0 표시 옵션 토글 (v1.41.0: Codex 전용 → 전 공급자 공통)
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCodexPlanBadgeVisible))]
+    [NotifyPropertyChangedFor(nameof(IsOpenCodePlanBadgeVisible))]
+    [NotifyPropertyChangedFor(nameof(IsAntigravityPlanBadgeVisible))]
+    private bool _showPlanBadge = true;
     [ObservableProperty] private bool _showAbsoluteResetTime = false;
+    [ObservableProperty] private bool _showAntigravityThirdPartyQuota = false;
     [ObservableProperty] private bool _keepPopupAboveTaskbar = false;
     [ObservableProperty] private double _usagePanelOpacity = 0.94;
 
@@ -313,6 +485,8 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private bool _isExtraOnlyMode = false; // 기본 사용량 100% 소진 후 추가 사용량만 표시
 
     public string LblExtraUsage => Loc.ExtraUsageTitle;
+    public string LblAntigravityAiCredits => Loc.AntigravityAiCredits;
+    public string LblAntigravityAiCreditsTip => Loc.AntigravityAiCreditsTip;
 
     private string? _lastKnownOrgUuid;
 
@@ -332,40 +506,39 @@ namespace ClaudeUsageTray.ViewModels;
     // Manual provider visibility toggles
     [ObservableProperty] private bool _isClaudeEnabled = true;
     [ObservableProperty] private bool _isCodexEnabled = true;
-    [ObservableProperty] private bool _isGeminiEnabled = true;
     [ObservableProperty] private bool _isOpenCodeEnabled = true;
+    [ObservableProperty] private bool _isAntigravityEnabled = true;
 
     // Popup에서 한 번에 한 공급자만 상세 펼침 — 나머지는 컴팩트 행 (v1.25.0 신규)
     // 빈 문자열은 "자동 결정" 의미 — LoadSettings/EnsureValidFocusedProvider 가 즉시 채움
     [ObservableProperty] private string _focusedProvider = UsageProviderKind.Claude;
     [ObservableProperty] private bool _isClaudeFocused = true;
     [ObservableProperty] private bool _isCodexFocused = false;
-    [ObservableProperty] private bool _isGeminiFocused = false;
     [ObservableProperty] private bool _isOpenCodeFocused = false;
     [ObservableProperty] private bool _isAntigravityFocused = false;
+    [ObservableProperty] private bool _isHmsFocused = false;
 
     [ObservableProperty] private double _openCodePercent = 0;
     [ObservableProperty] private double _trayUsagePercent = 0;
 
     // Visibility control (IsClaudeActive → ClaudeVm.IsActive)
     [ObservableProperty] private bool _isCodexActive = false;
-    [ObservableProperty] private bool _isGeminiActive = false;
     [ObservableProperty] private bool _isOpenCodeActive = false;
     // IsClaudeUsageEmpty → ClaudeVm.IsUsageEmpty
-    [ObservableProperty] private bool _isCodexUsageEmpty = true;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCodexTokenRowVisible))]
+    private bool _isCodexUsageEmpty = true;
     [ObservableProperty] private bool _isCodexLoading = true;
 
     // Codex 토큰 4타일을 표시할지 판단하는 실제 기준(로컬 또는 동기화된 다른 기기 토큰 유무).
     // UpdateOverallStatus 가 IsCodexUsageEmpty 를 재계산할 때 이 값을 참조한다.
     private bool _codexHasTokenData;
-    [ObservableProperty] private bool _isGeminiUsageEmpty = true;
     [ObservableProperty] private bool _isOpenCodeUsageEmpty = true;
 
     // IsClaudeSubscribed → ClaudeVm.IsSubscribed
-    private string _updateDownloadUrl = "";
-    private string _updateSha256Url = "";
-    private string _updateVersion = "";
-    private string _updateReleaseNotes = "";
+    // 마지막 확인에서 찾은 업데이트. 버전·주소·노트를 한 객체로 바꿔 끼워서, 다른 스레드의 확인이 중간에 덮어써도
+    // 서로 다른 버전의 값이 섞이지 않는다. 설치는 이 값을 그대로 쓰지 않고 받기 직전에 다시 확인한다(#300).
+    private volatile UpdateService.UpdateInfo? _availableUpdate;
     private bool _isUpdateDialogOpen = false;
     public string CurrentVersionLabel => $"v{UpdateService.CurrentVersion.ToString(3)}";
 
@@ -396,6 +569,7 @@ namespace ClaudeUsageTray.ViewModels;
     public string LblAppTitle        => Loc.AgentUsageTitle;
     public string LblApiQuota        => Loc.ApiQuota;
     public string LblTodayTokens     => Loc.TodayTokens;
+    public string LblSessionListEmpty => Loc.SessionListEmpty;
     public string LblFiveHour        => Loc.FiveHourWindow;
     public string LblSevenDay        => Loc.SevenDayWindow;
     public string LblInput           => Loc.Input;
@@ -417,13 +591,15 @@ namespace ClaudeUsageTray.ViewModels;
 
     // ntfy 발송 대상 토픽: 이 PC에서 발송 비활성화 시 빈 문자열 반환
     private string NtfyTopicEffective => NtfySendFromThisPc ? NtfyTopic : "";
-    public string LblGeminiRequests   => Loc.GeminiRequests;
     public string LblExtraCredits    => Loc.ExtraCreditsLabel;
     public string LblCheckUpdate     => Loc.CheckUpdate;
     public string LblClaudeNoUsage   => Loc.ClaudeNoUsageToday;
     public string LblCodexNoUsage    => IsCodexLoading ? Loc.CodexLoading : Loc.CodexNoUsageToday;
-    public string LblGeminiNoUsage   => Loc.GeminiCliNoUsageToday;
+    public string LblCodexSignInExpired => Loc.CodexSignInExpiredNotice;
+    public string LblChatGptImageGeneration => Loc.ChatGptImageGeneration;
+    public string LblChatGptImageGenerationTip => Loc.ChatGptImageGenerationTip;
     public string LblOpenCodeNoUsage => Loc.OpenCodeNoUsageToday;
+    public string LblHmsSection      => Loc.HmsSectionTitle;
     public string LblVisibleProviders => Loc.VisibleProviders;
     public string DisclaimerText     => SelectedProvider == UsageProviderKind.Claude ? Loc.Disclaimer : Loc.GenericDisclaimer;
 
@@ -434,19 +610,22 @@ namespace ClaudeUsageTray.ViewModels;
     public string TipCacheWrite => Loc.CacheWriteTooltip;
 
     public MainViewModel(UsageApiService api, CredentialService credentials,
-                         SessionMonitor session, CodexUsageMonitor codex, GeminiCliUsageMonitor geminiCli,
+                         SessionMonitor session, CodexUsageMonitor codex,
                          OpenCodeUsageMonitor openCode, AntigravityUsageMonitor antigravity,
                          NotificationService notifier, SettingsService settingsService,
                          UpdateService updater, HistoryService history,
                          UsageSyncService usageSync,
                          WeatherService weather, WeatherAlertService weatherAlert,
-                         OpenCodeWebUsageService? openCodeWebUsage = null)
+                         OpenCodeWebUsageService? openCodeWebUsage = null,
+                         ClaudeAccountProfileReader? claudeAccount = null,
+                         HmsUsageService? hmsUsage = null)
     {
+        _refresh = new CoalescedRefresh(RefreshOnceAsync);
         _api = api;
         _credentials = credentials;
+        _claudeAccount = claudeAccount ?? new ClaudeAccountProfileReader();
         _session = session;
         _codex = codex;
-        _geminiCli = geminiCli;
         _openCode = openCode;
         _antigravity = antigravity;
         _notifier = notifier;
@@ -460,7 +639,7 @@ namespace ClaudeUsageTray.ViewModels;
         AntigravityVm = new AntigravityViewModel(antigravity);
         WeatherVm = new WeatherViewModel(weather, weatherAlert);
         OpenCodeVm = new OpenCodeViewModel(openCode, history, openCodeWebUsage);
-        GeminiVm = new GeminiViewModel(geminiCli, history);
+        HmsVm = new HmsViewModel(hmsUsage);
         CodexVm = new CodexViewModel(codex, history);
         ClaudeVm = new ClaudeViewModel();
 
@@ -506,8 +685,10 @@ namespace ClaudeUsageTray.ViewModels;
         UpdateClaudeSubscription();
         
         if (SelectedProvider != UsageProviderKind.Claude) return;
+        // 아래에서 바로 새로고침하므로 "터미널에서 로그인" 뒤의 폴링 감시는 중복이다(#180).
+        CancelClaudeLoginWatch();
         // 계정 전환 감지 — 히스토리를 새 계정으로 전환하고 즉시 새로고침
-        var orgUuid = _credentials.GetOrganizationUuid();
+        var orgUuid = CurrentClaudeOrgUuid();
         _history.SetScope(UsageProviderKind.Claude, orgUuid);
         // 계정 전환 시 rate-limit 대기를 초기화 — 새 계정은 독립적으로 조회
         _apiRetryAfter = DateTimeOffset.MinValue;
@@ -540,22 +721,34 @@ namespace ClaudeUsageTray.ViewModels;
         UsageSyncApiSnapshotTtlMinutes = Math.Max(1, s.UsageSyncApiSnapshotTtlMinutes);
         UsageSyncLocalSnapshotTtlHours = Math.Max(1, s.UsageSyncLocalSnapshotTtlHours);
         RefreshUsageSyncStatus();
-        TrayDisplayMode = UsageProviderKind.IsValid(s.TrayDisplayMode) ? s.TrayDisplayMode : UsageProviderKind.Auto;
+        MobileEnabled = s.MobileEnabled;
+        MobileLan = s.MobileLan;
+        MobileTailscale = s.MobileTailscale;
+        MobileCloudflare = s.MobileCloudflare;
+        MobileCloudflareHostname = s.MobileCloudflareHostname ?? "";
+        MobileCloudflareTokenProtected = s.MobileCloudflareTokenProtected ?? "";
+        HmsApiKeyProtected = s.HmsApiKeyProtected ?? "";
+        PcAlias = PcName.Clean(s.PcAlias, PcName.MaxAliasLength);
+        // 지금 계정의 별명은 아래 UpdateClaudeSubscription 이 계정을 읽은 뒤 고른다.
+        _claudeAccountAliases = AccountAlias.FromSettings(s.ClaudeAccountAliases, s.ClaudeAccountAliasUpdatedAt);
+        TrayDisplayMode =UsageProviderKind.IsValid(s.TrayDisplayMode) ? s.TrayDisplayMode : UsageProviderKind.Auto;
         HideInactiveProviders = s.HideInactiveProviders;
 
         // Manual provider visibility
         IsClaudeEnabled   = s.VisibleProviders.Contains(UsageProviderKind.Claude);
         IsCodexEnabled    = s.VisibleProviders.Contains(UsageProviderKind.Codex);
-        IsGeminiEnabled   = s.VisibleProviders.Contains(UsageProviderKind.GeminiCli);
         IsOpenCodeEnabled = s.VisibleProviders.Contains(UsageProviderKind.OpenCode);
+        IsAntigravityEnabled = s.VisibleProviders.Contains(UsageProviderKind.Antigravity);
 
         // Popup focused provider — 빈 값/유효하지 않으면 자동 결정
         FocusedProvider = string.IsNullOrEmpty(s.FocusedProvider) ? UsageProviderKind.Claude : s.FocusedProvider;
         EnsureValidFocusedProvider();
 
         // v1.27.0 표시 옵션
-        ShowCodexPlanBadge   = s.ShowCodexPlanBadge;
+        ShowPlanBadge         = s.ShowPlanBadge;
+        ShowClaudeAccount     = s.ShowClaudeAccount;
         ShowAbsoluteResetTime = s.ShowAbsoluteResetTime;
+        ShowAntigravityThirdPartyQuota = s.ShowAntigravityThirdPartyQuota;
         KeepPopupAboveTaskbar = s.KeepPopupAboveTaskbar;
         UsagePanelOpacity = Math.Clamp(s.UsagePanelOpacity <= 0 ? 0.94 : s.UsagePanelOpacity, 0.5, 1.0);
 
@@ -597,28 +790,27 @@ namespace ClaudeUsageTray.ViewModels;
         ProviderNote = value switch
         {
             UsageProviderKind.Codex     => Loc.ProviderCodexNote,
-            UsageProviderKind.GeminiCli => Loc.ProviderGeminiCliNote,
             UsageProviderKind.OpenCode  => Loc.ProviderOpenCodeNote,
             _ => ""
         };
     }
 
     /// <summary>
-    /// FocusedProvider 변경 시 IsXxxFocused 부울 4개를 동기화.
+    /// FocusedProvider 변경 시 IsXxxFocused 부울들을 동기화.
     /// (UsagePopup.xaml 의 Visibility 바인딩이 이 부울들을 본다)
     /// </summary>
     partial void OnFocusedProviderChanged(string value)
     {
         IsClaudeFocused   = value == UsageProviderKind.Claude;
         IsCodexFocused    = value == UsageProviderKind.Codex;
-        IsGeminiFocused   = value == UsageProviderKind.GeminiCli;
         IsOpenCodeFocused = value == UsageProviderKind.OpenCode;
         IsAntigravityFocused = value == UsageProviderKind.Antigravity;
+        IsHmsFocused = value == HmsFocusKey;
     }
 
     /// <summary>
     /// FocusedProvider 가 비어있거나 비활성화/숨김 공급자를 가리키면 안전한 값으로 폴백.
-    /// 우선순위: Claude → Codex → Gemini → OpenCode (활성된 것 중 첫 번째).
+    /// 우선순위: Claude → Codex → OpenCode → Antigravity (활성된 것 중 첫 번째).
     /// </summary>
     private void EnsureValidFocusedProvider()
     {
@@ -626,7 +818,6 @@ namespace ClaudeUsageTray.ViewModels;
         {
             UsageProviderKind.Claude    => IsClaudeEnabled,
             UsageProviderKind.Codex     => IsCodexEnabled,
-            UsageProviderKind.GeminiCli => IsGeminiEnabled,
             UsageProviderKind.OpenCode  => IsOpenCodeEnabled,
             UsageProviderKind.Antigravity => IsAntigravityEnabled,
             _ => false
@@ -634,6 +825,10 @@ namespace ClaudeUsageTray.ViewModels;
 
         // 빈 문자열은 "모두 접힘" 상태로 허용
         if (string.IsNullOrEmpty(FocusedProvider))
+            return;
+
+        // DeepSeek(100milionseek) 섹션은 키가 있는 동안만 펼침 대상이다(#311).
+        if (FocusedProvider == HmsFocusKey && !string.IsNullOrEmpty(HmsApiKeyProtected))
             return;
 
         if (UsageProviderKind.IsValid(FocusedProvider) &&
@@ -645,7 +840,6 @@ namespace ClaudeUsageTray.ViewModels;
         // 폴백 — 유효하지 않은 공급자거나 비활성된 공급자를 가리킬 때만
         if (IsClaudeEnabled)        FocusedProvider = UsageProviderKind.Claude;
         else if (IsCodexEnabled)    FocusedProvider = UsageProviderKind.Codex;
-        else if (IsGeminiEnabled)   FocusedProvider = UsageProviderKind.GeminiCli;
         else if (IsOpenCodeEnabled) FocusedProvider = UsageProviderKind.OpenCode;
         else if (IsAntigravityEnabled) FocusedProvider = UsageProviderKind.Antigravity;
         else                        FocusedProvider = UsageProviderKind.Claude; // 모두 비활성 시 최후 폴백
@@ -658,14 +852,11 @@ namespace ClaudeUsageTray.ViewModels;
             case UsageProviderKind.Codex:
                 _history.SetScope(UsageProviderKind.Codex, null);
                 break;
-            case UsageProviderKind.GeminiCli:
-                _history.SetScope(UsageProviderKind.GeminiCli, null);
-                break;
             case UsageProviderKind.OpenCode:
                 _history.SetScope(UsageProviderKind.OpenCode, null);
                 break;
             default:
-                _history.SetScope(UsageProviderKind.Claude, _credentials.GetOrganizationUuid());
+                _history.SetScope(UsageProviderKind.Claude, CurrentClaudeOrgUuid());
                 break;
         }
     }
@@ -708,15 +899,59 @@ namespace ClaudeUsageTray.ViewModels;
     partial void OnIsCodexLoadingChanged(bool value) => OnPropertyChanged(nameof(LblCodexNoUsage));
 
     /// <summary>
-    /// Reads subscriptionType from local credentials and determines if Claude is a paid plan.
-    /// Paid plans (pro, max, team, etc.) should always show the Claude section even at 0% usage.
+    /// 자격 파일의 subscriptionType 으로 유료 구독 여부와 등급 배지를 갱신한다.
+    /// 유료 구독(pro·max·team …)이면 0% 사용이어도 Claude 섹션을 남긴다.
+    /// 파일이 있는데 읽지 못했으면(Claude Code 가 쓰는 도중 등) 직전 값을 유지한다 — 일시적 실패로
+    /// 구독 중인 섹션이 접혔다 펴지는 깜빡임을 막는다. 파일이 없으면 로그아웃으로 확정해 반영한다.
+    /// 계정 이름·조직(#218)도 여기서 함께 다시 읽는다 — 자격 파일 변경(계정 전환)과 정기 새로고침 모두 이 경로를 지난다.
+    /// 로그아웃으로 자격 파일이 없으면 ~/.claude.json 에 프로필이 남아 있어도 보이지 않는다.
     /// </summary>
     private void UpdateClaudeSubscription()
     {
-        var subType = _credentials.GetSubscriptionType();
-        ClaudeVm.IsSubscribed = !string.IsNullOrEmpty(subType)
-            && !string.Equals(subType, "free", StringComparison.OrdinalIgnoreCase);
+        if (!_credentials.TryGetSubscriptionInfo(out var info))
+            return;
+        ClaudeVm.IsSubscribed = IsPaidClaudeSubscription(info.SubscriptionType);
+        ClaudePlanLabel = PlanLabels.Claude(info.SubscriptionType, info.RateLimitTier);
+        ClaudeAccountLabel = _credentials.HasCredentials() ? _claudeAccount.GetLabel() : "";
+        RefreshClaudeAccountAlias();
     }
+
+    /// <summary>
+    /// 지금 로그인한 계정의 별명(#307)을 설정 칸·배지에 반영한다. 계정 전환·로그아웃도 이 경로를 지난다 —
+    /// 계정 키를 모르면(로그아웃) 칸을 잠그고 비운다.
+    /// </summary>
+    private void RefreshClaudeAccountAlias()
+    {
+        var key = CurrentClaudeMobileAccountKey();
+        CanEditClaudeAccountAlias = key is not null;
+        ClaudeAccountAlias = AccountAlias.Find(_claudeAccountAliases, key);
+    }
+
+    /// <summary>
+    /// Input : 설정 창 별명 칸의 값
+    /// Output: 바뀌었으면 true(호출자가 저장한다 — 설정 창은 다른 칸처럼 Setting_Changed 로 저장·새로고침한다)
+    /// 핵심 로직: 지금 로그인한 계정에만 붙인다(#307). 계정 키를 모르면(로그아웃) 아무것도 하지 않는다.
+    ///           빈 값은 그 계정의 별명을 지운다 — 다시 계정 이름이 보인다. 다른 계정의 별명은 그대로 둔다.
+    /// </summary>
+    public bool SetClaudeAccountAlias(string? alias)
+    {
+        var key = CurrentClaudeMobileAccountKey();
+        if (key is null) return false;
+        var clean = AccountAlias.Clean(alias);
+        if (clean == AccountAlias.Find(_claudeAccountAliases, key)) return false;
+        _claudeAccountAliases = AccountAlias.With(_claudeAccountAliases, key, clean, DateTimeOffset.UtcNow);
+        ClaudeAccountAlias = clean;
+        return true;
+    }
+
+    /// <summary>
+    /// ~/.claude/.credentials.json 의 <c>claudeAiOauth.subscriptionType</c>("pro"·"max"·"free" …) 이
+    /// 유료 구독을 가리키는지. 값이 없으면(로그아웃·필드 부재) 구독으로 치지 않는다 —
+    /// 모르는 상태를 구독으로 단정하면 쓰지도 않는 공급자 섹션이 계속 남는다.
+    /// </summary>
+    internal static bool IsPaidClaudeSubscription(string? subscriptionType) =>
+        !string.IsNullOrWhiteSpace(subscriptionType)
+        && !string.Equals(subscriptionType, "free", StringComparison.OrdinalIgnoreCase);
 
     [RelayCommand]
     public void SaveSettings()
@@ -728,15 +963,15 @@ namespace ClaudeUsageTray.ViewModels;
         if (Threshold100) thresholds.Add(100);
 
         var visibleProviders = new List<string>();
+        var (claudeAliases, claudeAliasTimes) = AccountAlias.ToSettings(_claudeAccountAliases);
         if (IsClaudeEnabled)   visibleProviders.Add(UsageProviderKind.Claude);
         if (IsCodexEnabled)    visibleProviders.Add(UsageProviderKind.Codex);
-        if (IsGeminiEnabled)   visibleProviders.Add(UsageProviderKind.GeminiCli);
         if (IsOpenCodeEnabled) visibleProviders.Add(UsageProviderKind.OpenCode);
+        if (IsAntigravityEnabled) visibleProviders.Add(UsageProviderKind.Antigravity);
 
-        // Preserve SkippedVersion / AutoUpdateAttemptedVersion from disk
-        var existing = _settingsService.Load();
-
-        _settingsService.Save(new NotificationSettings
+        // 디스크에서만 바뀌는 값(SkippedVersion·AutoUpdateAttemptedVersion 등)은 보존한다. 읽기부터 쓰기까지 한 잠금 안에서
+        // 해야 그 사이 다른 스레드가 기록한 값(자동 업데이트 시도 표식 등)을 옛 값으로 덮어쓰지 않는다(#331).
+        var saved = _settingsService.Update(existing => new NotificationSettings
         {
             SelectedProvider = SelectedProvider,
             Language = SelectedLanguage,
@@ -759,9 +994,12 @@ namespace ClaudeUsageTray.ViewModels;
             TrayDisplayMode = TrayDisplayMode,
             HideInactiveProviders = HideInactiveProviders,
             VisibleProviders = visibleProviders,
+            ProviderSettingsVersion = NotificationSettings.CurrentProviderSettingsVersion,
             FocusedProvider = FocusedProvider,
-            ShowCodexPlanBadge = ShowCodexPlanBadge,
+            ShowPlanBadge = ShowPlanBadge,
+            ShowClaudeAccount = ShowClaudeAccount,
             ShowAbsoluteResetTime = ShowAbsoluteResetTime,
+            ShowAntigravityThirdPartyQuota = ShowAntigravityThirdPartyQuota,
             KeepPopupAboveTaskbar = KeepPopupAboveTaskbar,
             UsagePanelOpacity = UsagePanelOpacity,
             // 추적 필드 보존 — settings 저장 시 매번 잃지 않도록
@@ -787,7 +1025,49 @@ namespace ClaudeUsageTray.ViewModels;
             WeatherOfficialAlertsEnabled      = WeatherOfficialAlertsEnabled,
             WeatherForecastSource             = WeatherForecastSource,
             WeatherForecastModel              = WeatherForecastModel,
-        });
+
+            MobileEnabled      = MobileEnabled,
+            MobileLan          = MobileLan,
+            MobileTailscale    = MobileTailscale,
+            MobileCloudflare   = MobileCloudflare,
+            MobileCloudflareHostname       = MobileCloudflareHostname,
+            MobileCloudflareTokenProtected = MobileCloudflareTokenProtected,
+            HmsApiKeyProtected = HmsApiKeyProtected,
+            PcAlias            = PcName.Clean(PcAlias, PcName.MaxAliasLength),
+            ClaudeAccountAliases = claudeAliases,
+            ClaudeAccountAliasUpdatedAt = claudeAliasTimes,
+            // 파일에서만 바꾸는 값은 디스크 값을 보존한다.
+            MobilePort         = existing.MobilePort,
+            MobileBindLoopback = existing.MobileBindLoopback,
+            MobileCloudflaredPath = existing.MobileCloudflaredPath,
+        })!;
+        ApplyMobileSettings(saved);
+    }
+
+    /// <summary>
+    /// Input : 방금 저장한 설정
+    /// Output: 없음
+    /// 핵심 로직: 서버 시작·중지와 함께, 화면에서 끈 provider 를 휴대폰 피드에서도 바로 뺀다 —
+    ///           끈 provider 는 더 갱신되지 않으므로 그냥 두면 휴대폰에 6시간 동안 옛 값이 남는다.
+    /// </summary>
+    private void ApplyMobileSettings(NotificationSettings settings)
+    {
+        // 이름은 휴대폰 연동을 꺼도 쓰인다(공유 폴더 스냅샷·ntfy 알림) — 연동 적용이 실패해도 먼저 반영한다.
+        // 시작할 때도 첫 새로고침 전에 이 함수를 거치므로 첫 알림부터 설정한 이름이 나간다.
+        PcName.SetAlias(settings.PcAlias);
+        try
+        {
+            Mobile.Feed.Retain(MobileFeedProviders(settings));
+            Mobile.Apply(settings);
+        }
+        catch (Exception ex)
+        {
+            // 휴대폰 연동 실패가 설정 저장·사용량 표시를 막지 않게 한다.
+#if DEBUG
+            Debug.WriteLine($"[MainViewModel] mobile apply failed: {ex}");
+#endif
+            GC.KeepAlive(ex);
+        }
     }
 
     public async Task StartAsync()
@@ -799,6 +1079,8 @@ namespace ClaudeUsageTray.ViewModels;
         // 날씨 조회가 끝날 때까지 확인이 시작조차 못 하고, 그 사이 실패하면 24시간 동안 재시도가 없었다.
         _ = RunStartupUpdateCheckAsync();
 
+        ApplyMobileSettings(_settingsService.Load());
+
         await RefreshAsync();
         _timer.Start();
         _countdownTimer.Start();
@@ -809,8 +1091,9 @@ namespace ClaudeUsageTray.ViewModels;
     public async Task ManualCheckForUpdateAsync()
     {
         if (IsUpdating) return;
-        if (UpdateAvailable && TryShowCachedUpdateDialog()) return;
 
+        // 앞서 찾아 둔 업데이트가 있어도 다시 확인한다(#300). 캐시는 시작 시·24시간마다만 새로 고쳐서, 그 사이 나온
+        // 새 버전을 두고 옛 버전 대화상자를 열면 중간 버전을 설치하고 재시작 직후 또 업데이트하게 된다.
         UpdateCheckLabel = Loc.CheckingUpdate;
 
         UpdateService.UpdateInfo? result;
@@ -821,6 +1104,7 @@ namespace ClaudeUsageTray.ViewModels;
         catch (UpdateCheckException uex)
         {
             RecordUpdateCheck(() => DescribeUpdateCheckError(uex));
+            if (await TryShowCachedUpdateDialogAsync()) return;
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
             {
                 UpdateCheckLabel = DescribeUpdateCheckError(uex);
@@ -855,6 +1139,7 @@ namespace ClaudeUsageTray.ViewModels;
             // 분류되지 않은 예외 — 메시지 일부라도 노출
             var detail = Truncate(ex.Message);
             RecordUpdateCheck(() => $"{Loc.UpdateCheckFailed}: {detail}");
+            if (await TryShowCachedUpdateDialogAsync()) return;
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
             {
                 UpdateCheckLabel = $"{Loc.UpdateCheckFailed}: {detail}";
@@ -879,12 +1164,12 @@ namespace ClaudeUsageTray.ViewModels;
 
         // 사용자가 직접 확인을 요청했으므로, 이전에 건너뛴 버전이라도 다시 제시한다.
         var manualVersion = result.version.ToString(3);
-        var stored = _settingsService.Load();
-        if (stored.SkippedVersion == manualVersion)
+        _settingsService.Update(stored =>
         {
+            if (stored.SkippedVersion != manualVersion) return null;
             stored.SkippedVersion = "";
-            _settingsService.Save(stored);
-        }
+            return stored;
+        });
 
         await ApplyCheckResultAsync(result, showDialog: true);
     }
@@ -982,7 +1267,7 @@ namespace ClaudeUsageTray.ViewModels;
             UpdateCheckLabel = UpdateLabel;
 
             if (showDialog)
-                ShowUpdateDialogWithCountdown(versionStr, _updateReleaseNotes);
+                ShowUpdateDialogWithCountdown(result);
         });
     }
 
@@ -1027,36 +1312,38 @@ namespace ClaudeUsageTray.ViewModels;
 
     private string StoreAvailableUpdate(UpdateService.UpdateInfo info)
     {
-        var versionStr = info.version.ToString(3);
-        _updateVersion = versionStr;
-        _updateReleaseNotes = info.releaseNotes;
-        _updateDownloadUrl = info.downloadUrl;
-        _updateSha256Url = info.sha256Url;
-        return versionStr;
+        _availableUpdate = info;
+        return info.version.ToString(3);
     }
 
-    private bool TryShowCachedUpdateDialog()
+    /// <summary>
+    /// 확인이 실패했을 때 앞서 찾아 둔 업데이트가 있으면 그 대화상자를 연다. 오래된 캐시일 수 있지만 설치는 받기 직전에
+    /// 다시 확인하므로(#300) 그 사이 나온 새 버전을 놓치지 않는다. 열었으면 true(대화상자가 닫힌 뒤 돌아온다).
+    /// </summary>
+    private async Task<bool> TryShowCachedUpdateDialogAsync()
     {
-        if (string.IsNullOrWhiteSpace(_updateVersion) || string.IsNullOrWhiteSpace(_updateDownloadUrl))
-            return false;
+        var shown = false;
+        await OnUiThreadAsync(() =>
+        {
+            var cached = _availableUpdate;
+            if (!UpdateAvailable || cached is null) return;
 
-        ShowUpdateDialogWithCountdown(_updateVersion, _updateReleaseNotes);
-        return true;
+            shown = true;
+            UpdateCheckLabel = UpdateLabel;
+            ShowUpdateDialogWithCountdown(cached);
+        });
+        return shown;
     }
 
     /// <summary>
     /// 무인 설치(카운트다운)를 허용할지 결정한다. 정책 자체를 검증할 수 있도록 순수 함수로 분리했다.
     /// </summary>
-    /// <param name="canVerify">릴리스에 SHA256 자산이 있어 무결성 검증이 가능한지.</param>
     /// <param name="autoRetryExhausted">이 버전을 이미 자동으로 적용하려다 실패한 적이 있는지.</param>
     /// <returns>카운트다운 초(0 이면 수동 실행만) 와 모달에 띄울 안내 문구(없으면 null).</returns>
     internal static (int seconds, string? notice) ResolveAutoUpdatePlan(
-        bool canVerify, bool autoRetryExhausted, bool autoUpdateEnabled, int countdownSeconds)
+        bool autoRetryExhausted, bool autoUpdateEnabled, int countdownSeconds)
     {
-        // 검증이 불가능하면 사람이 보지 않는 사이에 설치하지 않는다. 이 안내는 자동 설치를 꺼 둔
-        // 사용자에게도 유효하다 — 직접 실행할지 판단하는 데 필요한 정보라 먼저 확인한다.
-        if (!canVerify) return (0, Loc.UpdateNoChecksumWarning);
-
+        // 서명 없는 릴리스는 UpdateService.SelectUpdate 가 아예 고르지 않으므로(#290) 여기까지 오는 업데이트는 모두 검증할 수 있다.
         // 사용자가 자동 설치를 껐다면 그대로 따른다. 본인이 고른 동작이므로 별도 안내는 띄우지 않는다.
         if (!autoUpdateEnabled) return (0, null);
 
@@ -1074,28 +1361,34 @@ namespace ClaudeUsageTray.ViewModels;
         AppConstants.MaxAutoUpdateCountdownSeconds);
 
     /// <summary>업데이트 모달을 연다. 카운트다운 허용 여부는 <see cref="ResolveAutoUpdatePlan"/> 가 정한다.</summary>
-    private void ShowUpdateDialogWithCountdown(string version, string notes)
+    private void ShowUpdateDialogWithCountdown(UpdateService.UpdateInfo update)
     {
         var (seconds, notice) = ResolveAutoUpdatePlan(
-            canVerify: !string.IsNullOrWhiteSpace(_updateSha256Url),
-            autoRetryExhausted: _settingsService.Load().AutoUpdateAttemptedVersion == version,
+            autoRetryExhausted: _settingsService.Load().AutoUpdateAttemptedVersion == update.version.ToString(3),
             autoUpdateEnabled: AutoUpdateEnabled,
             countdownSeconds: AutoUpdateCountdownSeconds);
 
-        ShowUpdateDialog(version, notes, autoUpdateSeconds: seconds, notice: notice);
+        ShowUpdateDialog(update, autoUpdateSeconds: seconds, notice: notice);
     }
 
-    private void ShowUpdateDialog(string version, string notes, int autoUpdateSeconds, string? notice)
+    /// <summary>
+    /// 업데이트 대화상자를 연다. 설치할 버전은 이 대화상자가 가진 <paramref name="offered"/> 에서 출발한다 — 공용 캐시를 그때그때 읽으면
+    /// 대화상자가 열린 동안 주기 확인이 캐시를 바꿨을 때 화면의 버전과 실제로 받는 버전이 어긋났다(#300).
+    /// </summary>
+    private void ShowUpdateDialog(UpdateService.UpdateInfo offered, int autoUpdateSeconds, string? notice)
     {
         if (_isUpdateDialogOpen) return;
 
         try
         {
             _isUpdateDialogOpen = true;
+            // 받기 직전 재확인으로 더 새 버전으로 바뀌면 이 값도 따라 바뀐다. 설치가 실패해 버튼이 다시 열리면
+            // '건너뛰기'와 재시도는 화면에 보이는 그 버전을 대상으로 한다.
+            var current = offered;
             var dialog = new Views.UpdateDialog(
-                $"v{version}",
-                notes,
-                onSkip: () => SkipVersion(version),
+                $"v{offered.version.ToString(3)}",
+                offered.releaseNotes,
+                onSkip: () => SkipVersion(current.version.ToString(3)),
                 autoUpdateSeconds: autoUpdateSeconds);
 
             if (!string.IsNullOrEmpty(notice))
@@ -1103,29 +1396,42 @@ namespace ClaudeUsageTray.ViewModels;
 
             dialog.OnUpdateRequested += () =>
             {
-                // 카운트다운 만료로 시작된 자동 적용만 기록한다. 사용자가 직접 누른 경우는 실패해도
-                // 루프가 아니므로 표식을 남기지 않는다.
-                if (dialog.StartedAutomatically) RecordAutoUpdateAttempt(version);
+                var automatic = dialog.StartedAutomatically;
+                var requested = current;
 
                 _ = Task.Run(async () =>
                 {
                     try
                     {
                         IsUpdating = true;
-                        var tempPath = await _updater.DownloadAndPrepareUpdateAsync(
-                            _updateDownloadUrl, _updateSha256Url,
-                            // 이중 방어: 카운트다운으로 시작된 무인 설치는 검증 자산이 없으면 서비스가 거부한다.
-                            // 사용자가 경고를 보고 직접 누른 경우에만 검증 없이 진행한다.
-                            allowUnverified: !dialog.StartedAutomatically,
-                            onProgress: (pc, status) =>
+                        void Progress(int pc, string status)
+                        {
+                            dialog.UpdateProgress(pc, status);
+                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
                             {
-                                dialog.UpdateProgress(pc, status);
-                                System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                                {
-                                    UpdateProgress = pc;
-                                    UpdateStatusText = status;
-                                });
+                                UpdateProgress = pc;
+                                UpdateStatusText = status;
                             });
+                        }
+
+                        // 찾아 둔 뒤 새 버전이 또 나왔으면 그걸 받는다 — 그대로 받으면 중간 버전을 설치하고 재시작 직후
+                        // 한 번 더 업데이트하게 된다(#300). 다시 확인이 실패하면 찾아 둔 버전으로 진행한다.
+                        Progress(0, Loc.CheckingUpdate);
+                        var target = await UpdateService.ResolveInstallTargetAsync(requested, _updater.CheckForUpdateAsync);
+                        if (target.version != requested.version)
+                        {
+                            current = target;
+                            dialog.ChangeVersion($"v{target.version.ToString(3)}", target.releaseNotes);
+                            await ApplyCheckResultAsync(target, showDialog: false);
+                        }
+
+                        // 카운트다운 만료로 시작된 자동 적용만, 실제로 받는 버전으로 기록한다. 사용자가 직접 누른 경우는
+                        // 실패해도 루프가 아니므로 표식을 남기지 않는다.
+                        if (automatic) RecordAutoUpdateAttempt(target.version.ToString(3));
+
+                        // 서명이 맞지 않으면 서비스가 받은 파일을 지우고 거부한다 — 사용자가 직접 누른 경우도 같다(#290).
+                        var tempPath = await _updater.DownloadAndPrepareUpdateAsync(
+                            target.downloadUrl, target.signatureUrl, target.version, onProgress: Progress);
 
                         dialog.UpdateProgress(100, "Restarting...");
                         await Task.Delay(500);
@@ -1160,20 +1466,13 @@ namespace ClaudeUsageTray.ViewModels;
         }
     }
 
-    [RelayCommand]
-    public void StartUpdate()
-    {
-        if (IsUpdating) return;
-        if (TryShowCachedUpdateDialog()) return;
-
-        _ = ManualCheckForUpdateAsync();
-    }
-
     public void SkipVersion(string version)
     {
-        var settings = _settingsService.Load();
-        settings.SkippedVersion = version;
-        _settingsService.Save(settings);
+        _settingsService.Update(settings =>
+        {
+            settings.SkippedVersion = version;
+            return settings;
+        });
         UpdateAvailable = false;
         UpdateCheckLabel = "";
     }
@@ -1181,11 +1480,12 @@ namespace ClaudeUsageTray.ViewModels;
     /// <summary>자동(카운트다운) 적용을 시도한 버전을 기록해 다음 실행의 무한 재시도를 막는다.</summary>
     private void RecordAutoUpdateAttempt(string version)
     {
-        var settings = _settingsService.Load();
-        if (settings.AutoUpdateAttemptedVersion == version) return;
-
-        settings.AutoUpdateAttemptedVersion = version;
-        _settingsService.Save(settings);
+        _settingsService.Update(settings =>
+        {
+            if (settings.AutoUpdateAttemptedVersion == version) return null;
+            settings.AutoUpdateAttemptedVersion = version;
+            return settings;
+        });
     }
 
     /// <summary>
@@ -1194,17 +1494,19 @@ namespace ClaudeUsageTray.ViewModels;
     /// </summary>
     private void ClearCompletedAutoUpdateMarker()
     {
-        var settings = _settingsService.Load();
-        var attempted = settings.AutoUpdateAttemptedVersion;
-        if (string.IsNullOrEmpty(attempted)) return;
+        _settingsService.Update(settings =>
+        {
+            var attempted = settings.AutoUpdateAttemptedVersion;
+            if (string.IsNullOrEmpty(attempted)) return null;
 
-        // 파싱 불가한 값은 잔재로 보고 정리한다.
-        if (Version.TryParse(attempted, out var attemptedVersion) &&
-            attemptedVersion > UpdateService.CurrentVersion)
-            return;
+            // 파싱 불가한 값은 잔재로 보고 정리한다.
+            if (Version.TryParse(attempted, out var attemptedVersion) &&
+                attemptedVersion > UpdateService.CurrentVersion)
+                return null;
 
-        settings.AutoUpdateAttemptedVersion = "";
-        _settingsService.Save(settings);
+            settings.AutoUpdateAttemptedVersion = "";
+            return settings;
+        });
     }
 
     [RelayCommand]
@@ -1216,6 +1518,101 @@ namespace ClaudeUsageTray.ViewModels;
         _history.ExportCsv(filePath);
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
             "explorer.exe", $"/select,\"{filePath}\"") { UseShellExecute = true });
+    }
+
+    /// <summary>
+    /// 로그인 만료·토큰 없음 상태에서 새 콘솔 창으로 <c>claude auth login</c> 을 띄운다(#180).
+    /// 로그인이 끝나 자격 파일이 바뀌면 <see cref="OnCredentialsChanged"/> 가 새로고침을 이어받는다.
+    /// </summary>
+    // CLI 탐색은 PATH 의 네트워크 경로에서 오래 걸릴 수 있어 스레드풀에서 하고, 분기는 클릭 시점의 결과로 정한다.
+    // 비동기 명령은 실행 중 다시 눌리지 않으므로 연타해도 창이 여러 개 뜨지 않는다.
+    [RelayCommand]
+    public async Task LaunchClaudeLoginAsync()
+    {
+        var cliPath = await Task.Run(ClaudeLoginLauncher.FindCli);
+        ClaudeVm.IsCliInstalled = cliPath is not null;
+        if (!ClaudeLoginLauncher.TryLaunch(cliPath, out var error))
+        {
+            ClaudeVm.LoginLaunchError = Loc.ClaudeLoginLaunchFailed(error ?? "");
+            return;
+        }
+        ClaudeVm.LoginLaunchError = "";
+        WatchForClaudeLogin();
+        // 창이 뜨기까지 1~2초 걸려 다시 누르기 쉽다 — 그동안 명령을 붙잡아 창이 여러 개 뜨지 않게 한다
+        // (설치 분기 두 개가 동시에 돌면 같은 다운로드 파일을 다퉈 한쪽이 실패한다).
+        await Task.Delay(TimeSpan.FromSeconds(3));
+    }
+
+    /// <summary>
+    /// 터미널을 띄운 뒤 로그인이 끝나 자격 파일이 바뀌면 다음 폴링을 기다리지 않고 바로 새로고침한다(최대 15분).
+    /// 앱 시작 때 ~/.claude 가 없던 PC(설치 후 로그인 대상)는 파일 감시자가 없어 CredentialsChanged 가 오지 않고,
+    /// 감시자가 있어도 트레이 공급자가 Claude 가 아니면 즉시 새로고침하지 않기 때문이다.
+    /// </summary>
+    private void WatchForClaudeLogin()
+    {
+        CancelClaudeLoginWatch();
+        var cts = new CancellationTokenSource(TimeSpan.FromMinutes(15));
+        var token = cts.Token;
+        var before = _credentials.GetLastWriteTimeUtc();
+        Interlocked.Exchange(ref _claudeLoginWatchCts, cts)?.Dispose();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (true)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(3), token);
+                    if (_credentials.GetLastWriteTimeUtc() == before) continue;
+                    // 감시자가 있으면 OnCredentialsChanged 가 디바운스 뒤 먼저 새로고침하고 이 감시를 취소한다 —
+                    // 그 여유를 두고 기다려 같은 변경으로 두 번 새로고침하지 않게 한다(쓰는 도중에 읽지 않는 효과도 있다).
+                    await Task.Delay(TimeSpan.FromSeconds(2), token);
+                    await RefreshAsync();
+                    return;
+                }
+            }
+            catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException)
+            {
+                // 감시자가 새로고침을 맡음·시간 초과·새 로그인 시도·종료 — 정기 폴링이 이어받는다.
+            }
+        });
+    }
+
+    // 감시 취소·정리는 이 한 곳으로 — 타이머 스레드(OnCredentialsChanged)와 UI 스레드가 겹쳐도 한쪽만 정리하게 한다.
+    private void CancelClaudeLoginWatch()
+    {
+        var cts = Interlocked.Exchange(ref _claudeLoginWatchCts, null);
+        if (cts is null) return;
+        cts.Cancel();
+        cts.Dispose();
+    }
+
+    /// <summary>
+    /// 재로그인 필요 여부를 기록하고, 필요한 동안은 새로고침마다 CLI 설치 여부를 다시 확인한다 —
+    /// 버튼 문구("터미널에서 로그인" / "설치 후 로그인")가 설치 직후에도 맞게 바뀌도록.
+    /// </summary>
+    private void SetClaudeNeedsLogin(bool needsLogin)
+    {
+        ClaudeVm.NeedsLogin = needsLogin;
+        if (needsLogin) RefreshClaudeCliInstalled();
+    }
+
+    // PATH 에 응답 없는 네트워크 경로가 있으면 File.Exists 가 오래 걸릴 수 있어 UI 스레드 밖에서 찾는다.
+    // 그런 탐색이 폴링 간격보다 오래 막혀도 새로고침마다 탐색이 쌓이지 않도록, 진행 중이면 새로 시작하지 않는다.
+    private void RefreshClaudeCliInstalled()
+    {
+        if (Interlocked.CompareExchange(ref _claudeCliProbeRunning, 1, 0) != 0) return;
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var installed = ClaudeLoginLauncher.FindCli() is not null;
+                System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => ClaudeVm.IsCliInstalled = installed);
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _claudeCliProbeRunning, 0);
+            }
+        });
     }
 
     [RelayCommand]
@@ -1267,18 +1664,20 @@ namespace ClaudeUsageTray.ViewModels;
         var clickUrl = WeatherAlertService.BuildWeatherClickUrlPublic(loc);
 
         _notifier.ShowWeatherAlert(title, ntfyBody, ntfyTopic,
-            ntfyBody, tags: ["sunny"], clickUrl: clickUrl);
+            WeatherPriority.Forecast, ntfyMessage: ntfyBody, tags: ["sunny"], clickUrl: clickUrl);
 
         return null;
     }
 
-    [RelayCommand]
-    public void ApplyUpdate()
-    {
-        _ = ManualCheckForUpdateAsync();
-    }
+    private readonly CoalescedRefresh _refresh;
 
-    public async Task RefreshAsync()
+    /// <summary>
+    /// 모든 공급자를 새로 읽는다. 이미 도는 중이면 따로 돌리지 않고 그게 끝난 뒤 한 번 더 돈다(#314) —
+    /// 돌아오는 것은 그 마지막 실행이 끝났을 때다.
+    /// </summary>
+    public Task RefreshAsync() => _refresh.RunAsync();
+
+    private async Task RefreshOnceAsync()
     {
         _secondsUntilRefresh = PollingIntervalMinutes > 0 ? PollingIntervalMinutes * 60 : 120;
 
@@ -1291,9 +1690,9 @@ namespace ClaudeUsageTray.ViewModels;
             {
                 RefreshClaudeAsync(),
                 RefreshCodexInternalAsync(),
-                RefreshGeminiCliInternalAsync(),
                 RefreshOpenCodeInternalAsync(),
-                RefreshAntigravityInternalAsync()
+                RefreshAntigravityInternalAsync(),
+                RefreshHmsAsync()
             };
 
             if (WeatherEnabled)
@@ -1306,7 +1705,7 @@ namespace ClaudeUsageTray.ViewModels;
                 // 공통 정보 업데이트
                 UpdateOverallStatus();
                 
-                LastUpdatedLabel = (ClaudeVm.HasError || CodexHasError || GeminiHasError || OpenCodeHasError)
+                LastUpdatedLabel = (ClaudeVm.HasError || CodexHasError || OpenCodeHasError)
                     ? $"⚠ {DateTime.Now:HH:mm:ss}"
                     : Loc.UpdatedAt(DateTime.Now.ToString("HH:mm:ss"));
                 IsLoading = false;
@@ -1324,9 +1723,6 @@ namespace ClaudeUsageTray.ViewModels;
         }
     }
 
-    private int _lastGeminiRequestCount = 0;
-    private long _lastGeminiOutputTokens = 0;
-
     private int _lastOpenCodeRequestCount = 0;
     private long _lastOpenCodeInputTokens = 0;
     private long _lastOpenCodeOutputTokens = 0;
@@ -1341,27 +1737,31 @@ namespace ClaudeUsageTray.ViewModels;
         var settings = _settingsService.Load();
         var hideInactive = settings.HideInactiveProviders;
 
-        ClaudeVm.IsActive = IsClaudeEnabled && (!hideInactive || TodayInputTokens + TodayOutputTokens > 0 || ClaudeVm.ShortPercent > 0 || ClaudeVm.HasError);
-        IsCodexActive = IsCodexEnabled && (!hideInactive || CodexPercent > 0 || CodexHasError);
-        IsGeminiActive = IsGeminiEnabled && (!hideInactive || _lastGeminiRequestCount > 0 || GeminiHasError);
-        IsOpenCodeActive = IsOpenCodeEnabled && (!hideInactive || _lastOpenCodeRequestCount > 0 || _openCodeHasPeriodUsage || OpenCodeHasError);
+        ClaudeVm.IsActive = IsClaudeSectionActive(
+            IsClaudeEnabled, hideInactive, TodayInputTokens + TodayOutputTokens,
+            ClaudeVm.ShortPercent, ClaudeVm.HasQuotaData, ClaudeVm.IsSubscribed, ClaudeVm.HasError);
+        IsCodexActive = IsCodexSectionActive(
+            IsCodexEnabled, hideInactive, _codexHasTokenData, CodexPercent, CodexLongPercent,
+            HasLiveCodexQuota(), _isCodexSubscribed, CodexHasError);
+        IsOpenCodeActive = IsOpenCodeSectionActive(
+            IsOpenCodeEnabled, hideInactive, _lastOpenCodeRequestCount, _openCodeHasPeriodUsage,
+            OpenCodeVm.HasWebQuota, OpenCodeVm.HasStaleSyncedQuota, OpenCodeHasError);
 
         ClaudeVm.IsUsageEmpty = TodayInputTokens + TodayOutputTokens == 0;
         IsCodexUsageEmpty = !_codexHasTokenData;
-        IsGeminiUsageEmpty = _lastGeminiRequestCount == 0;
         IsOpenCodeUsageEmpty = _lastOpenCodeRequestCount == 0;
 
         // 2. 트레이 표시 기준 결정 (자동 모드 로직 개선)
         if (TrayDisplayMode == UsageProviderKind.Auto)
         {
-            // 오늘 사용량이 있는 공급자를 우선순위에 따라 선택 (OpenCode -> Gemini -> Codex -> Claude)
+            // 최근 사용량이 있는 공급자를 우선순위에 따라 선택 (OpenCode -> Codex -> Antigravity -> Claude)
             // 단, 사용자가 활성화(Enabled)한 공급자만 선택 대상
             if (IsOpenCodeEnabled && _lastOpenCodeRequestCount > 0)
                 EffectiveTrayProvider = UsageProviderKind.OpenCode;
-            else if (IsGeminiEnabled && _lastGeminiRequestCount > 0)
-                EffectiveTrayProvider = UsageProviderKind.GeminiCli;
             else if (IsCodexEnabled && CodexPercent > 0 && !CodexHasError)
                 EffectiveTrayProvider = UsageProviderKind.Codex;
+            else if (IsAntigravityEnabled && AntigravityHasData && HasRecentAntigravityUsage(AntigravityModels))
+                EffectiveTrayProvider = UsageProviderKind.Antigravity;
             else if (IsClaudeEnabled && TodayInputTokens + TodayOutputTokens > 0)
                 EffectiveTrayProvider = UsageProviderKind.Claude;
             else
@@ -1370,12 +1770,11 @@ namespace ClaudeUsageTray.ViewModels;
                 // 현재 수동 선택된 공급자가 활성 상태면 그것을, 아니면 활성된 것 중 첫 번째(우선순위 역순)
                 if (SelectedProvider == UsageProviderKind.Claude && IsClaudeEnabled) EffectiveTrayProvider = UsageProviderKind.Claude;
                 else if (SelectedProvider == UsageProviderKind.Codex && IsCodexEnabled) EffectiveTrayProvider = UsageProviderKind.Codex;
-                else if (SelectedProvider == UsageProviderKind.GeminiCli && IsGeminiEnabled) EffectiveTrayProvider = UsageProviderKind.GeminiCli;
                 else if (SelectedProvider == UsageProviderKind.OpenCode && IsOpenCodeEnabled) EffectiveTrayProvider = UsageProviderKind.OpenCode;
                 else if (IsClaudeEnabled)   EffectiveTrayProvider = UsageProviderKind.Claude;
                 else if (IsCodexEnabled)    EffectiveTrayProvider = UsageProviderKind.Codex;
-                else if (IsGeminiEnabled)   EffectiveTrayProvider = UsageProviderKind.GeminiCli;
                 else if (IsOpenCodeEnabled) EffectiveTrayProvider = UsageProviderKind.OpenCode;
+                else if (IsAntigravityEnabled) EffectiveTrayProvider = UsageProviderKind.Antigravity;
                 else EffectiveTrayProvider = UsageProviderKind.Claude; // All disabled fallback
             }
         }
@@ -1389,32 +1788,18 @@ namespace ClaudeUsageTray.ViewModels;
         {
             UsageProviderKind.Claude => ClaudeVm.ShortPercent,
             UsageProviderKind.Codex => CodexPercent,
-            UsageProviderKind.GeminiCli => GeminiPercent,
             UsageProviderKind.OpenCode => OpenCodePercent,
+            // 가장 많이 소진된 창 — 창마다 한도가 따로 걸리므로 평균을 쓰면 급한 제약이 가려진다.
+            UsageProviderKind.Antigravity => AntigravityHasData ? AntigravityPercent : 0,
             _ => ClaudeVm.ShortPercent
         };
 
-        // Gemini CLI는 공급자 할당량이 없어 최근 7일 최대치 대비 비율을 트레이 참고값으로 쓴다.
-        // OpenCode는 같은 상대값이 실제 할당량처럼 오해되므로 만들지 않는다.
-        if (TrayDisplayMode == UsageProviderKind.Auto || TrayDisplayMode == EffectiveTrayProvider)
-        {
-            // 초기에 데이터가 없을 때를 대비해 최소 10,000 토큰을 기준으로 잡음
-            const long defaultMinGoal = 10000;
-
-            if (EffectiveTrayProvider == UsageProviderKind.GeminiCli)
-            {
-                var max = _history.GetRecentMaxTotalTokens(UsageProviderKind.GeminiCli, null, 7);
-                var goal = Math.Max(defaultMinGoal, max);
-                if (goal > 0) TrayUsagePercent = Math.Clamp(_lastGeminiOutputTokens / (double)goal, 0, 1);
-            }
-        }
-
-        if (ClaudeVm.HasError && CodexHasError && GeminiHasError && OpenCodeHasError)
+        if (ClaudeVm.HasError && CodexHasError && OpenCodeHasError)
         {
             StatusText = "All Providers Error";
             HasError = true;
         }
-        else if (ClaudeVm.HasError || CodexHasError || GeminiHasError || OpenCodeHasError)
+        else if (ClaudeVm.HasError || CodexHasError || OpenCodeHasError)
         {
             StatusText = "Partial Error";
             HasError = false;
@@ -1429,8 +1814,8 @@ namespace ClaudeUsageTray.ViewModels;
             StatusText = EffectiveTrayProvider switch
             {
                 UsageProviderKind.Codex     => Loc.TrayStatusCodex(CodexPercent, CodexDataSource),
-                UsageProviderKind.GeminiCli => Loc.TrayStatusGemini(_lastGeminiRequestCount, _lastGeminiOutputTokens),
                 UsageProviderKind.OpenCode  => Loc.TrayStatusOpenCode(_lastOpenCodeRequestCount, _lastOpenCodeInputTokens, _lastOpenCodeOutputTokens),
+                UsageProviderKind.Antigravity => Loc.TrayStatusAntigravity(AntigravityPercent, AntigravityHasData),
                 // 미조회 상태에서 "Claude 0%" 라고 쓰면 여유가 100% 라는 뜻으로 읽힌다
                 _ => ClaudeVm.HasQuotaData
                         ? Loc.TrayStatusClaude(ClaudeVm.ShortPercent)
@@ -1439,8 +1824,266 @@ namespace ClaudeUsageTray.ViewModels;
         }
     }
 
+    /// <summary>
+    /// 자동 트레이 모드에서 Antigravity 를 "지금 쓰는 중" 으로 볼 근거 — 5시간 창 사용률이 0 보다 큰가.
+    /// 트레이 게이지 값(<see cref="AntigravityPercent"/>)은 주간 창까지 포함한 최대 소진율이라 한 번 쓰면 일주일 내내
+    /// 0 보다 크다. 그걸 근거로 삼으면 오늘 아직 Claude 를 쓰지 않은 아침마다 트레이가 Antigravity 로 넘어간다.
+    /// Codex 가 5시간 창 사용률(<see cref="CodexPercent"/>)을 보는 것과 같은 기준이다.
+    /// 리셋이 지난 창은 <see cref="AntigravityViewModel.ApplyQuota"/> 가 이미 걸러 낸다.
+    /// </summary>
+    internal static bool HasRecentAntigravityUsage(IReadOnlyList<QuotaGaugeRow> models) =>
+        models.Any(m => m.Window is { } window && window <= TimeSpan.FromHours(5) && m.UsagePercent > 0);
+
+    /// <summary>화면에서 켠 provider 만 휴대폰에 보낸다 — 사용자가 숨긴 provider 를 휴대폰에서 다시 보지 않게.</summary>
+    /// <summary>
+    /// 휴대폰 피드에 남길 provider — 화면에서 켠 공급자 + 키가 있으면 DeepSeek(100milionseek, #318).
+    /// DeepSeek 은 표시 목록 체크박스가 없는 임시 섹션이라 키 유무로 정한다(키를 지우면 휴대폰에서도 바로 빠진다).
+    /// </summary>
+    internal static IReadOnlyCollection<string> MobileFeedProviders(NotificationSettings settings) =>
+        string.IsNullOrEmpty(settings.HmsApiKeyProtected)
+            ? settings.VisibleProviders
+            : [.. settings.VisibleProviders, HmsUsageService.MobileProvider];
+
+    /// <summary>DeepSeek(100milionseek) 일일 한도를 읽고 휴대폰 피드에 싣는다(#318).</summary>
+    private async Task RefreshHmsAsync()
+    {
+        await HmsVm.RefreshAsync();
+        PublishHmsMobile(HmsVm.LastResult, DateTimeOffset.Now);
+    }
+
+    /// <summary>
+    /// 계정 키는 API 키의 지문 — 여러 PC 가 같은 키를 쓰면 휴대폰에서 카드 하나로 묶이고, 키 원문은 나가지 않는다.
+    /// 싣기 직전에 지금 저장된 키를 다시 본다(#319 리뷰): 조회 중에 키를 지우거나 바꾸면 늦게 끝난 옛 키의 결과가
+    /// 설정 저장 때 뺀 카드를 되살렸다(그 뒤 키 없는 조회는 아무것도 안 하므로 최대 6시간 남았다).
+    /// </summary>
+    private void PublishHmsMobile(HmsReadResult? result, DateTimeOffset now)
+    {
+        switch (DecideHmsMobile(result, CurrentHmsKeyId()))
+        {
+            case HmsMobileAction.Remove:
+                Mobile.Feed.Remove(HmsUsageService.MobileProvider);
+                break;
+            case HmsMobileAction.Publish:
+                PublishMobile(HmsUsageService.MobileProvider, result!.KeyId, "",
+                    () => HmsViewModel.CreateMobileQuota(result, now), null, HmsMobileErrorKind(result.State));
+                break;
+        }
+    }
+
+    /// <summary>
+    /// 휴대폰 피드 <c>errorKind</c>(#320). 키 거절은 <see cref="MobileProtocol.AuthFailedErrorKind"/> 로 따로 보내 휴대폰 카드가
+    /// "PC 에서 키를 다시 넣어 주세요" 를 보인다 — 일시 실패(<c>source_error</c>)와 섞이면 값이 멈춘 이유를 알 수 없다.
+    /// </summary>
+    internal static string HmsMobileErrorKind(HmsReadState state) => state switch
+    {
+        HmsReadState.Ok => "",
+        HmsReadState.InvalidKey => MobileProtocol.AuthFailedErrorKind,
+        _ => "source_error",
+    };
+
+    internal enum HmsMobileAction { Skip, Publish, Remove }
+
+    /// <summary>
+    /// 키가 없으면(지금 설정 기준) 피드에서 뺀다. 결과가 지금 키의 것이 아니면(조회 중에 키가 바뀜) 건너뛴다 —
+    /// 다음 조회가 새 키로 싣는다.
+    /// </summary>
+    internal static HmsMobileAction DecideHmsMobile(HmsReadResult? result, string? currentKeyId)
+    {
+        if (currentKeyId is null || result?.State == HmsReadState.NoKey) return HmsMobileAction.Remove;
+        if (result is null || !string.Equals(result.KeyId, currentKeyId, StringComparison.Ordinal)) return HmsMobileAction.Skip;
+        return HmsMobileAction.Publish;
+    }
+
+    /// <summary>지금 저장된 DeepSeek 키의 지문. 키가 없거나 풀 수 없으면 null.</summary>
+    private string? CurrentHmsKeyId() =>
+        MobileSecret.Unprotect(HmsApiKeyProtected)?.Trim() is { Length: > 0 } key ? HmsUsageService.KeyFingerprint(key) : null;
+
+    private bool IsMobileProviderVisible(string provider) => provider switch
+    {
+        UsageProviderKind.Claude => IsClaudeEnabled,
+        UsageProviderKind.Codex => IsCodexEnabled,
+        UsageProviderKind.OpenCode => IsOpenCodeEnabled,
+        UsageProviderKind.Antigravity => IsAntigravityEnabled,
+        _ => false,
+    };
+
+    /// <summary>
+    /// 휴대폰 앱 푸시가 알림을 계정으로 구분하게 붙이는 계정(#262). 휴대폰 사용량 피드와 같은 키·표시 이름이라
+    /// 알림의 계정 해시가 계정 카드의 해시와 같다. 그 계정의 별명(#307)도 싣는다 — 제목 앞 "[별명]".
+    /// </summary>
+    internal PushAccount ClaudePushAccount()
+    {
+        var key = CurrentClaudeMobileAccountKey();
+        return new(UsageProviderKind.Claude, key, _claudeAccount.GetLabel(), AccountAlias.Find(_claudeAccountAliases, key));
+    }
+
+    /// <summary>지금 로그인한 Claude 계정의 휴대폰용 계정 키. 별명(#307)도 이 키로 붙는다. 로그아웃이면 null.</summary>
+    private string? CurrentClaudeMobileAccountKey() =>
+        BuildClaudeMobileAccountKey(CurrentClaudeOrgUuid(), _claudeAccount.GetAccountUuid());
+
+    /// <summary>
+    /// PC 간 동기화에 실을 이 계정의 별명 기록(#313). 별명 키를 모르거나(로그아웃) 이 PC 에 기록이 없으면 null —
+    /// 한 번도 넣지 않은 PC 가 "없음" 을 보내 다른 PC 의 별명을 지우지 않게 한다. 지운 기록은 Alias "" 로 나간다.
+    /// </summary>
+    private UsageSyncAccountAlias? ClaudeSyncAlias(string? mobileAccountKey) =>
+        AccountAlias.Entry(_claudeAccountAliases, mobileAccountKey) is { } entry
+            ? new UsageSyncAccountAlias
+            {
+                KeyHash = ClaudeAliasKeyHash(mobileAccountKey!),
+                Alias = entry.Alias,
+                UpdatedAtUtc = entry.UpdatedAtUtc,
+            }
+            : null;
+
+    /// <summary>
+    /// 별명 키의 해시. 동기화 스냅샷의 계정 해시는 조직 단위라, 팀 조직에서 다른 사람의 별명을 따르지 않게 이것으로 다시 가른다.
+    /// </summary>
+    internal static string ClaudeAliasKeyHash(string mobileAccountKey) =>
+        UsageSyncService.BuildAccountHash(UsageProviderKind.Claude, mobileAccountKey);
+
+    /// <summary>
+    /// Input : 지금 계정의 별명 키, 동기화로 모은 스냅샷(이 PC 것 포함)
+    /// Output: 없음(다른 PC 의 더 최근 별명이면 이 PC 에도 적용·저장)
+    /// 핵심 로직: 같은 계정을 보는 다른 PC 가 더 최근에 바꾼 별명(지운 것 포함)을 따른다(#313). 갱신은 백그라운드에서 돌므로
+    ///           적용은 UI 스레드에서, 그 사이 이 PC 에서 바꿨거나 계정이 바뀌었을 수 있어 그곳에서 다시 판단한다.
+    ///           휴대폰 계정 카드는 다음 갱신 때 새 이름으로 간다.
+    /// </summary>
+    internal void AdoptSyncedClaudeAlias(string? mobileAccountKey, IEnumerable<UsageSyncSnapshot> snapshots)
+    {
+        if (mobileAccountKey is null) return;
+        var incoming = AccountAlias.PickSynced(snapshots, ClaudeAliasKeyHash(mobileAccountKey), _usageSync.DeviceId);
+        if (incoming is null || !AccountAlias.Wins(incoming, AccountAlias.Entry(_claudeAccountAliases, mobileAccountKey))) return;
+
+        void Apply()
+        {
+            if (!AccountAlias.Wins(incoming, AccountAlias.Entry(_claudeAccountAliases, mobileAccountKey))) return;
+            _claudeAccountAliases = AccountAlias.Adopt(_claudeAccountAliases, mobileAccountKey, incoming);
+            if (CurrentClaudeMobileAccountKey() == mobileAccountKey)
+                ClaudeAccountAlias = AccountAlias.Find(_claudeAccountAliases, mobileAccountKey);
+            SaveSettings();
+        }
+
+        if (System.Windows.Application.Current?.Dispatcher is { } dispatcher) _ = dispatcher.InvokeAsync(Apply);
+        else Apply();
+    }
+
+    /// <summary>휴대폰 계정 카드에 보낼 Claude 계정 이름 — 그 계정의 별명(#307)이 있으면 별명, 없으면 프로필 이름.</summary>
+    internal string ClaudeMobileAccountLabel(string? mobileAccountKey) =>
+        AccountAlias.Display(AccountAlias.Find(_claudeAccountAliases, mobileAccountKey), _claudeAccount.GetLabel());
+
+    /// <summary>Codex 표시 이름은 id_token 의 <c>name</c>(이메일은 보내지 않는다, #266) — 피드와 같은 값.</summary>
+    private static PushAccount CodexPushAccount() =>
+        new(UsageProviderKind.Codex, CodexUsageMonitor.GetCurrentAccountIdentity(), CodexUsageMonitor.GetCurrentAccountName());
+
+    /// <summary>
+    /// 지금 이 PC 에 로그인한 Claude 조직(orgUuid). 히스토리 구분·계정 전환 감지·PC 간 동기화·알림 키·휴대폰 계정 카드가
+    /// 모두 이 값으로 계정을 가른다(#275) — Claude 계정이 필요하면 <c>_credentials.GetOrganizationUuid()</c> 를 직접
+    /// 부르지 말고 이것을 쓴다.
+    /// </summary>
+    private string? CurrentClaudeOrgUuid() =>
+        ResolveClaudeOrgUuid(_credentials.GetOrganizationUuid(), _credentials.HasCredentials(), _claudeAccount.GetOrganizationUuid());
+
+    /// <summary>
+    /// Input : 자격 파일(<c>~/.claude/.credentials.json</c>)의 organizationUuid, 자격 파일이 있는지, 프로필(<c>~/.claude.json</c>
+    ///         <c>oauthAccount</c>)의 organizationUuid
+    /// Output: 계정을 가르는 orgUuid. 모르면 null
+    /// 핵심 로직: 최근 Claude Code 는 자격 파일에 organizationUuid 를 쓰지 않고 프로필에만 둔다(#275). 그대로 두면 계정 키가
+    ///           늘 비어 휴대폰은 같은 계정 PC 들을 합치지 못하고, PC 간 동기화는 다른 계정 PC 까지 한 계정으로 묶는다.
+    ///           자격 파일에 값이 있으면 예전처럼 그것을 쓰고(이미 쌓인 히스토리 구분이 바뀌지 않게), 없을 때만 프로필 값을 쓴다.
+    ///           자격 파일이 없으면(로그아웃) 프로필에 예전 계정이 남아 있어도 null — 로그인하지 않은 PC 가 계정을 가진 척하지 않게.
+    /// </summary>
+    internal static string? ResolveClaudeOrgUuid(string? credentialsOrgUuid, bool hasCredentials, string? profileOrgUuid)
+    {
+        if (!string.IsNullOrWhiteSpace(credentialsOrgUuid)) return credentialsOrgUuid;
+        return hasCredentials && !string.IsNullOrWhiteSpace(profileOrgUuid) ? profileOrgUuid.Trim() : null;
+    }
+
+    /// <summary>
+    /// Claude 의 휴대폰용 계정 키. 기존 동기화·기록은 orgUuid 를 계정으로 쓰지만, Team·Enterprise 조직은 여러 사람이
+    /// 같은 orgUuid 를 쓰고 할당량은 사람마다 따로다. 휴대폰은 "같은 계정이면 한 카드" 로 합치므로 다른 사람을
+    /// 합치지 않게 accountUuid 를 덧붙인다(읽지 못하면 orgUuid 만 — 기존 동기화와 같은 기준).
+    /// </summary>
+    internal static string? BuildClaudeMobileAccountKey(string? orgUuid, string? accountUuid)
+    {
+        if (string.IsNullOrWhiteSpace(orgUuid)) return null;
+        return string.IsNullOrWhiteSpace(accountUuid) ? orgUuid.Trim() : $"{orgUuid.Trim()}|{accountUuid.Trim()}";
+    }
+
+    /// <summary>
+    /// Input : provider, 계정 키, 표시 이름, 할당량 생성기, 오늘 합계, 오류 종류
+    /// Output: 없음(휴대폰 피드 갱신)
+    /// 핵심 로직: 동기화 폴더와 무관하게 늘 넣는다(휴대폰만 쓰는 사용자도 있다). 할당량은 동기화용과 따로 만든다 —
+    ///           동기화 쪽이 같은 객체의 관측 시각을 채워 넣으므로 공유하면 두 경로가 서로 영향을 준다.
+    ///           실패해도 사용량 갱신 흐름을 끊지 않는다.
+    /// </summary>
+    private void PublishMobile(
+        string provider,
+        string? accountKey,
+        string accountLabel,
+        Func<UsageSyncQuotaSnapshot?> quota,
+        UsageSyncLocalTotals? today,
+        string? errorKind)
+    {
+        try
+        {
+            Mobile.Publish(provider, accountKey, accountLabel, quota(), today, errorKind ?? "");
+        }
+        catch (Exception ex)
+        {
+#if DEBUG
+            Debug.WriteLine($"[MainViewModel] mobile publish failed for {provider}: {ex}");
+#endif
+            GC.KeepAlive(ex);
+        }
+    }
+
     private bool IsUsageSyncReady =>
         UsageSyncEnabled && !string.IsNullOrWhiteSpace(UsageSyncFolderPath);
+
+    /// <summary>공유 폴더 동기화든 PC 직접 동기화(#223)든 하나라도 켜져 있는가.</summary>
+    private bool IsAnySyncActive => IsUsageSyncReady || Mobile.IsPeerSyncActive;
+
+    /// <summary>공유 폴더가 없으면 빈 문자열 — SelectQuotaCandidates 가 어제 폴더를 읽지 않게.</summary>
+    private string SyncFolderOrEmpty => IsUsageSyncReady ? UsageSyncFolderPath : "";
+
+    /// <summary>
+    /// Input : 이 PC 가 방금 만든 스냅샷, provider·계정 키·오늘 날짜, 계정을 모를 때 그룹의 계정으로 대신할지
+    /// Output: (오늘 스냅샷들 — 토큰 합산용, 할당량 후보 풀 — 어제 것까지)
+    /// 핵심 로직: 두 동기화 경로를 한 목록으로 합친다. 공유 폴더 → 쓰고 읽는다(기존과 같음). PC 직접 동기화 → 이 PC 값을 그룹에
+    ///           내보내고(PublishLocal) 다른 PC 값을 받는다. 같은 PC 가 두 경로로 다 들어오면 더 새로운 것 하나만 남긴다 —
+    ///           그렇지 않으면 그 PC 의 토큰이 두 번 더해진다.
+    ///           계정 키가 없는 PC(Claude Code 미설치·로그아웃)는 그룹에서 가장 최근에 관측된 계정을 대신 보여 준다(#223) —
+    ///           공유 폴더는 계정 해시로 폴더가 나뉘어 이 경우 아무것도 못 읽었다.
+    /// </summary>
+    private (IReadOnlyList<UsageSyncSnapshot> Today, IReadOnlyList<UsageSyncSnapshot> QuotaPool) GatherSyncSnapshots(
+        UsageSyncSnapshot local, string provider, string? accountKey, DateOnly today, bool fallbackToAnyAccount)
+    {
+        var collected = new List<UsageSyncSnapshot>();
+        if (IsUsageSyncReady)
+        {
+            _usageSync.WriteSnapshot(UsageSyncFolderPath, local);
+            collected.AddRange(_usageSync.ReadSnapshots(UsageSyncFolderPath, provider, accountKey, today).Snapshots);
+            UsageSyncStatusLabel = Loc.UsageSyncReady;
+        }
+        else
+        {
+            collected.Add(local);
+        }
+
+        var peers = Mobile.PeerSync;
+        peers.PublishLocal(local);
+        var hash = local.AccountHash;
+        if (fallbackToAnyAccount && string.IsNullOrWhiteSpace(accountKey) && peers.MostRecentAccountHash(provider) is { } groupHash)
+            hash = groupHash;
+        collected.AddRange(peers.Read(provider, hash, today));
+
+        var todaySnapshots = collected
+            .GroupBy(s => s.DeviceId, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderByDescending(s => s.ObservedAtUtc).First())
+            .ToList();
+        IReadOnlyList<UsageSyncSnapshot> pool = [.. todaySnapshots, .. peers.Read(provider, hash, today.AddDays(-1))];
+        return (todaySnapshots, pool);
+    }
 
     private TimeSpan UsageSyncApiTtl =>
         TimeSpan.FromMinutes(Math.Clamp(UsageSyncApiSnapshotTtlMinutes, 1, 60));
@@ -1458,32 +2101,44 @@ namespace ClaudeUsageTray.ViewModels;
                 OpenCodeWebUsageService.CachedFallbackMaxAge.TotalMinutes))
             : TimeSpan.FromMinutes(Math.Clamp(configuredMinutes, 1, 60));
 
-    private UsageSyncSnapshot? TrySyncClaudeUsage(
+    private UsageSyncQuotaCandidates TrySyncClaudeUsage(
         string? accountKey,
         UsageResponse? usage,
+        IReadOnlyList<AdditionalQuotaWindow> modelLimits,
         SessionStats sessionStats,
         string errorKind,
         out UsageSyncMergedLocalTotals? mergedTotals)
     {
         mergedTotals = null;
-        if (!IsUsageSyncReady)
-            return null;
+        var mobileKey = BuildClaudeMobileAccountKey(accountKey, _claudeAccount.GetAccountUuid());
+        if (IsMobileProviderVisible(UsageProviderKind.Claude))
+        {
+            PublishMobile(UsageProviderKind.Claude, mobileKey, ClaudeMobileAccountLabel(mobileKey),
+                () => CreateClaudeQuotaSnapshot(usage, modelLimits), CreateLocalTotals(sessionStats), errorKind);
+        }
+        if (!IsAnySyncActive)
+            return UsageSyncQuotaCandidates.None;
 
         try
         {
             var snapshot = _usageSync.CreateSnapshot(
                 UsageProviderKind.Claude,
                 accountKey,
-                CreateClaudeQuotaSnapshot(usage),
+                CreateClaudeQuotaSnapshot(usage, modelLimits),
                 CreateLocalTotals(sessionStats),
                 errorKind);
-            _usageSync.WriteSnapshot(UsageSyncFolderPath, snapshot);
-
+            // 이 계정의 별명 기록(#313)을 같이 보낸다 — 같은 계정을 보는 다른 PC 가 따른다.
+            snapshot.AccountAlias = ClaudeSyncAlias(mobileKey);
             var today = DateOnly.FromDateTime(DateTime.Now);
-            var read = _usageSync.ReadSnapshots(UsageSyncFolderPath, UsageProviderKind.Claude, accountKey, today);
-            mergedTotals = _usageSync.MergeLocalTotals(read.Snapshots, UsageSyncLocalTtl);
-            UsageSyncStatusLabel = Loc.UsageSyncReady;
-            return _usageSync.SelectNewestQuotaSnapshot(read.Snapshots, UsageSyncApiTtl);
+            // Claude Code 에 로그인하지 않은 PC(계정 키 없음)도 그룹의 다른 PC 가 본 계정을 보여 준다(#223).
+            var (todaySnapshots, quotaPool) = GatherSyncSnapshots(snapshot, UsageProviderKind.Claude, accountKey, today,
+                fallbackToAnyAccount: true);
+            AdoptSyncedClaudeAlias(mobileKey, quotaPool);
+            mergedTotals = _usageSync.MergeLocalTotals(todaySnapshots, UsageSyncLocalTtl);
+            // 신선한 값과 최후 폴백(로컬 API 가 실패/쿨다운 중일 때만 쓴다)을 함께 고른다.
+            // 선택 규칙은 모든 provider 가 UsageSyncService.SelectQuotaCandidates 하나를 공유한다.
+            return _usageSync.SelectQuotaCandidates(
+                SyncFolderOrEmpty, UsageProviderKind.Claude, accountKey, today, quotaPool, UsageSyncApiTtl);
         }
         catch (Exception ex)
         {
@@ -1491,7 +2146,7 @@ namespace ClaudeUsageTray.ViewModels;
 #if DEBUG
             Debug.WriteLine($"[MainViewModel] Claude usage sync failed: {ex}");
 #endif
-            return null;
+            return UsageSyncQuotaCandidates.None;
         }
     }
 
@@ -1503,7 +2158,12 @@ namespace ClaudeUsageTray.ViewModels;
         string provider,
         ProviderUsageSnapshot snapshot)
     {
-        if (!IsUsageSyncReady)
+        if (IsMobileProviderVisible(provider))
+            PublishMobile(provider,
+                provider == UsageProviderKind.Codex ? CodexUsageMonitor.GetCurrentAccountIdentity() : null,
+                provider == UsageProviderKind.Codex ? CodexUsageMonitor.GetCurrentAccountName() ?? "" : "", () => CreateProviderQuotaSnapshot(provider, snapshot), CreateLocalTotals(snapshot),
+                ClassifyProviderError(snapshot.ErrorMessage));
+        if (!IsAnySyncActive)
             return UsageSyncProviderResult.Empty;
 
         try
@@ -1514,18 +2174,17 @@ namespace ClaudeUsageTray.ViewModels;
                 CreateProviderQuotaSnapshot(provider, snapshot),
                 CreateLocalTotals(snapshot),
                 ClassifyProviderError(snapshot.ErrorMessage));
-            _usageSync.WriteSnapshot(UsageSyncFolderPath, localSnapshot);
-
             var today = DateOnly.FromDateTime(DateTime.Now);
-            var read = _usageSync.ReadSnapshots(UsageSyncFolderPath, provider, null, today);
-            UsageSyncStatusLabel = Loc.UsageSyncReady;
+            var (todaySnapshots, quotaPool) = GatherSyncSnapshots(localSnapshot, provider, null, today, fallbackToAnyAccount: false);
             return new UsageSyncProviderResult(
-                _usageSync.MergeLocalTotals(read.Snapshots, UsageSyncLocalTtl),
+                _usageSync.MergeLocalTotals(todaySnapshots, UsageSyncLocalTtl),
                 // 할당량은 합산하지 않는다 — 계정 단위 값이라 가장 최근에 관측한 PC 것을 쓴다.
-                // 기기별로 계산되는 Gemini percent 는 쓰지 않는다. OpenCode 는 공식 웹 할당량만 공유한다.
+                // OpenCode 는 공식 웹 할당량만 공유한다.
                 UsageSyncSharesAccountQuota(provider)
-                    ? _usageSync.SelectNewestQuotaSnapshot(read.Snapshots, UsageSyncQuotaTtl(provider))
-                    : null);
+                    ? _usageSync.SelectQuotaCandidates(
+                        SyncFolderOrEmpty, provider, null, today, quotaPool, UsageSyncQuotaTtl(provider))
+                    : UsageSyncQuotaCandidates.None,
+                todaySnapshots);
         }
         catch (Exception ex)
         {
@@ -1540,21 +2199,32 @@ namespace ClaudeUsageTray.ViewModels;
     /// <summary>
     /// 이 provider 의 할당량이 "계정 단위"라서 기기 간에 공유해도 되는가.
     /// Codex·Antigravity·OpenCode 공식 웹 할당량은 서버가 계정별로 내려주므로 어느 PC 에서 봐도 같은 값이다.
-    /// Gemini CLI 의 percent 는 그 PC 의 로컬 토큰 합계를 그 PC 의 최근 최대치로 나눈 값이라
-    /// 다른 PC 의 값을 가져다 쓰면 남의 기기 기준을 내 화면에 표시하는 셈이 된다 — 대신 합산 토큰으로 다시 계산한다.
+    /// 기기마다 따로 계산하는 값(로컬 토큰을 그 PC 의 최근 최대치로 나눈 비율 등)은 다른 PC 것을 가져다 쓰면
+    /// 남의 기기 기준을 내 화면에 표시하는 셈이 되므로 여기에 넣지 않는다.
     /// </summary>
     internal static bool UsageSyncSharesAccountQuota(string provider) =>
         provider is UsageProviderKind.Codex or UsageProviderKind.Antigravity or UsageProviderKind.OpenCode;
 
-    /// <summary>동기화 1회 결과 — 기기 합산 토큰과, 계정 단위 provider 라면 가장 최신 할당량.</summary>
+    /// <summary>
+    /// 동기화 1회 결과 — 기기 합산 토큰과, 계정 단위 provider 라면 할당량 후보
+    /// (<see cref="UsageSyncQuotaCandidates"/>: 신선한 값 · 최후 폴백 · 안내용 최신 관측),
+    /// 그리고 오늘 폴더에서 읽은 스냅샷 전부(이 PC 것 포함 — 후보 하나로 고를 수 없는 값을 따로 고를 때 쓴다).
+    /// </summary>
     private readonly record struct UsageSyncProviderResult(
         UsageSyncMergedLocalTotals? MergedTotals,
-        UsageSyncSnapshot? RemoteQuota)
+        UsageSyncQuotaCandidates Quota,
+        IReadOnlyList<UsageSyncSnapshot> Snapshots)
     {
-        public static UsageSyncProviderResult Empty => new(null, null);
+        public static UsageSyncProviderResult Empty => new(null, UsageSyncQuotaCandidates.None, []);
     }
 
-    private UsageSyncQuotaSnapshot? CreateClaudeQuotaSnapshot(UsageResponse? usage)
+    /// <summary>
+    /// 이 PC 가 받은 Claude 할당량을 동기화 스냅샷으로. 모델 한정 한도(#187)는 Codex 추가 한도와 같은
+    /// <c>AdditionalQuotas</c> 필드에 싣는다 — 모양(한도 ID·이름·사용률·리셋·창·관측 시각)이 같고, 필드 추가라
+    /// 스키마 버전을 올리지 않는다(구버전 PC 는 이 필드를 무시한다).
+    /// </summary>
+    internal static UsageSyncQuotaSnapshot? CreateClaudeQuotaSnapshot(
+        UsageResponse? usage, IReadOnlyList<AdditionalQuotaWindow> modelLimits)
     {
         if (usage?.FiveHour is null && usage?.SevenDay is null)
             return null;
@@ -1581,8 +2251,20 @@ namespace ClaudeUsageTray.ViewModels;
             ExtraHasLimit = extra?.IsEnabled == true && extraHasLimit,
             ExtraUsagePercent = extraUsagePercent,
             ExtraCreditsLabel = extra?.IsEnabled == true ? extraCreditsLabel : "",
+            AdditionalQuotas = ToSyncAdditionalQuotas(modelLimits),
         };
     }
+
+    private static UsageSyncAdditionalQuota[] ToSyncAdditionalQuotas(IEnumerable<AdditionalQuotaWindow> windows) =>
+        [.. windows.Select(window => new UsageSyncAdditionalQuota
+        {
+            LimitId = window.LimitId,
+            LimitName = window.LimitName,
+            UsagePercent = window.UsagePercent,
+            ResetAt = window.ResetAt,
+            WindowMinutes = window.WindowMinutes,
+            ObservedAt = window.ObservedAt,
+        })];
 
     internal static UsageSyncQuotaSnapshot? CreateProviderQuotaSnapshot(string provider, ProviderUsageSnapshot snapshot)
     {
@@ -1601,6 +2283,11 @@ namespace ClaudeUsageTray.ViewModels;
                     Rolling = CreateOpenCodeQuotaWindow(usage.Rolling),
                     Weekly = CreateOpenCodeQuotaWindow(usage.Weekly),
                     Monthly = CreateOpenCodeQuotaWindow(usage.Monthly),
+                    Product = usage.Product,
+                    ExtraUsageEnabled = usage.ExtraUsageEnabled,
+                    CreditsUsd = usage.CreditsUsd,
+                    Subscription = usage.Subscription.ToString(),
+                    PeriodEndsAt = usage.PeriodEndsAt,
                 },
             };
         }
@@ -1626,7 +2313,64 @@ namespace ClaudeUsageTray.ViewModels;
             LongWindowMinutes = snapshot.LongWindowMinutes,
             HasLongWindow = snapshot.LongWindowMinutes is not null || snapshot.LongResetAt is not null,
             PlanType = snapshot.PlanType ?? "",
+            AdditionalQuotas = ToSyncAdditionalQuotas(snapshot.AdditionalQuotas),
         };
+    }
+
+    /// <summary>
+    /// Codex 추가 한도(#182)를 어디서 가져올지 정한다.
+    /// 추가 한도는 Direct API 만 빠짐없이 주므로, 이 PC 가 API 로 읽었으면 비어 있어도 그 값이 정답이다
+    /// (지금 걸린 추가 한도가 없다는 뜻 — 다른 PC 의 옛 값으로 채우면 이미 없어진 한도가 되살아난다).
+    /// 그렇지 않으면(로그 폴백·조회 실패) 이 PC 로그 값과 동기화 폴더 스냅샷의 값을 모아, 한도마다 가장 최근에
+    /// 관측된 출처를 쓴다 — 계정 단위 값이라 옮겨도 맞고, 며칠 전 로그 값이 다른 PC 가 방금 본 값을 가리지 않는다.
+    /// 기본 창용 할당량 후보(<see cref="UsageSyncQuotaCandidates"/>)를 쓰지 않는 이유: 가장 최근 스냅샷 하나만 고르므로
+    /// 방금 쓴 이 PC 스냅샷(추가 한도 없음)이 거의 항상 뽑혀 다른 PC 의 값이 버려진다.
+    /// </summary>
+    internal static IReadOnlyList<AdditionalQuotaWindow> SelectCodexAdditionalQuotas(
+        ProviderUsageSnapshot local, IEnumerable<UsageSyncSnapshot> syncedSnapshots, DateTimeOffset now)
+    {
+        if (local.DataSource == CodexUsageMonitor.DirectApiSource)
+            return local.AdditionalQuotas;
+
+        var candidates = local.AdditionalQuotas
+            .Concat(syncedSnapshots.SelectMany(ToAdditionalQuotaWindows))
+            .Where(window => window.ResetAt is { } reset && reset > now);
+
+        return [.. candidates
+            .GroupBy(window => window.LimitId, StringComparer.OrdinalIgnoreCase)
+            .SelectMany(limit =>
+            {
+                var newest = limit.Max(window => window.ObservedAt ?? DateTimeOffset.MinValue);
+                return limit
+                    .Where(window => (window.ObservedAt ?? DateTimeOffset.MinValue) == newest)
+                    // 같은 관측이 이 PC 로그 값과 이 PC 가 방금 쓴 스냅샷에 겹쳐 있다.
+                    .DistinctBy(window => window.WindowMinutes)
+                    .OrderBy(window => window.WindowMinutes ?? int.MaxValue);
+            })];
+    }
+
+    private static IEnumerable<AdditionalQuotaWindow> ToAdditionalQuotaWindows(UsageSyncSnapshot snapshot)
+    {
+        if (snapshot.Quota is not { } quota)
+            return [];
+
+        // 창마다 관측 시각을 싣지만, 비어 있으면 그 스냅샷의 관측 시각으로 대신한다.
+        var snapshotObservedAt = quota.ObservedAtUtc ?? snapshot.ObservedAtUtc;
+        return quota.AdditionalQuotas.Select(window => new AdditionalQuotaWindow
+        {
+            LimitId = window.LimitId,
+            LimitName = window.LimitName,
+            UsagePercent = window.UsagePercent,
+            ResetAt = window.ResetAt,
+            WindowMinutes = window.WindowMinutes,
+            ObservedAt = window.ObservedAt ?? snapshotObservedAt,
+        });
+    }
+
+    private void ApplyCodexAdditionalLimits(IReadOnlyList<AdditionalQuotaWindow> windows)
+    {
+        _codexAdditionalSource = windows;
+        CodexAdditionalLimits = CodexViewModel.BuildAdditionalLimitRows(windows, DateTimeOffset.Now, ShowAbsoluteResetTime);
     }
 
     private static UsageSyncOpenCodeQuotaWindow CreateOpenCodeQuotaWindow(OpenCodeQuotaWindow window) =>
@@ -1637,7 +2381,16 @@ namespace ClaudeUsageTray.ViewModels;
         DateTimeOffset? now = null)
     {
         var usage = quota?.OpenCode;
-        if (usage is null || usage.Rolling.ResetAt <= (now ?? DateTimeOffset.Now))
+        if (usage is null)
+            return null;
+
+        // 세 창(롤링·주간·월간)은 리셋 시각이 서로 독립적이다 — 최후 폴백으로 최대 24시간 전
+        // 관측치까지 받게 되면서, 롤링 창은 아직 안 끝났어도 그 사이 주간·월간 창만 리셋된
+        // 스냅샷을 그대로 보여줄 가능성이 실제로 생겼다(주말 동안 꺼져 있던 PC가 월요일 아침
+        // 다른 PC 의 금요일 관측치를 받는 경우 등). 셋 중 하나라도 리셋을 지났으면 통째로 버린다 —
+        // 부분적으로만 신선한 값을 조합해 보여주는 것보다, 다음 실제 조회를 기다리는 편이 낫다.
+        var cutoff = now ?? DateTimeOffset.Now;
+        if (usage.Rolling.ResetAt <= cutoff || usage.Weekly.ResetAt <= cutoff || usage.Monthly.ResetAt <= cutoff)
             return null;
 
         return new OpenCodeWebUsage
@@ -1646,6 +2399,15 @@ namespace ClaudeUsageTray.ViewModels;
             Rolling = CreateOpenCodeQuotaWindow(usage.Rolling),
             Weekly = CreateOpenCodeQuotaWindow(usage.Weekly),
             Monthly = CreateOpenCodeQuotaWindow(usage.Monthly),
+            Product = usage.Product,
+            ExtraUsageEnabled = usage.ExtraUsageEnabled,
+            CreditsUsd = usage.CreditsUsd,
+            // 모르는 이름(이후 버전이 늘린 상태)은 정상 갱신으로 보고 상태 줄을 감춘다. 숫자 문자열은 받지 않는다.
+            Subscription = Enum.TryParse<OpenCodeGoSubscriptionStatus>(usage.Subscription, out var subscription)
+                && Enum.IsDefined(subscription) && !int.TryParse(usage.Subscription, out _)
+                    ? subscription
+                    : OpenCodeGoSubscriptionStatus.Renews,
+            PeriodEndsAt = usage.PeriodEndsAt,
         };
     }
 
@@ -1686,7 +2448,7 @@ namespace ClaudeUsageTray.ViewModels;
         return copy;
     }
 
-    private void ApplySyncedClaudeQuota(UsageSyncSnapshot snapshot)
+    internal void ApplySyncedClaudeQuota(UsageSyncSnapshot snapshot)
     {
         if (snapshot.Quota is not { HasData: true } quota)
             return;
@@ -1722,10 +2484,14 @@ namespace ClaudeUsageTray.ViewModels;
             quota.ExtraCreditsLabel);
         SetClaudeExtraOnlyMode(ExtraUsageEnabled && ClaudeVm.ShortPercent >= 1.0);
 
+        // 모델 한정 한도(#187)는 기본 창과 같은 조회에서 함께 온 값이라, 같은 스냅샷의 것을 그대로 쓴다
+        // (Codex 처럼 출처를 따로 고를 필요가 없다). 이 필드가 없던 버전의 스냅샷이면 비어 있다.
+        ClaudeVm.SetModelLimits([.. ToAdditionalQuotaWindows(snapshot)], DateTimeOffset.Now, ShowAbsoluteResetTime);
+
         var quotaObservedAt = quota.ObservedAtUtc ?? snapshot.ObservedAtUtc;
         ClaudeVm.ApiNote = Loc.UsageSyncQuotaFromDevice(
             snapshot.DeviceName,
-            quotaObservedAt.ToLocalTime().ToString("HH:mm"));
+            UsageCalculator.FormatObservedAt(quotaObservedAt, DateTimeOffset.Now));
         StatusText = $"{ClaudeVm.ShortPercent:P0} used";
     }
 
@@ -1747,7 +2513,6 @@ namespace ClaudeUsageTray.ViewModels;
         CodexErrorMessage = "";
 
         CodexPercent = quota.ShortUsagePercent;
-        _prevCodexPercent = quota.ShortUsagePercent;
         _rawCodexShortResetAt = quota.ShortResetAt;
         _rawCodexShortResetEstimated = quota.IsShortResetEstimated;
         CodexReset = FormatResetLabel(quota.ShortResetAt, quota.IsShortResetEstimated);
@@ -1763,12 +2528,12 @@ namespace ClaudeUsageTray.ViewModels;
         CodexLongWindowLabel = Loc.CodexWindowLabel(quota.LongWindowMinutes);
         IsCodexLongVisible = quota.HasLongWindow;
 
-        if (!string.IsNullOrWhiteSpace(quota.PlanType))
-            CodexPlanLabel = $"ChatGPT {quota.PlanType}";
+        if (PlanLabels.Codex(quota.PlanType) is { Length: > 0 } planLabel)
+            CodexPlanLabel = planLabel;
 
         CodexDataSource = Loc.UsageSyncQuotaFromDevice(
             snapshot.DeviceName,
-            (quota.ObservedAtUtc ?? snapshot.ObservedAtUtc).ToLocalTime().ToString("HH:mm"));
+            UsageCalculator.FormatObservedAt(quota.ObservedAtUtc ?? snapshot.ObservedAtUtc, DateTimeOffset.Now));
     }
 
     private static string ClassifyClaudeApiError(string? error)
@@ -1789,14 +2554,13 @@ namespace ClaudeUsageTray.ViewModels;
         if (string.IsNullOrWhiteSpace(error))
             return "";
         if (UsageCalculator.IsNoUsageInformational(error, UsageProviderKind.Codex) ||
-            UsageCalculator.IsNoUsageInformational(error, UsageProviderKind.GeminiCli) ||
             UsageCalculator.IsNoUsageInformational(error, UsageProviderKind.OpenCode))
             return "no_usage";
         return "source_error";
     }
 
     private static string TokenOrDash(long tokens) =>
-        tokens > 0 ? UsageCalculator.FormatTokenShort(tokens) : "—";
+        tokens > 0 ? UsageCalculator.FormatTokenShort(tokens) : Loc.QuotaUnknownMark;
 
     private static string RequestCountOrDash(int count) =>
         count > 0
@@ -1812,28 +2576,113 @@ namespace ClaudeUsageTray.ViewModels;
         return string.IsNullOrWhiteSpace(text) ? note : $"{text} · {note}";
     }
 
-    private static bool HasMergedDeviceTotals(UsageSyncMergedLocalTotals? merged) =>
-        merged is { DeviceCount: > 1, HasData: true };
+    /// <summary>
+    /// 병합 합계를 화면 값으로 쓸지 여부.
+    /// DeviceCount 는 "사용량이 있는 기기" 수라, &gt; 1 을 요구하면 이 PC 에 로컬 사용량이 없을 때
+    /// (예: OpenCode 를 다른 PC 에서만 쓰는 경우) 다른 PC 값이 통째로 버려져
+    /// HideInactiveProviders 와 맞물려 공급자 섹션이 아예 사라진다.
+    /// 기기가 1대뿐이고 그게 이 PC 라면 병합값 = 로컬값이므로 그대로 써도 결과가 같다.
+    /// </summary>
+    internal static bool HasMergedDeviceTotals(UsageSyncMergedLocalTotals? merged) =>
+        merged is { HasData: true };
 
     /// <summary>
-    /// Gemini CLI 처럼 서버 할당량이 없어 "최근 최대 사용일" 대비로 막대를 그리는 provider 의
-    /// 진행률을, 기기 합산 토큰 기준으로 다시 계산한다. 각 모니터의 계산식(출력 토큰 / 목표치)과 같아야 한다.
+    /// Claude 섹션을 화면에 남길지 여부.
+    /// 받아 둔 공식 할당량(<paramref name="hasQuotaData"/>)과 유료 구독 중이라는 사실
+    /// (<paramref name="isSubscribed"/>, ~/.claude/.credentials.json 의 subscriptionType)도
+    /// "보여 줄 것이 있다" 로 친다. 오늘 아직 Claude 를 쓰지 않은 아침에는 오늘 토큰도 0 이고
+    /// 5시간 창 사용률도 0% 라, 이 둘을 빼면 게이지 값(0%)을 손에 들고도 HideInactiveProviders 와
+    /// 맞물려 섹션이 통째로 사라진다 — 구독자에게는 "0% 남았다"가 아니라 "Claude 가 없다"로 보인다.
     /// </summary>
-    private double MergedGoalPercent(string provider, long outputTokens)
-    {
-        var goal = Math.Max(10000, _history.GetRecentMaxTotalTokens(provider, null, 7));
-        return Math.Clamp(outputTokens / (double)goal, 0, 1);
-    }
+    internal static bool IsClaudeSectionActive(
+        bool isEnabled,
+        bool hideInactive,
+        long todayTokens,
+        double shortPercent,
+        bool hasQuotaData,
+        bool isSubscribed,
+        bool hasError) =>
+        isEnabled && (!hideInactive
+            || todayTokens > 0
+            || shortPercent > 0
+            || hasQuotaData
+            || isSubscribed
+            || hasError);
+
+    /// <summary>
+    /// Codex 섹션을 화면에 남길지 여부.
+    /// 5시간 창 사용률만 보던 종전 판정에, 주간 창 사용률(<paramref name="longPercent"/>)·아직 살아 있는 창을
+    /// 알고 있다는 사실(<paramref name="hasQuotaData"/>)·유료 ChatGPT 구독(<paramref name="isSubscribed"/>)을
+    /// 함께 근거로 인정한다. 구독 여부는 반드시 <see cref="CodexUsageMonitor.GetCurrentPlanType"/>(지금 로그인된
+    /// 계정)에서 와야 한다 — 세션 로그의 <c>rate_limits.plan_type</c> 은 날짜와 무관하게 남아 로그아웃 뒤에도
+    /// 사라지지 않으므로, 그 값으로 판정하면 해지·로그아웃한 PC 에서 섹션이 영영 접히지 않는다.
+    /// Codex 의 5시간 창은 리셋이 지나면 통째로 버려져(<c>CodexUsageMonitor.DropExpiredWindows</c>) 0% 가 되므로,
+    /// 오늘 Codex 를 쓰지 않은 날에는 주간 창 21% 와 <c>ChatGPT Plus</c> 배지를 손에 들고도 종전 판정이 거짓이었다.
+    /// </summary>
+    internal static bool IsCodexSectionActive(
+        bool isEnabled,
+        bool hideInactive,
+        bool hasTodayUsage,
+        double shortPercent,
+        double longPercent,
+        bool hasQuotaData,
+        bool isSubscribed,
+        bool hasError) =>
+        isEnabled && (!hideInactive
+            || hasTodayUsage
+            || shortPercent > 0
+            || longPercent > 0
+            || hasQuotaData
+            || isSubscribed
+            || hasError);
+
+    /// <summary>
+    /// Codex 요금제 원문(<c>rate_limits.plan_type</c> 또는 id_token 의 <c>chatgpt_plan_type</c>: "plus"·"pro"·"free" …)이
+    /// 유료 구독을 가리키는지. 값이 없으면(로그아웃·API 키 모드·필드 부재) 구독으로 치지 않는다 —
+    /// <see cref="IsPaidClaudeSubscription"/> 와 같은 규칙이다. "guest"(로그인하지 않은 체험)도 무료로 본다.
+    /// </summary>
+    internal static bool IsPaidCodexSubscription(string? planType) =>
+        !string.IsNullOrWhiteSpace(planType)
+        && !string.Equals(planType, "free", StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(planType, "guest", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// OpenCode 섹션을 화면에 남길지 여부.
+    /// 동기화로 받아 온 공식 할당량(<paramref name="hasWebQuota"/>)과, 그 값이 시효를 넘겨 갱신을 기다리는
+    /// 중이라는 안내(<paramref name="hasStaleSyncedQuota"/>)도 "보여 줄 것이 있다" 로 친다.
+    /// 이 PC 에서 OpenCode 를 쓰지 않는 사용자는 오늘 토큰도 이번 달 기록도 없어 나머지 조건이 모두 거짓이라,
+    /// 이 둘을 빼면 다른 PC 의 게이지를 손에 들고도 HideInactiveProviders 와 맞물려 섹션이 통째로 사라진다.
+    /// </summary>
+    internal static bool IsOpenCodeSectionActive(
+        bool isEnabled,
+        bool hideInactive,
+        int requestCount,
+        bool hasPeriodUsage,
+        bool hasWebQuota,
+        bool hasStaleSyncedQuota,
+        bool hasError) =>
+        isEnabled && (!hideInactive
+            || requestCount > 0
+            || hasPeriodUsage
+            || hasWebQuota
+            || hasStaleSyncedQuota
+            || hasError);
 
     private async Task RefreshClaudeAsync()
     {
-        // FileSystemWatcher 미감지 폴백: 정기 새로고침마다 orgUuid 변경 여부 확인
-        var currentOrgUuid = _credentials.GetOrganizationUuid();
+        // FileSystemWatcher 미감지 폴백: 정기 새로고침마다 orgUuid 변경 여부와 구독 상태를 확인한다.
+        // CredentialService 는 생성 시점에 ~/.claude 가 있어야 감시를 시작하므로, Claude Code 를 한 번도
+        // 쓰지 않은 PC 에서 트레이가 먼저 뜨면 이후 로그인해도 변경 이벤트가 오지 않는다(#154).
+        UpdateClaudeSubscription();
+        var currentOrgUuid = CurrentClaudeOrgUuid();
         if (currentOrgUuid != _lastKnownOrgUuid)
         {
             _lastKnownOrgUuid = currentOrgUuid;
             _history.SetScope(UsageProviderKind.Claude, currentOrgUuid);
             _apiRetryAfter = DateTimeOffset.MinValue;
+            // 모델 한정 한도는 계정마다 다르다 — 새 계정 조회가 실패해도 이전 계정의 행이 남지 않게 비운다.
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                ClaudeVm.SetModelLimits([], DateTimeOffset.Now, ShowAbsoluteResetTime));
         }
 
         bool skipApi = DateTimeOffset.UtcNow < _apiRetryAfter;
@@ -1852,9 +2701,11 @@ namespace ClaudeUsageTray.ViewModels;
             // 시작될 수 있으므로(계정 전환 직후 등) 반드시 스레드풀로 밀어낸다.
             var sessionStats = await Task.Run(_session.ScanTodayUsage);
             var syncErrorKind = skipApi ? "api_skipped" : ClassifyClaudeApiError(_api.LastError);
-            var syncedClaudeQuota = TrySyncClaudeUsage(
+            var claudeModelLimits = ReadClaudeModelLimits(usage);
+            var claudeQuotaCandidates = TrySyncClaudeUsage(
                 currentOrgUuid,
                 usage,
+                claudeModelLimits,
                 sessionStats,
                 syncErrorKind,
                 out var mergedClaudeTotals);
@@ -1873,6 +2724,7 @@ namespace ClaudeUsageTray.ViewModels;
                 TodayCacheRead    = displayCacheReadTokens;
                 TodayCacheWrite   = displayCacheWriteTokens;
                 SessionsLabel     = Loc.Sessions(displaySessionCount);
+                ApplySessionList(sessionStats.Sessions, displaySessionCount);
 
                 _history.RecordToday(displayInputTokens, displayOutputTokens,
                     displayCacheReadTokens, displayCacheWriteTokens,
@@ -1892,7 +2744,8 @@ namespace ClaudeUsageTray.ViewModels;
                 if (NotificationsEnabled && NotifyRateLimit &&
                     sessionStats.HasRateLimitHit && !_prevHadRateLimit)
                 {
-                    _notifier.ShowRateLimitAlert(NtfyTopicEffective);
+                    _notifier.ShowRateLimitAlert(NtfyTopicEffective, accountId: CurrentClaudeOrgUuid(),
+                        eventAt: sessionStats.RateLimitAt, pushAccount: ClaudePushAccount());
                 }
                 _prevHadRateLimit = sessionStats.HasRateLimitHit;
 
@@ -1914,6 +2767,8 @@ namespace ClaudeUsageTray.ViewModels;
                     if (usage!.FiveHour != null)
                     {
                         var newPercent = usage.FiveHour.UsagePercent;
+                        // 초기화 알림의 사건 식별자로 쓸 "끝난 창" 의 리셋 시각 — 아래에서 새 창의 값으로 덮어쓰기 전에 붙잡아 둔다(#175).
+                        var endedWindowResetAt = _rawClaudeShortResetAt;
                         _rawClaudeShortResetAt = usage.FiveHour.ResetsAtParsed;
                         ClaudeVm.ShortReset = FormatResetLabel(_rawClaudeShortResetAt);
                         ClaudeVm.ShortSummary = Loc.UsageSummary(newPercent);
@@ -1938,9 +2793,11 @@ namespace ClaudeUsageTray.ViewModels;
                                         if (!_lastNotifiedEarlyDepletionAt.HasValue || depletionAt < _lastNotifiedEarlyDepletionAt.Value)
                                         {
                                             _notifier.ShowEarlyExhaustionAlert(
-                                                depletionAt.ToString("HH:mm"),
-                                                FormatResetLabel(currentReset),
-                                                NtfyTopicEffective);
+                                                depletionAt,
+                                                currentReset.Value,
+                                                NtfyTopicEffective,
+                                                accountId: CurrentClaudeOrgUuid(),
+                                                pushAccount: ClaudePushAccount());
                                         }
                                         // 조기 소진 예상이 늦춰졌더라도 기준 시각은 업데이트(다음 비교 기준)
                                         _lastNotifiedEarlyDepletionAt = depletionAt;
@@ -1957,7 +2814,7 @@ namespace ClaudeUsageTray.ViewModels;
 
                         if (NotificationsEnabled && _prevShortPercent >= 0)
                         {
-                            CheckThresholds(newPercent, ClaudeVm.ShortReset, NtfyTopicEffective);
+                            CheckThresholds(newPercent, ClaudeVm.ShortReset, NtfyTopicEffective, endedWindowResetAt);
                         }
 
                         ClaudeVm.ShortPercent = newPercent;
@@ -1984,17 +2841,8 @@ namespace ClaudeUsageTray.ViewModels;
                         LongResetLabel = ClaudeVm.LongReset;
                     }
 
-                    if (usage.SevenDayOpus != null)
-                    {
-                        OpusPercent = usage.SevenDayOpus.UsagePercent;
-                        OpusTokens  = (long)usage.SevenDayOpus.Utilization;
-                    }
-
-                    if (usage.SevenDaySonnet != null)
-                    {
-                        SonnetPercent = usage.SevenDaySonnet.UsagePercent;
-                        SonnetTokens  = (long)usage.SevenDaySonnet.Utilization;
-                    }
+                    // 모델 한정 한도(#187) — 비어 있으면 "지금 걸린 모델 한도 없음"이므로 그대로 비운다.
+                    ClaudeVm.SetModelLimits(claudeModelLimits, DateTimeOffset.Now, ShowAbsoluteResetTime);
 
                     if (usage.ExtraUsage is { IsEnabled: true } eu)
                     {
@@ -2033,26 +2881,38 @@ namespace ClaudeUsageTray.ViewModels;
 
                     ClaudeVm.ApiNote = WithSyncNote(ClaudeVm.ApiNote, mergedClaudeTotals);
                 }
-                else if (syncedClaudeQuota?.Quota is { HasData: true })
+                else if (claudeQuotaCandidates.Fresh is { } syncedClaudeQuota)
                 {
                     ApplySyncedClaudeQuota(syncedClaudeQuota);
                     ClaudeVm.ApiNote = WithSyncNote(ClaudeVm.ApiNote, mergedClaudeTotals);
                 }
                 else if (skipApi || _api.LastError != null)
                 {
-                    // 마지막으로 성공한 값이 있으면 유지하고, 한 번도 없으면 0% 로 단정하지 않는다.
-                    ClaudeVm.HasQuotaData = _lastKnownShortPercent.HasValue || _lastKnownLongPercent.HasValue;
+                    // 로컬 API 도 실패했고 신선한 동기화 값도 없다. 최후 폴백(24시간 이내 관측 중 창이
+                    // 아직 유효한 것, UsageSyncService.IsQuotaWindowStillActive)이 있으면 그 값을 게이지에
+                    // 쓰고, 없으면 이 PC 가 마지막으로 성공했던 값을 유지한다 — 어느 쪽이든 아래 에러
+                    // 분류는 항상 실행한다. 최후 폴백으로 %가 채워졌다고 로그인 필요·권한 거부 같은
+                    // 실제 문제까지 가려서는 안 된다(폴백은 숫자만 채울 뿐 에러 상태를 대체하지 않는다).
+                    if (claudeQuotaCandidates.LastResort is { } lastResortClaudeQuota)
+                    {
+                        ApplySyncedClaudeQuota(lastResortClaudeQuota);
+                    }
+                    else
+                    {
+                        // 마지막으로 성공한 값이 있으면 유지하고, 한 번도 없으면 0% 로 단정하지 않는다.
+                        ClaudeVm.HasQuotaData = _lastKnownShortPercent.HasValue || _lastKnownLongPercent.HasValue;
 
-                    ClaudeVm.ShortPercent = _lastKnownShortPercent ?? 0;
-                    ClaudeVm.ShortReset   = _lastKnownShortReset;
-                    ClaudeVm.ShortSummary = _lastKnownShortPercent is { } shortPct
-                        ? Loc.UsageSummary(shortPct)
-                        : Loc.UsageSummaryUnknown;
-                    ClaudeVm.LongPercent  = _lastKnownLongPercent ?? 0;
-                    ClaudeVm.LongReset    = _lastKnownLongReset;
-                    ClaudeVm.LongSummary  = _lastKnownLongPercent is { } longPct
-                        ? Loc.UsageSummary(longPct)
-                        : Loc.UsageSummaryUnknown;
+                        ClaudeVm.ShortPercent = _lastKnownShortPercent ?? 0;
+                        ClaudeVm.ShortReset   = _lastKnownShortReset;
+                        ClaudeVm.ShortSummary = _lastKnownShortPercent is { } shortPct
+                            ? Loc.UsageSummary(shortPct)
+                            : Loc.UsageSummaryUnknown;
+                        ClaudeVm.LongPercent  = _lastKnownLongPercent ?? 0;
+                        ClaudeVm.LongReset    = _lastKnownLongReset;
+                        ClaudeVm.LongSummary  = _lastKnownLongPercent is { } longPct
+                            ? Loc.UsageSummary(longPct)
+                            : Loc.UsageSummaryUnknown;
+                    }
 
                     // 403 permission_error: 두 가지 케이스로 세분
                     //   (a) "currently not allowed for this organization" — 신규 계정 검증/조직 OAuth 미활성 (일시적, 24h내 자동 해소 가능성)
@@ -2067,7 +2927,33 @@ namespace ClaudeUsageTray.ViewModels;
                     // 쿨다운 판정은 호출 "후" _apiRetryAfter 기준으로 — 첫 429부터 즉시 회색 톤 라우팅
                     bool isCooldown = _apiRetryAfter > DateTimeOffset.UtcNow;
 
-                    if (isPermissionDenied)
+                    // 만료 토큰으로 401 을 받았고 갱신도 실패한 상태 — 원문("OAuth access token has expired")
+                    // 대신 갱신이 막힌 이유와 다음 재시도 시각을 안내한다(#177).
+                    var refreshFailure = _api.LastError?.StartsWith("HTTP 401", StringComparison.Ordinal) == true
+                        ? _credentials.RefreshFailure
+                        : null;
+
+                    if (refreshFailure is not null)
+                    {
+                        ClearOAuthNotAllowedFirstSeenIfNeeded();
+                        var retryAt = refreshFailure.RetryAtUtc.ToLocalTime().ToString("HH:mm");
+                        if (refreshFailure.Kind == TokenRefreshFailureKind.Rejected)
+                        {
+                            ClaudeVm.HasError = true;
+                            SetClaudeNeedsLogin(true);
+                            ClaudeVm.ErrorMessage = Loc.ClaudeTokenRefreshRejected;
+                            ClaudeVm.ApiNote = "";
+                        }
+                        else
+                        {
+                            ClaudeVm.HasError = false;
+                            ClaudeVm.ErrorMessage = "";
+                            ClaudeVm.ApiNote = refreshFailure.Kind == TokenRefreshFailureKind.RateLimited
+                                ? Loc.ClaudeTokenRefreshRateLimited(retryAt)
+                                : Loc.ClaudeTokenRefreshRetrying(retryAt);
+                        }
+                    }
+                    else if (isPermissionDenied)
                     {
                         ClaudeVm.HasError = false;
                         ClaudeVm.ErrorMessage = "";
@@ -2094,7 +2980,8 @@ namespace ClaudeUsageTray.ViewModels;
                     {
                         ClaudeVm.HasError = true;
                         // 토큰 자체가 없어 네트워크 호출 전에 실패한 경우 — 막연한 원문 대신 로그인 안내로.
-                        ClaudeVm.ErrorMessage = _api.LastError == UsageApiService.NoTokenError
+                        SetClaudeNeedsLogin(_api.LastError == UsageApiService.NoTokenError);
+                        ClaudeVm.ErrorMessage = ClaudeVm.NeedsLogin
                             ? Loc.NoToken
                             : _api.LastError != null
                                 ? ParseFriendlyError(_api.LastError)
@@ -2114,6 +3001,7 @@ namespace ClaudeUsageTray.ViewModels;
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 ClaudeVm.HasError = true;
+                SetClaudeNeedsLogin(false);
                 ClaudeVm.ErrorMessage = ex.Message;
                 ClaudeVm.ApiNote = "";
                 UpdateOverallStatus();
@@ -2124,15 +3012,37 @@ namespace ClaudeUsageTray.ViewModels;
         }
     }
 
+    /// <summary>
+    /// 모델 한정 한도(#187)는 문서화되지 않은 <c>limits[]</c> 에서 온다. 읽다가 예상 못 한 예외가 나도
+    /// 기본 5시간·7일 게이지와 동기화까지 함께 실패하지 않도록, 이 부가 정보만 빈 목록으로 내려놓는다.
+    /// </summary>
+    private static IReadOnlyList<AdditionalQuotaWindow> ReadClaudeModelLimits(UsageResponse? usage)
+    {
+        if (usage is null)
+            return [];
+
+        try
+        {
+            return ClaudeModelLimits.Read(usage, DateTimeOffset.UtcNow);
+        }
+        catch (Exception ex)
+        {
+#if DEBUG
+            Debug.WriteLine($"[MainViewModel] Claude model limits skipped: {ex}");
+#endif
+            GC.KeepAlive(ex);
+            return [];
+        }
+    }
+
     // 403 + "currently not allowed" 가 처음 감지된 시각을 settings 에 보관해두고,
     // 24h 이상 지속되면 안내문을 에스컬레이션 톤으로 전환한다.
     // settings 디스크 쓰기는 상태 전이(미감지→감지) 시 1회만 — 폴링마다 매번 쓰지 않음.
     private string ResolveOAuthNotAllowedNote()
     {
-        var settings = _settingsService.Load();
         var nowUtc = DateTime.UtcNow;
         DateTime firstSeen;
-        if (settings.OAuthNotAllowedFirstSeenUtc is DateTime existing)
+        if (_settingsService.Load().OAuthNotAllowedFirstSeenUtc is DateTime existing)
         {
             firstSeen = existing;
         }
@@ -2142,8 +3052,12 @@ namespace ClaudeUsageTray.ViewModels;
             // firstSeen 을 가장 오래된 history 시점으로 추정해 즉시 에스컬레이션 톤으로 진입.
             // 신규 사용자(history 비어있음 / 24h 미만)는 nowUtc 로 잡아 기존 유예 톤 유지.
             firstSeen = EstimateOAuthNotAllowedFirstSeenUtc(nowUtc);
-            settings.OAuthNotAllowedFirstSeenUtc = firstSeen;
-            _settingsService.Save(settings);
+            var seen = firstSeen;
+            _settingsService.Update(settings =>
+            {
+                settings.OAuthNotAllowedFirstSeenUtc ??= seen;
+                return settings;
+            });
         }
 
         var elapsed = nowUtc - firstSeen;
@@ -2161,7 +3075,7 @@ namespace ClaudeUsageTray.ViewModels;
     {
         try
         {
-            var orgUuid = _credentials.GetOrganizationUuid();
+            var orgUuid = CurrentClaudeOrgUuid();
             var entries = _history.GetLast(UsageProviderKind.Claude, orgUuid, AppConstants.HistoryRetentionDays);
             if (entries.Count == 0) return nowUtc;
 
@@ -2190,24 +3104,40 @@ namespace ClaudeUsageTray.ViewModels;
     // OAuth-not-allowed 추적 상태를 정리한다. 값이 이미 null 이면 디스크 I/O 생략.
     private void ClearOAuthNotAllowedFirstSeenIfNeeded()
     {
-        var settings = _settingsService.Load();
-        if (settings.OAuthNotAllowedFirstSeenUtc is null) return;
-        settings.OAuthNotAllowedFirstSeenUtc = null;
-        _settingsService.Save(settings);
+        _settingsService.Update(settings =>
+        {
+            if (settings.OAuthNotAllowedFirstSeenUtc is null) return null;
+            settings.OAuthNotAllowedFirstSeenUtc = null;
+            return settings;
+        });
     }
 
     private async Task RefreshCodexInternalAsync()
     {
+        var codexName = UsageProviderKind.DisplayName(UsageProviderKind.Codex);
+
+        // Claude(CheckThresholds)와 같이 저장된 설정의 임계값을 따른다. 알림이 꺼져 있으면 읽을 필요가 없다.
+        IReadOnlyCollection<int> thresholds = NotificationsEnabled
+            ? _settingsService.Load().Thresholds
+            : Array.Empty<int>();
+
         await CodexVm.RefreshAsync(
             ShowAbsoluteResetTime,
             NtfyTopicEffective,
             NotificationsEnabled,
             NotifyOnQuotaReset,
-            (threshold, windowLabel, resetLabel, topic) =>
+            thresholds,
+            (threshold, windowLabel, resetLabel, topic, windowResetAt) =>
                 _notifier.ShowUsageAlert(threshold, windowLabel, resetLabel, topic,
-                    UsageProviderKind.DisplayName(UsageProviderKind.Codex),
-                    ThresholdToPriority(threshold)),
-            () => _notifier.ShowQuotaResetAlert(NtfyTopicEffective));
+                    codexName,
+                    ThresholdToPriority(threshold),
+                    windowResetAt: windowResetAt,
+                    accountId: CodexUsageMonitor.GetCurrentAccountIdentity(),
+                    pushAccount: CodexPushAccount()),
+            endedWindowResetAt => _notifier.ShowQuotaResetAlert(NtfyTopicEffective, codexName,
+                accountId: CodexUsageMonitor.GetCurrentAccountIdentity(),
+                endedWindowResetAt: endedWindowResetAt,
+                pushAccount: CodexPushAccount()));
 
         var sync = TrySyncProviderSnapshot(UsageProviderKind.Codex, CodexVm.LastSnapshot);
         var mergedTotals = sync.MergedTotals;
@@ -2215,13 +3145,13 @@ namespace ClaudeUsageTray.ViewModels;
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
             CodexPercent = CodexVm.Percent;
-            _prevCodexPercent = CodexVm.Percent;
             _rawCodexShortResetAt = CodexVm.RawShortResetAt;
             _rawCodexShortResetEstimated = CodexVm.RawShortResetEstimated;
             CodexReset = CodexVm.Reset;
             CodexDataSource = CodexVm.DataSource;
             CodexHasError = CodexVm.HasError;
             CodexErrorMessage = CodexVm.ErrorMessage;
+            CodexNeedsSignIn = CodexVm.NeedsSignIn;
             CodexSummary = CodexVm.Summary;
             CodexLongPercent = CodexVm.LongPercent;
             _rawCodexLongResetAt = CodexVm.RawLongResetAt;
@@ -2231,22 +3161,39 @@ namespace ClaudeUsageTray.ViewModels;
             CodexLongSummary = CodexVm.LongSummary;
             IsCodexLongVisible = CodexVm.IsLongVisible;
             CodexPlanLabel = CodexVm.PlanLabel;
+            _isCodexSubscribed = IsPaidCodexSubscription(CodexUsageMonitor.GetCurrentPlanType());
             CodexShortWindowLabel = CodexVm.ShortWindowLabel;
             CodexLongWindowLabel = CodexVm.LongWindowLabel;
 
             // 이 PC 에 지금 창을 설명하는 데이터가 없으면(오늘 요청이 없거나 로그의 창이 이미 끝남)
             // 다른 PC 가 올린 최신 할당량으로 채운다. Codex 의 rate_limits 는 계정 단위라 그대로 옮겨도 맞다.
-            if (!HasLiveCodexQuota() && sync.RemoteQuota is { Quota.HasData: true } remoteQuota)
-                ApplySyncedCodexQuota(remoteQuota);
+            // 신선도 기준(UsageSyncApiTtl)을 넘겼어도 창이 아직 리셋 전이면 24시간 이내 관측치를
+            // 최후 폴백으로 쓴다(UsageSyncQuotaCandidates.Selected) — 두 PC 가 동시에 조회 실패·백오프에
+            // 걸리면 짧은 신선도 기준만으로는 공백이 생긴다.
+            if (!HasLiveCodexQuota() && sync.Quota.Selected is { } syncedCodexQuota)
+            {
+                ApplySyncedCodexQuota(syncedCodexQuota);
 
+                // ApplySyncedCodexQuota 는 자기 안에서 CodexHasError 를 무조건 false 로 지운다.
+                // 최후 폴백 창을 24시간까지 넓히면서, 로컬이 실제로 로그인 필요·읽기 실패인 경우까지
+                // 최대 하루 가까이 가릴 위험이 커졌다 — Claude 의 bb6d031 자체 리뷰 수정과 같은 이유로,
+                // 폴백은 숫자만 채울 뿐 이 PC 의 실제 에러 상태를 대체해서는 안 된다.
+                if (CodexVm.HasError)
+                {
+                    CodexHasError = true;
+                    CodexErrorMessage = CodexVm.ErrorMessage;
+                }
+            }
+
+            ApplyCodexAdditionalLimits(SelectCodexAdditionalQuotas(CodexVm.LastSnapshot, sync.Snapshots, DateTimeOffset.Now));
             RecomputeCodexTimeProgress(DateTimeOffset.Now);
             CodexInputLabel = CodexVm.InputLabel;
             CodexOutputLabel = CodexVm.OutputLabel;
             CodexCacheReadLabel = CodexVm.CacheReadLabel;
-            CodexCacheWriteLabel = CodexVm.CacheWriteLabel;
 
             // 토큰 4타일 표시 여부는 퍼센트가 아니라 실제 토큰 데이터 유무로 판단한다(Claude 와 동일 기준).
             var codexHasTokenData = CodexVm.LastSnapshot.HasData;
+            _codexNoteMergedTotals = mergedTotals;
             CodexNote = WithSyncNote(Loc.ProviderCodexNote, mergedTotals);
 
             if (HasMergedDeviceTotals(mergedTotals))
@@ -2254,7 +3201,6 @@ namespace ClaudeUsageTray.ViewModels;
                 CodexInputLabel = TokenOrDash(mergedTotals!.InputTokens);
                 CodexOutputLabel = TokenOrDash(mergedTotals.OutputTokens);
                 CodexCacheReadLabel = TokenOrDash(mergedTotals.CacheReadTokens);
-                CodexCacheWriteLabel = TokenOrDash(mergedTotals.CacheWriteTokens);
                 CodexDataSource = WithSyncNote(CodexDataSource, mergedTotals);
                 codexHasTokenData = true;
             }
@@ -2262,49 +3208,6 @@ namespace ClaudeUsageTray.ViewModels;
             _codexHasTokenData = codexHasTokenData;
             IsCodexUsageEmpty = !codexHasTokenData;
             IsCodexLoading = false;
-
-            UpdateOverallStatus();
-        });
-    }
-
-    private async Task RefreshGeminiCliInternalAsync()
-    {
-        await GeminiVm.RefreshAsync();
-
-        var mergedTotals = TrySyncProviderSnapshot(UsageProviderKind.GeminiCli, GeminiVm.LastSnapshot).MergedTotals;
-
-        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-        {
-            GeminiPercent = GeminiVm.Percent;
-            _prevGeminiPercent = GeminiVm.Percent;
-            GeminiHasError = GeminiVm.HasError;
-            GeminiErrorMessage = GeminiVm.ErrorMessage;
-            GeminiSummary = GeminiVm.Summary;
-            GeminiRequestsLabel = GeminiVm.RequestsLabel;
-            GeminiOutputTokensLabel = GeminiVm.OutputTokensLabel;
-            GeminiInputLabel = GeminiVm.InputLabel;
-            GeminiCacheReadLabel = GeminiVm.CacheReadLabel;
-            GeminiCacheWriteLabel = GeminiVm.CacheWriteLabel;
-            IsGeminiUsageEmpty = GeminiVm.IsUsageEmpty;
-            _lastGeminiRequestCount = GeminiVm.LastRequestCount;
-            _lastGeminiOutputTokens = GeminiVm.LastOutputTokens;
-            GeminiNote = WithSyncNote(Loc.ProviderGeminiCliNote, mergedTotals);
-
-            if (HasMergedDeviceTotals(mergedTotals))
-            {
-                GeminiRequestsLabel = RequestCountOrDash(mergedTotals!.RequestCount);
-                GeminiInputLabel = TokenOrDash(mergedTotals.InputTokens);
-                GeminiOutputTokensLabel = TokenOrDash(mergedTotals.OutputTokens);
-                GeminiCacheReadLabel = TokenOrDash(mergedTotals.CacheReadTokens);
-                GeminiCacheWriteLabel = TokenOrDash(mergedTotals.CacheWriteTokens);
-                GeminiSummary = Loc.GeminiCliRequestSummary(mergedTotals.RequestCount, mergedTotals.OutputTokens);
-                IsGeminiUsageEmpty = false;
-                _lastGeminiRequestCount = mergedTotals.RequestCount;
-                _lastGeminiOutputTokens = mergedTotals.OutputTokens;
-                // 막대도 합산 기준으로 다시 계산한다. 안 하면 숫자는 여러 PC 합인데 막대만 이 PC 몫이라 어긋난다.
-                GeminiPercent = MergedGoalPercent(UsageProviderKind.GeminiCli, mergedTotals.OutputTokens);
-                _prevGeminiPercent = GeminiPercent;
-            }
 
             UpdateOverallStatus();
         });
@@ -2319,8 +3222,14 @@ namespace ClaudeUsageTray.ViewModels;
 
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
-            if (!OpenCodeVm.HasWebQuota && CreateOpenCodeWebUsage(syncResult.RemoteQuota?.Quota) is { } syncedUsage)
+            // 다른 provider 와 같은 규칙: 신선한 값, 없으면 창이 유효한 최후 관측을 게이지에 쓴다.
+            // 그마저 없으면(창이 리셋됨 등) 게이지는 비워 두고 마지막 관측 시각만 안내한다 —
+            // Claude·Codex 는 이때 이 PC 의 마지막 성공값·로컬 로그가 남아 있지만 OpenCode 는
+            // 공식 값을 다른 PC 에서만 받는 사용자가 많아, 로그인 버튼 대신 "갱신 대기" 를 보여 줘야 한다.
+            if (!OpenCodeVm.HasWebQuota && CreateOpenCodeWebUsage(syncResult.Quota.Selected?.Quota) is { } syncedUsage)
                 OpenCodeVm.ApplySyncedWebUsage(syncedUsage);
+
+            ApplyOpenCodeSyncedQuotaNotice(syncResult.Quota.LastObserved);
 
             OpenCodeHasError = OpenCodeVm.HasError;
             OpenCodeErrorMessage = OpenCodeVm.ErrorMessage;
@@ -2336,7 +3245,9 @@ namespace ClaudeUsageTray.ViewModels;
             _lastOpenCodeInputTokens = OpenCodeVm.LastInputTokens;
             _lastOpenCodeOutputTokens = OpenCodeVm.LastOutputTokens;
             _openCodeHasPeriodUsage = OpenCodeVm.HasPeriodUsage;
+            _openCodeNoteMergedTotals = mergedTotals;
             OpenCodeNote = WithSyncNote(OpenCodeVm.Note, mergedTotals);
+            OpenCodePlanLabel = OpenCodeVm.PlanLabel;
 
             if (HasMergedDeviceTotals(mergedTotals))
             {
@@ -2359,73 +3270,73 @@ namespace ClaudeUsageTray.ViewModels;
         });
     }
 
+    /// <summary>
+    /// 공식 값을 못 그리는 상태에서, 다른 PC 가 오늘 관측한 이력이 있으면 그 시각을 안내한다.
+    /// OpenCode 를 이 PC 에서 쓰지 않는 사용자에게 로그인 버튼을 들이밀지 않기 위한 구분이다.
+    /// 관측 이력이 없거나(=처음 쓰는 계정) 이 PC 가 직접 읽어냈으면 안내를 지우고 종전 동작으로 돌아간다.
+    /// </summary>
+    private void ApplyOpenCodeSyncedQuotaNotice(UsageSyncSnapshot? lastObserved)
+    {
+        if (OpenCodeVm.HasWebQuota || lastObserved?.Quota is not { HasData: true } quota)
+        {
+            OpenCodeVm.ClearStaleSyncedQuotaNotice();
+            return;
+        }
+
+        // 이 PC 가 남긴 관측을 근거로 "다른 PC 대기 중" 이라 안내하면 앞뒤가 안 맞는다.
+        if (string.Equals(lastObserved.DeviceId, _usageSync.DeviceId, StringComparison.OrdinalIgnoreCase))
+        {
+            OpenCodeVm.ClearStaleSyncedQuotaNotice();
+            return;
+        }
+
+        OpenCodeVm.ApplyStaleSyncedQuotaNotice(
+            lastObserved.DeviceName,
+            quota.ObservedAtUtc ?? lastObserved.ObservedAtUtc);
+    }
+
+    /// <summary>"오늘 N개 세션" 라벨 클릭 — 목록 펼침/접기.</summary>
+    [RelayCommand]
+    private void ToggleSessionList() => IsSessionListExpanded = !IsSessionListExpanded;
+
+    /// <summary>목록에 한 번에 보여줄 최대 줄 수. 나머지는 "+N개 더" 로만 알린다.</summary>
+    private const int MaxSessionListRows = 8;
+
+    /// <summary>
+    /// 세션 목록을 최근 활동 순으로 다시 만든다.
+    /// <paramref name="displayCount"/> 는 다른 PC 몫이 합쳐진 수라 이 PC 세션 수보다 클 수 있고,
+    /// 그 차이는 목록으로 보여줄 방법이 없으므로(트랜스크립트가 이 PC 에 없다) 안내 문구로 남긴다.
+    /// </summary>
+    private void ApplySessionList(IReadOnlyList<SessionInfo> sessions, int displayCount)
+    {
+        var nowUtc = DateTime.UtcNow;
+        var ordered = sessions.OrderByDescending(s => s.LastActivityUtc).ToList();
+
+        TodaySessions = ordered
+            .Take(MaxSessionListRows)
+            .Select(s => new SessionListItem(s, nowUtc))
+            .ToList();
+
+        SessionListHiddenCount = ordered.Count - TodaySessions.Count;
+        SessionListRemoteCount = Math.Max(0, displayCount - ordered.Count);
+    }
+
     // Manual triggers (optional, usually RefreshAsync is enough)
     [RelayCommand]
     public async Task RefreshCodexAsync() => await RefreshAsync();
 
-    [RelayCommand]
-    public async Task RefreshGeminiCliAsync() => await RefreshAsync();
-
-    private void ApplyProviderSnapshot(ProviderUsageSnapshot snapshot, bool isError)
-    {
-        System.Windows.Application.Current.Dispatcher.Invoke(() =>
-        {
-            TodayInputTokens = snapshot.TotalInputTokens;
-            TodayOutputTokens = snapshot.TotalOutputTokens;
-            TodayCacheRead = snapshot.TotalCacheReadTokens;
-            TodayCacheWrite = snapshot.TotalCacheWriteTokens;
-            SessionsLabel = Loc.Sessions(snapshot.SessionCount);
-            HistoryData = _history.GetLast(7);
-            HourlyTokens = snapshot.HourlyTokens;
-            TodayCostLabel = CalcCostLabel(snapshot.TotalInputTokens,
-                snapshot.TotalOutputTokens,
-                snapshot.TotalCacheReadTokens,
-                snapshot.TotalCacheWriteTokens);
-
-            _history.RecordToday(snapshot.TotalInputTokens, snapshot.TotalOutputTokens,
-                snapshot.TotalCacheReadTokens, snapshot.TotalCacheWriteTokens, snapshot.SessionCount);
-            HistoryData = _history.GetLast(7);
-
-            ShortUsagePercent = snapshot.ShortUsagePercent;
-            LongUsagePercent = snapshot.LongUsagePercent;
-            ShortResetLabel = FormatResetLabel(snapshot.ShortResetAt);
-            LongResetLabel = FormatResetLabel(snapshot.LongResetAt);
-            ClaudeVm.ShortSummary = Loc.UsageSummary(snapshot.ShortUsagePercent);
-            ClaudeVm.LongSummary = Loc.UsageSummary(snapshot.LongUsagePercent);
-            ShortDepletionLabel = snapshot.ShortResetAt is null ? "" : "";
-            LongDepletionLabel = snapshot.LongResetAt is null ? "" : "";
-
-            SetClaudeExtraUsage(false);
-            SetClaudeExtraOnlyMode(false);
-            HasRateLimitHit = false;
-            RateLimitInfo = "";
-
-            HasError = isError;
-            ErrorMessage = snapshot.IsLimited ? "" : snapshot.ErrorMessage ?? "";
-            RateLimitInfo = snapshot.IsLimited ? snapshot.ErrorMessage ?? "" : "";
-            HasRateLimitHit = snapshot.IsLimited;
-            StatusText = isError
-                ? "Source Unavailable"
-                : snapshot.IsLimited
-                    ? "Limited Data"
-                : snapshot.ShortUsagePercent > 0
-                    ? $"{snapshot.ShortUsagePercent:P0} used"
-                    : Loc.Updated;
-            LastUpdatedLabel = HasError
-                ? $"⚠ {DateTime.Now:HH:mm:ss}"
-                : Loc.UpdatedAt(DateTime.Now.ToString("HH:mm:ss"));
-            IsLoading = false;
-        });
-    }
-
-    private void CheckThresholds(double newPercent, string resetLabel, string ntfyTopic)
+    private void CheckThresholds(double newPercent, string resetLabel, string ntfyTopic, DateTimeOffset? endedWindowResetAt)
     {
         var settings = _settingsService.Load();
+
+        // 같은 토픽을 쓰는 다른 계정의 알림과 키가 겹치지 않도록 계정을 함께 넘긴다(#175).
+        var accountId = CurrentClaudeOrgUuid();
 
         // 1. 할당량 초기화 감지 (100% -> 100% 미만)
         if (NotifyOnQuotaReset && _prevShortPercent >= 1.0 && newPercent < 1.0)
         {
-            _notifier.ShowQuotaResetAlert(ntfyTopic);
+            _notifier.ShowQuotaResetAlert(ntfyTopic, accountId: accountId, endedWindowResetAt: endedWindowResetAt,
+                pushAccount: ClaudePushAccount());
         }
 
         // 2. 기본 사용량 임계값 알림
@@ -2434,7 +3345,8 @@ namespace ClaudeUsageTray.ViewModels;
             double tf = t / 100.0;
             if (_prevShortPercent < tf && newPercent >= tf)
             {
-                _notifier.ShowUsageAlert(t, Loc.FiveHourWindow, resetLabel, ntfyTopic, "Claude", ThresholdToPriority(t));
+                _notifier.ShowUsageAlert(t, Loc.AlertWindowFiveHour, resetLabel, ntfyTopic, "Claude", ThresholdToPriority(t),
+                    windowResetAt: _rawClaudeShortResetAt, accountId: accountId, pushAccount: ClaudePushAccount());
             }
         }
 
@@ -2447,7 +3359,8 @@ namespace ClaudeUsageTray.ViewModels;
                 // 이전 값과 현재 값 비교 (초기값 0에서 첫 알림이 가지 않도록)
                 if (_prevExtraPercent < tf && ExtraUsagePercent >= tf)
                 {
-                    _notifier.ShowUsageAlert(t, Loc.ExtraUsageTitle, "", ntfyTopic, "Claude", ThresholdToPriority(t));
+                    _notifier.ShowUsageAlert(t, Loc.AlertWindowExtra, "", ntfyTopic, "Claude", ThresholdToPriority(t),
+                        windowId: "extra", accountId: accountId, pushAccount: ClaudePushAccount());
                 }
             }
             _prevExtraPercent = ExtraUsagePercent;
@@ -2501,8 +3414,31 @@ namespace ClaudeUsageTray.ViewModels;
 
         // 시간 진행률은 리셋 시각만 있으면 매 순간 계산 가능 — 매초 갱신해 막대가 부드럽게 흐르게 한다.
         RecomputeClaudeTimeProgress(now);
+        ClaudeVm.UpdateModelLimitTimeProgress(now, ShowAbsoluteResetTime);
         RecomputeCodexTimeProgress(now);
+        UpdateCodexAdditionalTimeProgress(now);
         OpenCodeVm.UpdateTimeProgress(now);
+        HmsVm.UpdateTimeProgress(now);
+        AntigravityVm.UpdateTimeProgress(now);
+    }
+
+    private void UpdateCodexAdditionalRows(DateTimeOffset now)
+    {
+        // 리셋이 지난 창은 다음 조회를 기다리지 않고 바로 뺀다 — 남겨 두면 리셋 전 사용률이 그대로 보인다.
+        if (CodexAdditionalLimits.Any(row => row.ResetAt is { } reset && reset <= now))
+        {
+            ApplyCodexAdditionalLimits(_codexAdditionalSource);
+            return;
+        }
+
+        foreach (var row in CodexAdditionalLimits)
+            row.UpdateTimeProgress(now, ShowAbsoluteResetTime);
+    }
+
+    private void UpdateCodexAdditionalTimeProgress(DateTimeOffset now)
+    {
+        UpdateCodexAdditionalRows(now);
+        CodexVm.UpdateImageGenerationLabels(now, ShowAbsoluteResetTime);
     }
 
     /// <summary>
@@ -2549,14 +3485,15 @@ namespace ClaudeUsageTray.ViewModels;
             IsPaceSettled(longTime, _rawCodexLongWindow, _rawCodexLongWindow / 60));
     }
 
-    // 경과 시간이 최소 기준 이상이어야 페이스(초과색/빠름·여유)를 신뢰할 수 있다고 본다.
-    // 진행률을 모르면(창 밖) 페이스도 판정하지 않는다.
+    // 페이스 판정 기준은 Antigravity 행(QuotaGaugeRow)도 같이 쓰므로 UsageCalculator 에 둔다.
     private static bool IsPaceSettled(double? timeProgress, TimeSpan window, TimeSpan minElapsed)
-        => timeProgress is double progress && progress * window.TotalSeconds >= minElapsed.TotalSeconds;
+        => UsageCalculator.IsPaceSettled(timeProgress, window, minElapsed);
 
     /// <summary>
     /// ShowAbsoluteResetTime 토글 시 4개 reset 라벨을 raw 값에서 즉시 재포맷.
     /// (API 재호출 없이 사용자가 토글한 즉시 반영)
+    /// Antigravity·OpenCode 는 각자 같은 이름의 프로퍼티를 갖고 있어 값만 그대로 밀어 넣으면
+    /// 각 ViewModel 의 OnShowAbsoluteResetTimeChanged 가 자기 라벨을 알아서 재포맷한다.
     /// </summary>
     partial void OnShowAbsoluteResetTimeChanged(bool value)
     {
@@ -2564,7 +3501,38 @@ namespace ClaudeUsageTray.ViewModels;
         ClaudeVm.LongReset  = FormatResetLabel(_rawClaudeLongResetAt);
         CodexReset       = FormatResetLabel(_rawCodexShortResetAt, _rawCodexShortResetEstimated);
         CodexLongReset   = FormatResetLabel(_rawCodexLongResetAt);
+        UpdateCodexAdditionalTimeProgress(DateTimeOffset.Now);
+        AntigravityVm.ShowAbsoluteResetTime = value;
+        OpenCodeVm.ShowAbsoluteResetTime    = value;
+        HmsVm.ShowAbsoluteResetTime         = value;
     }
+
+    /// <summary>
+    /// Claude·GPT 한도 표시 토글 — API 재호출 없이 마지막 값으로 Antigravity 행과 트레이 대표값을 다시 만든다.
+    /// 자동 모드 판정(<see cref="HasRecentAntigravityUsage"/>)도 이 행 목록을 보므로 함께 바뀐다.
+    /// </summary>
+    partial void OnShowAntigravityThirdPartyQuotaChanged(bool value)
+    {
+        AntigravityVm.ShowThirdPartyQuota = value;
+        // 휴대폰도 다음 갱신을 기다리지 않고 바로 맞춘다(#304). 아직 조회 전이면 보낼 값이 없다.
+        if (AntigravityVm.LastSnapshot.HasData) PublishAntigravityMobile();
+        // 화면 쪽 AntigravityHasData 는 보이는 행이 없으면 꺼져 있을 수 있다 — 켜면 다시 보여야 하므로 원본 상태를 본다.
+        if (!AntigravityVm.HasData) return;   // 시작 시 설정을 읽는 시점 등 — 아직 그릴 값이 없다
+
+        AntigravityHasData = HasVisibleAntigravityQuota(AntigravityVm.HasData, AntigravityVm.Models.Count, AntigravityVm.HasError);
+        AntigravityModels = AntigravityVm.Models;
+        AntigravityPercent = AntigravityVm.Percent;
+        UpdateOverallStatus();
+    }
+
+    /// <summary>
+    /// 화면에 Antigravity 섹션을 그릴지 — 받은 값이 있고, 보여줄 행이나 보여줄 오류가 있을 때만.
+    /// Claude·GPT 창을 숨긴 설정에서 응답에 그 창만 남으면(예: Gemini 창이 모두 disabled) 행이 하나도 없는데,
+    /// 그대로 켜 두면 빈 섹션과 함께 트레이가 모르는 값을 "Antigravity 0%" 로 적는다.
+    /// 오류가 있으면 켜 둔다 — 오류 문구도 이 섹션 안에 있다(<see cref="ShouldClearAntigravityFallbackData"/> 와 같은 이유).
+    /// </summary>
+    internal static bool HasVisibleAntigravityQuota(bool hasData, int visibleRows, bool hasError) =>
+        hasData && (visibleRows > 0 || hasError);
 
     partial void OnWeatherEnabledChanged(bool value) => NotifyWeatherComputed();
     partial void OnWeatherLatitudeChanged(double? value) => NotifyWeatherComputed();
@@ -2703,12 +3671,38 @@ namespace ClaudeUsageTray.ViewModels;
         _ => Loc.WeatherUnknown
     };
 
+    /// <summary>마지막 조회에서 Codex·OpenCode 하단 안내에 붙인 다른 PC 합산 정보. 언어가 바뀌면 이걸로 안내를 다시 만든다.</summary>
+    private UsageSyncMergedLocalTotals? _codexNoteMergedTotals;
+    private UsageSyncMergedLocalTotals? _openCodeNoteMergedTotals;
+
+    /// <summary>
+    /// Codex·OpenCode 하단 안내를 지금 언어로 다시 만든다(#310). 안내는 조회 때만 만들어져, 언어를 바꿔도 다음 새로고침
+    /// 전까지 옛 언어로 남았다. <see cref="OpenCodeViewModel.RefreshLocalizedLabels"/> 뒤에 불러야 한다.
+    /// </summary>
+    internal void RefreshProviderNotes()
+    {
+        CodexNote = WithSyncNote(Loc.ProviderCodexNote, _codexNoteMergedTotals);
+        OpenCodeNote = WithSyncNote(OpenCodeVm.Note, _openCodeNoteMergedTotals);
+    }
+
     private void OnLanguageChanged()
     {
         // 종료 중이면 Application.Current 가 이미 null 이다 — 갱신할 화면도 없으므로 그냥 넘어간다.
         System.Windows.Application.Current?.Dispatcher.Invoke(() =>
         {
+            ClaudeVm.RefreshLocalizedLabels();
             OpenCodeVm.RefreshLocalizedLabels();
+            RefreshProviderNotes();
+            HmsVm.RefreshLanguage();
+            AntigravityVm.RefreshLocalizedLabels();
+            // 행 객체가 새로 만들어지므로 미러 프로퍼티도 다시 가리켜야 화면이 바뀐다.
+            AntigravityModels = AntigravityVm.Models;
+            ApplyCodexAdditionalLimits(_codexAdditionalSource);
+            CodexVm.UpdateImageGenerationLabels(DateTimeOffset.Now, ShowAbsoluteResetTime);
+            ClaudeVm.RebuildModelLimits(DateTimeOffset.Now, ShowAbsoluteResetTime);
+            // 안내·출처 문구는 값이 필드에 담겨 있어 다시 만들어야 바뀐다(다음 조회까지 기다리지 않도록).
+            AntigravityNote = Loc.ProviderAntigravityNote;
+            RefreshAntigravityDataSourceLabel();
             OnPropertyChanged(string.Empty);
         });
     }
@@ -2722,33 +3716,101 @@ namespace ClaudeUsageTray.ViewModels;
         _timer.Dispose();
         _countdownTimer.Dispose();
         _updateTimer.Dispose();
+        Mobile.Dispose();
+        CancelClaudeLoginWatch();
         GC.SuppressFinalize(this);
     }
+
+    /// <summary>
+    /// Antigravity 최후 폴백 적용 후 HasData 를 다시 꺼야 하는지 — 보여줄 모델도 없고 로컬에
+    /// 진짜 에러도 없을 때만 그렇다. 에러가 있으면 HasData 를 켜 둬야 한다 — UsagePopup 의
+    /// Antigravity 섹션은 AntigravityHasData 하나로만 렌더 여부가 갈리고 에러 텍스트도 그
+    /// 섹션 안에 중첩돼 있어(줄 1340/1404-1405), 여기서 꺼버리면 모델뿐 아니라 에러 메시지까지
+    /// 함께 가려진다(2026-09-15 PR #162 리뷰에서 실제로 이 순서로 회귀했다: 모델 0개 → HasData
+    /// 무조건 false → 되살려 둔 HasError 텍스트도 같이 숨음).
+    /// </summary>
+    internal static bool ShouldClearAntigravityFallbackData(bool usedFallbackModels, bool hadGenuineLocalError) =>
+        !usedFallbackModels && !hadGenuineLocalError;
 
     private async Task RefreshAntigravityInternalAsync()
     {
         AntigravityVm.IsEnabled = IsAntigravityEnabled;
         await AntigravityVm.RefreshAsync();
 
-        var remoteQuota = IsAntigravityEnabled ? TrySyncAntigravityQuota() : null;
+        // Codex/OpenCode 와 동일하게 무조건 동기화한다 — IsAntigravityEnabled 는 표시 여부
+        // 설정일 뿐 이 provider 를 이 PC 에서 실제로 쓰는지와 무관하다. 여기서 조건부로 걸면
+        // "이 PC 는 Antigravity 를 안 쓴다" 상황에서 정작 필요한 동기화 읽기까지 막혀버린다.
+        // 표시를 끈 PC 는 로컬 조회를 건너뛰므로 할당량 없는 스냅샷만 쓰게 되고(다른 PC 에 영향 없음),
+        // 다른 PC 값으로 섹션을 다시 켜지 않도록 아래 적용 단계에서만 막는다.
+        var antigravityQuotaCandidates = TrySyncAntigravityQuota();
 
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
+            AntigravityNote = Loc.ProviderAntigravityNote;
+            _antigravityQuotaOrigin = null;
+
             // 이 PC 에서 Antigravity 에 로그인하지 않았거나 조회가 실패하면 다른 PC 가 올린 값으로 채운다.
-            // 할당량은 구글 계정 단위라 어느 PC 에서 받아도 같은 값이다.
-            if (!AntigravityVm.HasData && remoteQuota is { Quota.HasData: true } snapshot)
+            // 할당량은 구글 계정 단위라 어느 PC 에서 받아도 같은 값이다. 신선도 기준을 넘겼어도 24시간
+            // 이내 관측치 중 아직 리셋되지 않은 모델이 남아 있으면 최후 폴백으로 쓴다(Codex 와 같은 이유).
+            // 화면에 항상 관측 기기·시각을 함께 표시하므로 오래된 값이라는 사실이 가려지지는 않는다.
+            if (IsAntigravityEnabled &&
+                !AntigravityVm.HasData &&
+                antigravityQuotaCandidates.Selected is { Quota.HasData: true } snapshot)
             {
+                // ApplyQuota 는 자기 안에서 HasError 를 무조건 false 로 지운다 — 이 PC 의 로컬 조회가
+                // 로그인 필요 등 진짜 에러(정보성 아님)로 실패한 경우라면 그 상태를 보존해 뒀다가
+                // 되살린다. 최후 폴백 창이 24시간까지 넓어지면서 이 상태를 최대 하루 가까이 가릴
+                // 위험도 커졌다 — Codex 쪽과 같은 이유(RefreshCodexInternalAsync 참고).
+                var hadGenuineLocalError = AntigravityVm.HasError;
+                var localErrorMessage = AntigravityVm.ErrorMessage;
+
                 AntigravityVm.ApplyQuota(
                     ToAntigravityModelQuotas(snapshot.Quota!.Models),
                     snapshot.Quota.TierName,
-                    snapshot.Quota.PaidTierName);
-            }
+                    snapshot.Quota.PaidTierName,
+                    snapshot.Quota.AiCredits);
 
-            AntigravityHasData = AntigravityVm.HasData;
+                // 스냅샷에 담긴 모델이 전부 리셋을 지나 ApplyQuota 의 필터에서 다 걸러졌을 수 있다
+                // (Models.Count == 0). ApplyQuota 는 빈 목록에도 HasData 를 무조건 true 로
+                // 남기므로, 보여줄 모델도 없고 로컬 에러도 없다면 폴백 자체가 없었던 것과 같은
+                // 상태로 되돌린다 — 안 그러면 빈 섹션·0% 게이지만 뜬다.
+                var usedFallbackModels = AntigravityVm.Models.Count > 0;
+                if (ShouldClearAntigravityFallbackData(usedFallbackModels, hadGenuineLocalError))
+                {
+                    AntigravityVm.HasData = false;
+                }
+
+                // 모델을 하나도 못 쓴 폴백이면 아래에서 출처도 밝히지 않는다. 그 스냅샷의 크레딧만 남기면
+                // 최대 24시간 전 잔액이 지금 값처럼 보이므로(로컬 에러 때문에 섹션이 켜진 경우) 함께 버린다.
+                if (!usedFallbackModels)
+                {
+                    AntigravityVm.AiCreditsText = "";
+                }
+
+                if (hadGenuineLocalError)
+                {
+                    AntigravityVm.HasError = true;
+                    AntigravityVm.ErrorMessage = localErrorMessage;
+                }
+
+                // 다른 PC 의 값을 보고 있다는 것은 Codex 와 같은 자리(오른쪽 출처)에 적는다.
+                // 실제로 보여줄 모델이 있을 때만 남긴다 — 모델이 없으면(위에서 에러만 살린
+                // 경우 포함) 그 기기의 값을 쓰고 있는 게 아니므로 출처를 밝힐 이유가 없다.
+                if (usedFallbackModels)
+                {
+                    _antigravityQuotaOrigin = (
+                        snapshot.DeviceName,
+                        snapshot.Quota.ObservedAtUtc ?? snapshot.ObservedAtUtc);
+                }
+            }
+            RefreshAntigravityDataSourceLabel();
+
+            AntigravityHasData = HasVisibleAntigravityQuota(AntigravityVm.HasData, AntigravityVm.Models.Count, AntigravityVm.HasError);
             AntigravityHasError = AntigravityVm.HasError;
             AntigravityErrorMessage = AntigravityVm.ErrorMessage;
             AntigravityTierName = AntigravityVm.TierName;
             AntigravityPaidTierName = AntigravityVm.PaidTierName;
+            AntigravityAiCreditsText = AntigravityVm.AiCreditsText;
             AntigravityModels = AntigravityVm.Models;
             AntigravityPercent = AntigravityVm.Percent;
         });
@@ -2761,11 +3823,14 @@ namespace ClaudeUsageTray.ViewModels;
     /// 계정 키는 두지 않는다(Codex 등 다른 provider 와 동일). 이 기능이 쓰이는 상황이 바로
     /// "이 PC 는 Antigravity 에 로그인하지 않았다" 인데, 그러면 이메일을 몰라 계정 해시가 달라지고
     /// 정작 필요한 PC 가 상대 폴더를 못 읽는다. 공유 폴더 자체가 한 사용자 것이라는 전제로 묶는다.
+    ///
+    /// 할당량 후보는 다른 provider 와 같은 <see cref="UsageSyncService.SelectQuotaCandidates"/> 로 고른다.
     /// </summary>
-    private UsageSyncSnapshot? TrySyncAntigravityQuota()
+    private UsageSyncQuotaCandidates TrySyncAntigravityQuota()
     {
-        if (!IsUsageSyncReady)
-            return null;
+        PublishAntigravityMobile();
+        if (!IsAnySyncActive)
+            return UsageSyncQuotaCandidates.None;
 
         try
         {
@@ -2776,12 +3841,10 @@ namespace ClaudeUsageTray.ViewModels;
                 CreateAntigravityQuotaSnapshot(local),
                 new UsageSyncLocalTotals(),
                 local.HasData ? "" : ClassifyProviderError(local.ErrorMessage));
-            _usageSync.WriteSnapshot(UsageSyncFolderPath, snapshot);
-
             var today = DateOnly.FromDateTime(DateTime.Now);
-            var read = _usageSync.ReadSnapshots(UsageSyncFolderPath, UsageProviderKind.Antigravity, null, today);
-            UsageSyncStatusLabel = Loc.UsageSyncReady;
-            return _usageSync.SelectNewestQuotaSnapshot(read.Snapshots, UsageSyncApiTtl);
+            var (_, quotaPool) = GatherSyncSnapshots(snapshot, UsageProviderKind.Antigravity, null, today, fallbackToAnyAccount: false);
+            return _usageSync.SelectQuotaCandidates(
+                SyncFolderOrEmpty, UsageProviderKind.Antigravity, null, today, quotaPool, UsageSyncApiTtl);
         }
         catch (Exception ex)
         {
@@ -2789,11 +3852,47 @@ namespace ClaudeUsageTray.ViewModels;
 #if DEBUG
             Debug.WriteLine($"[MainViewModel] Antigravity usage sync failed: {ex}");
 #endif
-            return null;
+            return UsageSyncQuotaCandidates.None;
         }
     }
 
-    private static UsageSyncQuotaSnapshot? CreateAntigravityQuotaSnapshot(AntigravitySnapshot snapshot)
+    /// <summary>
+    /// 이 PC 의 Antigravity 값을 휴대폰 피드에 넣는다. 공유 폴더·PC 직접 동기화와 달리 팝업과 같은 표시 규칙으로
+    /// 거른 값을 보낸다(#304) — 휴대폰은 받은 창을 모두 그리므로, 원본을 보내면 숨긴 Claude·GPT 창이 휴대폰에만 보인다.
+    /// 다른 PC 로는 원본을 그대로 보낸다: 받는 PC 가 자기 설정으로 거른다.
+    /// </summary>
+    private void PublishAntigravityMobile()
+    {
+        if (!IsMobileProviderVisible(UsageProviderKind.Antigravity)) return;
+        var mobileLocal = AntigravityVm.LastSnapshot;
+        var showThirdParty = ShowAntigravityThirdPartyQuota;
+        PublishMobile(UsageProviderKind.Antigravity, null, "",
+            () => CreateAntigravityMobileQuotaSnapshot(mobileLocal, showThirdParty), null,
+            mobileLocal.HasData ? "" : ClassifyProviderError(mobileLocal.ErrorMessage));
+    }
+
+    /// <summary>
+    /// 휴대폰에 보낼 Antigravity 할당량 — <see cref="CreateAntigravityQuotaSnapshot"/> 에서 팝업에 보이지 않는 창을 뺀 것.
+    /// 남는 창이 없어도 HasData 는 그대로 둔다: 쿼터 없이 보내면 피드가 직전 쿼터(숨기기 전의 Claude·GPT 창)를 이어 붙인다.
+    /// </summary>
+    internal static UsageSyncQuotaSnapshot? CreateAntigravityMobileQuotaSnapshot(AntigravitySnapshot snapshot, bool showThirdParty)
+    {
+        var quota = CreateAntigravityQuotaSnapshot(snapshot);
+        if (quota is null) return null;
+        quota.Models = [.. quota.Models.Where(m => AntigravityViewModel.IsDisplayedBucket(m.ModelId, showThirdParty))];
+        return quota;
+    }
+
+    /// <summary>
+    /// 출처 문구를 현재 언어로 만든다. 다른 PC 값을 보고 있지 않으면 빈 문자열 —
+    /// 로컬 조회 결과에는 "어디서 왔는지" 적을 것이 없다.
+    /// </summary>
+    private void RefreshAntigravityDataSourceLabel() =>
+        AntigravityDataSource = _antigravityQuotaOrigin is { } origin
+            ? Loc.UsageSyncQuotaFromDevice(origin.Device, UsageCalculator.FormatObservedAt(origin.ObservedAt, DateTimeOffset.Now))
+            : "";
+
+    internal static UsageSyncQuotaSnapshot? CreateAntigravityQuotaSnapshot(AntigravitySnapshot snapshot)
     {
         if (!snapshot.HasData || snapshot.Models.Count == 0)
             return null;
@@ -2803,30 +3902,27 @@ namespace ClaudeUsageTray.ViewModels;
             HasData = true,
             TierName = snapshot.TierName ?? "",
             PaidTierName = snapshot.PaidTierName ?? "",
+            AiCredits = snapshot.AiCredits,
             Models = [.. snapshot.Models.Select(model => new UsageSyncModelQuota
             {
                 ModelId = model.ModelId,
                 RemainingFraction = model.RemainingFraction,
                 ResetAt = model.ResetTime,
+                DisplayName = model.DisplayName,
+                Window = model.TokenType,
+                GroupName = model.GroupName,
             })],
         };
     }
 
-    private static IReadOnlyList<AntigravityModelQuota> ToAntigravityModelQuotas(UsageSyncModelQuota[] models) =>
+    internal static IReadOnlyList<AntigravityModelQuota> ToAntigravityModelQuotas(UsageSyncModelQuota[] models) =>
         [.. models.Select(model => new AntigravityModelQuota
         {
             ModelId = model.ModelId,
             RemainingFraction = model.RemainingFraction,
             ResetTime = model.ResetAt,
+            DisplayName = model.DisplayName,
+            TokenType = model.Window,
+            GroupName = model.GroupName,
         })];
-}
-
-/// <summary>Single row binding model for the Antigravity model quota list.</summary>
-public sealed class AntigravityModelRow
-{
-    public string ModelId { get; init; } = "";
-    public string DisplayName { get; init; } = "";
-    public double UsagePercent { get; init; }   // 0..1
-    public string UsageLabel { get; init; } = "";
-    public string ResetAtLabel { get; init; } = "";
 }

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Play build only (#257, #284): Google Play installs updates; this build only says a new version is out. -->
+<resources>
+    <string name="about_privacy">This app connects only to the PCs you paired — directly, or through a PC\'s Cloudflare Tunnel if you turned it on. No ads, analytics or usage tracking. The only other outgoing traffic is end-to-end-encrypted alerts through your push app\'s relay. Updates come through Google Play: the app asks the Google Play app on this phone whether a newer version is out.</string>
+    <string name="update_banner">New version %1$s — tap to update in Google Play</string>
+    <string name="update_settings_title">App updates</string>
+    <string name="update_current_version">Installed: %1$s</string>
+    <string name="update_settings_description">Asks Google Play twice a day whether a new version is out and notifies you once per version. Google Play installs it; the banner on the home screen shows either way.</string>
+    <string name="update_result_available">Version %1$s is available</string>
+    <string name="update_open_store">Google Play</string>
+    <string name="update_check_now">Check now</string>
+    <string name="update_result_latest">You have the latest version (%1$s)</string>
+    <string name="update_result_not_from_play">Only a copy installed from Google Play can check for updates there.</string>
+    <string name="update_result_failed">Google Play didn\'t answer. Try again in a moment.</string>
+    <string name="update_notifications_off">Notifications are off, so new versions only show inside the app — allow</string>
+    <string name="update_notification_title">%1$s %2$s is available</string>
+    <string name="update_notification_text">Tap to update it in Google Play.</string>
+    <string name="update_channel_name">App updates</string>
+    <string name="update_channel_description">New versions of this app on Google Play</string>
+</resources>

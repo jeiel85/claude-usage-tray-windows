@@ -13,9 +13,12 @@ public class WeatherAlertService
     private readonly Func<NotificationSettings> _getSettings;
     private readonly IReadOnlyList<IWeatherWarningProvider> _warningProviders;
 
-    private static readonly string AlertCachePath = Path.Combine(
+    private static readonly string DefaultAlertCachePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         ".claude", "claude-usage-tray-weather-alerts.json");
+
+    /// <summary>발송 기록 파일. 테스트는 임시 폴더를 넘겨 개발자 PC 의 기록을 건드리지 않는다.</summary>
+    private readonly string _alertCachePath;
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -35,8 +38,10 @@ public class WeatherAlertService
         WeatherService weather,
         NotificationService notifier,
         Func<NotificationSettings> getSettings,
-        IReadOnlyList<IWeatherWarningProvider> warningProviders)
+        IReadOnlyList<IWeatherWarningProvider> warningProviders,
+        string? alertCachePath = null)
     {
+        _alertCachePath = alertCachePath ?? DefaultAlertCachePath;
         _weather = weather;
         _notifier = notifier;
         _getSettings = getSettings;
@@ -60,8 +65,8 @@ public class WeatherAlertService
             if (settings.WeatherDailyForecastEnabled && report.Daily.Count > 0)
             {
                 var today = report.Daily[0];
-                var dailyKey = $"daily:{DateOnly.FromDateTime(now.DateTime):yyyyMMdd}:" +
-                              $"{loc.Latitude:F2}:{loc.Longitude:F2}";
+                // 키의 날짜는 PC 의 오늘이 아니라 예보 자체의 날짜(위치의 현지 날짜)다 — 시간대가 다른 PC 와 섞이지 않게(#175).
+                var dailyKey = WeatherAlertKeys.Daily(today.Date, loc.Latitude, loc.Longitude);
 
                 if (!cache.Contains(dailyKey) && IsDailyForecastTime(settings))
                 {
@@ -85,7 +90,7 @@ public class WeatherAlertService
                     var clickUrl = BuildWeatherClickUrl(loc);
 
                     _notifier.ShowWeatherAlert(title, ntfyBody, ntfyTopic,
-                        ntfyBody, tags: ["sunny"], clickUrl: clickUrl);
+                        WeatherPriority.Forecast, ntfyMessage: ntfyBody, tags: ["sunny"], clickUrl: clickUrl, dedupeKey: dailyKey);
                     cache.Mark(dailyKey, now);
                 }
             }
@@ -117,47 +122,47 @@ public class WeatherAlertService
         {
             // 비/폭염/한파는 "오늘 예보"(report.Daily[0]) 하나를 보고 판정하므로 하루 안에서는
             // 같은 내용이다. 하루 한 번만 보낸다.
-            var dayWindow = now.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+            var dayWindow = WeatherAlertKeys.Day(today.Date);
 
             if (today.PrecipitationProbabilityMax >= settings.WeatherRainProbabilityThreshold
                 && IsSignificantPrecip(today.WeatherCode))
             {
-                var key = $"condition:rain:{dayWindow}:{settings.WeatherRainProbabilityThreshold}:" +
-                         $"{loc.Latitude:F2}:{loc.Longitude:F2}";
+                var key = WeatherAlertKeys.Condition("rain", dayWindow,
+                    settings.WeatherRainProbabilityThreshold, loc.Latitude, loc.Longitude);
                 if (!cache.Contains(key))
                 {
                     var body = $"{loc.Name}: {Loc.WeatherRainWarning(today.PrecipitationProbabilityMax.Value)}";
                     _notifier.ShowWeatherAlert(
-                        Loc.WeatherWarningTitle, body, ntfyTopic, body,
-                        tags: ["umbrella"], clickUrl: clickUrl);
+                        Loc.WeatherWarningTitle, body, ntfyTopic, WeatherPriority.Condition,
+                        ntfyMessage: body, tags: ["umbrella"], clickUrl: clickUrl, dedupeKey: key);
                     cache.Mark(key, now);
                 }
             }
 
             if (today.MaxTemperatureC >= settings.WeatherHighTemperatureThresholdC)
             {
-                var key = $"condition:heat:{dayWindow}:{(int)settings.WeatherHighTemperatureThresholdC}:" +
-                         $"{loc.Latitude:F2}:{loc.Longitude:F2}";
+                var key = WeatherAlertKeys.Condition("heat", dayWindow,
+                    (int)settings.WeatherHighTemperatureThresholdC, loc.Latitude, loc.Longitude);
                 if (!cache.Contains(key))
                 {
                     var body = $"{loc.Name}: {Loc.WeatherHeatWarning(today.MaxTemperatureC.Value)}";
                     _notifier.ShowWeatherAlert(
-                        Loc.WeatherWarningTitle, body, ntfyTopic, body,
-                        tags: ["hot"], clickUrl: clickUrl);
+                        Loc.WeatherWarningTitle, body, ntfyTopic, WeatherPriority.Condition,
+                        ntfyMessage: body, tags: ["hot"], clickUrl: clickUrl, dedupeKey: key);
                     cache.Mark(key, now);
                 }
             }
 
             if (today.MinTemperatureC <= settings.WeatherLowTemperatureThresholdC)
             {
-                var key = $"condition:cold:{dayWindow}:{(int)settings.WeatherLowTemperatureThresholdC}:" +
-                         $"{loc.Latitude:F2}:{loc.Longitude:F2}";
+                var key = WeatherAlertKeys.Condition("cold", dayWindow,
+                    (int)settings.WeatherLowTemperatureThresholdC, loc.Latitude, loc.Longitude);
                 if (!cache.Contains(key))
                 {
                     var body = $"{loc.Name}: {Loc.WeatherColdWarning(today.MinTemperatureC.Value)}";
                     _notifier.ShowWeatherAlert(
-                        Loc.WeatherWarningTitle, body, ntfyTopic, body,
-                        tags: ["snowflake"], clickUrl: clickUrl);
+                        Loc.WeatherWarningTitle, body, ntfyTopic, WeatherPriority.Condition,
+                        ntfyMessage: body, tags: ["snowflake"], clickUrl: clickUrl, dedupeKey: key);
                     cache.Mark(key, now);
                 }
             }
@@ -167,15 +172,15 @@ public class WeatherAlertService
         {
             // 강풍은 예보가 아니라 현재 관측 풍속으로 판정하므로 하루 안에서도 값이 바뀐다.
             // 설계 문서의 조건 알림 쿨다운(6시간)을 그대로 적용한다.
-            var windWindow = $"{now:yyyyMMdd}-{now.Hour / ConditionCooldownHours}";
-            var key = $"condition:wind:{windWindow}:{(int)settings.WeatherWindSpeedThresholdKmh}:" +
-                     $"{loc.Latitude:F2}:{loc.Longitude:F2}";
+            var windWindow = WeatherAlertKeys.WindWindow(now, ConditionCooldownHours);
+            var key = WeatherAlertKeys.Condition("wind", windWindow,
+                (int)settings.WeatherWindSpeedThresholdKmh, loc.Latitude, loc.Longitude);
             if (!cache.Contains(key))
             {
                 var body = $"{loc.Name}: {Loc.WeatherWindWarning(report.Current.WindSpeedKmh.Value)}";
                 _notifier.ShowWeatherAlert(
-                    Loc.WeatherWarningTitle, body, ntfyTopic, body,
-                    tags: ["wind"], clickUrl: clickUrl);
+                    Loc.WeatherWarningTitle, body, ntfyTopic, WeatherPriority.Condition,
+                    ntfyMessage: body, tags: ["wind"], clickUrl: clickUrl, dedupeKey: key);
                 cache.Mark(key, now);
             }
         }
@@ -199,8 +204,8 @@ public class WeatherAlertService
 
                 var body = $"{alert.Event} · {alert.Severity}\n{alert.Headline}";
                 _notifier.ShowWeatherAlert(
-                    Loc.WeatherWarningTitle, body, ntfyTopic, body,
-                    tags: ["warning"], clickUrl: clickUrl);
+                    Loc.WeatherWarningTitle, body, ntfyTopic, WeatherPriority.Official,
+                    ntfyMessage: body, tags: ["warning"], clickUrl: clickUrl, dedupeKey: key);
                 cache.Mark(key, now);
             }
 
@@ -256,13 +261,13 @@ public class WeatherAlertService
         };
     }
 
-    private static AlertCache LoadAlertCache(DateTimeOffset now)
+    private AlertCache LoadAlertCache(DateTimeOffset now)
     {
         AlertCache cache;
         try
         {
-            cache = File.Exists(AlertCachePath)
-                ? JsonSerializer.Deserialize<AlertCache>(File.ReadAllText(AlertCachePath), JsonOpts) ?? new()
+            cache = File.Exists(_alertCachePath)
+                ? JsonSerializer.Deserialize<AlertCache>(File.ReadAllText(_alertCachePath), JsonOpts) ?? new()
                 : new AlertCache();
         }
         catch
@@ -274,13 +279,13 @@ public class WeatherAlertService
         return cache;
     }
 
-    private static void SaveAlertCache(AlertCache cache)
+    private void SaveAlertCache(AlertCache cache)
     {
         try
         {
-            var dir = Path.GetDirectoryName(AlertCachePath);
+            var dir = Path.GetDirectoryName(_alertCachePath);
             if (dir != null) Directory.CreateDirectory(dir);
-            File.WriteAllText(AlertCachePath, JsonSerializer.Serialize(cache, JsonOpts));
+            File.WriteAllText(_alertCachePath, JsonSerializer.Serialize(cache, JsonOpts));
         }
         catch { }
     }

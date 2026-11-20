@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Debug builds only: screens filled with sample data, for checking the design without a paired PC.
+             adb shell am start -n com.jeiel85.aiusage/io.github.jeiel85.claudeusage.DesignPreviewActivity -e screen accounts|pcs|history|settings|pair|empty -->
+        <activity
+            android:name=".DesignPreviewActivity"
+            android:exported="true" />
+    </application>
+</manifest>

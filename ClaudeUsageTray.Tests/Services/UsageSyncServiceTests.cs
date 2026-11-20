@@ -110,23 +110,23 @@ public sealed class UsageSyncServiceTests : IDisposable
         var syncRoot = Path.Combine(_tempRoot, "sync");
 
         desktop.WriteSnapshot(syncRoot, desktop.CreateSnapshot(
-            UsageProviderKind.GeminiCli,
+            UsageProviderKind.Codex,
             null,
             new UsageSyncQuotaSnapshot { HasData = true, ShortUsagePercent = 0.2 },
             new UsageSyncLocalTotals { InputTokens = 100, OutputTokens = 200, RequestCount = 2, HourlyTokens = Hourly(3, 300) }));
         laptop.WriteSnapshot(syncRoot, laptop.CreateSnapshot(
-            UsageProviderKind.GeminiCli,
+            UsageProviderKind.Codex,
             null,
             new UsageSyncQuotaSnapshot { HasData = true, ShortUsagePercent = 0.7 },
             new UsageSyncLocalTotals { InputTokens = 10, OutputTokens = 20, RequestCount = 1, HourlyTokens = Hourly(3, 30) }));
         stale.WriteSnapshot(syncRoot, stale.CreateSnapshot(
-            UsageProviderKind.GeminiCli,
+            UsageProviderKind.Codex,
             null,
             new UsageSyncQuotaSnapshot { HasData = true, ShortUsagePercent = 0.9 },
             new UsageSyncLocalTotals { InputTokens = 999, OutputTokens = 999, RequestCount = 9 }));
 
         var reader = CreateService("reader", now);
-        var result = reader.ReadSnapshots(syncRoot, UsageProviderKind.GeminiCli, null, new DateOnly(2026, 7, 9));
+        var result = reader.ReadSnapshots(syncRoot, UsageProviderKind.Codex, null, new DateOnly(2026, 7, 9));
         var merged = reader.MergeLocalTotals(result.Snapshots, TimeSpan.FromHours(24));
         var newestQuota = reader.SelectNewestQuotaSnapshot(result.Snapshots, TimeSpan.FromHours(24));
 
@@ -137,6 +137,40 @@ public sealed class UsageSyncServiceTests : IDisposable
         Assert.Equal(330, merged.HourlyTokens[3]);
         Assert.NotNull(newestQuota);
         Assert.Equal("desktop", newestQuota!.DeviceName);
+    }
+
+    // DeviceCount 는 "기기 수" 가 아니라 "사용량이 있는 기기 수" 다.
+    // 이 PC 에서 OpenCode 를 아예 안 쓰면 이 PC 스냅샷은 집계에서 빠져 DeviceCount 가 1 이 되고,
+    // 그래도 다른 PC 의 합계는 그대로 살아 있어야 한다. (MainViewModel.HasMergedDeviceTotals 가 이 값을 본다)
+    [Fact]
+    public void MergeLocalTotals_CountsOnlyDevicesWithUsage()
+    {
+        var now = new DateTimeOffset(2026, 8, 10, 6, 0, 0, TimeSpan.Zero);
+        var desktop = CreateService("desktop", now);
+        var idleLaptop = CreateService("idle-laptop", now.AddMinutes(1));
+        var syncRoot = Path.Combine(_tempRoot, "sync");
+
+        desktop.WriteSnapshot(syncRoot, desktop.CreateSnapshot(
+            UsageProviderKind.OpenCode,
+            null,
+            null,
+            new UsageSyncLocalTotals { InputTokens = 248_796, OutputTokens = 42_958, RequestCount = 179 }));
+        idleLaptop.WriteSnapshot(syncRoot, idleLaptop.CreateSnapshot(
+            UsageProviderKind.OpenCode,
+            null,
+            null,
+            new UsageSyncLocalTotals(),
+            "no_usage"));
+
+        var read = idleLaptop.ReadSnapshots(syncRoot, UsageProviderKind.OpenCode, null, new DateOnly(2026, 8, 10));
+        var merged = idleLaptop.MergeLocalTotals(read.Snapshots, TimeSpan.FromHours(24));
+
+        Assert.Equal(2, read.Snapshots.Count);
+        Assert.Equal(1, merged.DeviceCount);
+        Assert.True(merged.HasData);
+        Assert.Equal(248_796, merged.InputTokens);
+        Assert.Equal(42_958, merged.OutputTokens);
+        Assert.Equal(179, merged.RequestCount);
     }
 
     [Fact]
@@ -232,6 +266,7 @@ public sealed class UsageSyncServiceTests : IDisposable
             {
                 HasData = true,
                 TierName = "Gemini Code Assist",
+                AiCredits = 1000,
                 Models =
                 [
                     new UsageSyncModelQuota { ModelId = "gemini-3-pro", RemainingFraction = 0.25, ResetAt = now.AddHours(4) },
@@ -246,6 +281,7 @@ public sealed class UsageSyncServiceTests : IDisposable
 
         Assert.NotNull(newest);
         Assert.Equal("Gemini Code Assist", newest!.Quota!.TierName);
+        Assert.Equal(1000, newest.Quota.AiCredits);   // Google AI 크레딧도 계정 단위라 함께 건너온다
         Assert.Equal(2, newest.Quota.Models.Length);
         Assert.Equal("gemini-3-pro", newest.Quota.Models[0].ModelId);
         Assert.Equal(0.25, newest.Quota.Models[0].RemainingFraction, 6);
@@ -254,6 +290,40 @@ public sealed class UsageSyncServiceTests : IDisposable
         var written = Directory.EnumerateFiles(syncRoot, "*.json", SearchOption.AllDirectories).Single();
         Assert.DoesNotContain("user@example.com", ReadAllTextShared(written), StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("user@example.com", written, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Gemini 4 Argon 처럼 앱이 이름을 모르는 그룹(#204)은 그룹 이름이 있어야 "Gemini 4 Argon · 주간" 으로 부를 수 있다.
+    // 로컬 조회에서 동기화 파일을 거쳐 다른 PC 의 화면 입력으로 돌아올 때까지 그룹 이름이 남아야 한다.
+    [Fact]
+    public void QuotaSnapshot_CarriesAntigravityGroupName_AcrossPcs()
+    {
+        var now = new DateTimeOffset(2026, 10, 16, 9, 0, 0, TimeSpan.Zero);
+        var desktop = CreateService("desktop", now);
+        var syncRoot = Path.Combine(_tempRoot, "sync");
+        var quota = ClaudeUsageTray.ViewModels.MainViewModel.CreateAntigravityQuotaSnapshot(new AntigravitySnapshot
+        {
+            HasData = true,
+            Models =
+            [
+                new AntigravityModelQuota
+                {
+                    ModelId = "gemini-argon-wtu-weekly", TokenType = "weekly", GroupName = "Gemini 4 Argon",
+                    DisplayName = "Gemini 4 Argon Weekly Limit", RemainingFraction = 0.71, ResetTime = now.AddDays(6),
+                },
+            ],
+        });
+
+        desktop.WriteSnapshot(syncRoot, desktop.CreateSnapshot(
+            UsageProviderKind.Antigravity, "user@example.com", quota, new UsageSyncLocalTotals()));
+
+        var laptop = CreateService("laptop", now.AddMinutes(1));
+        var read = laptop.ReadSnapshots(syncRoot, UsageProviderKind.Antigravity, "user@example.com", new DateOnly(2026, 10, 16));
+        var newest = laptop.SelectNewestQuotaSnapshot(read.Snapshots, TimeSpan.FromMinutes(5));
+
+        var model = Assert.Single(ClaudeUsageTray.ViewModels.MainViewModel.ToAntigravityModelQuotas(newest!.Quota!.Models));
+        Assert.Equal("Gemini 4 Argon", model.GroupName);
+        Assert.Equal("weekly", model.TokenType);
+        Assert.Equal(0.71, model.RemainingFraction, 6);
     }
 
     // 스키마 버전은 정확히 일치할 때만 읽히므로, 필드 추가만으로는 올리지 않는다.
@@ -286,6 +356,86 @@ public sealed class UsageSyncServiceTests : IDisposable
         Assert.Equal(0.4, newest!.Quota!.ShortUsagePercent, 6);
         Assert.Null(newest.Quota.ShortWindowMinutes);
         Assert.Empty(newest.Quota.Models);
+        Assert.Empty(newest.Quota.AdditionalQuotas);
+        Assert.Null(newest.Quota.AiCredits);   // 크레딧 필드가 없던 버전 — "크레딧 대상 아님" 과 같이 줄을 그리지 않는다
+    }
+
+    // #182: Codex 추가 한도(이미지 생성 등)도 계정 단위라 다른 PC 로 그대로 건너와야 한다 —
+    // 토큰이 만료돼 로그로만 읽는 PC 는 이 값이 아니면 추가 한도를 알 길이 없다.
+    [Fact]
+    public void QuotaSnapshot_CarriesCodexAdditionalQuotas()
+    {
+        var now = new DateTimeOffset(2026, 7, 9, 9, 0, 0, TimeSpan.Zero);
+        var desktop = CreateService("desktop", now);
+        var syncRoot = Path.Combine(_tempRoot, "sync");
+
+        desktop.WriteSnapshot(syncRoot, desktop.CreateSnapshot(
+            UsageProviderKind.Codex,
+            null,
+            new UsageSyncQuotaSnapshot
+            {
+                HasData = true,
+                ShortUsagePercent = 0.1,
+                ShortResetAt = now.AddHours(2),
+                ShortWindowMinutes = 300,
+                AdditionalQuotas =
+                [
+                    new UsageSyncAdditionalQuota
+                    {
+                        LimitId = "codex_image_gen", LimitName = "image_gen",
+                        UsagePercent = 0.6, ResetAt = now.AddDays(2), WindowMinutes = 10080,
+                        ObservedAt = now.AddMinutes(-3),
+                    },
+                ],
+            },
+            new UsageSyncLocalTotals()));
+
+        var laptop = CreateService("laptop", now.AddMinutes(1));
+        var read = laptop.ReadSnapshots(syncRoot, UsageProviderKind.Codex, null, new DateOnly(2026, 7, 9));
+        var newest = laptop.SelectNewestQuotaSnapshot(read.Snapshots, TimeSpan.FromMinutes(5));
+
+        Assert.NotNull(newest);
+        var window = Assert.Single(newest!.Quota!.AdditionalQuotas);
+        Assert.Equal("codex_image_gen", window.LimitId);
+        Assert.Equal("image_gen", window.LimitName);
+        Assert.Equal(0.6, window.UsagePercent, 6);
+        Assert.Equal(now.AddDays(2), window.ResetAt);
+        Assert.Equal(10080, window.WindowMinutes);
+        Assert.Equal(now.AddMinutes(-3), window.ObservedAt);
+    }
+
+    // 파일에 null 로 적혀 있어도(손으로 고친 파일 등) 받는 쪽이 null 을 만나지 않게 한다 — 목록 전체가 null 이면 빈 목록,
+    // 요소가 null 이면 빼고, 문자열이 null 이면 빈 문자열로. 화면 갱신 중 NRE 가 나면 그 뒤 상태 갱신이 통째로 멈춘다.
+    [Theory]
+    [InlineData("null", 0)]
+    [InlineData("[null,{\"limitId\":null,\"limitName\":null,\"usagePercent\":0.5}]", 1)]
+    public void ReadSnapshots_NullAdditionalQuotas_AreNormalized(string additionalQuotasJson, int expectedCount)
+    {
+        var now = new DateTimeOffset(2026, 7, 9, 9, 0, 0, TimeSpan.Zero);
+        var reader = CreateService("reader", now);
+        var syncRoot = Path.Combine(_tempRoot, "sync");
+        var accountHash = UsageSyncService.BuildAccountHash(UsageProviderKind.Codex, null);
+        var directory = Path.Combine(syncRoot, accountHash, UsageProviderKind.Codex, "2026-07-09");
+        Directory.CreateDirectory(directory);
+
+        WriteAllTextShared(Path.Combine(directory, "otherdevice.json"),
+            """
+            {"schemaVersion":1,"accountHash":"REPLACE","provider":"codex","deviceId":"otherdevice","deviceName":"other",
+             "localDate":"2026-07-09","observedAtUtc":"2026-07-09T08:59:00Z",
+             "quota":{"hasData":true,"observedAtUtc":"2026-07-09T08:59:00Z","shortUsagePercent":0.4,
+                      "shortResetAt":"2026-07-09T12:00:00Z","additionalQuotas":ADDITIONAL},
+             "localTotals":{"inputTokens":5}}
+            """.Replace("REPLACE", accountHash).Replace("ADDITIONAL", additionalQuotasJson));
+
+        var read = reader.ReadSnapshots(syncRoot, UsageProviderKind.Codex, null, new DateOnly(2026, 7, 9));
+
+        var snapshot = Assert.Single(read.Snapshots);
+        Assert.Equal(expectedCount, snapshot.Quota!.AdditionalQuotas.Length);
+        Assert.All(snapshot.Quota.AdditionalQuotas, quota =>
+        {
+            Assert.Equal("", quota.LimitId);
+            Assert.Equal("", quota.LimitName);
+        });
     }
 
     [Fact]

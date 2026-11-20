@@ -1,3 +1,4 @@
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using ClaudeUsageTray.Models;
 using ClaudeUsageTray.Services;
@@ -7,6 +8,7 @@ namespace ClaudeUsageTray.ViewModels;
 public partial class OpenCodeViewModel : ObservableObject
 {
     private readonly OpenCodeUsageMonitor _monitor;
+    private readonly Func<ProviderUsageSnapshot> _readSnapshot;
     private readonly HistoryService _history;
     private readonly OpenCodeWebUsageService? _webUsage;
     private int _lastRequestCount = 0;
@@ -24,6 +26,9 @@ public partial class OpenCodeViewModel : ObservableObject
     [ObservableProperty] private string _cacheWriteLabel = "—";
     [ObservableProperty] private double _percent = 0;
     [ObservableProperty] private string _quotaStatusLabel = "";
+
+    /// <summary>구독 등급 배지 ("OpenCode Go"). 로그인 항목이 없으면 빈 문자열이라 배지가 숨는다.</summary>
+    [ObservableProperty] private string _planLabel = "";
     [ObservableProperty] private bool _hasPeriodUsage = false;
     [ObservableProperty] private bool _hasWebQuota = false;
     [ObservableProperty] private bool _isWebLoginRunning = false;
@@ -40,16 +45,51 @@ public partial class OpenCodeViewModel : ObservableObject
     [ObservableProperty] private double _rollingTimePercent = 0;
     [ObservableProperty] private double _weeklyTimePercent = 0;
     [ObservableProperty] private double _monthlyTimePercent = 0;
-    [ObservableProperty] private bool _isActive = false;
     [ObservableProperty] private bool _isUsageEmpty = true;
+    [ObservableProperty] private bool _hasStaleSyncedQuota = false;
+    [ObservableProperty] private string _syncedQuotaNoticeLabel = "";
+    [ObservableProperty] private bool _isWebQuotaUnavailable = false;
+
+    /// <summary>"주간 한도 도달 · 2d 3h 후 재개" — 다 쓴 창이 없으면 빈 문자열이라 줄이 숨는다.</summary>
+    [ObservableProperty] private string _limitReachedLabel = "";
+    /// <summary>결제 실패·해지 예정 같은 구독 상태 한 줄. 정상 갱신이면 빈 문자열.</summary>
+    [ObservableProperty] private string _subscriptionStatusLabel = "";
+    /// <summary>사용자가 조치해야 하는 상태(결제 실패·조치 필요)라 경고색으로 그린다.</summary>
+    [ObservableProperty] private bool _isSubscriptionStatusUrgent = false;
+    /// <summary>"추가 사용 켜짐 · 크레딧 $12.34" — 둘 다 모르면 빈 문자열.</summary>
+    [ObservableProperty] private string _billingLabel = "";
+
+    /// <summary>설정 화면의 "초기화 절대 시간 표시" 토글 — Claude·Codex 와 같은 값을 MainViewModel 이 그대로 밀어 넣는다.</summary>
+    [ObservableProperty] private bool _showAbsoluteResetTime = false;
     private OpenCodeWebUsage? _currentWebUsage;
+    /// <summary>WebLoginError 가 지금 "Go 할당량 없음" 안내를 담고 있는가 — 상태가 바뀌면 이 안내만 거둔다.</summary>
+    private bool _showsNoGoQuotaNotice;
+    /// <summary>"Go 할당량 없음" 의 구체적인 이유(일시정지 등). 구독 자체가 없으면 null.</summary>
+    private OpenCodeGoSubscriptionStatus? _noGoQuotaReason;
+    /// <summary>auth.json 항목 키로 만든 배지. 콘솔에서 요금제를 못 읽었을 때 쓴다.</summary>
+    private string _authPlanLabel = "";
+    private string? _staleQuotaDevice;
+    private DateTimeOffset? _staleQuotaObservedAt;
 
     public int LastRequestCount => _lastRequestCount;
     public long LastInputTokens => _lastInputTokens;
     public long LastOutputTokens => _lastOutputTokens;
     public ProviderUsageSnapshot LastSnapshot { get; private set; } = new();
 
+    /// <summary>공식 게이지를 못 그리는 상태 — 대신 요청 수·상태 문구를 보여주는 자리에 쓴다.</summary>
     public bool NeedsWebLogin => !HasWebQuota;
+
+    /// <summary>
+    /// 로그인 버튼을 실제로 권할 상황인가.
+    /// 다른 PC 가 오늘 관측한 공식 값이 있는데 유효시간만 지난 경우라면, 이 PC 는 로그인할 이유가 없다 —
+    /// 버튼 대신 마지막 관측 안내를 보여준다. 이 PC 의 세션이 멀쩡한데 확인만 실패한 경우도 마찬가지다.
+    /// 관측 이력이 아예 없으면 종전대로 로그인 경로를 남긴다.
+    /// </summary>
+    public bool ShowWebLoginButton => !HasWebQuota && !HasStaleSyncedQuota && !IsWebQuotaUnavailable;
+
+    /// <summary>버튼을 감춘 자리에 "왜 값이 없는지" 를 알려주는 안내. 동기화 안내가 있으면 그쪽이 우선이다.</summary>
+    public bool ShowWebQuotaUnavailableNotice => IsWebQuotaUnavailable && !HasWebQuota && !HasStaleSyncedQuota;
+    public string WebQuotaUnavailableLabel => Loc.OpenCodeQuotaUnavailable;
     public string RollingTitle => Loc.OpenCodeRollingUsage;
     public string WeeklyTitle => Loc.OpenCodeWeeklyUsage;
     public string MonthlyTitle => Loc.OpenCodeMonthlyUsage;
@@ -57,8 +97,16 @@ public partial class OpenCodeViewModel : ObservableObject
 
     public OpenCodeViewModel(OpenCodeUsageMonitor monitor, HistoryService history,
         OpenCodeWebUsageService? webUsage = null)
+        : this(monitor, history, webUsage, monitor.GetTodaySnapshot)
+    {
+    }
+
+    /// <summary>테스트용: 스냅샷 읽기를 바꿔 끼운다(느린 읽기가 UI 스레드를 붙잡지 않는지, #314).</summary>
+    internal OpenCodeViewModel(OpenCodeUsageMonitor monitor, HistoryService history,
+        OpenCodeWebUsageService? webUsage, Func<ProviderUsageSnapshot> readSnapshot)
     {
         _monitor = monitor;
+        _readSnapshot = readSnapshot;
         _history = history;
         _webUsage = webUsage;
     }
@@ -67,8 +115,12 @@ public partial class OpenCodeViewModel : ObservableObject
     {
         try
         {
-            var snapshot = _monitor.GetTodaySnapshot();
-            var webUsage = _webUsage == null ? null : await _webUsage.TryGetUsageAsync();
+            // OpenCode DB 는 수 GB 까지 커진다(이 PC 2.5GB, 첫 읽기 0.4~1.9초) — UI 스레드 밖에서 읽는다.
+            var snapshot = await Task.Run(_readSnapshot);
+            var read = _webUsage == null
+                ? OpenCodeWebReadResult.NotAttempted
+                : await _webUsage.TryGetUsageAsync();
+            var webUsage = read.Usage;
             if (snapshot.OpenCodeDetails != null) snapshot.OpenCodeDetails.WebUsage = webUsage;
             LastSnapshot = snapshot;
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
@@ -94,8 +146,11 @@ public partial class OpenCodeViewModel : ObservableObject
                         : $"Today {snapshot.RequestCount} req · in {UsageCalculator.FormatTokenShort(snapshot.TotalInputTokens)} · out {UsageCalculator.FormatTokenShort(snapshot.TotalOutputTokens)}"
                     : snapshot.ErrorMessage ?? "";
                 ApplyWebUsage(webUsage);
+                ApplyWebSessionState(read.State, _webUsage?.HasSavedSession == true, read.Inactive);
                 QuotaStatusLabel = webUsage != null ? Loc.OpenCodeOfficialQuota : FormatQuotaStatus(snapshot.OpenCodeDetails);
                 Note = webUsage != null ? Loc.ProviderOpenCodeWebNote : Loc.ProviderOpenCodeNote;
+                _authPlanLabel = PlanLabels.OpenCode(_monitor.GetPlanProviderId());
+                UpdatePlanLabel();
                 HasPeriodUsage = snapshot.OpenCodeDetails?.ThisMonth.Requests > 0;
                 IsUsageEmpty = !snapshot.HasData;
 
@@ -121,10 +176,11 @@ public partial class OpenCodeViewModel : ObservableObject
         if (_webUsage == null) return false;
         IsWebLoginRunning = true;
         WebLoginError = "";
+        _showsNoGoQuotaNotice = false;
         try
         {
-            var usage = await _webUsage.TryGetUsageAsync(interactive: true);
-            if (usage == null)
+            var read = await _webUsage.TryGetUsageAsync(interactive: true);
+            if (read.Usage is not { } usage)
             {
                 WebLoginError = _webUsage.LastError ?? Loc.OpenCodeWebLoginCancelled;
                 return false;
@@ -154,6 +210,7 @@ public partial class OpenCodeViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(usage);
         if (HasWebQuota) return;
 
+        ClearStaleSyncedQuotaNotice();
         ApplyWebUsage(usage);
         QuotaStatusLabel = Loc.OpenCodeOfficialQuota;
         Note = Loc.ProviderOpenCodeWebNote;
@@ -161,10 +218,70 @@ public partial class OpenCodeViewModel : ObservableObject
         LastSnapshot.OpenCodeDetails.WebUsage = usage;
     }
 
+    /// <summary>
+    /// 다른 PC 가 오늘 관측했지만 유효시간이 지나 게이지로는 못 쓰는 공식 값이 있을 때,
+    /// 로그인 버튼 대신 보여줄 안내를 세운다. 게이지·퍼센트는 건드리지 않는다.
+    /// </summary>
+    internal void ApplyStaleSyncedQuotaNotice(string deviceName, DateTimeOffset observedAt)
+    {
+        if (HasWebQuota)
+        {
+            ClearStaleSyncedQuotaNotice();
+            return;
+        }
+
+        _staleQuotaDevice = string.IsNullOrWhiteSpace(deviceName) ? "?" : deviceName;
+        _staleQuotaObservedAt = observedAt;
+        SyncedQuotaNoticeLabel = Loc.UsageSyncQuotaStale(
+            _staleQuotaDevice, UsageCalculator.FormatObservedAt(observedAt, DateTimeOffset.Now));
+        HasStaleSyncedQuota = true;
+    }
+
+    internal void ClearStaleSyncedQuotaNotice()
+    {
+        _staleQuotaDevice = null;
+        _staleQuotaObservedAt = null;
+        HasStaleSyncedQuota = false;
+        SyncedQuotaNoticeLabel = "";
+    }
+
+    /// <summary>
+    /// 확인 자체를 못 한 상태(부팅 직후 네트워크 미준비 등)를 로그아웃과 구분해 화면에 옮긴다.
+    /// 이 PC 에 이미 성공한 세션이 남아 있는데 확인만 실패했다면 로그인할 이유가 없으므로,
+    /// 버튼 대신 재시도 안내를 보여준다. 서버가 로그인 페이지로 되돌렸을 때만 버튼을 남긴다.
+    /// </summary>
+    internal void ApplyWebSessionState(
+        OpenCodeWebSessionState state, bool hasSavedSession, OpenCodeGoSubscriptionStatus? inactive = null)
+    {
+        IsWebQuotaUnavailable = !HasWebQuota
+            && hasSavedSession
+            && state == OpenCodeWebSessionState.Unavailable;
+
+        // 로그인은 됐지만 Go 할당량이 없는 계정(미구독·해지·일시정지)은 재시도 안내로 덮지 않고, 로그인 버튼
+        // (다른 계정으로 바꿀 길) 아래에 이유를 남긴다. 이 안내가 아닌 로그인 창의 오류 문구는 건드리지 않는다.
+        if (!HasWebQuota && state == OpenCodeWebSessionState.NoQuota)
+        {
+            _noGoQuotaReason = inactive;
+            WebLoginError = FormatNoGoQuotaNotice(inactive);
+            _showsNoGoQuotaNotice = true;
+        }
+        else if (_showsNoGoQuotaNotice)
+        {
+            WebLoginError = "";
+            _showsNoGoQuotaNotice = false;
+            _noGoQuotaReason = null;
+        }
+    }
+
+    /// <summary>구독이 있는데 못 쓰는 상태면 그 이유를, 아니면 "Go 를 구독한 계정으로 로그인" 안내를 보여준다.</summary>
+    internal static string FormatNoGoQuotaNotice(OpenCodeGoSubscriptionStatus? inactive) =>
+        inactive is { } reason ? Loc.OpenCodeGoInactive(reason) : Loc.OpenCodeWebNoGoQuota;
+
     private void ApplyWebUsage(OpenCodeWebUsage? usage)
     {
         _currentWebUsage = usage;
         HasWebQuota = usage != null;
+        UpdatePlanLabel();
         if (usage == null)
         {
             RollingPercent = WeeklyPercent = MonthlyPercent = 0;
@@ -172,22 +289,90 @@ public partial class OpenCodeViewModel : ObservableObject
             HasRollingTimeline = HasWeeklyTimeline = HasMonthlyTimeline = false;
             RollingTimePercent = WeeklyTimePercent = MonthlyTimePercent = 0;
             Percent = 0;
+            LimitReachedLabel = SubscriptionStatusLabel = BillingLabel = "";
+            IsSubscriptionStatusUrgent = false;
             return;
         }
+
+        // 게이지를 그릴 값이 생겼으니 "왜 못 그리는지" 안내는 모두 필요 없다.
+        ClearStaleSyncedQuotaNotice();
+        IsWebQuotaUnavailable = false;
 
         var now = DateTimeOffset.Now;
         RollingPercent = usage.Rolling.UsagePercent;
         WeeklyPercent = usage.Weekly.UsagePercent;
         MonthlyPercent = usage.Monthly.UsagePercent;
         RollingResetLabel = UsageCalculator.FormatResetLabel(
-            usage.Rolling.ResetAt, false, true, now);
+            usage.Rolling.ResetAt, false, ShowAbsoluteResetTime, now);
         WeeklyResetLabel = UsageCalculator.FormatResetLabel(
-            usage.Weekly.ResetAt, false, true, now);
+            usage.Weekly.ResetAt, false, ShowAbsoluteResetTime, now);
         MonthlyResetLabel = UsageCalculator.FormatResetLabel(
-            usage.Monthly.ResetAt, false, true, now);
+            usage.Monthly.ResetAt, false, ShowAbsoluteResetTime, now);
+        LimitReachedLabel = FormatLimitReached(usage, now, ShowAbsoluteResetTime);
+        SubscriptionStatusLabel = FormatSubscriptionStatus(usage);
+        IsSubscriptionStatusUrgent = usage.Subscription is OpenCodeGoSubscriptionStatus.PaymentFailed
+            or OpenCodeGoSubscriptionStatus.ActionNeeded;
+        BillingLabel = FormatBilling(usage);
         Percent = RollingPercent;
         UpdateTimeProgress(now);
     }
+
+    /// <summary>콘솔에서 요금제(Go·Go Plus)를 읽었으면 그것을, 아니면 auth.json 항목 키 기준 배지를 쓴다.</summary>
+    private void UpdatePlanLabel()
+    {
+        var product = PlanLabels.OpenCodeProduct(_currentWebUsage?.Product);
+        PlanLabel = product.Length > 0 ? product : _authPlanLabel;
+    }
+
+    /// <summary>
+    /// 콘솔의 한도 도달 배너와 같은 문구. 다 쓴 창 가운데 가장 늦게 풀리는 창을 고른다 — 그때까지는 Go 를
+    /// 못 쓴다. 추가 사용이 켜져 있으면 그동안 크레딧으로 이어 쓰고, 해지 예정인 월간 창이면 그대로 끝난다.
+    /// </summary>
+    internal static string FormatLimitReached(OpenCodeWebUsage usage, DateTimeOffset now, bool showAbsolute)
+    {
+        (string Window, OpenCodeQuotaWindow Quota, bool IsMonthly)[] windows =
+        [
+            (Loc.OpenCodeRollingWindow, usage.Rolling, false),
+            (Loc.OpenCodeWeeklyWindow, usage.Weekly, false),
+            (Loc.OpenCodeMonthlyWindow, usage.Monthly, true),
+        ];
+        // 사용률은 used/limit 을 1 로 자른 값이라 1 이면 used >= limit 이다. 이미 풀린 창은 낡은 값이라 뺀다.
+        var reached = windows
+            .Where(w => w.Quota.UsagePercent >= 1 && w.Quota.ResetAt > now)
+            .OrderByDescending(w => w.Quota.ResetAt)
+            .FirstOrDefault();
+        if (reached.Window is null) return "";
+
+        var time = UsageCalculator.FormatRemaining(reached.Quota.ResetAt - now);
+        if (showAbsolute) time += $" ({UsageCalculator.FormatClockStamp(reached.Quota.ResetAt, now)})";
+        var detail = usage.ExtraUsageEnabled
+            ? Loc.OpenCodeLimitUsingCredits(time)
+            : reached.IsMonthly && usage.Subscription == OpenCodeGoSubscriptionStatus.Ends
+                ? Loc.OpenCodeLimitGoEnds(time)
+                : Loc.OpenCodeLimitResumes(time);
+        return Loc.OpenCodeLimitReached(reached.Window, detail);
+    }
+
+    /// <summary>
+    /// 구독 상태 한 줄. 기간 끝을 모르면 월간 창의 초기화 시각(= 구독 기간 끝)을 쓴다.
+    /// 날짜는 초기화 절대 시각(<see cref="UsageCalculator.FormatClockStamp"/>)과 같은 "MM/dd" 표기다.
+    /// </summary>
+    internal static string FormatSubscriptionStatus(OpenCodeWebUsage usage)
+    {
+        var periodEnd = (usage.PeriodEndsAt ?? usage.Monthly.ResetAt).ToLocalTime();
+        return Loc.OpenCodeGoSubscription(usage.Subscription, periodEnd.ToString("MM/dd"));
+    }
+
+    internal static string FormatBilling(OpenCodeWebUsage usage)
+    {
+        var parts = new List<string>(2);
+        if (usage.ExtraUsageEnabled) parts.Add(Loc.OpenCodeExtraUsageOn);
+        if (usage.CreditsUsd is { } credits) parts.Add(Loc.OpenCodeCredits(FormatUsd(credits)));
+        return string.Join(" · ", parts);
+    }
+
+    private static string FormatUsd(decimal value) =>
+        (value < 0 ? "-$" : "$") + Math.Abs(value).ToString("#,0.00", CultureInfo.InvariantCulture);
 
     public void UpdateTimeProgress(DateTimeOffset now)
     {
@@ -211,8 +396,29 @@ public partial class OpenCodeViewModel : ObservableObject
             UsageCalculator.TimeProgress(usage.Monthly.ResetAt, usage.Monthly.ResetAt - monthlyStart, now));
     }
 
-    partial void OnHasWebQuotaChanged(bool value) => OnPropertyChanged(nameof(NeedsWebLogin));
+    partial void OnHasWebQuotaChanged(bool value)
+    {
+        OnPropertyChanged(nameof(NeedsWebLogin));
+        OnPropertyChanged(nameof(ShowWebLoginButton));
+        OnPropertyChanged(nameof(ShowWebQuotaUnavailableNotice));
+    }
+
+    partial void OnHasStaleSyncedQuotaChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowWebLoginButton));
+        OnPropertyChanged(nameof(ShowWebQuotaUnavailableNotice));
+    }
+
+    partial void OnIsWebQuotaUnavailableChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowWebLoginButton));
+        OnPropertyChanged(nameof(ShowWebQuotaUnavailableNotice));
+    }
+
     partial void OnIsWebLoginRunningChanged(bool value) => OnPropertyChanged(nameof(WebLoginLabel));
+
+    /// <summary>토글 즉시 반영 — API 재호출 없이 현재 값에서 라벨만 다시 포맷한다.</summary>
+    partial void OnShowAbsoluteResetTimeChanged(bool value) => ApplyWebUsage(_currentWebUsage);
 
     public void RefreshLocalizedLabels()
     {
@@ -220,10 +426,15 @@ public partial class OpenCodeViewModel : ObservableObject
         OnPropertyChanged(nameof(WeeklyTitle));
         OnPropertyChanged(nameof(MonthlyTitle));
         OnPropertyChanged(nameof(WebLoginLabel));
+        OnPropertyChanged(nameof(WebQuotaUnavailableLabel));
+        if (_showsNoGoQuotaNotice) WebLoginError = FormatNoGoQuotaNotice(_noGoQuotaReason);
         var usage = LastSnapshot.OpenCodeDetails?.WebUsage;
         ApplyWebUsage(usage);
         QuotaStatusLabel = usage != null ? Loc.OpenCodeOfficialQuota : FormatQuotaStatus(LastSnapshot.OpenCodeDetails);
         Note = usage != null ? Loc.ProviderOpenCodeWebNote : Loc.ProviderOpenCodeNote;
+        // 언어를 바꿨을 뿐인데 안내 문구만 이전 언어로 남지 않도록 다시 만든다.
+        if (usage == null && _staleQuotaDevice is { } device && _staleQuotaObservedAt is { } observedAt)
+            SyncedQuotaNoticeLabel = Loc.UsageSyncQuotaStale(device, UsageCalculator.FormatObservedAt(observedAt, DateTimeOffset.Now));
     }
 
     private static string FormatQuotaStatus(OpenCodeUsageDetails? details)
@@ -233,10 +444,5 @@ public partial class OpenCodeViewModel : ObservableObject
             ? $" · {Loc.OpenCodeRetryAt(UsageCalculator.FormatResetLabel(retryAt, false, true, DateTimeOffset.Now))}"
             : "";
         return (details.LimitKind == "go" ? Loc.OpenCodeGoLimitReached : Loc.OpenCodeFreeLimitReached) + reset;
-    }
-
-    public void UpdateActiveState(bool isEnabled, bool hideInactive)
-    {
-        IsActive = isEnabled && (!hideInactive || _lastRequestCount > 0 || HasPeriodUsage || HasWebQuota || HasError);
     }
 }

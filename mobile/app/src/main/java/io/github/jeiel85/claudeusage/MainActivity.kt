@@ -1,0 +1,192 @@
+package io.github.jeiel85.claudeusage
+
+import android.content.Intent
+import android.os.Bundle
+import android.view.WindowManager
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.toArgb
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import io.github.jeiel85.claudeusage.data.AppPrefs
+import io.github.jeiel85.claudeusage.data.PcStore
+import io.github.jeiel85.claudeusage.domain.LiveHub
+import io.github.jeiel85.claudeusage.domain.SampleData
+import io.github.jeiel85.claudeusage.net.NetworkProbe
+import io.github.jeiel85.claudeusage.net.PairingLink
+import io.github.jeiel85.claudeusage.net.UsageApi
+import io.github.jeiel85.claudeusage.push.NotificationHistory
+import io.github.jeiel85.claudeusage.push.PushNotifier
+import io.github.jeiel85.claudeusage.push.PushRegistrar
+import io.github.jeiel85.claudeusage.push.PushState
+import io.github.jeiel85.claudeusage.ui.PushAutoSetup
+import io.github.jeiel85.claudeusage.ui.AppTheme
+import io.github.jeiel85.claudeusage.ui.HomeScreen
+import io.github.jeiel85.claudeusage.ui.NotificationCenterScreen
+import io.github.jeiel85.claudeusage.ui.PairScreen
+import io.github.jeiel85.claudeusage.ui.SettingsScreen
+import io.github.jeiel85.claudeusage.update.AppUpdates
+import io.github.jeiel85.claudeusage.ui.Palette
+import kotlinx.coroutines.launch
+
+/** A few screens — home (accounts / PCs), pairing, settings, notification center — so plain state instead of a navigation library. */
+class MainActivity : ComponentActivity() {
+    /** A pairing link the app was opened with (camera → link, or the install page's button). */
+    private var pairingLink by mutableStateOf<String?>(null)
+
+    /**
+     * Settings screen open (#230). Lives on the activity, not in the composition, so an update notification
+     * tapped while Settings is showing (onNewIntent) can return to home — the update dialog opens from the
+     * home banner (Codex review on #231).
+     */
+    private var settingsOpen by mutableStateOf(false)
+
+    /** Notification center open (#235); on the activity for the same reason as [settingsOpen]. */
+    private var historyOpen by mutableStateOf(false)
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(Palette.Bg.toArgb()),
+            navigationBarStyle = SystemBarStyle.dark(Palette.Bg.toArgb()),
+        )
+        super.onCreate(savedInstanceState)
+        AppPrefs.load(this)
+        NotificationHistory.load(this)
+        // Replace the old per-category channels now, not at the next alert, so Android's settings show the new two (#297).
+        PushNotifier.ensureChannels(this)
+        AppUpdates.ensureChannels(this)
+        pairingLink = if (savedInstanceState == null) intent.pairingLink() else savedInstanceState.getString(KEY_PAIRING_LINK)
+        settingsOpen = savedInstanceState?.getBoolean(KEY_SETTINGS_OPEN) ?: false
+        historyOpen = savedInstanceState?.getBoolean(KEY_HISTORY_OPEN) ?: false
+        // Opened from the "new version" notification → GitHub build: the home banner opens the update dialog (#228);
+        // Play build: the Play listing opens (#284). Either way the background check stays scheduled.
+        AppUpdates.onCreate(this, intent, firstCreate = savedInstanceState == null)
+
+        val store = PcStore(this)
+        val api = UsageApi(networks = NetworkProbe(this)::current)
+        // Every (re)connection re-registers this phone's push endpoint with that PC (#222): pairing by QR is
+        // all it takes, and a PC that lost the subscription (404/410, reinstall) gets it back on next contact —
+        // hence force: the process-local "already sent" cache can't know the PC dropped it.
+        val hub = LiveHub(store, api, onConnected = { pc -> PushRegistrar.ensureAsync(this, api, pc, force = true) })
+
+        // Sockets only while the app is on screen: the PC would otherwise push to a phone nobody looks at.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) { hub.run() }
+        }
+
+        setContent {
+            AppTheme {
+                val status by hub.status.collectAsStateWithLifecycle()
+                var pairing by rememberSaveable { mutableStateOf(false) }
+                // "Try with sample data" (#261). Out here, not in the home branch, so opening Settings or the
+                // notification center and coming back keeps the sample on (Codex review on #263).
+                var sample by rememberSaveable { mutableStateOf(false) }
+                // Settings → Display → keep the screen on while the app is visible (#230). The window flag only
+                // applies while this activity is in front, so it never keeps the phone awake in the background.
+                val keepOn = AppPrefs.keepScreenOn
+                LaunchedEffect(keepOn) {
+                    if (keepOn) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+                BackHandler(enabled = settingsOpen && !pairing) { settingsOpen = false }
+                BackHandler(enabled = historyOpen && !pairing) { historyOpen = false }
+                LaunchedEffect(pairingLink) { if (pairingLink != null) pairing = true }
+                BackHandler(enabled = pairing) {
+                    pairing = false
+                    pairingLink = null
+                }
+                if (!pairing) PushAutoSetup(store)
+                if (pairing) {
+                    PairScreen(
+                        store, api,
+                        onDone = { pc ->
+                            PushRegistrar.ensureAsync(this, api, pc)
+                            pairingLink = null
+                            pairing = false
+                        },
+                        onBack = {
+                            pairingLink = null
+                            pairing = false
+                        },
+                        link = pairingLink,
+                    )
+                } else if (historyOpen) {
+                    NotificationCenterScreen(onBack = { historyOpen = false })
+                } else if (settingsOpen) {
+                    SettingsScreen(store, api, onBack = { settingsOpen = false })
+                } else {
+                    // Sample mode: made-up PCs on the home screen until the user ends it or pairs a real PC. Only
+                    // rendered — nothing is stored, sent or added to the notification history.
+                    val showSample = sample && status.isEmpty()
+                    val sampleStatus = remember(showSample) {
+                        if (showSample) SampleData.status(System.currentTimeMillis()) else emptyMap()
+                    }
+                    BackHandler(enabled = showSample) { sample = false }
+                    HomeScreen(
+                        if (showSample) sampleStatus else status,
+                        onAdd = {
+                            sample = false
+                            pairing = true
+                        },
+                        onRemove = { pcId -> if (!showSample) removePc(store, api, pcId) },
+                        onRename = { pcId, alias -> if (!showSample) store.setAlias(pcId, alias) },
+                        onSettings = { settingsOpen = true },
+                        onHistory = { historyOpen = true },
+                        sample = showSample,
+                        onTrySample = { sample = true },
+                        onEndSample = { sample = false },
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Removes a PC here and, best effort, tells the PC to drop this phone too (#285) — or, on an older PC,
+     * at least its copy of the push subscription so it stops sending. An unreachable PC keeps its entry
+     * until it is removed there; re-pairing the same app still replaces it (same push endpoint).
+     */
+    private fun removePc(store: PcStore, api: UsageApi, pcId: String) {
+        val pc = store.get(pcId)
+        store.remove(pcId)
+        PushRegistrar.forget(pcId)
+        PushState(this).markRegistered(pcId, false)
+        if (pc != null) PushRegistrar.scope.launch { runCatching { api.forget(pc) } }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        pairingLink?.let { outState.putString(KEY_PAIRING_LINK, it) }
+        outState.putBoolean(KEY_SETTINGS_OPEN, settingsOpen)
+        outState.putBoolean(KEY_HISTORY_OPEN, historyOpen)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        intent.pairingLink()?.let { pairingLink = it }
+        if (AppUpdates.onNewIntent(this, intent)) {
+            settingsOpen = false // the update dialog opens from the home banner
+            historyOpen = false
+        }
+    }
+
+    private fun Intent?.pairingLink(): String? =
+        this?.takeIf { it.action == Intent.ACTION_VIEW }?.dataString?.takeIf(PairingLink::isLink)
+
+    private companion object {
+        const val KEY_PAIRING_LINK = "pairingLink"
+        const val KEY_SETTINGS_OPEN = "settingsOpen"
+        const val KEY_HISTORY_OPEN = "historyOpen"
+    }
+}

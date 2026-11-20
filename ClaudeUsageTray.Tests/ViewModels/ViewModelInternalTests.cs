@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using ClaudeUsageTray.Models;
 using ClaudeUsageTray.ViewModels;
 using ClaudeUsageTray.Services;
@@ -46,28 +48,42 @@ public class AntigravityViewModelTests
         Assert.Equal(expected, result);
     }
 
-    [Fact]
-    public void FormatResetLabel_ReturnsEmpty_WhenNull()
+    // 리셋 라벨 포맷은 UsageCalculator.FormatResetLabel 로 합쳤다 — 검증은 UsageCalculatorTests 에 있다.
+
+    [Theory]
+    [InlineData("gemini-weekly", "weekly", 7 * 24 * 60)]
+    [InlineData("3p-5h", "5h", 5 * 60)]
+    // 창 종류를 함께 올리지 않던 버전이 동기화한 값 — 버킷 식별자 꼬리로 창을 알아낸다.
+    [InlineData("gemini-weekly", "", 7 * 24 * 60)]
+    [InlineData("3p-5h", "", 5 * 60)]
+    public void ResolveWindowLength_MapsKnownWindows(string bucketId, string window, int expectedMinutes)
     {
-        var result = AntigravityViewModel.FormatResetLabel(null);
-        Assert.Equal("", result);
+        var length = AntigravityViewModel.ResolveWindowLength(new AntigravityModelQuota
+        {
+            ModelId = bucketId,
+            TokenType = window,
+        });
+
+        Assert.Equal(TimeSpan.FromMinutes(expectedMinutes), length);
     }
 
-    [Fact]
-    public void FormatResetLabel_ReturnsEmpty_WhenPast()
+    [Theory]
+    [InlineData("future-group-monthly", "monthly")]
+    [InlineData("gemini-2.5-pro", "")]
+    [InlineData("", "")]
+    public void ResolveWindowLength_ReturnsNull_WhenWindowUnknown(string bucketId, string window)
     {
-        var result = AntigravityViewModel.FormatResetLabel(DateTimeOffset.Now.AddHours(-1));
-        Assert.Equal("", result);
-    }
-
-    [Fact]
-    public void FormatResetLabel_ShowsMinutes_WhenLessThanOneHour()
-    {
-        var result = AntigravityViewModel.FormatResetLabel(DateTimeOffset.Now.AddMinutes(30));
-        Assert.Contains("m", result);
+        // 길이를 모르면 마커 위치를 지어내지 않는다 — null 이면 화면에 시간선을 그리지 않는다.
+        Assert.Null(AntigravityViewModel.ResolveWindowLength(new AntigravityModelQuota
+        {
+            ModelId = bucketId,
+            TokenType = window,
+        }));
     }
 }
 
+// 기대 문구를 Loc 에서 읽는다 — 언어를 바꾸는 테스트와 병렬로 돌면 중간에 언어가 바뀌어 깨지므로 같은 컬렉션에서 직렬로 돈다.
+[Collection("WpfTests")]
 public class ClaudeViewModelTests
 {
     [Theory]
@@ -147,6 +163,53 @@ public class OpenCodeViewModelTests
         Assert.Same(first, vm.LastSnapshot.OpenCodeDetails?.WebUsage);
     }
 
+    // OpenCode 를 다른 PC 에서만 쓰는 PC — 로컬 근거(오늘 요청·이번 달 기록·오류)가 하나도 없고
+    // 동기화로 받은 값만 있는 상태를 실제 뷰모델 속성으로 표시 규칙에 넣어 본다.
+    [Fact]
+    public void ReceivedQuota_AloneKeepsTheSectionVisible()
+    {
+        var vm = new OpenCodeViewModel(new OpenCodeUsageMonitor(), new HistoryService());
+        Assert.False(vm.HasWebQuota);
+        Assert.False(vm.HasPeriodUsage);
+        Assert.False(vm.HasError);
+
+        vm.ApplySyncedWebUsage(CreateUsage(0.42));
+        Assert.True(IsSectionActive(vm));
+
+        // 값이 시효를 넘겨 게이지가 빠지고 "갱신 대기 중" 안내만 남아도 섹션은 그대로여야 한다.
+        var stale = new OpenCodeViewModel(new OpenCodeUsageMonitor(), new HistoryService());
+        stale.ApplyStaleSyncedQuotaNotice("DESKTOP-V0JCEPJ", DateTimeOffset.Now.AddHours(-1));
+        Assert.False(stale.HasWebQuota);
+        Assert.True(IsSectionActive(stale));
+    }
+
+    private static bool IsSectionActive(OpenCodeViewModel vm) =>
+        MainViewModel.IsOpenCodeSectionActive(
+            isEnabled: true, hideInactive: true, requestCount: vm.LastRequestCount,
+            hasPeriodUsage: vm.HasPeriodUsage, hasWebQuota: vm.HasWebQuota,
+            hasStaleSyncedQuota: vm.HasStaleSyncedQuota, hasError: vm.HasError);
+
+    // Claude·Codex 는 ShowAbsoluteResetTime 설정을 리셋 라벨에 그대로 반영한다 —
+    // OpenCode 도 같은 값을 받아야 한다(전에는 항상 절대 시각이 붙어 설정을 무시했다).
+    [Fact]
+    public void ShowAbsoluteResetTime_TogglesParenthesizedStamp_OnResetLabels()
+    {
+        var vm = new OpenCodeViewModel(new OpenCodeUsageMonitor(), new HistoryService());
+        vm.ApplySyncedWebUsage(CreateUsage(0.25));
+
+        Assert.DoesNotContain("(", vm.RollingResetLabel);
+
+        vm.ShowAbsoluteResetTime = true;
+
+        Assert.Contains("(", vm.RollingResetLabel);
+        Assert.Contains("(", vm.WeeklyResetLabel);
+        Assert.Contains("(", vm.MonthlyResetLabel);
+
+        vm.ShowAbsoluteResetTime = false;
+
+        Assert.DoesNotContain("(", vm.RollingResetLabel);
+    }
+
     private static OpenCodeWebUsage CreateUsage(double percent)
     {
         var now = DateTimeOffset.Now;
@@ -156,6 +219,171 @@ public class OpenCodeViewModelTests
             Weekly = new OpenCodeQuotaWindow { UsagePercent = percent, ResetAt = now.AddDays(4) },
             Monthly = new OpenCodeQuotaWindow { UsagePercent = percent, ResetAt = now.AddDays(20) },
         };
+    }
+}
+
+/// <summary>
+/// OpenCode 를 다른 PC 에서만 쓰는 PC 에서, 동기화 값의 시효가 지났다고 로그인 버튼을 들이밀지 않는지 검증.
+/// </summary>
+// 기대 문구를 Loc 에서 읽는다 — 언어를 바꾸는 테스트와 병렬로 돌면 중간에 언어가 바뀌어 깨지므로 같은 컬렉션에서 직렬로 돈다.
+[Collection("WpfTests")]
+public class OpenCodeWebLoginPromptTests
+{
+    private static OpenCodeViewModel CreateViewModel() =>
+        new(new OpenCodeUsageMonitor(), new HistoryService());
+
+    private static OpenCodeWebUsage CreateWebUsage() => new()
+    {
+        ObservedAtUtc = DateTimeOffset.UtcNow,
+        Rolling = new OpenCodeQuotaWindow { UsagePercent = 0.12, ResetAt = DateTimeOffset.Now.AddHours(3) },
+        Weekly = new OpenCodeQuotaWindow { UsagePercent = 0.34, ResetAt = DateTimeOffset.Now.AddDays(5) },
+        Monthly = new OpenCodeQuotaWindow { UsagePercent = 0.56, ResetAt = DateTimeOffset.Now.AddDays(21) },
+    };
+
+    // 다른 PC 관측값이 시효만 지난 상태 — 로그인이 풀린 게 아니므로 버튼 대신 안내를 보여준다.
+    // 단, 게이지 자리에 요청 수를 그리는 NeedsWebLogin 은 그대로 true 여야 값이 사라지지 않는다.
+    [Fact]
+    public void StaleSyncedQuota_ReplacesLoginButtonWithNotice()
+    {
+        var vm = CreateViewModel();
+        var observedAt = DateTimeOffset.Now.AddMinutes(-70);
+
+        vm.ApplyStaleSyncedQuotaNotice("DESKTOP-OTHER", observedAt);
+
+        Assert.True(vm.HasStaleSyncedQuota);
+        Assert.False(vm.ShowWebLoginButton);
+        Assert.True(vm.NeedsWebLogin);
+        Assert.Contains("DESKTOP-OTHER", vm.SyncedQuotaNoticeLabel, StringComparison.Ordinal);
+        Assert.Contains(observedAt.ToLocalTime().ToString("HH:mm"), vm.SyncedQuotaNoticeLabel, StringComparison.Ordinal);
+    }
+
+    // 관측 이력이 아예 없으면(=처음 쓰는 계정) 직접 로그인할 경로는 남아 있어야 한다.
+    [Fact]
+    public void WithoutAnyObservation_LoginButtonStays()
+    {
+        var vm = CreateViewModel();
+
+        Assert.False(vm.HasStaleSyncedQuota);
+        Assert.True(vm.ShowWebLoginButton);
+
+        vm.ApplyStaleSyncedQuotaNotice("DESKTOP-OTHER", DateTimeOffset.Now.AddMinutes(-70));
+        vm.ClearStaleSyncedQuotaNotice();
+
+        Assert.True(vm.ShowWebLoginButton);
+        Assert.Equal("", vm.SyncedQuotaNoticeLabel);
+    }
+
+    // 유효한 동기화 값이 도착하면 게이지를 그리므로 안내도 버튼도 남아 있으면 안 된다.
+    [Fact]
+    public void FreshSyncedQuota_ClearsNoticeAndLoginButton()
+    {
+        var vm = CreateViewModel();
+        vm.ApplyStaleSyncedQuotaNotice("DESKTOP-OTHER", DateTimeOffset.Now.AddMinutes(-70));
+
+        vm.ApplySyncedWebUsage(CreateWebUsage());
+
+        Assert.True(vm.HasWebQuota);
+        Assert.False(vm.HasStaleSyncedQuota);
+        Assert.False(vm.ShowWebLoginButton);
+        Assert.False(vm.NeedsWebLogin);
+        Assert.Equal("", vm.SyncedQuotaNoticeLabel);
+    }
+
+    // 재부팅 직후 네트워크가 아직 안 올라와 탐색이 실패한 상황.
+    // 세션은 이 PC 에 그대로 남아 있으므로 로그인 버튼이 아니라 재시도 안내를 보여야 한다.
+    [Fact]
+    public void UnavailableRead_WithSavedSession_ReplacesLoginButtonWithNotice()
+    {
+        var vm = CreateViewModel();
+
+        vm.ApplyWebSessionState(OpenCodeWebSessionState.Unavailable, hasSavedSession: true);
+
+        Assert.True(vm.IsWebQuotaUnavailable);
+        Assert.False(vm.ShowWebLoginButton);
+        Assert.True(vm.ShowWebQuotaUnavailableNotice);
+        Assert.True(vm.NeedsWebLogin);
+        Assert.False(string.IsNullOrWhiteSpace(vm.WebQuotaUnavailableLabel));
+    }
+
+    // 서버가 로그인 페이지로 되돌린 경우에만 세션이 실제로 풀린 것 — 이때는 버튼을 남겨야 한다.
+    [Fact]
+    public void SignedOutRead_KeepsLoginButton()
+    {
+        var vm = CreateViewModel();
+        vm.ApplyWebSessionState(OpenCodeWebSessionState.Unavailable, hasSavedSession: true);
+
+        vm.ApplyWebSessionState(OpenCodeWebSessionState.SignedOut, hasSavedSession: true);
+
+        Assert.False(vm.IsWebQuotaUnavailable);
+        Assert.True(vm.ShowWebLoginButton);
+        Assert.False(vm.ShowWebQuotaUnavailableNotice);
+    }
+
+    // 예전에 연결했던 PC 라도 구독이 해지·일시정지돼 Go 할당량이 없으면, "곧 다시 시도" 안내로 덮지 않고
+    // 로그인 버튼(다른 계정으로 바꿀 길)과 함께 이유를 보여준다.
+    [Fact]
+    public void NoQuotaRead_WithSavedSession_ShowsReasonUnderLoginButton()
+    {
+        var vm = CreateViewModel();
+
+        vm.ApplyWebSessionState(OpenCodeWebSessionState.NoQuota, hasSavedSession: true);
+
+        Assert.False(vm.IsWebQuotaUnavailable);
+        Assert.False(vm.ShowWebQuotaUnavailableNotice);
+        Assert.True(vm.ShowWebLoginButton);
+        Assert.Equal(Loc.OpenCodeWebNoGoQuota, vm.WebLoginError);
+    }
+
+    // 상태가 바뀌면 그 안내만 거둔다.
+    [Fact]
+    public void NoQuotaNotice_IsClearedWhenTheStateChanges()
+    {
+        var vm = CreateViewModel();
+        vm.ApplyWebSessionState(OpenCodeWebSessionState.NoQuota, hasSavedSession: true);
+
+        vm.ApplyWebSessionState(OpenCodeWebSessionState.SignedOut, hasSavedSession: true);
+
+        Assert.Equal("", vm.WebLoginError);
+    }
+
+    // 이 PC 에서 한 번도 로그인한 적이 없으면 확인 실패여도 로그인 경로를 감추면 안 된다.
+    [Fact]
+    public void UnavailableRead_WithoutSavedSession_KeepsLoginButton()
+    {
+        var vm = CreateViewModel();
+
+        vm.ApplyWebSessionState(OpenCodeWebSessionState.Unavailable, hasSavedSession: false);
+
+        Assert.False(vm.IsWebQuotaUnavailable);
+        Assert.True(vm.ShowWebLoginButton);
+    }
+
+    // 다시 읽어내면 안내는 사라지고 게이지가 돌아온다.
+    [Fact]
+    public void RecoveredRead_ClearsUnavailableNotice()
+    {
+        var vm = CreateViewModel();
+        vm.ApplyWebSessionState(OpenCodeWebSessionState.Unavailable, hasSavedSession: true);
+
+        vm.ApplySyncedWebUsage(CreateWebUsage());
+
+        Assert.False(vm.IsWebQuotaUnavailable);
+        Assert.False(vm.ShowWebQuotaUnavailableNotice);
+        Assert.False(vm.ShowWebLoginButton);
+    }
+
+    // 안내가 둘 다 걸릴 수 있는 상황에서는 더 구체적인 다른 PC 관측 안내만 보인다.
+    [Fact]
+    public void StaleSyncedNotice_TakesPrecedenceOverUnavailableNotice()
+    {
+        var vm = CreateViewModel();
+        vm.ApplyWebSessionState(OpenCodeWebSessionState.Unavailable, hasSavedSession: true);
+
+        vm.ApplyStaleSyncedQuotaNotice("DESKTOP-OTHER", DateTimeOffset.Now.AddMinutes(-70));
+
+        Assert.True(vm.HasStaleSyncedQuota);
+        Assert.False(vm.ShowWebQuotaUnavailableNotice);
+        Assert.False(vm.ShowWebLoginButton);
     }
 }
 
@@ -178,14 +406,421 @@ public class UsageSyncQuotaPolicyTests
 
     // 서버가 계정별로 내려주는 할당량만 공유한다. OpenCode 는 로컬 계산 percent 가 아니라
     // 공식 웹 콘솔의 계정 단위 롤링·주간·월간 값만 공유한다.
+    // 없어진 Gemini CLI 키처럼 모르는 공급자는 공유하지 않는다 — 예전 버전 PC 가 같은 폴더에 계속 올릴 수 있다.
     [Theory]
     [InlineData(UsageProviderKind.Codex, true)]
     [InlineData(UsageProviderKind.Antigravity, true)]
-    [InlineData(UsageProviderKind.GeminiCli, false)]
+    [InlineData(UsageProviderKind.LegacyGeminiCli, false)]
     [InlineData(UsageProviderKind.OpenCode, true)]
     public void OnlyAccountLevelQuotaIsShared(string provider, bool shared)
     {
         Assert.Equal(shared, MainViewModel.UsageSyncSharesAccountQuota(provider));
+    }
+
+    // 자동 트레이 모드의 Antigravity 선택 근거(#183) — 5시간 창을 썼을 때만 "지금 쓰는 중" 으로 본다.
+    // 주간 창만 남은 사용분은 일주일 내내 0 보다 커서, 근거로 삼으면 Claude 를 쓰기 전 아침마다 트레이를 빼앗는다.
+    [Theory]
+    [InlineData(0.0, 0.6, false)]   // 며칠 전에 쓴 주간 몫만 남음
+    [InlineData(0.2, 0.6, true)]    // 최근 5시간 안에 씀
+    [InlineData(0.0, 0.0, false)]   // 쓰지 않음
+    public void RecentAntigravityUsage_FollowsTheFiveHourWindow(double fiveHourUsed, double weeklyUsed, bool expected)
+    {
+        QuotaGaugeRow[] rows =
+        [
+            new() { Key = "gemini-5h", UsagePercent = fiveHourUsed, Window = TimeSpan.FromHours(5) },
+            new() { Key = "gemini-weekly", UsagePercent = weeklyUsed, Window = TimeSpan.FromDays(7) },
+        ];
+
+        Assert.Equal(expected, MainViewModel.HasRecentAntigravityUsage(rows));
+    }
+
+    [Fact]
+    public void RecentAntigravityUsage_IgnoresWindowsOfUnknownLength()
+    {
+        QuotaGaugeRow[] rows = [new() { Key = "future-monthly", UsagePercent = 0.9, Window = null }];
+
+        Assert.False(MainViewModel.HasRecentAntigravityUsage(rows));
+    }
+
+    // Antigravity 최후 폴백 적용 후 HasData 를 되돌릴지 판정 — 보여줄 모델도 없고 로컬 에러도
+    // 없을 때만 되돌린다. 에러가 있으면 HasData 를 켜 둬야 UsagePopup 이 그 에러를 그린다
+    // (섹션 전체가 AntigravityHasData 하나로만 게이트되고 에러 텍스트가 그 안에 중첩돼 있다).
+    [Theory]
+    [InlineData(false, false, true)]  // 모델도 에러도 없음 → 폴백 자체가 없었던 것으로 되돌림
+    [InlineData(true, false, false)]  // 모델이 있음 → 그대로 표시
+    [InlineData(false, true, false)]  // 모델은 없지만 로컬 에러가 있음 → HasData 를 켜 둬 에러를 보여준다
+    [InlineData(true, true, false)]   // 모델도 에러도 있음 → 둘 다 표시
+    public void AntigravityFallback_OnlyClearsDataWhenNothingToShow(
+        bool usedFallbackModels, bool hadGenuineLocalError, bool expectedShouldClear)
+    {
+        Assert.Equal(expectedShouldClear,
+            MainViewModel.ShouldClearAntigravityFallbackData(usedFallbackModels, hadGenuineLocalError));
+    }
+
+    // Antigravity 섹션을 그릴지 — Claude·GPT 창을 숨긴 설정에서 응답에 그 창만 남으면 행이 없는데,
+    // 그대로 켜 두면 빈 섹션과 트레이 "Antigravity 0%" 가 남는다(#194 리뷰). 오류가 있으면 오류를 보여야 하므로 켠다.
+    [Theory]
+    [InlineData(true, 2, false, true)]    // 보이는 행이 있음
+    [InlineData(true, 0, false, false)]   // 값은 받았지만 보이는 행이 없음 → 숨김("—")
+    [InlineData(true, 0, true, true)]     // 행은 없지만 살려 둔 오류가 있음 → 오류를 보여준다
+    [InlineData(false, 0, true, false)]   // 값 자체가 없음
+    public void AntigravitySection_IsShownOnlyWithRowsOrAnError(
+        bool hasData, int visibleRows, bool hasError, bool expected)
+    {
+        Assert.Equal(expected, MainViewModel.HasVisibleAntigravityQuota(hasData, visibleRows, hasError));
+    }
+
+    // 이 PC 에 로컬 사용량이 없고 다른 PC 에만 있는 경우(예: OpenCode 를 다른 PC 에서만 씀),
+    // MergeLocalTotals 는 "사용량이 있는 기기" 만 세므로 DeviceCount 가 1 이 된다.
+    // 예전처럼 DeviceCount > 1 을 요구하면 그 값이 통째로 버려져
+    // HideInactiveProviders 와 맞물려 공급자 섹션이 화면에서 사라졌다.
+    [Fact]
+    public void RemoteOnlyTotals_AreStillDisplayed()
+    {
+        var remoteOnly = new UsageSyncMergedLocalTotals
+        {
+            DeviceCount = 1,
+            InputTokens = 248_796,
+            OutputTokens = 42_958,
+            RequestCount = 179,
+        };
+
+        Assert.True(MainViewModel.HasMergedDeviceTotals(remoteOnly));
+    }
+
+    [Fact]
+    public void MergedTotals_WithoutAnyDevice_AreNotDisplayed()
+    {
+        Assert.False(MainViewModel.HasMergedDeviceTotals(null));
+        Assert.False(MainViewModel.HasMergedDeviceTotals(new UsageSyncMergedLocalTotals { DeviceCount = 0 }));
+    }
+
+    // 다른 PC 가 공식 할당량만 올린 날(그 PC 도 오늘 토큰은 0) 을 재현한다.
+    // 받는 PC 는 게이지 값을 이미 손에 들고 있으므로, 로컬 사용 기록이 없다는 이유로 섹션을 지우면 안 된다.
+    [Fact]
+    public void SyncedOfficialQuota_KeepsTheOpenCodeSectionVisible()
+    {
+        Assert.True(MainViewModel.IsOpenCodeSectionActive(
+            isEnabled: true, hideInactive: true, requestCount: 0, hasPeriodUsage: false,
+            hasWebQuota: true, hasStaleSyncedQuota: false, hasError: false));
+    }
+
+    // 받아 둔 값이 시효를 넘겨 "기기명의 15:02 값 · 갱신 대기 중" 안내로 바뀐 상태.
+    // 여기서 섹션을 접으면 그 안내를 볼 수 있는 화면 자체가 사라진다.
+    [Fact]
+    public void AwaitingSyncedQuotaRefresh_KeepsTheOpenCodeSectionVisible()
+    {
+        Assert.True(MainViewModel.IsOpenCodeSectionActive(
+            isEnabled: true, hideInactive: true, requestCount: 0, hasPeriodUsage: false,
+            hasWebQuota: false, hasStaleSyncedQuota: true, hasError: false));
+    }
+
+    [Theory]
+    // 보여 줄 것이 하나도 없으면 종전대로 숨긴다.
+    [InlineData(true, true, 0, false, false, false, false, false)]
+    // 공급자 표시를 꺼 두었으면 동기화 값이 있어도 숨긴다.
+    [InlineData(false, true, 0, false, true, true, true, false)]
+    // 자동 숨김이 꺼져 있으면 아무 근거가 없어도 남긴다.
+    [InlineData(true, false, 0, false, false, false, false, true)]
+    // 합산 요청 수·이번 달 로컬 기록·오류는 종전 그대로 표시 근거다.
+    [InlineData(true, true, 179, false, false, false, false, true)]
+    [InlineData(true, true, 0, true, false, false, false, true)]
+    [InlineData(true, true, 0, false, false, false, true, true)]
+    public void OpenCodeSectionVisibility_FollowsTheDisplayRule(
+        bool isEnabled, bool hideInactive, int requestCount, bool hasPeriodUsage,
+        bool hasWebQuota, bool hasStaleSyncedQuota, bool hasError, bool expected)
+    {
+        Assert.Equal(expected, MainViewModel.IsOpenCodeSectionActive(
+            isEnabled, hideInactive, requestCount, hasPeriodUsage,
+            hasWebQuota, hasStaleSyncedQuota, hasError));
+    }
+
+    // 구독 중인 사용자가 오늘 아직 Claude 를 쓰지 않은 아침. 5시간 창은 정상 조회되어 0% 이고
+    // 오늘 토큰도 0 이다 — 여기서 섹션을 접으면 "0% 남았다"가 아니라 "Claude 가 없다"로 보인다.
+    [Fact]
+    public void PaidSubscriptionBeforeAnyUsage_KeepsTheClaudeSectionVisible()
+    {
+        Assert.True(MainViewModel.IsClaudeSectionActive(
+            isEnabled: true, hideInactive: true, todayTokens: 0, shortPercent: 0,
+            hasQuotaData: false, isSubscribed: true, hasError: false));
+    }
+
+    // API 가 5시간·7일 창을 0% 로 정상 회신한 상태. 게이지 값을 손에 들고 있으므로
+    // 오늘 사용 기록이 없다는 이유로 그 값을 감추면 안 된다.
+    [Fact]
+    public void FetchedQuotaAtZeroPercent_KeepsTheClaudeSectionVisible()
+    {
+        Assert.True(MainViewModel.IsClaudeSectionActive(
+            isEnabled: true, hideInactive: true, todayTokens: 0, shortPercent: 0,
+            hasQuotaData: true, isSubscribed: false, hasError: false));
+    }
+
+    // 실제 자격 파일에서 등급을 읽어 표시 규칙까지 이어지는지 확인한다.
+    // Max 구독으로 로그인만 해 둔 PC(오늘 사용 0, 할당량 조회 실패) 를 재현한다.
+    [Fact]
+    public void SubscriptionTypeFromCredentialsFile_ReachesTheDisplayRule()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "cut-claude-section-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, ".credentials.json");
+        try
+        {
+            File.WriteAllText(path, """
+            {
+              "claudeAiOauth": {
+                "accessToken": "sk-test-token",
+                "expiresAt": 0,
+                "subscriptionType": "max",
+                "rateLimitTier": "default_claude_max_5x"
+              }
+            }
+            """);
+
+            using var credentials = new CredentialService(path);
+            Assert.True(credentials.TryGetSubscriptionInfo(out var info));
+            var subType = info.SubscriptionType;
+
+            Assert.True(MainViewModel.IsPaidClaudeSubscription(subType));
+            Assert.True(MainViewModel.IsClaudeSectionActive(
+                isEnabled: true, hideInactive: true, todayTokens: 0, shortPercent: 0,
+                hasQuotaData: false, isSubscribed: MainViewModel.IsPaidClaudeSubscription(subType),
+                hasError: false));
+        }
+        finally
+        {
+            try { Directory.Delete(dir, recursive: true); } catch { }
+        }
+    }
+
+    [Theory]
+    // 둘 다 보이면 계정 앞에 구분자를 붙인다.
+    [InlineData(true, "Claude Team 5x", true, "김민준 · Acme Corp", "Claude Team 5x", " · 김민준 · Acme Corp", true)]
+    // 계정 표시를 끄면 지금처럼 등급만.
+    [InlineData(true, "Claude Team 5x", false, "김민준 · Acme Corp", "Claude Team 5x", "", true)]
+    // 계정을 모르면(파일 없음·읽기 실패) 등급만.
+    [InlineData(true, "Claude Team 5x", true, "", "Claude Team 5x", "", true)]
+    // 등급 배지를 끄고 계정만 켜면 계정만, 구분자 없이.
+    [InlineData(false, "Claude Team 5x", true, "김민준 · Acme Corp", "", "김민준 · Acme Corp", true)]
+    // 등급을 모르고 계정도 끄면 줄 자체가 없다.
+    [InlineData(true, "", false, "김민준", "", "", false)]
+    [InlineData(false, "Claude Max 5x", false, "김민준", "", "", false)]
+    public void ClaudeBadge_SplitsPlanAndAccount(bool showPlan, string plan, bool showAccount, string account,
+        string expectedPlan, string expectedAccount, bool expectedVisible)
+    {
+        var badge = MainViewModel.ComposeClaudeBadge(showPlan, plan, showAccount, account);
+        Assert.Equal(expectedPlan, badge.Plan);
+        Assert.Equal(expectedAccount, badge.Account);
+        Assert.Equal(expectedVisible, badge.IsVisible);
+    }
+
+    [Theory]
+    // 별명(#307)을 보이고 있으면 툴팁에 원래 계정 이름을 덧붙인다 — 별명만으로는 어느 로그인인지 확인할 수 없다.
+    [InlineData("회사", "김민준 · Acme Corp", "Claude Team 5x · 회사 (김민준 · Acme Corp)")]
+    // 별명이 없으면 지금처럼 배지 문구 그대로.
+    [InlineData("", "김민준 · Acme Corp", "Claude Team 5x · 김민준 · Acme Corp")]
+    // 계정 이름을 모르면 괄호 없이 별명만.
+    [InlineData("회사", "", "Claude Team 5x · 회사")]
+    public void ClaudeBadgeToolTip_KeepsTheAccountNameBehindAnAlias(string alias, string label, string expected)
+    {
+        var badge = MainViewModel.ComposeClaudeBadge(true, "Claude Team 5x", true, AccountAlias.Display(alias, label));
+        Assert.Equal(expected, MainViewModel.ComposeClaudeBadgeToolTip(badge, alias, label));
+    }
+
+    [Fact]
+    public void ClaudeBadgeToolTip_IsNullWhenTheAccountIsHidden()
+    {
+        var badge = MainViewModel.ComposeClaudeBadge(true, "Claude Team 5x", false, "회사");
+        Assert.Null(MainViewModel.ComposeClaudeBadgeToolTip(badge, "회사", "김민준"));
+    }
+
+    [Theory]
+    [InlineData("max", true)]
+    [InlineData("pro", true)]
+    [InlineData("team", true)]
+    [InlineData("Free", false)]
+    [InlineData("free", false)]
+    // 로그아웃·필드 부재를 구독으로 단정하지 않는다.
+    [InlineData(null, false)]
+    [InlineData("", false)]
+    [InlineData("   ", false)]
+    public void PaidSubscriptionCheck_ExcludesFreeAndUnknown(string? subscriptionType, bool expected)
+    {
+        Assert.Equal(expected, MainViewModel.IsPaidClaudeSubscription(subscriptionType));
+    }
+
+    [Theory]
+    // 로그인도 조회 결과도 없으면 종전대로 숨긴다.
+    [InlineData(true, true, 0L, 0.0, false, false, false, false)]
+    // 공급자 표시를 꺼 두었으면 구독 중이어도 숨긴다.
+    [InlineData(false, true, 0L, 0.0, true, true, true, false)]
+    // 자동 숨김이 꺼져 있으면 아무 근거가 없어도 남긴다.
+    [InlineData(true, false, 0L, 0.0, false, false, false, true)]
+    // 오늘 토큰·5시간 창 사용률·오류는 종전 그대로 표시 근거다.
+    [InlineData(true, true, 248_796L, 0.0, false, false, false, true)]
+    [InlineData(true, true, 0L, 0.37, false, false, false, true)]
+    [InlineData(true, true, 0L, 0.0, false, false, true, true)]
+    public void ClaudeSectionVisibility_FollowsTheDisplayRule(
+        bool isEnabled, bool hideInactive, long todayTokens, double shortPercent,
+        bool hasQuotaData, bool isSubscribed, bool hasError, bool expected)
+    {
+        Assert.Equal(expected, MainViewModel.IsClaudeSectionActive(
+            isEnabled, hideInactive, todayTokens, shortPercent,
+            hasQuotaData, isSubscribed, hasError));
+    }
+
+    // 실측 재현(2026-08-28, DESKTOP-V0JCEPJ): ChatGPT Plus 구독 중이고 마지막 Codex 세션은 이틀 전.
+    // 5시간 창은 리셋이 지나 버려져 0% 이지만 주간 창은 2026-09-01 리셋까지 21% 가 살아 있었다.
+    // 종전 판정은 5시간 창만 봐서, 이 21% 와 `ChatGPT Plus` 배지를 손에 들고도 섹션을 통째로 지웠다.
+    [Fact]
+    public void ExpiredShortWindowButLiveWeeklyQuota_KeepsTheCodexSectionVisible()
+    {
+        Assert.True(MainViewModel.IsCodexSectionActive(
+            isEnabled: true, hideInactive: true, hasTodayUsage: false, shortPercent: 0, longPercent: 0.21,
+            hasQuotaData: true, isSubscribed: true, hasError: false));
+    }
+
+    // 두 창 모두 갓 초기화되어 0% 인 순간. 조회에는 성공했으므로 "값이 0" 이지 "값이 없다" 가 아니다.
+    [Fact]
+    public void FreshlyResetCodexWindows_KeepTheSectionVisible()
+    {
+        Assert.True(MainViewModel.IsCodexSectionActive(
+            isEnabled: true, hideInactive: true, hasTodayUsage: false, shortPercent: 0, longPercent: 0,
+            hasQuotaData: true, isSubscribed: false, hasError: false));
+    }
+
+    // 창 정보가 아예 없어도(로그가 오래됐고 동기화도 비어 있음) 유료 구독 사실만으로 섹션을 남긴다.
+    [Fact]
+    public void PaidCodexSubscriptionWithoutAnyQuota_KeepsTheSectionVisible()
+    {
+        Assert.True(MainViewModel.IsCodexSectionActive(
+            isEnabled: true, hideInactive: true, hasTodayUsage: false, shortPercent: 0, longPercent: 0,
+            hasQuotaData: false, isSubscribed: true, hasError: false));
+    }
+
+    // 로그인 파일에서 요금제를 읽어 표시 규칙까지 이어지는지 확인한다 —
+    // 오늘 Codex 를 쓰지 않아 세션 로그의 rate_limits 가 없는 PC 를 재현한다.
+    [Fact]
+    public void PlanTypeFromCodexAuthFile_ReachesTheDisplayRule()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "cut-codex-section-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, "auth.json");
+        try
+        {
+            File.WriteAllText(path, $$"""
+            {
+              "auth_mode": "chatgpt",
+              "OPENAI_API_KEY": null,
+              "tokens": {
+                "id_token": "{{JwtWithPlanType("plus")}}",
+                "account_id": "00000000-0000-0000-0000-000000000000"
+              }
+            }
+            """);
+
+            var planType = CodexUsageMonitor.TryReadPlanTypeFromAuth(path);
+
+            Assert.Equal("plus", planType);
+            Assert.True(MainViewModel.IsPaidCodexSubscription(planType));
+            Assert.True(MainViewModel.IsCodexSectionActive(
+                isEnabled: true, hideInactive: true, hasTodayUsage: false, shortPercent: 0, longPercent: 0,
+                hasQuotaData: false, isSubscribed: MainViewModel.IsPaidCodexSubscription(planType),
+                hasError: false));
+        }
+        finally
+        {
+            try { Directory.Delete(dir, recursive: true); } catch { }
+        }
+    }
+
+    // 리뷰 지적(#155): 로그아웃해도 세션 로그의 rate_limits.plan_type 은 남는다 —
+    // ProcessFile 이 날짜와 무관하게 가장 최근 rate_limits 를 집어오고, DropExpiredWindows 는 창만 버리고
+    // plan_type 은 건드리지 않기 때문이다. 그 값으로 구독을 판정하면 해지·로그아웃한 PC 에서 섹션이
+    // 영영 접히지 않으므로, 근거는 반드시 "지금 로그인된 계정"(GetCurrentPlanType) 에서 와야 한다.
+    [Fact]
+    public void StalePlanTypeInOldSessionLog_DoesNotCountAsSubscription()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "cut-codex-signedout-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            // 사흘 전 세션 로그 — 창은 이미 만료됐지만 plan_type 은 그대로 남아 있다.
+            var expired = DateTimeOffset.Now.AddDays(-3).ToUnixTimeSeconds();
+            File.WriteAllText(Path.Combine(root, "rollout-old.jsonl"),
+                """{"timestamp":"2026-08-25T01:00:00.000Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":999,"cached_input_tokens":0,"output_tokens":9,"reasoning_output_tokens":0,"total_tokens":1008}},"rate_limits":{"limit_id":"codex","primary":{"used_percent":61.0,"window_minutes":300,"resets_at":"""
+                + expired + """},"secondary":null,"plan_type":"plus"}}}""" + Environment.NewLine);
+
+            var snapshot = new CodexUsageMonitor().GetTodaySnapshot(root);
+
+            // 로그에는 남는다(배지 문구는 이 값을 쓴다) — 그래서 판정에 그대로 쓰면 안 된다.
+            Assert.Equal("plus", snapshot.PlanType);
+            Assert.Equal(0, snapshot.ShortUsagePercent);
+            Assert.Null(snapshot.ShortResetAt);
+
+            // 로그아웃 상태 — auth.json 이 없다.
+            var currentPlanType = CodexUsageMonitor.TryReadPlanTypeFromAuth(Path.Combine(root, "auth.json"));
+            Assert.Null(currentPlanType);
+
+            Assert.False(MainViewModel.IsCodexSectionActive(
+                isEnabled: true, hideInactive: true, hasTodayUsage: false,
+                shortPercent: snapshot.ShortUsagePercent, longPercent: snapshot.LongUsagePercent,
+                hasQuotaData: false,
+                isSubscribed: MainViewModel.IsPaidCodexSubscription(currentPlanType),
+                hasError: false));
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { }
+        }
+    }
+
+    /// <summary>서명 없는 표시용 id_token — payload 만 읽는 <c>TryReadPlanTypeFromAuth</c> 의 입력을 만든다.</summary>
+    private static string JwtWithPlanType(string planType)
+    {
+        var payload = "{\"https://api.openai.com/auth\":{\"chatgpt_plan_type\":\"" + planType + "\"}}";
+        var encoded = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(payload))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        return $"header.{encoded}.signature";
+    }
+
+    [Theory]
+    [InlineData("plus", true)]
+    [InlineData("pro", true)]
+    [InlineData("team", true)]
+    [InlineData("enterprise", true)]
+    [InlineData("Free", false)]
+    [InlineData("free", false)]
+    // 로그인하지 않은 체험 계정. 삭제된 ProviderUsageSnapshot.IsSubscriptionActive 가 따로 들고 있던 규칙(#154).
+    [InlineData("guest", false)]
+    [InlineData("Guest", false)]
+    // API 키 모드·로그아웃처럼 요금제를 모르는 상태를 구독으로 단정하지 않는다.
+    [InlineData(null, false)]
+    [InlineData("", false)]
+    [InlineData("   ", false)]
+    public void PaidCodexSubscriptionCheck_ExcludesFreeAndUnknown(string? planType, bool expected)
+    {
+        Assert.Equal(expected, MainViewModel.IsPaidCodexSubscription(planType));
+    }
+
+    [Theory]
+    // 로그인도 조회 결과도 없으면 종전대로 숨긴다.
+    [InlineData(true, true, false, 0.0, 0.0, false, false, false, false)]
+    // 공급자 표시를 꺼 두었으면 구독 중이어도 숨긴다.
+    [InlineData(false, true, true, 0.0, 0.0, true, true, true, false)]
+    // 자동 숨김이 꺼져 있으면 아무 근거가 없어도 남긴다.
+    [InlineData(true, false, false, 0.0, 0.0, false, false, false, true)]
+    // 5시간 창 사용률·오류는 종전 그대로 표시 근거다.
+    [InlineData(true, true, false, 0.37, 0.0, false, false, false, true)]
+    [InlineData(true, true, false, 0.0, 0.0, false, false, true, true)]
+    // 오늘 토큰 기록도 근거다 — 창이 모두 만료돼 버려진 날에도 "오늘 썼다" 는 남는다.
+    [InlineData(true, true, true, 0.0, 0.0, false, false, false, true)]
+    public void CodexSectionVisibility_FollowsTheDisplayRule(
+        bool isEnabled, bool hideInactive, bool hasTodayUsage, double shortPercent, double longPercent,
+        bool hasQuotaData, bool isSubscribed, bool hasError, bool expected)
+    {
+        Assert.Equal(expected, MainViewModel.IsCodexSectionActive(
+            isEnabled, hideInactive, hasTodayUsage, shortPercent, longPercent,
+            hasQuotaData, isSubscribed, hasError));
     }
 
     [Fact]
@@ -197,7 +832,7 @@ public class UsageSyncQuotaPolicyTests
             ShortResetAt = DateTimeOffset.Now.AddHours(2),
         };
 
-        Assert.Null(MainViewModel.CreateProviderQuotaSnapshot(UsageProviderKind.GeminiCli, snapshot));
+        Assert.Null(MainViewModel.CreateProviderQuotaSnapshot(UsageProviderKind.LegacyGeminiCli, snapshot));
         Assert.Null(MainViewModel.CreateProviderQuotaSnapshot(UsageProviderKind.OpenCode, snapshot));
         Assert.NotNull(MainViewModel.CreateProviderQuotaSnapshot(UsageProviderKind.Codex, snapshot));
     }
@@ -249,6 +884,30 @@ public class UsageSyncQuotaPolicyTests
                 Rolling = new UsageSyncOpenCodeQuotaWindow { ResetAt = now.AddSeconds(-1) },
                 Weekly = new UsageSyncOpenCodeQuotaWindow { ResetAt = now.AddDays(2) },
                 Monthly = new UsageSyncOpenCodeQuotaWindow { ResetAt = now.AddDays(20) },
+            },
+        };
+
+        Assert.Null(MainViewModel.CreateOpenCodeWebUsage(quota, now));
+    }
+
+    // Rolling·Weekly·Monthly 는 리셋 시각이 서로 독립적이다. 최후 폴백으로 최대 24시간 전
+    // 관측치까지 받을 수 있게 되면서, Rolling 창은 아직 안 끝났어도 그 사이 Weekly 나 Monthly
+    // 만 리셋된 스냅샷을 그대로 보여줄 가능성이 실제로 생겼다 — 셋 중 하나라도 리셋을 지났으면
+    // (Rolling 만 검사하던 예전과 달리) 통째로 버려야 한다.
+    [Theory]
+    [InlineData(-1, 2)]     // Weekly 만 리셋
+    [InlineData(2, -1)]     // Monthly 만 리셋
+    public void OpenCodeSyncedQuota_IsRejectedAfterWeeklyOrMonthlyReset(double weeklyResetInDays, double monthlyResetInDays)
+    {
+        var now = DateTimeOffset.Now;
+        var quota = new UsageSyncQuotaSnapshot
+        {
+            HasData = true,
+            OpenCode = new UsageSyncOpenCodeQuota
+            {
+                Rolling = new UsageSyncOpenCodeQuotaWindow { ResetAt = now.AddHours(3) },
+                Weekly = new UsageSyncOpenCodeQuotaWindow { ResetAt = now.AddDays(weeklyResetInDays) },
+                Monthly = new UsageSyncOpenCodeQuotaWindow { ResetAt = now.AddDays(monthlyResetInDays) },
             },
         };
 
@@ -310,9 +969,11 @@ public class UsageSyncQuotaPolicyTests
         Assert.True(vm.HasData);
         Assert.Equal("Gemini Code Assist", vm.TierName);
         Assert.Equal(2, vm.Models.Count);
-        Assert.Equal("gemini-3-pro", vm.Models[0].ModelId);   // 사용률 내림차순
+        Assert.Equal("gemini-3-pro", vm.Models[0].Key);   // 사용률 내림차순
         Assert.Equal(0.75, vm.Models[0].UsagePercent, 6);
         Assert.Equal(0.10, vm.Models[1].UsagePercent, 6);
-        Assert.Equal((0.75 + 0.10) / 2, vm.Percent, 6);       // 평균은 남은 두 모델 기준
+        // 한도는 창마다 따로 걸리므로 평균이 아니라 가장 많이 쓴 쪽을 대표값으로 쓴다.
+        // 평균이면 여기서 42.5% 가 되어, 이미 75% 를 쓴 제약이 화면에서 가려진다.
+        Assert.Equal(0.75, vm.Percent, 6);
     }
 }
