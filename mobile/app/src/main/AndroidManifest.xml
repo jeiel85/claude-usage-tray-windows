@@ -13,6 +13,9 @@
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- PairScanActivity is locked to portrait, which implies a required portrait screen; Play's pre-review check
+         flags that as limiting availability (#288). The app still works on a landscape-only screen, so it is optional. -->
+    <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
 
     <!-- Find installed UnifiedPush distributors (ntfy, …); package visibility on API 30+. -->
     <queries>

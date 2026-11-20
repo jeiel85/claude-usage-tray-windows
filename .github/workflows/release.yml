@@ -165,6 +165,12 @@ jobs:
             || { echo "::error::APK package is not com.jeiel85.aiusage"; exit 1; }
           echo "$BADGING" | grep -q "uses-permission: name='android.permission.REQUEST_INSTALL_PACKAGES'" \
             || { echo "::error::APK is not the github flavor (REQUEST_INSTALL_PACKAGES missing)"; exit 1; }
+          # 세로 고정 화면이 암시하는 필수 화면 방향 기능은 Play 사전 검사가 "사용 가능 여부 제한" 으로 잡는다(#288).
+          # 매니페스트에서 required="false" 로 선언해 두었으니, 필수로 되돌아오면 여기서 막는다.
+          if echo "$BADGING" | grep -q "^  uses-feature: name='android.hardware.screen\."; then
+            echo "$BADGING" | grep "android.hardware.screen\."
+            echo "::error::APK requires a screen orientation feature (declare it android:required=\"false\")"; exit 1
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v6
