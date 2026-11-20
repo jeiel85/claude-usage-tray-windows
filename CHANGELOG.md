@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.72.9] - 2026-11-21
+
+<!-- ko -->
+### 개선
+- **휴대폰 앱이 세로 화면을 필수로 요구하지 않음 (#288)**: QR 스캐너가 세로로 고정돼 있어 앱이 `android.hardware.screen.portrait` 를 필수 기능으로 선언한 것처럼 보였고, Google Play 게시 검사가 이를 "사용 가능 기기 제한" 으로 잡았습니다. 이 기능을 선택사항으로 선언했습니다. 화면 동작은 그대로이고, 릴리스 빌드가 필수 화면 방향 기능을 다시 요구하면 배포 단계에서 막습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **The phone app no longer requires a portrait screen (#288)**: the QR scanner is locked to portrait, which made the app look as if it required `android.hardware.screen.portrait`, and Google Play's pre-review check flagged it as limiting device availability. The feature is now declared optional. Screens behave the same, and the release build now fails if a required screen orientation feature comes back.
+<!-- /en -->
+
 ## [1.72.8] - 2026-11-20
 
 <!-- ko -->
