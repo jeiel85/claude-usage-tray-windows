@@ -68,31 +68,71 @@ public class SettingsService
 
     private NotificationSettings LoadFromDisk()
     {
-        if (!File.Exists(_settingsPath))
-            return TryRead(BackupPath) ?? new NotificationSettings(); // 바꿔 끼우는 순간에 죽었으면 .bak 만 남는다.
-
-        if (TryRead(_settingsPath) is { } settings) return settings;
-
-        // 깨진 파일: 그대로 두면 다음 저장이 덮어써 되살릴 길이 없어진다. 옆으로 옮겨 두고 직전 정상본에서 읽는다.
-        PreserveCorruptFile();
-        return TryRead(BackupPath) ?? new NotificationSettings();
+        var (outcome, settings) = ReadWithRetry(_settingsPath);
+        switch (outcome)
+        {
+            case ReadOutcome.Ok:
+                return settings!;
+            case ReadOutcome.Corrupt:
+                // 내용이 깨진 것이 확인된 파일만 옆으로 옮긴다 — 그대로 두면 다음 저장이 덮어써 되살릴 길이 없어진다.
+                PreserveCorruptFile();
+                break;
+            case ReadOutcome.Unreadable:
+                // 잠시 못 읽는 것(다른 프로그램이 잠금·권한)은 내용이 멀쩡할 수 있으니 옮기지 않는다(#334 리뷰). 이번에는 직전
+                // 정상본으로 시작하고, 다음 저장의 File.Replace 가 이 파일을 .bak 으로 남긴다.
+                break;
+            // Missing: 바꿔 끼우는 순간에 꺼졌으면 .bak 만 남는다.
+        }
+        return ReadWithRetry(BackupPath) is (ReadOutcome.Ok, { } backup) ? backup : new NotificationSettings();
     }
 
-    /// <summary>읽어서 해석한다. 없거나 비었거나 JSON 이 아니면 null.</summary>
-    private static NotificationSettings? TryRead(string path)
+    internal enum ReadOutcome { Missing, Ok, Corrupt, Unreadable }
+
+    /// <summary>못 읽으면(잠금 등) 짧게 몇 번 더 본다. 깨진 내용·없는 파일은 다시 봐도 같으므로 바로 돌려준다.</summary>
+    private static (ReadOutcome, NotificationSettings?) ReadWithRetry(string path)
     {
+        for (var attempt = 1; ; attempt++)
+        {
+            var result = TryRead(path);
+            if (result.Item1 != ReadOutcome.Unreadable || attempt >= 3) return result;
+            Thread.Sleep(50);
+        }
+    }
+
+    /// <summary>
+    /// 읽어서 해석한다. 결과를 넷으로 나눈다: 없음, 정상, 내용이 깨짐(빈 파일·JSON 아님 — 옮겨도 되는 것), 읽지 못함(입출력·권한 —
+    /// 내용은 모름).
+    /// </summary>
+    internal static (ReadOutcome, NotificationSettings?) TryRead(string path)
+    {
+        string json;
         try
         {
-            if (!File.Exists(path)) return null;
+            if (!File.Exists(path)) return (ReadOutcome.Missing, null);
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             using var reader = new StreamReader(stream);
-            var json = reader.ReadToEnd();
-            return string.IsNullOrWhiteSpace(json) ? null : JsonSerializer.Deserialize<NotificationSettings>(json);
+            json = reader.ReadToEnd();
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or NotSupportedException)
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return (ReadOutcome.Missing, null);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             Log($"read {Path.GetFileName(path)} failed: {ex.Message}");
-            return null;
+            return (ReadOutcome.Unreadable, null);
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<NotificationSettings>(json) is { } settings
+                ? (ReadOutcome.Ok, settings)
+                : (ReadOutcome.Corrupt, null); // "null"
+        }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException or ArgumentException)
+        {
+            Log($"parse {Path.GetFileName(path)} failed: {ex.Message}");
+            return (ReadOutcome.Corrupt, null); // 빈 파일도 여기(JsonException)
         }
     }
 

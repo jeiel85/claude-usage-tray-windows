@@ -181,4 +181,34 @@ public class SettingsServiceTests : IDisposable
         Assert.Equal(before, File.ReadAllText(_path));
         Assert.Empty(Directory.GetFiles(_dir, "*.tmp"));
     }
+
+    // #334 리뷰: 잠시 못 읽는 멀쩡한 파일을 깨진 것으로 보고 옮기면, 문제가 풀린 뒤에도 옛 .bak 이나 기본값으로 읽었다.
+    [Fact]
+    public void UnreadableFile_IsLeftInPlace()
+    {
+        var service = new SettingsService(_path);
+        service.Save(new NotificationSettings { NtfyTopic = "first-synthetic-topic-0001" });
+        service.Save(new NotificationSettings { NtfyTopic = "second-synthetic-topic-002" });
+
+        // 다른 프로그램이 읽기를 막고 지우기만 허락한 채 열고 있다.
+        using (new FileStream(_path, FileMode.Open, FileAccess.ReadWrite, FileShare.Delete))
+        {
+            Assert.Equal("first-synthetic-topic-0001", service.Load().NtfyTopic); // 이번에는 직전 정상본
+            Assert.True(File.Exists(_path));
+            Assert.Empty(Directory.GetFiles(_dir, "*.corrupt-*"));
+        }
+
+        Assert.Equal("second-synthetic-topic-002", service.Load().NtfyTopic);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("null")]
+    [InlineData("{ \"NtfyTopic\": ")]
+    public void OnlyContentThatFailsToParse_CountsAsCorrupt(string content)
+    {
+        File.WriteAllText(_path, content);
+        Assert.Equal(SettingsService.ReadOutcome.Corrupt, SettingsService.TryRead(_path).Item1);
+        Assert.Equal(SettingsService.ReadOutcome.Missing, SettingsService.TryRead(_path + ".none").Item1);
+    }
 }
