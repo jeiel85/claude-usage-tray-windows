@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.72.8] - 2026-11-20
+
+<!-- ko -->
+### 개선
+- **다중 PC 동기화 테스트 보강 (#157)**: 다른 PC 가 동기화 폴더에 남긴 OpenCode 공식 할당량(롤링·주간·월간)이 새로고침을 거쳐 이 PC 팝업에 그대로 보이는지 끝까지 확인하는 테스트를 넣었습니다. 앱 동작은 v1.72.7 과 같습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Multi-PC sync test (#157)**: a new end-to-end test checks that the OpenCode official quota (rolling, weekly, monthly) another PC writes to the sync folder shows up in this PC's popup after a refresh. The app behaves the same as v1.72.7.
+<!-- /en -->
+
 ## [1.72.7] - 2026-11-20
 
 <!-- ko -->
