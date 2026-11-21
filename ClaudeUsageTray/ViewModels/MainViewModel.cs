@@ -157,6 +157,15 @@ namespace ClaudeUsageTray.ViewModels;
     // 출처 문구는 언어가 바뀌면 다시 만들어야 하므로 완성된 문장 대신 재료(기기·관측 시각)를 들고 있는다.
     private (string Device, DateTimeOffset ObservedAt)? _antigravityQuotaOrigin;
 
+    // 다른 PC 값을 보고 있을 때의 Claude·Codex 출처 문구를 언어 변경 때 다시 만들기 위한 재료(#141).
+    // 문구가 지금 화면에 있는 그대로일 때만 바꾼다 — 그 사이 다른 안내(쿨다운 등)로 바뀌었으면 건드리지 않는다.
+    private (string Device, DateTimeOffset ObservedAt)? _claudeQuotaOrigin;
+    private UsageSyncMergedLocalTotals? _claudeQuotaOriginMerged;
+    private string _claudeQuotaOriginNote = "";
+    private (string Device, DateTimeOffset ObservedAt)? _codexQuotaOrigin;
+    private UsageSyncMergedLocalTotals? _codexDataSourceMergedTotals;
+    private string _codexDataSourceText = "";
+
     /// <summary>플랜 배지 문구 — Codex 의 플랜 라벨과 같은 자리에 쓴다. 요금제 이름이 없으면 tier 이름으로 대신한다.</summary>
     public string AntigravityPlanLabel =>
         string.IsNullOrWhiteSpace(AntigravityPaidTierName) ? AntigravityTierName : AntigravityPaidTierName;
@@ -692,6 +701,7 @@ namespace ClaudeUsageTray.ViewModels;
         _history.SetScope(UsageProviderKind.Claude, orgUuid);
         // 계정 전환 시 rate-limit 대기를 초기화 — 새 계정은 독립적으로 조회
         _apiRetryAfter = DateTimeOffset.MinValue;
+        _api.ResetFailureBackoff();
         // 타이머 카운트다운 리셋 + 즉시 새로고침
         _ = System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
             await RefreshAsync());
@@ -1433,14 +1443,14 @@ namespace ClaudeUsageTray.ViewModels;
                         var tempPath = await _updater.DownloadAndPrepareUpdateAsync(
                             target.downloadUrl, target.signatureUrl, target.version, onProgress: Progress);
 
-                        dialog.UpdateProgress(100, "Restarting...");
+                        dialog.UpdateProgress(100, Loc.UpdateRestarting);
                         await Task.Delay(500);
                         _updater.ApplyPreparedUpdate(tempPath);
                     }
                     catch (Exception ex)
                     {
                         IsUpdating = false;
-                        dialog.ShowError(ex.Message);
+                        dialog.ShowError(UpdateService.DescribeInstallFailure(ex));
                     }
                 });
             };
@@ -2488,10 +2498,9 @@ namespace ClaudeUsageTray.ViewModels;
         // (Codex 처럼 출처를 따로 고를 필요가 없다). 이 필드가 없던 버전의 스냅샷이면 비어 있다.
         ClaudeVm.SetModelLimits([.. ToAdditionalQuotaWindows(snapshot)], DateTimeOffset.Now, ShowAbsoluteResetTime);
 
-        var quotaObservedAt = quota.ObservedAtUtc ?? snapshot.ObservedAtUtc;
-        ClaudeVm.ApiNote = Loc.UsageSyncQuotaFromDevice(
-            snapshot.DeviceName,
-            UsageCalculator.FormatObservedAt(quotaObservedAt, DateTimeOffset.Now));
+        _claudeQuotaOrigin = (snapshot.DeviceName, quota.ObservedAtUtc ?? snapshot.ObservedAtUtc);
+        _claudeQuotaOriginMerged = null;
+        ClaudeVm.ApiNote = _claudeQuotaOriginNote = SyncOriginLabel(_claudeQuotaOrigin.Value);
         StatusText = $"{ClaudeVm.ShortPercent:P0} used";
     }
 
@@ -2531,9 +2540,28 @@ namespace ClaudeUsageTray.ViewModels;
         if (PlanLabels.Codex(quota.PlanType) is { Length: > 0 } planLabel)
             CodexPlanLabel = planLabel;
 
-        CodexDataSource = Loc.UsageSyncQuotaFromDevice(
-            snapshot.DeviceName,
-            UsageCalculator.FormatObservedAt(quota.ObservedAtUtc ?? snapshot.ObservedAtUtc, DateTimeOffset.Now));
+        _codexQuotaOrigin = (snapshot.DeviceName, quota.ObservedAtUtc ?? snapshot.ObservedAtUtc);
+        CodexDataSource = SyncOriginLabel(_codexQuotaOrigin.Value);
+    }
+
+    /// <summary>"○○ PC 값 · N분 전" 출처 문구를 현재 언어로 만든다.</summary>
+    private static string SyncOriginLabel((string Device, DateTimeOffset ObservedAt) origin) =>
+        Loc.UsageSyncQuotaFromDevice(origin.Device, UsageCalculator.FormatObservedAt(origin.ObservedAt, DateTimeOffset.Now));
+
+    /// <summary>Codex 출처 문구 — 다른 PC 값이면 그 출처, 아니면 이 PC 의 출처에 병합 기기 수를 덧붙인다.</summary>
+    private string BuildCodexDataSource() =>
+        WithSyncNote(_codexQuotaOrigin is { } origin ? SyncOriginLabel(origin) : CodexVm.DataSource, _codexDataSourceMergedTotals);
+
+    /// <summary>
+    /// 다른 PC 값의 출처 문구를 현재 언어로 다시 만든다(#141). 문구는 조회 때 완성된 문장으로 담기므로, 언어를 바꾸면
+    /// 다음 조회(최대 2분)까지 옛 언어로 남았다. 화면의 문구가 그 사이 다른 안내로 바뀌었으면 그대로 둔다.
+    /// </summary>
+    internal void RefreshSyncOriginLabels()
+    {
+        if (_claudeQuotaOrigin is { } claudeOrigin && ClaudeVm.ApiNote == _claudeQuotaOriginNote)
+            ClaudeVm.ApiNote = _claudeQuotaOriginNote = WithSyncNote(SyncOriginLabel(claudeOrigin), _claudeQuotaOriginMerged);
+        if (CodexDataSource == _codexDataSourceText)
+            CodexDataSource = _codexDataSourceText = BuildCodexDataSource();
     }
 
     private static string ClassifyClaudeApiError(string? error)
@@ -2680,6 +2708,7 @@ namespace ClaudeUsageTray.ViewModels;
             _lastKnownOrgUuid = currentOrgUuid;
             _history.SetScope(UsageProviderKind.Claude, currentOrgUuid);
             _apiRetryAfter = DateTimeOffset.MinValue;
+            _api.ResetFailureBackoff();
             // 모델 한정 한도는 계정마다 다르다 — 새 계정 조회가 실패해도 이전 계정의 행이 남지 않게 비운다.
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                 ClaudeVm.SetModelLimits([], DateTimeOffset.Now, ShowAbsoluteResetTime));
@@ -2884,7 +2913,8 @@ namespace ClaudeUsageTray.ViewModels;
                 else if (claudeQuotaCandidates.Fresh is { } syncedClaudeQuota)
                 {
                     ApplySyncedClaudeQuota(syncedClaudeQuota);
-                    ClaudeVm.ApiNote = WithSyncNote(ClaudeVm.ApiNote, mergedClaudeTotals);
+                    _claudeQuotaOriginMerged = mergedClaudeTotals;
+                    ClaudeVm.ApiNote = _claudeQuotaOriginNote = WithSyncNote(ClaudeVm.ApiNote, mergedClaudeTotals);
                 }
                 else if (skipApi || _api.LastError != null)
                 {
@@ -3148,6 +3178,7 @@ namespace ClaudeUsageTray.ViewModels;
             _rawCodexShortResetAt = CodexVm.RawShortResetAt;
             _rawCodexShortResetEstimated = CodexVm.RawShortResetEstimated;
             CodexReset = CodexVm.Reset;
+            _codexQuotaOrigin = null;
             CodexDataSource = CodexVm.DataSource;
             CodexHasError = CodexVm.HasError;
             CodexErrorMessage = CodexVm.ErrorMessage;
@@ -3204,6 +3235,8 @@ namespace ClaudeUsageTray.ViewModels;
                 CodexDataSource = WithSyncNote(CodexDataSource, mergedTotals);
                 codexHasTokenData = true;
             }
+            _codexDataSourceMergedTotals = HasMergedDeviceTotals(mergedTotals) ? mergedTotals : null;
+            _codexDataSourceText = CodexDataSource;
 
             _codexHasTokenData = codexHasTokenData;
             IsCodexUsageEmpty = !codexHasTokenData;
@@ -3703,6 +3736,7 @@ namespace ClaudeUsageTray.ViewModels;
             // 안내·출처 문구는 값이 필드에 담겨 있어 다시 만들어야 바뀐다(다음 조회까지 기다리지 않도록).
             AntigravityNote = Loc.ProviderAntigravityNote;
             RefreshAntigravityDataSourceLabel();
+            RefreshSyncOriginLabels();
             OnPropertyChanged(string.Empty);
         });
     }

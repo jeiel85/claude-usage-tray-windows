@@ -163,6 +163,57 @@ public class MainViewModelIntegrationTests : IDisposable
         });
     }
 
+    // #141: 다른 PC 값을 보고 있을 때의 Claude·Codex 출처 문구("○○의 … 스냅샷으로 표시 중")가 언어를 바꾸면 바로 바뀐다.
+    // 예전에는 완성된 문장을 담아 두어 다음 조회(최대 2분)까지 옛 언어로 남았다. Codex 는 같은 방식이지만 이 PC 의 실제
+    // ~/.codex 로그가 있으면 동기화 값을 쓰지 않아(로컬 우선) 개발 PC 마다 결과가 달라지므로 Claude 로만 끝까지 본다.
+    [Fact]
+    public async Task SyncOriginLabels_FollowLanguageChange()
+    {
+        var syncRoot = Path.Combine(_dir, "sync");
+        var now = DateTimeOffset.Now;
+        var source = new UsageSyncService(Path.Combine(_dir, "source"), () => now, "source-pc");
+        source.WriteSnapshot(syncRoot, source.CreateSnapshot(
+            UsageProviderKind.Claude,
+            null,
+            new UsageSyncQuotaSnapshot
+            {
+                HasData = true,
+                ObservedAtUtc = now,
+                ShortUsagePercent = 0.4,
+                ShortResetAt = now.AddHours(2),
+                LongUsagePercent = 0.2,
+                LongResetAt = now.AddDays(3),
+            },
+            new UsageSyncLocalTotals()));
+
+        var previous = Loc.CurrentLang;
+        await WpfTestHost.RunAsync(async () =>
+        {
+            var receiver = new UsageSyncService(Path.Combine(_dir, "receiver"), () => now, "receiver-pc");
+            var vm = CreateViewModel(receiver);
+            try
+            {
+                Loc.SetLanguage("ko");
+                vm.UsageSyncEnabled = true;
+                vm.UsageSyncFolderPath = syncRoot;
+
+                await vm.RefreshAsync();
+
+                Assert.Equal(0.4, vm.ClaudeVm.ShortPercent, 6);
+                Assert.StartsWith("source-pc의 ", vm.ClaudeVm.ApiNote);
+
+                Loc.SetLanguage("en");
+
+                Assert.StartsWith("Showing source-pc snapshot", vm.ClaudeVm.ApiNote);
+            }
+            finally
+            {
+                Loc.SetLanguage(previous);
+                vm.Dispose();
+            }
+        });
+    }
+
     [Fact]
     public async Task UsagePopup_MiniMode_UpdatesOpacityAndCollapsesChrome()
     {

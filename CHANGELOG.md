@@ -3,6 +3,28 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.72.10] - 2026-11-21
+
+<!-- ko -->
+### 개선
+- **Claude 사용량 조회가 실패를 반복 두드리지 않음 (#99)**: 만료·무효 토큰으로 401(또는 서버 오류 5xx)이 이어지면 2분마다 같은 요청을 보냈습니다. 같은 토큰으로 실패가 이어지면 4·8·16·30분 쉬고, 토큰이 바뀌거나(Claude Code 갱신·재로그인) 조회가 성공하면 바로 다시 묻습니다. 화면에 보이는 오류 안내는 그대로입니다.
+- **업데이트 진행·실패 문구 다국어 (#89)**: "Verifying...", "Restarting...", "Failed to launch the update installer" 가 영어로 나오던 것을 4개 언어로 바꾸고, 네트워크 오류 같은 원문은 "업데이트 다운로드 실패: …" 로 감싸 보여 줍니다.
+- **다른 PC 값의 출처 문구가 언어 변경을 바로 따름 (#141)**: Claude·Codex 가 다른 PC 의 스냅샷을 보여 줄 때의 "○○의 … 스냅샷으로 표시 중" 이 언어를 바꿔도 다음 조회까지 옛 언어로 남았습니다.
+- **세션 제목에 HTML 로 시작하는 프롬프트도 씀 (#145)**: `<` 로 시작하는 첫 프롬프트를 모두 버려 `<div>` 를 붙여 넣고 시작한 세션은 제목이 다른 줄로 밀렸습니다. 이제 Claude Code 의 래퍼 태그(`<command-name>`·`<system-reminder>` 등)만 거릅니다.
+- **Codex 로그인 파일을 한 번만 읽음 (#268)**: 갱신마다 `~/.codex/auth.json` 을 요금제·계정·이름용으로 세 번 열던 것을, 파일이 바뀌지 않았으면 한 번 읽은 결과를 다시 씁니다.
+- **테스트·릴리스 검사 보강 (#213 #283 #288)**: 언어 전역값을 쓰는 테스트가 같은 컬렉션에 있는지 검사하고, 릴리스 APK 에 백그라운드 자동 설치 권한·수신기가 있는지 확인하며, 휴대폰 versionCode 공식이 깨지는 버전 번호면 빌드를 멈춥니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Claude usage requests back off after repeated failures (#99)**: with an expired or invalid token the usage API kept answering 401 (or 5xx), and the app sent the same request every 2 minutes. Repeated failures with the same token now wait 4, 8, 16, then 30 minutes; a new token (Claude Code refresh or re-login) or a successful request retries right away. The error shown on screen is unchanged.
+- **Localized update progress and failure messages (#89)**: "Verifying...", "Restarting..." and "Failed to launch the update installer" are now in all four languages, and raw errors such as network failures are shown as "Update download failed: …".
+- **Sync source labels follow a language change (#141)**: the "Showing <PC> snapshot from …" label for Claude and Codex stayed in the old language until the next refresh.
+- **Session titles keep prompts that start with HTML (#145)**: any first prompt starting with `<` was dropped, so a session started by pasting `<div>` got a later line as its title. Only Claude Code's wrapper tags (`<command-name>`, `<system-reminder>`, …) are skipped now.
+- **Codex login file is read once (#268)**: each refresh opened `~/.codex/auth.json` three times (plan, account, name); the parsed result is now reused while the file is unchanged.
+- **Test and release checks (#213 #283 #288)**: a check that tests using the global language share one collection, a release check that the APK keeps the background self-update permission and receiver, and a build failure when the version number would break the phone app's versionCode formula.
+<!-- /en -->
+
 ## [1.72.9] - 2026-11-21
 
 <!-- ko -->

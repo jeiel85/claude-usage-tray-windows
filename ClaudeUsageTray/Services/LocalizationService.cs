@@ -1307,6 +1307,30 @@ public static class Loc
         _ => "Downloading..."
     };
 
+    public static string UpdateVerifying => Lang switch
+    {
+        "ko" => "서명 확인 중...",
+        "zh" => "正在验证签名...",
+        "ja" => "署名を確認中...",
+        _ => "Verifying signature..."
+    };
+
+    public static string UpdateRestarting => Lang switch
+    {
+        "ko" => "다시 시작하는 중...",
+        "zh" => "正在重新启动...",
+        "ja" => "再起動中...",
+        _ => "Restarting..."
+    };
+
+    public static string UpdateInstallerLaunchFailed => Lang switch
+    {
+        "ko" => "업데이트 설치 프로그램을 실행하지 못했습니다. 앱은 그대로 유지됩니다.",
+        "zh" => "无法启动更新安装程序。应用保持不变。",
+        "ja" => "アップデートのインストーラーを起動できませんでした。アプリはそのままです。",
+        _ => "Could not start the update installer. The app was left unchanged."
+    };
+
     public static string AlreadyUpToDate => Lang switch
     {
         "ko" => "✓ 최신버전",

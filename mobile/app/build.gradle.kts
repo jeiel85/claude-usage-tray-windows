@@ -12,7 +12,15 @@ plugins {
 // newer tag always installs over an older one.
 val cutVersion = providers.gradleProperty("cut.version").orElse("1.53.0").get()
 val cutVersionCode = cutVersion.split('.', '-').take(3).map { it.toIntOrNull() ?: 0 }
-    .let { (maj, min, pat) -> maj * 10000 + min * 100 + pat }
+    .let { (maj, min, pat) ->
+        // The formula only round-trips while minor and patch stay below 100: StoreUpdateDecision.versionName turns
+        // Play's versionCode back into "x.y.z" for the banner and notification (#288). Fail the build instead of
+        // shipping a versionCode that reads back as a different version (or collides with another one).
+        if (min !in 0..99 || pat !in 0..99) {
+            throw GradleException("cut.version $cutVersion: minor and patch must be 0..99 for versionCode major*10000+minor*100+patch")
+        }
+        maj * 10000 + min * 100 + pat
+    }
 
 // --- Update manifest (#228) -----------------------------------------------------------------
 // The in-app updater reads releases/latest/download/update.json — a fixed URL that redirects to the newest
