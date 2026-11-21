@@ -174,4 +174,41 @@ public class CodexAccountIdentityTests
         Write(path, "acct-1", idToken: null);
         Assert.Null(CodexUsageMonitor.TryReadAccountName(path));
     }
+    // 갱신마다 요금제·식별자·이름을 각각 물어도 파일은 한 번만 읽는다(#268). 길이·수정 시각이 같으면 지난 결과를 쓰고,
+    // 바뀌면 다시 읽는다. 시각을 과거로 고정해 "방금 쓴 파일은 캐시를 믿지 않는" 유예를 지난 상태를 만든다.
+    [Fact]
+    public void ReadAuthInfo_ReusesTheParsedFile_UntilItChanges()
+    {
+        var path = TempAuthPath();
+        var stamp = DateTime.UtcNow.AddHours(-1);
+        Write(path, "acct-1", IdToken("""{"chatgpt_user_id":"user-A","chatgpt_plan_type":"plus"}"""));
+        File.SetLastWriteTimeUtc(path, stamp);
+
+        var first = CodexUsageMonitor.ReadAuthInfo(path);
+        Assert.Equal(new CodexUsageMonitor.CodexAuthInfo("plus", "acct-1|user-A", null), first);
+
+        // 길이·시각이 그대로인 다른 내용 — 캐시가 쓰였다면 이전 값이 나온다(파일을 다시 열지 않았다는 증거).
+        Write(path, "acct-1", IdToken("""{"chatgpt_user_id":"user-B","chatgpt_plan_type":"plus"}"""));
+        File.SetLastWriteTimeUtc(path, stamp);
+        Assert.Same(first, CodexUsageMonitor.ReadAuthInfo(path));
+
+        // 수정 시각이 바뀌면(Codex 가 다시 씀) 새로 읽는다.
+        File.SetLastWriteTimeUtc(path, stamp.AddMinutes(1));
+        Assert.Equal("acct-1|user-B", CodexUsageMonitor.ReadAuthInfo(path)?.AccountIdentity);
+    }
+
+    [Fact]
+    public void ReadAuthInfo_DoesNotTrustTheCache_ForAFileJustWritten()
+    {
+        var path = TempAuthPath();
+        Write(path, "acct-1", IdToken("""{"chatgpt_user_id":"user-A"}"""));
+        var stamp = DateTime.UtcNow;
+        File.SetLastWriteTimeUtc(path, stamp);
+        Assert.Equal("acct-1|user-A", CodexUsageMonitor.TryReadAccountIdentity(path));
+
+        // 같은 길이·같은 시각으로 곧바로 다시 쓰여도(시각 해상도 안의 연속 쓰기) 방금 쓴 파일이면 다시 읽는다.
+        Write(path, "acct-1", IdToken("""{"chatgpt_user_id":"user-B"}"""));
+        File.SetLastWriteTimeUtc(path, stamp);
+        Assert.Equal("acct-1|user-B", CodexUsageMonitor.TryReadAccountIdentity(path));
+    }
 }

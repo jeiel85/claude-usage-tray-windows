@@ -204,6 +204,18 @@ public class UpdateService
     }
 
     /// <summary>
+    /// Input : 업데이트 받기·설치 중에 난 예외
+    /// Output: 대화상자에 띄울 문구
+    /// 핵심 로직: 이 서비스가 직접 내는 실패(서명 불일치·설치 프로그램 실행 실패)는 이미 현재 언어 문구라 그대로 쓴다.
+    ///           그 밖의 예외(네트워크·디스크 등)는 .NET 원문이라 "다운로드 실패: …" 로 감싸 무엇이 실패했는지는 현재 언어로
+    ///           알려 준다(#89). 예외 형식이 아니라 문구로 가린다 — HttpClient 도 <see cref="InvalidOperationException"/> 을 낸다.
+    /// </summary>
+    internal static string DescribeInstallFailure(Exception ex) =>
+        ex.Message == Loc.UpdateSignatureInvalid || ex.Message == Loc.UpdateInstallerLaunchFailed
+            ? ex.Message
+            : Loc.UpdateDownloadFailed(ex.Message);
+
+    /// <summary>
     /// 새 exe 를 임시 폴더에 받고 업데이트 서명(<see cref="UpdateSignature"/>)을 확인한다. 서명이 맞지 않으면 받은 파일을 지우고 예외를 낸다.
     /// 서명은 <c>버전 + SHA-256</c> 에 대한 것이라 SHA256.txt 는 쓰지 않는다(그 파일은 서명 이전 버전과 손으로 받는 사람을 위해 남겨 둔다).
     /// 검증 없이 설치하는 경로는 없다 — 사용자가 직접 누른 경우도 마찬가지다(#290).
@@ -241,7 +253,7 @@ public class UpdateService
                 }
             }
 
-            onProgress(100, "Verifying...");
+            onProgress(100, Loc.UpdateVerifying);
             string actualHash;
             using (var fs = new FileStream(tempExe, FileMode.Open, FileAccess.Read, FileShare.Read))
                 actualHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(fs)).ToLowerInvariant();
@@ -423,7 +435,7 @@ finally {
             // 스왑 스크립트를 띄우지도 못했으면 종료하지 않는다 — 종료해 봐야 업데이트는 안 되고 앱만 사라진다.
             // 호출부(UpdateDialog)가 이 예외를 받아 오류를 표시하고 앱은 그대로 남는다.
             File.AppendAllText(logPath, $"Failed to launch PowerShell: {ex.Message}{Environment.NewLine}");
-            throw new InvalidOperationException("Failed to launch the update installer", ex);
+            throw new InvalidOperationException(Loc.UpdateInstallerLaunchFailed, ex);
         }
 
         // Final shutdown — 여기부터는 스왑 스크립트가 이 프로세스의 종료를 기다리고 있다.

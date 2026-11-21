@@ -160,11 +160,18 @@ jobs:
           set -euo pipefail
           BUILD_TOOLS="$ANDROID_HOME/build-tools/$(ls -1 "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
           BADGING="$("$BUILD_TOOLS/aapt2" dump badging ClaudeUsageTray-Mobile.apk)"
-          echo "$BADGING" | head -n 1
-          echo "$BADGING" | grep -q "^package: name='com.jeiel85.aiusage' " \
+          head -n 1 <<< "$BADGING"
+          grep -q "^package: name='com.jeiel85.aiusage' " <<< "$BADGING" \
             || { echo "::error::APK package is not com.jeiel85.aiusage"; exit 1; }
-          echo "$BADGING" | grep -q "uses-permission: name='android.permission.REQUEST_INSTALL_PACKAGES'" \
+          grep -q "uses-permission: name='android.permission.REQUEST_INSTALL_PACKAGES'" <<< "$BADGING" \
             || { echo "::error::APK is not the github flavor (REQUEST_INSTALL_PACKAGES missing)"; exit 1; }
+          # 백그라운드 자동 설치(#281)는 이 권한과 결과 수신기가 있어야 조용히 된다. 빠지면 매번 "설치 준비됨" 확인으로만
+          # 떨어져 눈치채기 어렵다(#283).
+          grep -q "uses-permission: name='android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION'" <<< "$BADGING" \
+            || { echo "::error::APK lacks UPDATE_PACKAGES_WITHOUT_USER_ACTION (silent self-update would ask every time)"; exit 1; }
+          MANIFEST="$("$BUILD_TOOLS/aapt2" dump xmltree --file AndroidManifest.xml ClaudeUsageTray-Mobile.apk)"
+          grep -q 'update.UpdateInstallReceiver"' <<< "$MANIFEST" \
+            || { echo "::error::APK lacks UpdateInstallReceiver (auto-install results would be lost)"; exit 1; }
           # 세로 고정 화면이 암시하는 필수 화면 방향 기능은 Play 사전 검사가 "사용 가능 여부 제한" 으로 잡는다(#288).
           # 매니페스트에서 required="false" 로 선언해 두었으니, 필수로 되돌아오면 여기서 막는다.
           # here-string 으로 넘긴다: pipefail 아래 echo | grep -q 는 echo 가 SIGPIPE 를 받으면 거짓이 되어 가드가 조용히 통과한다.

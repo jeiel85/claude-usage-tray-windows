@@ -240,6 +240,15 @@ public class SessionMonitorTests : IDisposable
     [InlineData("   \n\t ", "")]
     [InlineData("  첫 줄\r\n  둘째   줄  ", "첫 줄 둘째 줄")]
     [InlineData("  <command-name>/clear</command-name>", "")]
+    [InlineData("<local-command-stdout>ok</local-command-stdout>", "")]
+    [InlineData("<system-reminder>\nx\n</system-reminder>", "")]
+    [InlineData("<ide_opened_file>The user opened a.cs</ide_opened_file>", "")]
+    [InlineData("<task-notification attr=\"1\">done</task-notification>", "")]
+    // 사용자가 붙여 넣은 HTML 로 시작하는 프롬프트는 제목으로 쓴다(#145).
+    [InlineData("<div>버튼이 안 눌려요</div>", "<div>버튼이 안 눌려요</div>")]
+    [InlineData("<!DOCTYPE html> 이 페이지 고쳐줘", "<!DOCTYPE html> 이 페이지 고쳐줘")]
+    [InlineData("<T> 제네릭 질문", "<T> 제네릭 질문")]
+    [InlineData("<-- 화살표", "<-- 화살표")]
     public void NormalizeTitle_FoldsWhitespaceAndSkipsWrappers(string? text, string expected)
     {
         Assert.Equal(expected, SessionMonitor.NormalizeTitle(text));

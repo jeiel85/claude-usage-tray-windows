@@ -299,7 +299,7 @@ public class SessionMonitor
                 pendingSpace = sb.Length > 0;
                 continue;
             }
-            if (sb.Length == 0 && ch == '<') return "";
+            if (sb.Length == 0 && ch == '<' && StartsWithWrapperTag(text)) return "";
             if (pendingSpace) sb.Append(' ');
             pendingSpace = false;
             sb.Append(ch);
@@ -310,5 +310,29 @@ public class SessionMonitor
         var cut = MaxTitleLength;
         if (char.IsHighSurrogate(sb[cut - 1])) cut--;
         return sb.ToString(0, cut).TrimEnd() + "…";
+    }
+
+    /// <summary>
+    /// 앞 공백 뒤 첫 글자가 Claude Code 가 넣는 래퍼 태그(<c>&lt;command-name&gt;</c>·<c>&lt;local-command-stdout&gt;</c>·
+    /// <c>&lt;system-reminder&gt;</c>·<c>&lt;ide_opened_file&gt;</c> …)인지. 이 태그들은 이름에 <c>-</c> 나 <c>_</c> 가 들어가고,
+    /// 사용자가 붙여 넣는 HTML(<c>&lt;div&gt;</c>·<c>&lt;!DOCTYPE html&gt;</c>)은 그렇지 않다 — 그래서 <c>&lt;</c> 로 시작하는
+    /// 프롬프트를 통째로 버리지 않고 래퍼만 거른다(#145).
+    /// </summary>
+    private static bool StartsWithWrapperTag(string text)
+    {
+        var i = 0;
+        while (i < text.Length && char.IsWhiteSpace(text[i])) i++;
+        if (i >= text.Length || text[i] != '<') return false;
+        i++;
+        var nameStart = i;
+        var hasSeparator = false;
+        while (i < text.Length && (char.IsAsciiLetterOrDigit(text[i]) || text[i] is '-' or '_'))
+        {
+            if (text[i] is '-' or '_') hasSeparator = true;
+            i++;
+        }
+        if (i == nameStart || !char.IsAsciiLetter(text[nameStart])) return false;
+        // 이름 바로 뒤가 태그를 닫거나 속성으로 이어져야 태그다("<a-b" 로 시작하는 평문은 드물지만 거르지 않는다).
+        return hasSeparator && i < text.Length && (text[i] == '>' || char.IsWhiteSpace(text[i]));
     }
 }

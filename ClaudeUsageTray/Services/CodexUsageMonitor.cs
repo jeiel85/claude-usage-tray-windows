@@ -99,35 +99,48 @@ public class CodexUsageMonitor
     internal const int MaxAccountNameLength = 64;
 
     /// <summary>
-    /// Input : <c>~/.codex/auth.json</c> 경로
-    /// Output: id_token 의 <c>name</c> 클레임(사람 이름). 없거나 이메일 꼴이면 null
-    /// 핵심 로직: 휴대폰 프로토콜은 이메일을 보내지 않는다(Claude 표시 이름과 같은 규칙) — 그래서 <c>email</c> 클레임은 읽지 않고,
-    ///           <c>name</c> 이 이메일로 채워진 계정(이름을 정하지 않은 경우)도 버린다. 앞뒤 공백을 떼고 길이를 자른다.
-    ///           id_token 은 서명 검증 없이 payload 만 읽는다 — 표시 전용이다.
+    /// <c>~/.codex/auth.json</c> 에서 읽은 표시·식별용 값들. 하나라도 읽지 못한 값은 null.
     /// </summary>
-    internal static string? TryReadAccountName(string authPath)
+    internal sealed record CodexAuthInfo(string? PlanType, string? AccountIdentity, string? AccountName);
+
+    private sealed record CachedAuth(long Length, DateTime LastWriteUtc, CodexAuthInfo Info);
+
+    // 경로별로 둔다 — 앱은 한 경로만 읽지만, 테스트는 임시 경로 여럿을 병렬로 읽는다.
+    private static readonly Dictionary<string, CachedAuth> AuthCache = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>방금 쓴 파일은 캐시를 믿지 않는 시간 — 수정 시각 해상도 안에서 같은 길이로 다시 쓰면 키가 같아 보인다.</summary>
+    private static readonly TimeSpan AuthCacheSettleTime = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// Input : <c>~/.codex/auth.json</c> 경로
+    /// Output: 요금제·계정 식별자·이름. 파일이 없거나 JSON 이 아니면 null
+    /// 핵심 로직: 갱신 한 번에 요금제·식별자·이름을 각각 물어 같은 파일을 여러 번 열고 id_token 을 따로 풀었다(#268).
+    ///           파일 길이·수정 시각이 지난번과 같으면 지난번 결과를 돌려준다(<c>ClaudeAccountProfileReader</c> 와 같은 방식).
+    ///           방금 쓴 파일은 캐시를 쓰지 않는다 — 수정 시각 해상도 안에서 같은 길이로 다시 쓰이면 바뀐 것을 놓칠 수 있다.
+    ///           읽기에 실패하면 캐시하지 않아 다음 호출이 다시 읽는다.
+    /// </summary>
+    internal static CodexAuthInfo? ReadAuthInfo(string authPath)
     {
         try
         {
-            if (!File.Exists(authPath)) return null;
+            var file = new FileInfo(authPath);
+            if (!file.Exists) return null;
+
+            var length = file.Length;
+            var lastWriteUtc = file.LastWriteTimeUtc;
+            lock (AuthCache)
+            {
+                if (AuthCache.TryGetValue(authPath, out var cached) &&
+                    cached.Length == length && cached.LastWriteUtc == lastWriteUtc &&
+                    DateTime.UtcNow - lastWriteUtc > AuthCacheSettleTime)
+                    return cached.Info;
+            }
 
             using var doc = JsonDocument.Parse(ReadAuthFile(authPath));
-            if (!doc.RootElement.TryGetProperty("tokens", out var tokens) || tokens.ValueKind != JsonValueKind.Object ||
-                ReadString(tokens, "id_token") is not { } idToken)
-                return null;
-
-            using var payload = DecodeJwtPayload(idToken);
-            if (payload is null || ReadString(payload.RootElement, "name") is not { } raw) return null;
-
-            var name = raw.Trim();
-            if (name.Contains('@')) return null;
-            if (name.Length > MaxAccountNameLength)
-            {
-                var cut = MaxAccountNameLength;
-                if (char.IsHighSurrogate(name[cut - 1])) cut--;
-                name = name[..cut].TrimEnd() + "…";
-            }
-            return name;
+            var info = ParseAuthInfo(doc.RootElement);
+            lock (AuthCache)
+                AuthCache[authPath] = new CachedAuth(length, lastWriteUtc, info);
+            return info;
         }
         catch
         {
@@ -135,10 +148,61 @@ public class CodexUsageMonitor
         }
     }
 
+    private static CodexAuthInfo ParseAuthInfo(JsonElement root)
+    {
+        if (!root.TryGetProperty("tokens", out var tokens) || tokens.ValueKind != JsonValueKind.Object)
+            return new CodexAuthInfo(null, null, null);
+
+        var accountId = ReadString(tokens, "account_id");
+        string? userId = null;
+        string? planType = null;
+        string? name = null;
+
+        using var payload = DecodeJwtPayload(ReadString(tokens, "id_token"));
+        if (payload is not null && payload.RootElement.ValueKind == JsonValueKind.Object)
+        {
+            if (payload.RootElement.TryGetProperty("https://api.openai.com/auth", out var auth) &&
+                auth.ValueKind == JsonValueKind.Object)
+            {
+                userId = ReadString(auth, "chatgpt_user_id") ?? ReadString(auth, "user_id");
+                accountId ??= ReadString(auth, "chatgpt_account_id");
+                planType = auth.TryGetProperty("chatgpt_plan_type", out var planEl) && planEl.ValueKind == JsonValueKind.String
+                    ? planEl.GetString()
+                    : null;
+            }
+            name = CleanAccountName(ReadString(payload.RootElement, "name"));
+        }
+
+        var identity = accountId is null && userId is null ? null : $"{accountId}|{userId}";
+        return new CodexAuthInfo(planType, identity, name);
+    }
+
+    /// <summary>
+    /// Input : id_token 의 <c>name</c> 클레임(사람 이름)
+    /// Output: 휴대폰에 실을 이름. 없거나 이메일 꼴이면 null
+    /// 핵심 로직: 휴대폰 프로토콜은 이메일을 보내지 않는다(Claude 표시 이름과 같은 규칙) — 그래서 <c>email</c> 클레임은 읽지 않고,
+    ///           <c>name</c> 이 이메일로 채워진 계정(이름을 정하지 않은 경우)도 버린다. 앞뒤 공백을 떼고 길이를 자른다.
+    /// </summary>
+    private static string? CleanAccountName(string? raw)
+    {
+        if (raw is null) return null;
+        var name = raw.Trim();
+        if (name.Contains('@')) return null;
+        if (name.Length > MaxAccountNameLength)
+        {
+            var cut = MaxAccountNameLength;
+            if (char.IsHighSurrogate(name[cut - 1])) cut--;
+            name = name[..cut].TrimEnd() + "…";
+        }
+        return name;
+    }
+
+    /// <summary>id_token 의 <c>name</c> 클레임(<see cref="CleanAccountName"/>). id_token 은 서명 검증 없이 payload 만 읽는다 — 표시 전용이다.</summary>
+    internal static string? TryReadAccountName(string authPath) => ReadAuthInfo(authPath)?.AccountName;
+
     /// <summary>
     /// 로그인 파일에서 계정 식별자를 만든다.
     ///
-    /// Input : <c>~/.codex/auth.json</c> 경로
     /// Output: <c>"{account_id}|{user_id}"</c> (한쪽만 알면 다른 쪽은 빈 문자열). 둘 다 모르면 null
     /// 핵심 로직: 같은 계정이면 어느 PC 에서든 같은 값이어야 한다 — 그래서 토큰(갱신 때마다 바뀜)이 아니라
     ///           계정·사용자 ID 만 쓴다. <c>tokens.account_id</c> 는 #148 에서 실제 파일로 확인된 자리이고,
@@ -147,38 +211,7 @@ public class CodexUsageMonitor
     ///           같은 워크스페이스의 다른 사용자가 구분되지 않아 사용자 ID 도 함께 쓴다.
     ///           id_token 은 서명 검증 없이 payload 만 읽는다 — 표시·식별 전용이며 인증에 쓰지 않는다.
     /// </summary>
-    internal static string? TryReadAccountIdentity(string authPath)
-    {
-        try
-        {
-            if (!File.Exists(authPath)) return null;
-
-            using var doc = JsonDocument.Parse(ReadAuthFile(authPath));
-            if (!doc.RootElement.TryGetProperty("tokens", out var tokens) || tokens.ValueKind != JsonValueKind.Object)
-                return null;
-
-            var accountId = ReadString(tokens, "account_id");
-            string? userId = null;
-
-            if (ReadString(tokens, "id_token") is { } idToken)
-            {
-                using var payload = DecodeJwtPayload(idToken);
-                if (payload is not null &&
-                    payload.RootElement.TryGetProperty("https://api.openai.com/auth", out var auth) &&
-                    auth.ValueKind == JsonValueKind.Object)
-                {
-                    userId = ReadString(auth, "chatgpt_user_id") ?? ReadString(auth, "user_id");
-                    accountId ??= ReadString(auth, "chatgpt_account_id");
-                }
-            }
-
-            return accountId is null && userId is null ? null : $"{accountId}|{userId}";
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    internal static string? TryReadAccountIdentity(string authPath) => ReadAuthInfo(authPath)?.AccountIdentity;
 
     // auth.json 은 Codex 가 토큰을 갱신할 때 다시 쓰고 로그아웃할 때 지운다. File.ReadAllText(FileShare.Read)로 열면
     // Codex 가 쓰기로 열어 둔 동안엔 읽지 못하고, 읽는 동안엔 Codex 의 쓰기·삭제를 막는다 — 쓰기·삭제 공유를 허용해 연다(#201).
@@ -204,34 +237,7 @@ public class CodexUsageMonitor
     /// id_token 은 서명 검증 없이 payload 만 읽는다. 이 값은 <b>표시 전용</b>이며 인증이나 권한
     /// 판단에 쓰지 않는다(파일 자체가 이미 사용자 소유의 로컬 자격 파일이다).
     /// </summary>
-    internal static string? TryReadPlanTypeFromAuth(string authPath)
-    {
-        try
-        {
-            if (!File.Exists(authPath)) return null;
-
-            using var doc = JsonDocument.Parse(ReadAuthFile(authPath));
-            if (!doc.RootElement.TryGetProperty("tokens", out var tokens) ||
-                tokens.ValueKind != JsonValueKind.Object ||
-                !tokens.TryGetProperty("id_token", out var idTokenEl) ||
-                idTokenEl.ValueKind != JsonValueKind.String)
-                return null;
-
-            using var payload = DecodeJwtPayload(idTokenEl.GetString());
-            if (payload is null) return null;
-
-            return payload.RootElement.TryGetProperty("https://api.openai.com/auth", out var auth) &&
-                   auth.ValueKind == JsonValueKind.Object &&
-                   auth.TryGetProperty("chatgpt_plan_type", out var planEl) &&
-                   planEl.ValueKind == JsonValueKind.String
-                ? planEl.GetString()
-                : null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    internal static string? TryReadPlanTypeFromAuth(string authPath) => ReadAuthInfo(authPath)?.PlanType;
 
     /// <summary>JWT 의 payload(두 번째 조각, base64url) 를 JSON 으로 편다. 형태가 아니면 null.</summary>
     internal static JsonDocument? DecodeJwtPayload(string? jwt)

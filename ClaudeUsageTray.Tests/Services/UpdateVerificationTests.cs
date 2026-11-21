@@ -19,6 +19,30 @@ namespace ClaudeUsageTray.Tests.Services;
 [Collection("WpfTests")]
 public class UpdateVerificationTests
 {
+    // 대화상자 오류 문구(#89): 이미 현재 언어인 서비스 문구는 그대로, .NET 원문 예외는 "다운로드 실패" 로 감싼다.
+    [Fact]
+    public void DescribeInstallFailure_KeepsLocalizedMessages_AndWrapsRawOnes()
+    {
+        var previous = Loc.CurrentLang;
+        try
+        {
+            Loc.SetLanguage("ko");
+            Assert.Equal(Loc.UpdateSignatureInvalid,
+                UpdateService.DescribeInstallFailure(new InvalidOperationException(Loc.UpdateSignatureInvalid)));
+            Assert.Equal(Loc.UpdateInstallerLaunchFailed,
+                UpdateService.DescribeInstallFailure(new InvalidOperationException(Loc.UpdateInstallerLaunchFailed)));
+            Assert.Equal("업데이트 다운로드 실패: No such host is known.",
+                UpdateService.DescribeInstallFailure(new HttpRequestException("No such host is known.")));
+            // HttpClient 가 내는 InvalidOperationException 도 원문이다.
+            Assert.Equal("업데이트 다운로드 실패: An invalid request URI was provided.",
+                UpdateService.DescribeInstallFailure(new InvalidOperationException("An invalid request URI was provided.")));
+        }
+        finally
+        {
+            Loc.SetLanguage(previous);
+        }
+    }
+
     [Fact]
     public async Task Download_RefusesReleaseWithoutSignature_BeforeFetchingAnything()
     {
