@@ -92,21 +92,38 @@ public class UpdateService
         _ => $"check: up to date (current {current}; releases without a signature are skipped)",
     };
 
+    private static readonly object DebugLogGate = new();
+
     /// <summary>
     /// 진단 로그에 시각을 붙여 한 줄 쓴다. 파일이 <paramref name="maxBytes"/> 를 넘으면 지우고 새로 쓴다.
-    /// 로그는 진단 보조라 쓰기 실패(잠김·권한)는 업데이트 동작에 영향을 주지 않게 건너뛴다.
+    /// 수동 확인과 주기 확인이 겹칠 수 있어 앱 안에서는 잠금으로 한 줄씩 쓰고, 교체 스크립트(다른 프로세스)와는
+    /// <see cref="FileShare.ReadWrite"/> 로 함께 연다. 지우기는 다른 쪽이 열고 있으면 실패하는데, 그때는 이번에 지우지 않고
+    /// 줄만 붙인다. 로그는 진단 보조라 쓰기 실패(잠김·권한)는 업데이트 동작에 영향을 주지 않게 건너뛴다.
     /// </summary>
     internal static void AppendDebugLog(string path, string line, long maxBytes)
     {
-        try
+        var bytes = System.Text.Encoding.UTF8.GetBytes($"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}] {line}{Environment.NewLine}");
+        lock (DebugLogGate)
         {
-            var file = new FileInfo(path);
-            if (file.Exists && file.Length > maxBytes) file.Delete();
-            File.AppendAllText(path, $"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}] {line}{Environment.NewLine}");
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            GC.KeepAlive(ex);
+            try
+            {
+                var file = new FileInfo(path);
+                if (file.Exists && file.Length > maxBytes) file.Delete();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                GC.KeepAlive(ex);
+            }
+
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
+                stream.Write(bytes);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                GC.KeepAlive(ex);
+            }
         }
     }
 
@@ -484,7 +501,7 @@ finally {
         {
             // 스왑 스크립트를 띄우지도 못했으면 종료하지 않는다 — 종료해 봐야 업데이트는 안 되고 앱만 사라진다.
             // 호출부(UpdateDialog)가 이 예외를 받아 오류를 표시하고 앱은 그대로 남는다.
-            File.AppendAllText(logPath, $"Failed to launch PowerShell: {ex.Message}{Environment.NewLine}");
+            AppendDebugLog(logPath, $"Failed to launch PowerShell: {ex.Message}", DebugLogMaxBytes);
             throw new InvalidOperationException(Loc.UpdateInstallerLaunchFailed, ex);
         }
 

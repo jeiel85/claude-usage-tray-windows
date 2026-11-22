@@ -58,6 +58,31 @@ public class UpdateVerificationTests
         }
     }
 
+    // 다른 쪽(교체 스크립트 등)이 로그를 쓰기로 열고 있어도, 앱 안에서 여러 확인이 겹쳐도 줄을 잃지 않는다(AGENTS.md: FileShare.ReadWrite).
+    [Fact]
+    public async Task AppendDebugLog_SharesTheFile_AndKeepsEveryLineFromOverlappingWriters()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"update-log-{Guid.NewGuid():N}.log");
+        try
+        {
+            using (var other = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete))
+            {
+                UpdateService.AppendDebugLog(path, "while another writer is open", maxBytes: 1024 * 1024);
+            }
+
+            await Task.WhenAll(Enumerable.Range(0, 20).Select(i =>
+                Task.Run(() => UpdateService.AppendDebugLog(path, $"line {i}", maxBytes: 1024 * 1024))));
+
+            var lines = File.ReadAllLines(path);
+            Assert.Contains(lines, l => l.EndsWith("] while another writer is open", StringComparison.Ordinal));
+            Assert.Equal(21, lines.Length);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     // 대화상자 오류 문구(#89): 이미 현재 언어인 서비스 문구는 그대로, .NET 원문 예외는 "다운로드 실패" 로 감싼다.
     [Fact]
     public void DescribeInstallFailure_KeepsLocalizedMessages_AndWrapsRawOnes()
