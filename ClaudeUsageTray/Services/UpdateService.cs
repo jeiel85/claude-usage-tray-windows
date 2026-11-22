@@ -55,12 +55,79 @@ public class UpdateService
     public static Version CurrentVersion =>
         Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0);
 
+    /// <summary>업데이트 진단 로그. 교체 스크립트도 같은 파일에 쓴다.</summary>
+    internal static readonly string DebugLogPath = Path.Combine(Path.GetTempPath(), "claude_update_debug.log");
+
+    /// <summary>진단 로그가 이보다 커지면 지우고 새로 쓴다 — 확인은 하루 몇 번이라 평소에는 닿지 않는다.</summary>
+    internal const long DebugLogMaxBytes = 512 * 1024;
+
     /// <summary>
     /// Returns UpdateInfo if a newer release exists, null if already up to date.
     /// Throws <see cref="UpdateCheckException"/> on classified failures so callers can route messaging by Kind.
     /// Release notes include all versions between current and latest.
+    /// 결과(찾음·최신·실패 사유)를 진단 로그에 한 줄 남긴다(#89) — 화면에는 마지막 실패 하나만 툴팁으로 남아 원격 진단이 어렵다.
     /// </summary>
     public async Task<UpdateInfo?> CheckForUpdateAsync()
+    {
+        try
+        {
+            var info = await CheckForUpdateCoreAsync();
+            AppendDebugLog(DebugLogPath, DescribeCheckOutcome(info, null, CurrentVersion), DebugLogMaxBytes);
+            return info;
+        }
+        catch (Exception ex) when (ex is UpdateCheckException or JsonException)
+        {
+            AppendDebugLog(DebugLogPath, DescribeCheckOutcome(null, ex, CurrentVersion), DebugLogMaxBytes);
+            throw;
+        }
+    }
+
+    /// <summary>업데이트 확인 결과 한 줄(시각은 <see cref="AppendDebugLog"/> 가 붙인다).</summary>
+    internal static string DescribeCheckOutcome(UpdateInfo? info, Exception? error, Version current) => error switch
+    {
+        UpdateCheckException ex => $"check failed: {ex.Kind}{(ex.StatusCode is { } code ? $" HTTP {code}" : "")}" +
+                                   $"{(ex.RetryAtLocal is { } at ? $" retry {at}" : "")} — {ex.Message} (current {current})",
+        not null => $"check failed: {error.GetType().Name} — {error.Message} (current {current})",
+        _ when info is not null => $"check: v{info.version} available (current {current})",
+        _ => $"check: up to date (current {current}; releases without a signature are skipped)",
+    };
+
+    private static readonly object DebugLogGate = new();
+
+    /// <summary>
+    /// 진단 로그에 시각을 붙여 한 줄 쓴다. 파일이 <paramref name="maxBytes"/> 를 넘으면 지우고 새로 쓴다.
+    /// 수동 확인과 주기 확인이 겹칠 수 있어 앱 안에서는 잠금으로 한 줄씩 쓰고, 교체 스크립트(다른 프로세스)와는
+    /// <see cref="FileShare.ReadWrite"/> 로 함께 연다. 지우기는 다른 쪽이 열고 있으면 실패하는데, 그때는 이번에 지우지 않고
+    /// 줄만 붙인다. 로그는 진단 보조라 쓰기 실패(잠김·권한)는 업데이트 동작에 영향을 주지 않게 건너뛴다.
+    /// </summary>
+    internal static void AppendDebugLog(string path, string line, long maxBytes)
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes($"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}] {line}{Environment.NewLine}");
+        lock (DebugLogGate)
+        {
+            try
+            {
+                var file = new FileInfo(path);
+                if (file.Exists && file.Length > maxBytes) file.Delete();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                GC.KeepAlive(ex);
+            }
+
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
+                stream.Write(bytes);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                GC.KeepAlive(ex);
+            }
+        }
+    }
+
+    private async Task<UpdateInfo?> CheckForUpdateCoreAsync()
     {
         HttpResponseMessage response;
         string rawJson;
@@ -413,7 +480,7 @@ finally {
             ?? Path.Combine(AppContext.BaseDirectory, "ClaudeUsageTray.exe");
 
         var ps1Path = Path.Combine(Path.GetTempPath(), $"claude_swap_{Guid.NewGuid():N}.ps1");
-        var logPath = Path.Combine(Path.GetTempPath(), "claude_update_debug.log");
+        var logPath = DebugLogPath;
 
         var psCommand = BuildSwapScript(currentExe, preparedExePath, logPath, ps1Path);
 
@@ -434,7 +501,7 @@ finally {
         {
             // 스왑 스크립트를 띄우지도 못했으면 종료하지 않는다 — 종료해 봐야 업데이트는 안 되고 앱만 사라진다.
             // 호출부(UpdateDialog)가 이 예외를 받아 오류를 표시하고 앱은 그대로 남는다.
-            File.AppendAllText(logPath, $"Failed to launch PowerShell: {ex.Message}{Environment.NewLine}");
+            AppendDebugLog(logPath, $"Failed to launch PowerShell: {ex.Message}", DebugLogMaxBytes);
             throw new InvalidOperationException(Loc.UpdateInstallerLaunchFailed, ex);
         }
 

@@ -94,7 +94,84 @@ public class UsageSyncService
         }
 
         File.Move(tempPath, destinationPath, overwrite: true);
+        PruneOncePerDay(syncRoot, snapshot);
         return destinationPath;
+    }
+
+    /// <summary>
+    /// 이보다 오래된 날짜 폴더는 지운다(#113). 읽는 쪽은 오늘·어제 폴더만 보므로(<see cref="SelectQuotaCandidates"/>,
+    /// PC 시간대가 달라도 하루 차이) 넉넉히 둔다 — 지우지 않으면 provider × 기기 × 날짜만큼 폴더가 끝없이 쌓여
+    /// OneDrive 같은 동기화 클라이언트가 계속 훑는다.
+    /// </summary>
+    public const int SnapshotRetentionDays = 14;
+
+    private readonly HashSet<string> _prunedFor = new(StringComparer.OrdinalIgnoreCase);
+
+    private void PruneOncePerDay(string syncRoot, UsageSyncSnapshot snapshot)
+    {
+        if (!DateOnly.TryParseExact(snapshot.LocalDate, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var today))
+            return;
+        var key = string.Join('|', syncRoot, snapshot.AccountHash, snapshot.Provider, snapshot.LocalDate);
+        lock (_prunedFor)
+        {
+            if (!_prunedFor.Add(key)) return;
+        }
+        PruneExpiredSnapshots(syncRoot, snapshot.AccountHash, snapshot.Provider, today);
+    }
+
+    /// <summary>
+    /// Input : 공유 폴더, 계정 해시·provider, 오늘 날짜
+    /// Output: 지운 스냅샷 파일 수
+    /// 핵심 로직: 그 계정·provider 아래에서 이름이 날짜(yyyy-MM-dd)이고 보존 기간(<see cref="SnapshotRetentionDays"/>)보다
+    ///           오래된 폴더의 스냅샷 파일(*.json, 쓰다 남은 *.tmp)을 지우고 비면 폴더도 지운다. 다른 PC 가 쓴 것도
+    ///           지운다 — 아무도 읽지 않는 옛 날짜라서다(꺼 둔 PC 의 폴더도 남지 않게). 날짜가 아닌 폴더·그 밖의 파일은
+    ///           건드리지 않는다. 여러 PC 가 동시에 지워도 되도록 파일·폴더 하나의 실패(이미 지워짐·잠김·권한)는 건너뛴다 —
+    ///           다음 날 다시 시도한다.
+    /// </summary>
+    internal static int PruneExpiredSnapshots(string syncRoot, string accountHash, string provider, DateOnly today)
+    {
+        var providerDirectory = Path.Combine(syncRoot, SanitizePathPart(accountHash), SanitizePathPart(provider));
+        var cutoff = today.AddDays(-SnapshotRetentionDays);
+        var deleted = 0;
+
+        IEnumerable<string> dateDirectories;
+        try
+        {
+            if (!Directory.Exists(providerDirectory)) return 0;
+            dateDirectories = Directory.GetDirectories(providerDirectory);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return 0;
+        }
+
+        foreach (var directory in dateDirectories)
+        {
+            if (!DateOnly.TryParseExact(Path.GetFileName(directory), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) ||
+                date >= cutoff)
+                continue;
+
+            try
+            {
+                foreach (var file in Directory.EnumerateFiles(directory)
+                             .Where(f => f.EndsWith(".json", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
+                             .ToList())
+                {
+                    try
+                    {
+                        File.Delete(file);
+                        deleted++;
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { GC.KeepAlive(ex); }
+                }
+
+                if (!Directory.EnumerateFileSystemEntries(directory).Any())
+                    Directory.Delete(directory);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { GC.KeepAlive(ex); }
+        }
+
+        return deleted;
     }
 
     public UsageSyncReadResult ReadSnapshots(string syncRoot, string provider, string? accountKey, DateOnly localDate)

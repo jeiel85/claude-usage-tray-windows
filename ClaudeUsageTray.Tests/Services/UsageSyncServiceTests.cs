@@ -449,6 +449,69 @@ public sealed class UsageSyncServiceTests : IDisposable
         Assert.Equal(UsageSyncService.DefaultLocalSnapshotTtlHours, settings.UsageSyncLocalSnapshotTtlHours);
     }
 
+    [Fact]
+    public void WriteSnapshot_RemovesDateFoldersPastRetention_AndKeepsRecentOnes()
+    {
+        var now = new DateTimeOffset(2026, 7, 20, 12, 0, 0, TimeSpan.FromHours(9));
+        var service = CreateService("desktop", now);
+        var syncRoot = Path.Combine(_tempRoot, "sync");
+        var hash = UsageSyncService.BuildAccountHash(UsageProviderKind.Claude, "org");
+        var providerDir = Path.Combine(syncRoot, hash, UsageProviderKind.Claude);
+
+        // 보존 기간 밖(15일 전): 다른 PC 파일·쓰다 남은 tmp 까지 지우고 폴더도 없앤다.
+        var expired = Path.Combine(providerDir, "2026-07-05");
+        Directory.CreateDirectory(expired);
+        WriteAllTextShared(Path.Combine(expired, "old-pc.json"), "{}");
+        WriteAllTextShared(Path.Combine(expired, "old-pc.1234.tmp"), "{}");
+        // 경계(정확히 14일 전)와 어제는 남긴다.
+        var boundary = Path.Combine(providerDir, "2026-07-06");
+        var yesterday = Path.Combine(providerDir, "2026-07-19");
+        Directory.CreateDirectory(boundary);
+        Directory.CreateDirectory(yesterday);
+        WriteAllTextShared(Path.Combine(boundary, "pc.json"), "{}");
+        WriteAllTextShared(Path.Combine(yesterday, "pc.json"), "{}");
+        // 날짜가 아닌 폴더, 스냅샷이 아닌 파일은 건드리지 않는다.
+        var other = Path.Combine(providerDir, "notes");
+        Directory.CreateDirectory(other);
+        var expiredWithForeignFile = Path.Combine(providerDir, "2026-06-01");
+        Directory.CreateDirectory(expiredWithForeignFile);
+        WriteAllTextShared(Path.Combine(expiredWithForeignFile, "pc.json"), "{}");
+        WriteAllTextShared(Path.Combine(expiredWithForeignFile, "readme.txt"), "keep");
+
+        service.WriteSnapshot(syncRoot, service.CreateSnapshot(UsageProviderKind.Claude, "org", null, new UsageSyncLocalTotals()));
+
+        Assert.False(Directory.Exists(expired));
+        Assert.True(File.Exists(Path.Combine(boundary, "pc.json")));
+        Assert.True(File.Exists(Path.Combine(yesterday, "pc.json")));
+        Assert.True(Directory.Exists(other));
+        Assert.False(File.Exists(Path.Combine(expiredWithForeignFile, "pc.json")));
+        Assert.True(File.Exists(Path.Combine(expiredWithForeignFile, "readme.txt")));
+        Assert.True(File.Exists(Path.Combine(providerDir, "2026-07-20", $"{service.DeviceId}.json")));
+    }
+
+    [Fact]
+    public void WriteSnapshot_PrunesOnlyOncePerDay_AndOnlyItsOwnAccountAndProvider()
+    {
+        var now = new DateTimeOffset(2026, 7, 20, 12, 0, 0, TimeSpan.FromHours(9));
+        var service = CreateService("desktop", now);
+        var syncRoot = Path.Combine(_tempRoot, "sync");
+        var claudeDir = Path.Combine(syncRoot, UsageSyncService.BuildAccountHash(UsageProviderKind.Claude, "org"), UsageProviderKind.Claude);
+        var codexDir = Path.Combine(syncRoot, UsageSyncService.BuildAccountHash(UsageProviderKind.Codex, "org"), UsageProviderKind.Codex);
+        var codexExpired = Path.Combine(codexDir, "2026-06-01");
+        Directory.CreateDirectory(codexExpired);
+        WriteAllTextShared(Path.Combine(codexExpired, "pc.json"), "{}");
+
+        service.WriteSnapshot(syncRoot, service.CreateSnapshot(UsageProviderKind.Claude, "org", null, new UsageSyncLocalTotals()));
+        Assert.True(Directory.Exists(codexExpired));
+
+        // 같은 날 두 번째 쓰기는 정리를 다시 하지 않는다.
+        var lateArrival = Path.Combine(claudeDir, "2026-06-02");
+        Directory.CreateDirectory(lateArrival);
+        WriteAllTextShared(Path.Combine(lateArrival, "pc.json"), "{}");
+        service.WriteSnapshot(syncRoot, service.CreateSnapshot(UsageProviderKind.Claude, "org", null, new UsageSyncLocalTotals()));
+        Assert.True(Directory.Exists(lateArrival));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempRoot))

@@ -244,6 +244,60 @@ public class PeerSyncTests : IDisposable
         Assert.Equal("Office desktop", bClient.Status().Single().Peer.PcName);
     }
 
+    /// <summary>
+    /// 연결받는 PC 가 서버를 멈추면(연동 끄기·포트 변경) 연결해 온 PC 도 곧바로 끊긴 것을 안다(#274).
+    /// </summary>
+    [Fact]
+    public async Task StoppingTheHostServerDropsTheSyncConnectionRightAway()
+    {
+        var aDir = Path.Combine(_dir, "A");
+        var bDir = Path.Combine(_dir, "B");
+        var aStore = new MobileDeviceStore(aDir);
+        using var aServer = new MobileApiServer(new MobileUsageFeed(), aStore, new PairingService(aStore), () => "A", new PeerSyncHub());
+        aServer.Start(new MobileServerOptions(FreePort(), Lan: false, Tailscale: false, BindLoopback: true));
+        var bStore = new MobileDeviceStore(bDir);
+        using var bClient = new PeerSyncClient(new PeerSyncHub(), new SyncPeerStore(bDir), () => bStore.PcId, () => "B");
+        await WaitUntil(() => aServer.Status().Listening);
+        await bClient.JoinAsync(PairingLink.Build(aServer.CreateOffer()!));
+        await WaitUntil(() => bClient.Status().All(s => s.Connected));
+
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        aServer.Stop();
+        await WaitUntil(() => bClient.Status().All(s => !s.Connected));
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(3), $"sync connection stayed up {watch.Elapsed.TotalSeconds:F1}s after Stop()");
+    }
+
+    /// <summary>
+    /// 표가 그대로여도 이름을 바꾸고 <see cref="PeerSyncHub.Touch"/> 를 부르면 두 방향 모두 곧바로 새 이름이 간다(#274).
+    /// </summary>
+    [Fact]
+    public async Task TouchCarriesARenameAcrossWithoutANewSnapshot()
+    {
+        var aName = "A";
+        var bName = "B";
+        var aDir = Path.Combine(_dir, "A");
+        var bDir = Path.Combine(_dir, "B");
+        var aStore = new MobileDeviceStore(aDir);
+        var aHub = new PeerSyncHub();
+        using var aServer = new MobileApiServer(new MobileUsageFeed(), aStore, new PairingService(aStore), () => aName, aHub);
+        aServer.Start(new MobileServerOptions(FreePort(), Lan: false, Tailscale: false, BindLoopback: true));
+        var bStore = new MobileDeviceStore(bDir);
+        var bHub = new PeerSyncHub();
+        var bPeers = new SyncPeerStore(bDir);
+        using var bClient = new PeerSyncClient(bHub, bPeers, () => bStore.PcId, () => bName);
+        await WaitUntil(() => aServer.Status().Listening);
+        await bClient.JoinAsync(PairingLink.Build(aServer.CreateOffer()!));
+        await WaitUntil(() => bClient.Status().All(s => s.Connected));
+
+        bName = "Study laptop";
+        bHub.Touch();
+        await WaitUntil(() => aStore.List().Single(d => d.Kind == MobileDeviceKind.Pc).Name == "Study laptop");
+
+        aName = "Office desktop";
+        aHub.Touch();
+        await WaitUntil(() => bPeers.All().Single().PcName == "Office desktop");
+    }
+
     [Fact]
     public void PeerAndDeviceRenamesIgnoreBlankAndUnchangedNames()
     {

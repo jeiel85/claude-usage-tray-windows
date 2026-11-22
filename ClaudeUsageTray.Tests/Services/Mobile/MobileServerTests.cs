@@ -293,6 +293,67 @@ public class MobileServerTests : IDisposable
         Assert.Equal(405, server.HandleRest(new HttpRequestHead("GET", "/api/v1/pair", new Dictionary<string, string>()), null).Status);
     }
 
+    /// <summary>
+    /// 서버를 멈추면(연동 끄기·포트 변경) 열려 있던 실시간 소켓도 곧바로 닫혀야 한다(#274) — 남아 있으면 상대가
+    /// 옛 서버와 계속 통신하거나 재연결이 늦는다.
+    /// </summary>
+    [Fact]
+    public async Task Stop_ClosesOpenLiveSocketsRightAway()
+    {
+        var store = new MobileDeviceStore(_dir);
+        var pairing = new PairingService(store);
+        using var server = new MobileApiServer(new MobileUsageFeed(), store, pairing, () => "TEST-PC");
+        var port = FreePort();
+        server.Start(new MobileServerOptions(port, Lan: false, Tailscale: false, BindLoopback: true));
+        await WaitUntil(() => server.Status().Listening);
+        var token = pairing.TryPair(pairing.Begin().Code, "Pixel", "P9").Token!;
+
+        using var ws = new ClientWebSocket();
+        ws.Options.SetRequestHeader("Authorization", $"Bearer {token}");
+        await ws.ConnectAsync(new Uri($"ws://127.0.0.1:{port}/api/v1/live"), CancellationToken.None);
+        await ReceiveText(ws);
+
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        server.Stop();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        try
+        {
+            var result = await ws.ReceiveAsync(new byte[4096], cts.Token);
+            Assert.Equal(WebSocketMessageType.Close, result.MessageType);
+        }
+        catch (WebSocketException)
+        {
+            // 닫기 프레임 없이 TCP 가 끊겨도 "닫힘" 이다.
+        }
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(3), $"socket stayed open {watch.Elapsed.TotalSeconds:F1}s after Stop()");
+    }
+
+    /// <summary>
+    /// 사용량이 그대로여도 이름이 바뀌어 <see cref="MobileUsageFeed.Touch"/> 를 부르면 실시간 소켓이 곧바로 새 이름을 보낸다(#274).
+    /// </summary>
+    [Fact]
+    public async Task Touch_SendsTheNewPcNameWithoutWaitingForTheHeartbeat()
+    {
+        var store = new MobileDeviceStore(_dir);
+        var pairing = new PairingService(store);
+        var feed = new MobileUsageFeed();
+        var name = "Old name";
+        using var server = new MobileApiServer(feed, store, pairing, () => name);
+        var port = FreePort();
+        server.Start(new MobileServerOptions(port, Lan: false, Tailscale: false, BindLoopback: true));
+        await WaitUntil(() => server.Status().Listening);
+        var token = pairing.TryPair(pairing.Begin().Code, "Pixel", "P9").Token!;
+
+        using var ws = new ClientWebSocket();
+        ws.Options.SetRequestHeader("Authorization", $"Bearer {token}");
+        await ws.ConnectAsync(new Uri($"ws://127.0.0.1:{port}/api/v1/live"), CancellationToken.None);
+        Assert.Contains("\"Old name\"", await ReceiveText(ws));
+
+        name = "New name";
+        feed.Touch();
+        Assert.Contains("\"New name\"", await ReceiveText(ws)); // ReceiveText 는 10초 안에 와야 한다(하트비트는 60초)
+    }
+
     private static StringContent Json(object value) =>
         new(JsonSerializer.Serialize(value), Encoding.UTF8, "application/json");
 

@@ -130,6 +130,15 @@ public sealed class MobileUsageFeed
         return new Subscription(this, channel);
     }
 
+    /// <summary>
+    /// 피드 밖에서 보내는 값(PC 이름 등)이 바뀌었을 때 부른다 — 사용량이 그대로여도 구독자가 곧바로 새 스냅샷을
+    /// 보내게 한다(#274). 그러지 않으면 다음 사용량 변화나 하트비트(60초)까지 휴대폰에 옛 이름이 남는다.
+    /// </summary>
+    public void Touch()
+    {
+        lock (_gate) Notify();
+    }
+
     public int Watchers
     {
         get

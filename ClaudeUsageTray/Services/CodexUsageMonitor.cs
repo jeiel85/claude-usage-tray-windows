@@ -38,8 +38,12 @@ public class CodexUsageMonitor
     public const string DirectApiSource = "Direct API";
     private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(AppConstants.ApiTimeoutSeconds) };
 
+    // 이미지 생성 잔여 횟수는 자주 바뀌지 않는데 조회마다 curl 프로세스를 띄운다 — 10분 동안은 마지막 응답을 다시 쓴다(#209).
+    private static readonly ConversationInitCache InitCache =
+        new(ReadConversationInitWithCurlAsync, () => DateTimeOffset.UtcNow, ConversationInitCache.DefaultTtl);
+
     public Task<ProviderUsageSnapshot> GetTodaySnapshotAsync(bool useDirectApi = true) =>
-        GetTodaySnapshotAsync(useDirectApi, _http, AuthPath, SessionsPath, ReadConversationInitWithCurlAsync);
+        GetTodaySnapshotAsync(useDirectApi, _http, AuthPath, SessionsPath, InitCache.ReadAsync);
 
     // HTTP·경로를 주입받는 오버로드 — 단위 테스트에서 가짜 응답과 임시 로그인 파일·로그 폴더를 쓰기 위한 것.
     // readConversationInit 이 null 이면 이미지 생성 잔여 횟수(#206)를 읽지 않는다 — 테스트가 실제 서버를 부르지 않게.
@@ -307,6 +311,46 @@ public class CodexUsageMonitor
 
     /// <summary><c>conversation/init</c> 응답 본문을 읽는다. 못 읽으면(HTTP 오류·차단·실행 실패) null.</summary>
     internal delegate Task<string?> ConversationInitReader(string token, string? accountId);
+
+    /// <summary>
+    /// <c>conversation/init</c> 응답을 계정마다 잠시 들고 있는다(#209).
+    /// Input : 실제로 읽는 함수, 시계, 유지 시간
+    /// Output: 유지 시간 안에 같은 계정으로 다시 부르면 마지막으로 읽은 본문(읽지 않음), 아니면 새로 읽은 본문
+    /// 핵심 로직: 본문 그대로 들고 있다가 부를 때마다 다시 해석하므로, 그사이 초기화 시각이 지나면 지난 창의 값은
+    ///           <see cref="ParseFeatureAllowance"/> 가 버린다. 못 읽은 결과(null)는 들고 있지 않는다 — 다음 조회에서 다시 시도.
+    ///           계정이 바뀌면(계정 ID, 없으면 토큰) 바로 새로 읽는다.
+    /// </summary>
+    internal sealed class ConversationInitCache(ConversationInitReader inner, Func<DateTimeOffset> clock, TimeSpan ttl)
+    {
+        public static readonly TimeSpan DefaultTtl = TimeSpan.FromMinutes(10);
+
+        private readonly object _gate = new();
+        private string? _key;
+        private string? _body;
+        private DateTimeOffset _readAt;
+
+        public async Task<string?> ReadAsync(string token, string? accountId)
+        {
+            var key = accountId ?? token;
+            lock (_gate)
+            {
+                if (_body is not null && _key == key && clock() - _readAt < ttl)
+                    return _body;
+            }
+
+            var body = await inner(token, accountId);
+            if (body is not null)
+            {
+                lock (_gate)
+                {
+                    _key = key;
+                    _body = body;
+                    _readAt = clock();
+                }
+            }
+            return body;
+        }
+    }
 
     private static async Task<string?> ReadSafelyAsync(ConversationInitReader reader, string token, string? accountId)
     {
