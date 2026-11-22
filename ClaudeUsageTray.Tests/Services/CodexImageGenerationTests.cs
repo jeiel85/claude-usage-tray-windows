@@ -190,6 +190,67 @@ public sealed class CodexImageGenerationTests : IDisposable
         Assert.False(vm.HasImageGeneration);
     }
 
+    [Fact]
+    public async Task Cache_ReusesTheLastBody_ForTheSameAccount_UntilItExpires()
+    {
+        var now = Now;
+        var calls = 0;
+        var cache = new CodexUsageMonitor.ConversationInitCache(
+            (_, _) => { calls++; return Task.FromResult<string?>($"body-{calls}"); },
+            () => now, TimeSpan.FromMinutes(10));
+
+        Assert.Equal("body-1", await cache.ReadAsync("token", "acc-a"));
+        now = now.AddMinutes(9);
+        Assert.Equal("body-1", await cache.ReadAsync("token-refreshed", "acc-a"));
+        Assert.Equal(1, calls);
+
+        // 다른 계정이면 바로 새로 읽고, 유지 시간이 지나면 다시 읽는다.
+        Assert.Equal("body-2", await cache.ReadAsync("token", "acc-b"));
+        now = now.AddMinutes(10);
+        Assert.Equal("body-3", await cache.ReadAsync("token", "acc-b"));
+        Assert.Equal(3, calls);
+    }
+
+    [Fact]
+    public async Task Cache_DoesNotHoldOnToFailures()
+    {
+        var results = new Queue<string?>([null, "ok"]);
+        var calls = 0;
+        var cache = new CodexUsageMonitor.ConversationInitCache(
+            (_, _) => { calls++; return Task.FromResult(results.Dequeue()); },
+            () => Now, TimeSpan.FromMinutes(10));
+
+        Assert.Null(await cache.ReadAsync("token", "acc"));
+        Assert.Equal("ok", await cache.ReadAsync("token", "acc"));
+        Assert.Equal("ok", await cache.ReadAsync("token", "acc"));
+        Assert.Equal(2, calls);
+    }
+
+    [Fact]
+    public async Task Cache_WithoutAccountId_KeysOnTheToken()
+    {
+        var calls = 0;
+        var cache = new CodexUsageMonitor.ConversationInitCache(
+            (_, _) => { calls++; return Task.FromResult<string?>("body"); },
+            () => Now, TimeSpan.FromMinutes(10));
+
+        await cache.ReadAsync("token-1", null);
+        await cache.ReadAsync("token-1", null);
+        await cache.ReadAsync("token-2", null);
+
+        Assert.Equal(2, calls);
+    }
+
+    [Fact]
+    public void CachedBody_DropsAWindowThatEndedWhileCached()
+    {
+        // 들고 있는 동안 초기화 시각이 지나면 해석할 때 버린다 — 지난 창의 남은 횟수를 보이지 않게.
+        var body = InitBody(3, "2026-10-28T07:20:00+00:00");
+
+        Assert.NotNull(CodexUsageMonitor.ParseImageGeneration(body, Now));
+        Assert.Null(CodexUsageMonitor.ParseImageGeneration(body, Now.AddMinutes(5)));
+    }
+
     private static FeatureAllowance? Parse(string? json) => CodexUsageMonitor.ParseImageGeneration(json, Now);
 
     private async Task<(ProviderUsageSnapshot? Snapshot, CodexApiStatus Status)> FetchAsync(

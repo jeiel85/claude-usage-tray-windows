@@ -1064,9 +1064,16 @@ namespace ClaudeUsageTray.ViewModels;
     {
         // 이름은 휴대폰 연동을 꺼도 쓰인다(공유 폴더 스냅샷·ntfy 알림) — 연동 적용이 실패해도 먼저 반영한다.
         // 시작할 때도 첫 새로고침 전에 이 함수를 거치므로 첫 알림부터 설정한 이름이 나간다.
+        var previousName = PcName.Current;
         PcName.SetAlias(settings.PcAlias);
         try
         {
+            // 이름이 바뀌면 열린 휴대폰·PC 연결에 바로 한 번 보낸다(#274) — 사용량이 그대로면 하트비트(60초)까지 옛 이름이 남는다.
+            if (!string.Equals(previousName, PcName.Current, StringComparison.Ordinal))
+            {
+                Mobile.Feed.Touch();
+                Mobile.PeerSync.Touch();
+            }
             Mobile.Feed.Retain(MobileFeedProviders(settings));
             Mobile.Apply(settings);
         }

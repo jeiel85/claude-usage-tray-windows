@@ -3,6 +3,26 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.72.11] - 2026-11-22
+
+<!-- ko -->
+### 개선
+- **이미지 생성 잔여 횟수 조회 줄임 (#209)**: Codex 새로고침(기본 2분)마다 `curl` 프로세스를 띄워 ChatGPT 에 물었습니다. 같은 계정이면 10분 동안 마지막 응답을 다시 씁니다(그사이 초기화 시각이 지나면 그 값은 버림). 못 읽었을 때는 들고 있지 않고 다음 조회에서 다시 묻습니다.
+- **공유 폴더 동기화가 옛 날짜 폴더를 정리 (#113)**: 공유 폴더에 계정·서비스·날짜·PC 별 스냅샷이 끝없이 쌓여 OneDrive 같은 동기화 프로그램이 계속 훑었습니다. 각 PC 가 하루 한 번, 14일이 지난 날짜 폴더의 스냅샷을 지우고 빈 폴더를 없앱니다(앱은 오늘·어제 폴더만 읽습니다).
+- **PC 이름을 바꾸면 휴대폰·다른 PC 에 바로 보임 (#274)**: 사용량이 그대로면 다음 하트비트(60초)까지 옛 이름이 남았습니다. 이름을 저장하는 즉시 열린 연결로 한 번 보냅니다.
+- **업데이트 확인 결과를 진단 로그에 남김 (#89)**: 확인 실패 사유가 툴팁 한 줄로만 남았습니다. 확인할 때마다 결과(새 버전·최신·실패 종류)를 `%TEMP%\claude_update_debug.log` 에 한 줄 쓰고, 파일이 512KB 를 넘으면 새로 시작합니다.
+- **문서 (#113 #268)**: 다른 PC 에서 받은 사용량으로는 사용량 알림이 가지 않는다는 점, Codex 이름이 바뀌어도 토큰을 새로 받기 전까지 옛 이름이 보인다는 점을 적었습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Fewer image-generation lookups (#209)**: every Codex refresh (2 minutes by default) started a `curl` process to ask ChatGPT. The last answer is now reused for 10 minutes for the same account (dropped if its reset time passes meanwhile); a failed read is not kept, so the next refresh asks again.
+- **Shared-folder sync cleans up old date folders (#113)**: snapshots per account, service, date and PC piled up forever in the shared folder, and sync clients such as OneDrive kept scanning them. Once a day each PC deletes snapshots in date folders older than 14 days and removes the empty folders (the app only reads today's and yesterday's).
+- **A new PC name reaches phones and other PCs right away (#274)**: with unchanged usage the old name stayed until the next 60-second heartbeat. Saving the name now sends one update over open connections.
+- **Update checks are written to the diagnostic log (#89)**: the reason a check failed only survived as one tooltip line. Each check now writes its result (new version, up to date, failure kind) to `%TEMP%\claude_update_debug.log`, which starts over past 512 KB.
+- **Docs (#113 #268)**: usage alerts are not sent from usage received from another PC, and a Codex name change shows only after Codex gets a new token.
+<!-- /en -->
+
 ## [1.72.10] - 2026-11-21
 
 <!-- ko -->
