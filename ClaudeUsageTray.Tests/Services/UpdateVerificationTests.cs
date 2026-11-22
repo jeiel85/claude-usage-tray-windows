@@ -58,6 +58,33 @@ public class UpdateVerificationTests
         }
     }
 
+    // 교체 스크립트는 PowerShell 5.1 Out-File 기본값(UTF-16 LE + BOM)으로 로그를 만든다 — 그 뒤에 붙인 줄도 같은 인코딩이어야
+    // 읽힌다(v1.72.11 에서 UTF-8 로 붙여 깨져 보였다). 새 파일은 UTF-8 BOM 으로 시작한다.
+    [Fact]
+    public void AppendDebugLog_FollowsTheEncodingOfTheExistingFile()
+    {
+        var utf16 = Path.Combine(Path.GetTempPath(), $"update-log-{Guid.NewGuid():N}.log");
+        var fresh = Path.Combine(Path.GetTempPath(), $"update-log-{Guid.NewGuid():N}.log");
+        try
+        {
+            File.WriteAllText(utf16, "Update started at 2026-11-22" + Environment.NewLine, Encoding.Unicode);
+            UpdateService.AppendDebugLog(utf16, "check: up to date (현재 1.72.12)", maxBytes: 1024 * 1024);
+            var lines = File.ReadAllLines(utf16);
+            Assert.Equal("Update started at 2026-11-22", lines[0]);
+            Assert.EndsWith("] check: up to date (현재 1.72.12)", lines[1]);
+            Assert.Equal(new byte[] { 0xFF, 0xFE }, File.ReadAllBytes(utf16).Take(2).ToArray());
+
+            UpdateService.AppendDebugLog(fresh, "첫 줄", maxBytes: 1024 * 1024);
+            Assert.Equal(new byte[] { 0xEF, 0xBB, 0xBF }, File.ReadAllBytes(fresh).Take(3).ToArray());
+            Assert.EndsWith("] 첫 줄", File.ReadAllLines(fresh).Single());
+        }
+        finally
+        {
+            File.Delete(utf16);
+            File.Delete(fresh);
+        }
+    }
+
     // 다른 쪽(교체 스크립트 등)이 로그를 쓰기로 열고 있어도, 앱 안에서 여러 확인이 겹쳐도 줄을 잃지 않는다(AGENTS.md: FileShare.ReadWrite).
     [Fact]
     public async Task AppendDebugLog_SharesTheFile_AndKeepsEveryLineFromOverlappingWriters()

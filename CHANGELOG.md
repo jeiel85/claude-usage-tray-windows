@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.72.12] - 2026-11-22
+
+<!-- ko -->
+### 수정
+- **업데이트 진단 로그의 확인 결과 줄이 깨져 보이던 문제 (#89)**: 1.72.11 에서 추가한 확인 결과 줄을 UTF-8 로 붙였는데, 업데이트 교체 스크립트가 이 파일을 UTF-16(PowerShell 기본값)으로 만들어 두어 한 번이라도 업데이트한 PC 에서는 그 줄이 알아볼 수 없는 글자로 보였습니다. 이제 파일의 인코딩을 따라 붙이고, 새 파일은 UTF-8 로 만듭니다. 앱 동작에는 영향이 없었습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **Unreadable update-check lines in the update diagnostic log (#89)**: the check results added in 1.72.11 were appended as UTF-8, but the update swap script creates the file as UTF-16 (the PowerShell default), so on any PC that had updated once those lines showed as garbage. Lines now follow the file's encoding, and a new file is created as UTF-8. App behavior was not affected.
+<!-- /en -->
+
 ## [1.72.11] - 2026-11-22
 
 <!-- ko -->

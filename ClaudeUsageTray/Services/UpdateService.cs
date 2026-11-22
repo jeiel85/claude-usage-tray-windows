@@ -94,15 +94,28 @@ public class UpdateService
 
     private static readonly object DebugLogGate = new();
 
+    /// <summary>파일 앞머리 BOM 으로 인코딩을 고른다. 비었거나 BOM 이 없으면 UTF-8(새 파일에는 BOM 을 붙인다).</summary>
+    private static System.Text.Encoding DetectLogEncoding(Stream stream)
+    {
+        Span<byte> head = stackalloc byte[2];
+        stream.Seek(0, SeekOrigin.Begin);
+        var read = stream.ReadAtLeast(head, head.Length, throwOnEndOfStream: false);
+        if (read == 2 && head[0] == 0xFF && head[1] == 0xFE) return System.Text.Encoding.Unicode;
+        if (read == 2 && head[0] == 0xFE && head[1] == 0xFF) return System.Text.Encoding.BigEndianUnicode;
+        return new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
+    }
+
     /// <summary>
     /// 진단 로그에 시각을 붙여 한 줄 쓴다. 파일이 <paramref name="maxBytes"/> 를 넘으면 지우고 새로 쓴다.
     /// 수동 확인과 주기 확인이 겹칠 수 있어 앱 안에서는 잠금으로 한 줄씩 쓰고, 교체 스크립트(다른 프로세스)와는
     /// <see cref="FileShare.ReadWrite"/> 로 함께 연다. 지우기는 다른 쪽이 열고 있으면 실패하는데, 그때는 이번에 지우지 않고
     /// 줄만 붙인다. 로그는 진단 보조라 쓰기 실패(잠김·권한)는 업데이트 동작에 영향을 주지 않게 건너뛴다.
+    /// 인코딩은 파일을 따른다: 교체 스크립트는 PowerShell 5.1 <c>Out-File</c> 기본값(UTF-16 LE, BOM ff fe)으로 파일을 새로 만들므로
+    /// 그 파일에 UTF-8 을 붙이면 그 줄이 깨져 보인다(v1.72.11 실측). 앞머리 BOM 을 보고 같은 인코딩으로 붙이고, 새 파일은 UTF-8 BOM 으로 만든다.
     /// </summary>
     internal static void AppendDebugLog(string path, string line, long maxBytes)
     {
-        var bytes = System.Text.Encoding.UTF8.GetBytes($"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}] {line}{Environment.NewLine}");
+        var text = $"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}] {line}{Environment.NewLine}";
         lock (DebugLogGate)
         {
             try
@@ -117,8 +130,11 @@ public class UpdateService
 
             try
             {
-                using var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
-                stream.Write(bytes);
+                using var stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete);
+                var encoding = DetectLogEncoding(stream);
+                stream.Seek(0, SeekOrigin.End);
+                if (stream.Length == 0) stream.Write(encoding.GetPreamble());
+                stream.Write(encoding.GetBytes(text));
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
