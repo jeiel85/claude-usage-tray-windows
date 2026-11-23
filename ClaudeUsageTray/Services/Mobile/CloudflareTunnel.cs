@@ -312,6 +312,17 @@ public sealed partial class CloudflareTunnel : IDisposable
     /// <summary>winget 패키지 ID(설정 창의 "설치" 버튼).</summary>
     public const string WingetPackage = "Cloudflare.cloudflared";
 
+    internal static string LocateWinget()
+    {
+        var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (!string.IsNullOrEmpty(local))
+        {
+            var candidate = Path.Combine(local, "Microsoft", "WindowsApps", "winget.exe");
+            if (File.Exists(candidate)) return candidate;
+        }
+        return "winget.exe";
+    }
+
     /// <summary>
     /// Input : 없음
     /// Output: 성공하면 null, 실패하면 짧은 이유(winget 종료 코드·마지막 출력 줄)
@@ -320,7 +331,8 @@ public sealed partial class CloudflareTunnel : IDisposable
     /// </summary>
     public static async Task<string?> InstallWithWingetAsync()
     {
-        var psi = new ProcessStartInfo("winget.exe")
+        var wingetExe = LocateWinget();
+        var psi = new ProcessStartInfo(wingetExe)
         {
             UseShellExecute = false,
             CreateNoWindow = true,

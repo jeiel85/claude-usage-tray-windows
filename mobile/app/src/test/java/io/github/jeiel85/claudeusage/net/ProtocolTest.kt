@@ -169,6 +169,29 @@ class ProtocolTest {
     }
 
     @Test
+    fun endpoint_parse_rejects_url_injection_downgrade_and_unknown_transports() {
+        val pin = "4f9a8a7d1c2b3e4f5a6b7c8d9e0f11223344556677889900aabbccddeeff0011"
+        // URL injection chars
+        assertNull(Endpoint.parse(org.json.JSONObject("""{"transport":"cloudflare","host":"evil.com/x#","port":443,"tls":true}""")))
+        assertNull(Endpoint.parse(org.json.JSONObject("""{"transport":"cloudflare","host":"user@evil.com","port":443,"tls":true}""")))
+        // Cleartext cloudflare or non-443 port
+        assertNull(Endpoint.parse(org.json.JSONObject("""{"transport":"cloudflare","host":"pc.trycloudflare.com","port":443,"tls":false}""")))
+        assertNull(Endpoint.parse(org.json.JSONObject("""{"transport":"cloudflare","host":"pc.trycloudflare.com","port":80,"tls":true}""")))
+        // Public IP for LAN
+        assertNull(Endpoint.parse(org.json.JSONObject("""{"transport":"lan","host":"8.8.8.8","port":47830,"tls":true,"certSha256":"$pin"}""")))
+        // Non-tailnet cleartext host for tailscale
+        assertNull(Endpoint.parse(org.json.JSONObject("""{"transport":"tailscale","host":"evil.example.com","port":47830,"tls":false}""")))
+        // Unknown transport
+        assertNull(Endpoint.parse(org.json.JSONObject("""{"transport":"custom","host":"evil.example.com","port":80,"tls":false}""")))
+        // Valid endpoints still pass
+        assertNotNull(Endpoint.parse(org.json.JSONObject("""{"transport":"lan","host":"192.168.0.2","port":47830,"tls":true,"certSha256":"$pin"}""")))
+        assertNotNull(Endpoint.parse(org.json.JSONObject("""{"transport":"tailscale","host":"100.101.102.103","port":47830,"tls":false}""")))
+        assertNotNull(Endpoint.parse(org.json.JSONObject("""{"transport":"tailscale","host":"home-pc.tail1234.ts.net","port":47830,"tls":false}""")))
+        assertNotNull(Endpoint.parse(org.json.JSONObject("""{"transport":"cloudflare","host":"pc.trycloudflare.com","port":443,"tls":true}""")))
+        assertNotNull(Endpoint.parse(org.json.JSONObject("""{"transport":"loopback","host":"127.0.0.1","port":47830,"tls":false}""")))
+    }
+
+    @Test
     fun passed_reset_time_shows_an_empty_window() {
         val g = Gauge(GaugeKind.SHORT, "", 0.9, resetAtMs = 1_000L, windowMinutes = 300)
         assertEquals(0.0, g.effective(nowMs = 2_000L).usage, 0.0)

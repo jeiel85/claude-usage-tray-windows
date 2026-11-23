@@ -3,6 +3,32 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.72.13] - 2026-11-23
+
+<!-- ko -->
+### 보안
+- **PowerShell 명령 인젝션·시스템 바이너리 절대 경로 고정 (#340)**: 방화벽 설정(UAC 관리자 권한)과 업데이트 교체 스크립트의 PowerShell 작은따옴표 이스케이프가 유니코드 곡선 따옴표(`U+2018`–`U+201B`)까지 모두 처리하도록 보강했습니다. `powershell.exe`·`netsh.exe`·`winget.exe` 실행 시 앱 폴더의 파일이 가로채지 못하도록 시스템 절대 경로로 고정했습니다.
+- **비-Tailscale CGNAT 환경 평문 바인딩 차단 (#340)**: 통신사 CGNAT 등 Tailscale 이 아닌 `100.64.0.0/10` 어댑터에 평문 HTTP 서버가 열리지 않도록 Tailscale 인터페이스에서만 바인딩합니다.
+- **휴대폰 API·PC 동기화·푸시 발송 보안 강화 (#340)**:
+  - 푸시 구독 등록·발송 시 로컬/사설 IP(SSRF)와 자동 HTTP 리다이렉트를 차단하고, 중복 기기 정리는 엔드포인트와 `P256dh` 공개키가 모두 같을 때만 수행합니다.
+  - `/api/v1/sync` 는 페어링된 PC 기기만 허용(휴대폰 토큰 403)하고, 가십 테이블·프레임 크기와 식별자 길이에 상한을 두었습니다.
+  - PC·Android 양쪽에서 엔드포인트 호스트 메타문자 및 전송 유형별 TLS·핀 불변식을 강제했습니다.
+  - `MobileApiServer` 가 브라우저 교차 출처 요청(`Origin` 헤더 403, `POST` 비-JSON 415)을 차단하고, 비인증 핸드셰이크 슬롯을 인증된 WebSocket 슬롯과 분리했습니다.
+- **업데이터·동기화·릴리스 워크플로 방어 심층화 (#340)**: PC/Android 업데이터에 다운로드 크기 상한·HTTPS 스킴 검증을 추가하고, `UsageSyncService.SanitizePathPart` 의 `..` 경로 탐색과 Android `PushReceiver` stale-token 해제 브로드캐스트 스팸을 완화했습니다. `release.yml` 은 최상단 권한을 `contents: read` 로 낮추고 모든 Action 을 커밋 SHA 로 고정했습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Security
+- **PowerShell quote escaping & absolute system binary paths (#340)**: hardened PowerShell single-quote escaping in the elevated firewall setup and update swap script to escape Unicode curly single quotes (`U+2018`–`U+201B`) in addition to ASCII `'`. Resolved `powershell.exe`, `netsh.exe`, and `winget.exe` via absolute system paths to prevent local binary planting.
+- **Prevent cleartext HTTP binding on non-Tailscale CGNAT adapters (#340)**: restricted Tailscale listener discovery to Tailscale interfaces rather than any `100.64.0.0/10` network adapter.
+- **Mobile API, PC sync, and push delivery hardening (#340)**:
+  - Blocked non-public/loopback push subscription endpoints and disabled automatic HTTP redirects with connect-time public-IP verification (SSRF protection); required both `Endpoint` and `P256dh` to match when deduplicating re-paired devices.
+  - Restricted `/api/v1/sync` to paired PC devices (`403` for phone tokens) and added entry, per-frame snapshot, and identifier length caps to `PeerSyncHub`.
+  - Enforced strict endpoint host syntax and per-transport TLS/pin invariants on both PC (`PeerSyncClient`) and Android (`Endpoint.parse`).
+  - Blocked browser cross-origin requests (`Origin` header → `403`, non-JSON `POST` → `415`) on `MobileApiServer` and isolated unauthenticated handshake slots from authenticated WebSocket slots.
+- **Updater, sync, and release CI defense-in-depth (#340)**: enforced download size limits and HTTPS validation on PC/Android updaters, blocked dot-traversal in `UsageSyncService.SanitizePathPart`, throttled stale-token unregister broadcasts in Android `PushReceiver`, scoped `release.yml` to top-level `contents: read`, and pinned all GitHub Actions to commit SHAs.
+<!-- /en -->
+
 ## [1.72.12] - 2026-11-22
 
 <!-- ko -->

@@ -1,3 +1,6 @@
+using System.Net;
+using System.Net.Http;
+using System.Net.Sockets;
 using ClaudeUsageTray.Models;
 
 namespace ClaudeUsageTray.Services.Mobile;
@@ -8,7 +11,45 @@ namespace ClaudeUsageTray.Services.Mobile;
 /// </summary>
 public sealed class MobileLinkService : IDisposable, IAppPushSender
 {
-    private static readonly System.Net.Http.HttpClient PushHttp = new() { Timeout = TimeSpan.FromSeconds(15) };
+    private static readonly HttpClient PushHttp = CreatePushHttpClient();
+
+    /// <summary>
+    /// 푸시 발송용 HttpClient(#340): 자동 리다이렉트를 끄고, DNS 해석 뒤 실제 접속 대상 IP 가 공인 IP 일 때만
+    /// 연결한다(사설망·루프백 SSRF 및 DNS Rebinding 차단).
+    /// </summary>
+    internal static HttpClient CreatePushHttpClient()
+    {
+        var handler = new SocketsHttpHandler
+        {
+            AllowAutoRedirect = false,
+            ConnectTimeout = TimeSpan.FromSeconds(10),
+            ConnectCallback = async (context, ct) =>
+            {
+                var addresses = await Dns.GetHostAddressesAsync(context.DnsEndPoint.Host, ct);
+                if (addresses.Length == 0 || addresses.Any(a => !MobileNetwork.IsPublicAddress(a)))
+                    throw new HttpRequestException($"Blocked non-public push endpoint host '{context.DnsEndPoint.Host}'.");
+
+                Exception? last = null;
+                foreach (var ip in addresses)
+                {
+                    var socket = new Socket(ip.AddressFamily, SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+                    try
+                    {
+                        await socket.ConnectAsync(new IPEndPoint(ip, context.DnsEndPoint.Port), ct);
+                        return new NetworkStream(socket, ownsSocket: true);
+                    }
+                    catch (Exception ex) when (ex is SocketException or OperationCanceledException)
+                    {
+                        socket.Dispose();
+                        if (ct.IsCancellationRequested) throw;
+                        last = ex;
+                    }
+                }
+                throw last ?? new HttpRequestException($"Could not connect to '{context.DnsEndPoint.Host}'.");
+            },
+        };
+        return new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(15) };
+    }
 
     private readonly object _gate = new();
     private readonly Func<MobileDeviceStore> _storeFactory;

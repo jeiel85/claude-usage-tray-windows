@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Net.Security;
 using System.Net.WebSockets;
@@ -33,6 +34,11 @@ public sealed class PeerSyncHub
     /// 이보다 오래된 관측은 버린다. 공유 폴더 동기화의 최후 폴백 기준(<see cref="UsageSyncService.LastResortMaxAge"/>)과 같다.
     /// </summary>
     public static readonly TimeSpan MaxAge = UsageSyncService.LastResortMaxAge;
+
+    /// <summary>가십 테이블·프레임 상한(#340) — 악의적·오작동 피어의 메모리·트래픽 증폭을 막는다.</summary>
+    internal const int MaxEntries = 256;
+    internal const int MaxSnapshotsPerFrame = 128;
+    internal const int MaxIdLength = 128;
 
     private readonly object _gate = new();
     private readonly Dictionary<(string Device, string Provider), UsageSyncSnapshot> _table = [];
@@ -72,8 +78,10 @@ public sealed class PeerSyncHub
     public bool Merge(IEnumerable<UsageSyncSnapshot> snapshots)
     {
         var changed = false;
+        var count = 0;
         foreach (var s in snapshots)
         {
+            if (++count > MaxSnapshotsPerFrame) break;
             if (!IsUsable(s)) continue;
             string own;
             lock (_gate) own = _ownDeviceId;
@@ -144,10 +152,14 @@ public sealed class PeerSyncHub
     private bool Upsert(UsageSyncSnapshot s, bool local)
     {
         var key = (s.DeviceId.ToLowerInvariant(), s.Provider);
+        var cutoff = _now() - MaxAge;
         lock (_gate)
         {
+            PruneExpiredLocked(cutoff);
             _table.TryGetValue(key, out var existing);
             if (existing is not null && !local && existing.ObservedAtUtc >= s.ObservedAtUtc)
+                return false;
+            if (existing is null && !local && _table.Count >= MaxEntries)
                 return false;
             if (local && s.Quota is not { HasData: true } && existing?.Quota is { HasData: true } previousQuota
                 && string.Equals(existing.AccountHash, s.AccountHash, StringComparison.OrdinalIgnoreCase)
@@ -160,11 +172,28 @@ public sealed class PeerSyncHub
         }
     }
 
-    /// <summary>외부 입력 검사 — 형식이 틀리거나 미래(5분 넘게)·너무 오래된 관측은 받지 않는다.</summary>
+    private void PruneExpiredLocked(DateTimeOffset cutoff)
+    {
+        List<(string Device, string Provider)>? expired = null;
+        foreach (var kv in _table)
+        {
+            if (kv.Value.ObservedAtUtc < cutoff)
+            {
+                expired ??= [];
+                expired.Add(kv.Key);
+            }
+        }
+        if (expired is null) return;
+        foreach (var key in expired) _table.Remove(key);
+    }
+
+    /// <summary>외부 입력 검사 — 형식이 틀리거나 미래(5분 넘게)·너무 오래된 관측·과도한 길이의 식별자는 받지 않는다.</summary>
     private bool IsUsable(UsageSyncSnapshot? s)
     {
         if (s is null || s.SchemaVersion != UsageSyncSchema.CurrentVersion) return false;
         if (string.IsNullOrWhiteSpace(s.DeviceId) || string.IsNullOrWhiteSpace(s.Provider) || string.IsNullOrWhiteSpace(s.AccountHash))
+            return false;
+        if (s.DeviceId.Length > MaxIdLength || s.Provider.Length > MaxIdLength || s.AccountHash.Length > MaxIdLength)
             return false;
         var now = _now();
         if (s.ObservedAtUtc > now + TimeSpan.FromMinutes(5) || s.ObservedAtUtc < now - MaxAge) return false;
@@ -540,7 +569,7 @@ public sealed class PeerSyncClient : IDisposable
         connectCts.CancelAfter(TimeSpan.FromSeconds(6));
         try
         {
-            await ws.ConnectAsync(new Uri(Url(e, "/api/v1/sync").Replace("http", "ws", StringComparison.Ordinal)), connectCts.Token);
+            await ws.ConnectAsync(new Uri(Url(e, "/api/v1/sync", webSocket: true)), connectCts.Token);
         }
         catch (WebSocketException ex) when (ex.Message.Contains("401", StringComparison.Ordinal))
         {
@@ -640,7 +669,9 @@ public sealed class PeerSyncClient : IDisposable
             using var res = await http.SendAsync(req);
             if (!res.IsSuccessStatusCode) return;
             var body = JsonSerializer.Deserialize<EndpointsResponse>(await res.Content.ReadAsStringAsync(), MobileProtocol.Json);
-            if (body?.Endpoints is { Count: > 0 } endpoints) _peers.UpdateEndpoints(peer.PcId, endpoints);
+            var allowLoopback = peer.Endpoints.Any(x => x.Transport == MobileTransport.Loopback);
+            var valid = body?.Endpoints?.Where(ep => IsValidEndpoint(ep, allowLoopback)).ToList();
+            if (valid is { Count: > 0 }) _peers.UpdateEndpoints(peer.PcId, valid);
         }
         catch (Exception ex)
         {
@@ -678,10 +709,74 @@ public sealed class PeerSyncClient : IDisposable
             _ => 3,
         });
 
-    internal static string Url(MobileEndpoint e, string path)
+    internal static string Url(MobileEndpoint e, string path, bool webSocket = false)
     {
+        var scheme = (e.Tls, webSocket) switch
+        {
+            (true, true) => "wss",
+            (false, true) => "ws",
+            (true, false) => "https",
+            (false, false) => "http",
+        };
         var host = e.Host.Contains(':') && !e.Host.StartsWith('[') ? $"[{e.Host}]" : e.Host;
-        return $"{(e.Tls ? "https" : "http")}://{host}:{e.Port}{path}";
+        return $"{scheme}://{host}:{e.Port}{path}";
+    }
+
+    /// <summary>
+    /// 엔드포인트 호스트·포트·전송 유형별 보안 불변식을 검사한다(#340).
+    /// URL 메타문자 인젝션, 평문 다운그레이드, 알 수 없는 전송 유형, 원격 루프백 주입을 막는다.
+    /// </summary>
+    internal static bool IsValidEndpoint(MobileEndpoint? e, bool allowLoopback = true)
+    {
+        if (e is null || e.Port is < 1 or > 65535 || string.IsNullOrWhiteSpace(e.Host)) return false;
+        var host = e.Host;
+        if (host.Length > 253 || host.IndexOfAny(['@', '/', '\\', '?', '#', ' ', '\t', '\r', '\n']) >= 0)
+            return false;
+
+        switch (e.Transport)
+        {
+            case MobileTransport.Lan:
+                return e.Tls
+                    && IsValidCertPin(e.CertSha256)
+                    && IPAddress.TryParse(host, out var lanIp)
+                    && MobileNetwork.IsPrivateV4(lanIp);
+
+            case MobileTransport.Cloudflare:
+                return e.Tls
+                    && e.Port == 443
+                    && string.IsNullOrEmpty(e.CertSha256)
+                    && IsValidDnsHostname(host)
+                    && !IPAddress.TryParse(host, out _);
+
+            case MobileTransport.Tailscale:
+                if (IPAddress.TryParse(host, out var tsIp))
+                    return MobileNetwork.IsTailnetV4(tsIp);
+                return IsValidDnsHostname(host) && host.EndsWith(".ts.net", StringComparison.OrdinalIgnoreCase);
+
+            case MobileTransport.Loopback:
+                if (!allowLoopback) return false;
+                if (host.Equals("localhost", StringComparison.OrdinalIgnoreCase)) return true;
+                return IPAddress.TryParse(host, out var loIp) && IPAddress.IsLoopback(loIp);
+
+            default:
+                return false;
+        }
+    }
+
+    private static bool IsValidCertPin(string? pin) =>
+        pin is { Length: 64 } && pin.All(static c => c is >= '0' and <= '9' or >= 'a' and <= 'f' or >= 'A' and <= 'F');
+
+    private static bool IsValidDnsHostname(string host)
+    {
+        if (host.Length is 0 or > 253 || host.StartsWith('.') || host.EndsWith('.') || !host.Contains('.'))
+            return false;
+        foreach (var label in host.Split('.'))
+        {
+            if (label.Length is 0 or > 63 || label[0] == '-' || label[^1] == '-') return false;
+            if (!label.All(static c => c is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9' or '-'))
+                return false;
+        }
+        return true;
     }
 
     private static HttpClient CreateHttp(MobileEndpoint e, TimeSpan timeout)
@@ -706,8 +801,11 @@ public sealed class PeerSyncClient : IDisposable
         try
         {
             var offer = JsonSerializer.Deserialize<PairingOffer>(json, MobileProtocol.Json);
-            return offer is { Cu: MobileProtocol.OfferMarker } && !string.IsNullOrEmpty(offer.Code)
-                && offer.Endpoints is { Count: > 0 } ? offer : null;
+            if (offer is not { Cu: MobileProtocol.OfferMarker } || string.IsNullOrEmpty(offer.Code)
+                || offer.Endpoints is not { Count: > 0 })
+                return null;
+            var valid = offer.Endpoints.Where(ep => IsValidEndpoint(ep, allowLoopback: true)).ToList();
+            return valid.Count > 0 ? offer with { Endpoints = valid } : null;
         }
         catch (JsonException)
         {

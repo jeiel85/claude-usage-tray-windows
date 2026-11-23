@@ -236,7 +236,8 @@ public class UpdateService
                 {
                     var name = asset.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
                     var url = asset.TryGetProperty("browser_download_url", out var u) ? u.GetString() ?? "" : "";
-                    if (url.Length == 0) continue;
+                    if (url.Length == 0 || !Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+                        continue;
                     if (name.Equals("ClaudeUsageTray.exe", StringComparison.OrdinalIgnoreCase)) exe = url;
                     else if (name.Equals(UpdateSignature.AssetName, StringComparison.OrdinalIgnoreCase)) sig = url;
                 }
@@ -303,6 +304,29 @@ public class UpdateService
     /// 서명은 <c>버전 + SHA-256</c> 에 대한 것이라 SHA256.txt 는 쓰지 않는다(그 파일은 서명 이전 버전과 손으로 받는 사람을 위해 남겨 둔다).
     /// 검증 없이 설치하는 경로는 없다 — 사용자가 직접 누른 경우도 마찬가지다(#290).
     /// </summary>
+    internal const int MaxSignatureBytes = 4 * 1024;
+    internal const long MaxExeBytes = 200L * 1024 * 1024;
+
+    private static async Task<string> ReadBoundedStringAsync(string url, int maxBytes)
+    {
+        using var response = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+        response.EnsureSuccessStatusCode();
+        if (response.Content.Headers.ContentLength is { } len && len > maxBytes)
+            throw new InvalidOperationException($"Response exceeds {maxBytes} bytes.");
+
+        using var stream = await response.Content.ReadAsStreamAsync();
+        using var ms = new MemoryStream();
+        var buffer = new byte[Math.Min(4096, maxBytes)];
+        int read;
+        while ((read = await stream.ReadAsync(buffer)) > 0)
+        {
+            if (ms.Length + read > maxBytes)
+                throw new InvalidOperationException($"Response exceeds {maxBytes} bytes.");
+            ms.Write(buffer, 0, read);
+        }
+        return System.Text.Encoding.UTF8.GetString(ms.ToArray());
+    }
+
     public async Task<string> DownloadAndPrepareUpdateAsync(string downloadUrl, string signatureUrl, Version version,
                                                             Action<int, string> onProgress)
     {
@@ -311,7 +335,7 @@ public class UpdateService
             throw new InvalidOperationException(Loc.UpdateSignatureInvalid);
 
         onProgress(0, Loc.CheckingUpdate);
-        var signature = await Http.GetStringAsync(signatureUrl);
+        var signature = await ReadBoundedStringAsync(signatureUrl, MaxSignatureBytes);
 
         var tempExe = Path.Combine(Path.GetTempPath(), $"ClaudeUsageTray_new_{Guid.NewGuid():N}.exe");
         try
@@ -320,6 +344,8 @@ public class UpdateService
             {
                 response.EnsureSuccessStatusCode();
                 var totalBytes = response.Content.Headers.ContentLength ?? 0;
+                if (totalBytes > MaxExeBytes)
+                    throw new InvalidOperationException($"Update package exceeds {MaxExeBytes} bytes.");
 
                 using var contentStream = await response.Content.ReadAsStreamAsync();
                 using var fileStream = new FileStream(tempExe, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
@@ -329,8 +355,10 @@ public class UpdateService
                 int read;
                 while ((read = await contentStream.ReadAsync(buffer)) > 0)
                 {
-                    await fileStream.WriteAsync(buffer.AsMemory(0, read));
                     totalRead += read;
+                    if (totalRead > MaxExeBytes)
+                        throw new InvalidOperationException($"Update package exceeds {MaxExeBytes} bytes.");
+                    await fileStream.WriteAsync(buffer.AsMemory(0, read));
                     if (totalBytes > 0)
                         onProgress((int)((totalRead * 100) / totalBytes), Loc.DownloadingUpdate);
                 }
@@ -364,8 +392,18 @@ public class UpdateService
     /// </summary>
     internal static string BuildSwapScript(string oldExe, string newExe, string logPath, string ps1Path)
     {
-        // Escape single quotes for PowerShell string literal
-        string Esc(string? s) => (s ?? "").Replace("'", "''");
+        // Escape ASCII and Unicode curly single quotes (U+2018~U+201B) for PowerShell single-quoted literals (#340)
+        static string Esc(string? s)
+        {
+            var value = s ?? "";
+            var sb = new System.Text.StringBuilder(value.Length);
+            foreach (var ch in value)
+            {
+                if (ch is '\'' or '\u2018' or '\u2019' or '\u201A' or '\u201B') sb.Append(ch);
+                sb.Append(ch);
+            }
+            return sb.ToString();
+        }
 
         // 프로세스 이름은 교체 대상 exe 에서 유도한다 — 이름을 하드코딩하면 테스트에서 실제 앱을 죽인다.
         var processName = Path.GetFileNameWithoutExtension(oldExe);
@@ -506,7 +544,7 @@ finally {
             var encoding = new System.Text.UTF8Encoding(true);
             File.WriteAllText(ps1Path, psCommand, encoding);
 
-            Process.Start(new ProcessStartInfo("powershell.exe")
+            Process.Start(new ProcessStartInfo(Mobile.MobileFirewall.SystemBinaryPath(@"WindowsPowerShell\v1.0\powershell.exe"))
             {
                 Arguments = $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{ps1Path}\"",
                 UseShellExecute = false,

@@ -35,6 +35,58 @@ public static class MobileNetwork
         return b[0] == 100 && (b[1] & 0xC0) == 64;
     }
 
+    /// <summary>
+    /// 공인 라우팅 가능한 IP 주소인가(푸시 구독 SSRF 방어용, #340).
+    /// 루프백·사설(RFC 1918)·CGNAT(100.64.0.0/10)·링크-로컬(169.254.0.0/16)·멀티캐스트·예약 대역과
+    /// IPv6 비공인 대역(ULA·링크로컬·사이트로컬·문서용·루프백)을 모두 거부한다.
+    /// </summary>
+    public static bool IsPublicAddress(IPAddress address)
+    {
+        if (address.IsIPv4MappedToIPv6) address = address.MapToIPv4();
+        if (IPAddress.IsLoopback(address)) return false;
+
+        if (address.AddressFamily == AddressFamily.InterNetwork)
+        {
+            var b = address.GetAddressBytes();
+            if (b[0] == 0) return false;                              // 0.0.0.0/8 ("this" network)
+            if (b[0] == 10) return false;                             // 10.0.0.0/8 (RFC 1918)
+            if (b[0] == 100 && (b[1] & 0xC0) == 64) return false;     // 100.64.0.0/10 (CGNAT)
+            if (b[0] == 127) return false;                            // 127.0.0.0/8 (loopback)
+            if (b[0] == 169 && b[1] == 254) return false;             // 169.254.0.0/16 (link-local / cloud metadata)
+            if (b[0] == 172 && (b[1] & 0xF0) == 16) return false;     // 172.16.0.0/12 (RFC 1918)
+            if (b[0] == 192 && b[1] == 0 && b[2] == 0) return false;  // 192.0.0.0/24 (IETF protocol)
+            if (b[0] == 192 && b[1] == 0 && b[2] == 2) return false;  // 192.0.2.0/24 (TEST-NET-1)
+            if (b[0] == 192 && b[1] == 168) return false;             // 192.168.0.0/16 (RFC 1918)
+            if (b[0] == 198 && (b[1] & 0xFE) == 18) return false;     // 198.18.0.0/15 (benchmarking)
+            if (b[0] == 198 && b[1] == 51 && b[2] == 100) return false; // 198.51.100.0/24 (TEST-NET-2)
+            if (b[0] == 203 && b[1] == 0 && b[2] == 113) return false;  // 203.0.113.0/24 (TEST-NET-3)
+            if (b[0] >= 224) return false;                            // 224.0.0.0/4 multicast & 240.0.0.0/4 reserved
+            return true;
+        }
+
+        if (address.AddressFamily == AddressFamily.InterNetworkV6)
+        {
+            if (address.Equals(IPAddress.IPv6Any) || address.Equals(IPAddress.IPv6None)) return false;
+            if (address.IsIPv6LinkLocal || address.IsIPv6SiteLocal || address.IsIPv6Multicast || address.IsIPv6UniqueLocal)
+                return false;
+            var b = address.GetAddressBytes();
+            if ((b[0] & 0xFE) == 0xFC) return false;                  // fc00::/7 (ULA)
+            if (b[0] == 0xFE && (b[1] & 0xC0) == 0x80) return false;  // fe80::/10 (link-local)
+            if (b[0] == 0x20 && b[1] == 0x01 && b[2] == 0x0D && b[3] == 0xB8) return false; // 2001:db8::/32
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Tailscale 가상 어댑터 여부(#340). 통신사 CGNAT(모바일 테더링·Starlink·일부 ISP)도 100.64.0.0/10 을 쓰므로
+    /// IP 대역만 보고 평문 HTTP 를 바인딩하면 비-Tailscale 공용망에 평문 서버가 열린다.
+    /// </summary>
+    internal static bool IsTailscaleInterface(string? name, string? description) =>
+        (name is not null && name.Contains("tailscale", StringComparison.OrdinalIgnoreCase)) ||
+        (description is not null && description.Contains("tailscale", StringComparison.OrdinalIgnoreCase));
+
     /// <summary><paramref name="peer"/> 가 <paramref name="local"/> 서브넷 중 하나 안에 있는가.</summary>
     public static bool InSameSubnet(IPAddress peer, IEnumerable<LanAddress> local)
     {
@@ -83,13 +135,13 @@ public static class MobileNetwork
         }
     }
 
-    /// <summary>켜진 인터페이스에 붙은 Tailscale IPv4 주소.</summary>
+    /// <summary>켜진 Tailscale 인터페이스에 붙은 Tailscale IPv4 주소(#340).</summary>
     public static IReadOnlyList<IPAddress> FindTailnetAddresses()
     {
         try
         {
             return NetworkInterface.GetAllNetworkInterfaces()
-                .Where(n => n.OperationalStatus == OperationalStatus.Up)
+                .Where(n => n.OperationalStatus == OperationalStatus.Up && IsTailscaleInterface(n.Name, n.Description))
                 .SelectMany(n => n.GetIPProperties().UnicastAddresses)
                 .Select(a => a.Address)
                 .Where(IsTailnetV4)
