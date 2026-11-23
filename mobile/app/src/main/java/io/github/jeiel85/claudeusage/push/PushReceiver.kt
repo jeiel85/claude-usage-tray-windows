@@ -27,8 +27,10 @@ class PushReceiver : BroadcastReceiver() {
         val state = PushState(context)
         val token = intent.getStringExtra(UnifiedPush.EXTRA_TOKEN)
         UnifiedPush.staleToken(intent.action, token, state.token)?.let {
-            Log.i(TAG, "dropping a stale registration at the distributor")
-            UnifiedPush.unregisterStale(context, it)
+            if (shouldUnregisterStale(it)) {
+                Log.i(TAG, "dropping a stale registration at the distributor")
+                UnifiedPush.unregisterStale(context, it)
+            }
             return
         }
         if (token == null || token != state.token) return
@@ -153,9 +155,29 @@ class PushReceiver : BroadcastReceiver() {
         }
     }
 
-    private companion object {
-        const val TAG = "CutPush"
-        val DEDUPE_LOCK = Any()
+    internal companion object {
+        private const val TAG = "CutPush"
+        private val DEDUPE_LOCK = Any()
+        private val STALE_LOCK = Any()
+        internal const val STALE_COOLDOWN_MS = 30_000L
+        internal const val MAX_STALE_ENTRIES = 32
+        private val recentStaleUnregisters = LinkedHashMap<String, Long>()
+
+        /** Throttle repeated stale-token unregisters so forged local broadcasts cannot flood distributors (#340). */
+        internal fun shouldUnregisterStale(token: String, nowMs: Long = System.currentTimeMillis()): Boolean = synchronized(STALE_LOCK) {
+            val iter = recentStaleUnregisters.entries.iterator()
+            while (iter.hasNext()) {
+                if (nowMs - iter.next().value >= STALE_COOLDOWN_MS) iter.remove()
+            }
+            if (recentStaleUnregisters.containsKey(token)) return false
+            if (recentStaleUnregisters.size >= MAX_STALE_ENTRIES) return false
+            recentStaleUnregisters[token] = nowMs
+            return true
+        }
+
+        internal fun resetStaleThrottleForTest() = synchronized(STALE_LOCK) {
+            recentStaleUnregisters.clear()
+        }
     }
 }
 

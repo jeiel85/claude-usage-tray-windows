@@ -1,7 +1,9 @@
 package io.github.jeiel85.claudeusage.push
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** A distributor registration this app no longer holds is unregistered; ours never is (#242). */
@@ -42,5 +44,20 @@ class StaleTokenTest {
     fun missing_or_blank_token_is_ignored() {
         assertNull(UnifiedPush.staleToken(UnifiedPush.ACTION_MESSAGE, null, current))
         assertNull(UnifiedPush.staleToken(UnifiedPush.ACTION_MESSAGE, " ", current))
+    }
+
+    @Test
+    fun stale_unregister_is_throttled_within_cooldown_and_capped() {
+        PushReceiver.resetStaleThrottleForTest()
+        assertTrue(PushReceiver.shouldUnregisterStale(old, nowMs = 1_000L))
+        assertFalse(PushReceiver.shouldUnregisterStale(old, nowMs = 2_000L))
+        assertTrue(PushReceiver.shouldUnregisterStale(old, nowMs = 1_000L + PushReceiver.STALE_COOLDOWN_MS))
+
+        PushReceiver.resetStaleThrottleForTest()
+        for (i in 0 until PushReceiver.MAX_STALE_ENTRIES) {
+            assertTrue(PushReceiver.shouldUnregisterStale("tok-$i", nowMs = 10_000L))
+        }
+        assertFalse(PushReceiver.shouldUnregisterStale("tok-overflow", nowMs = 10_000L))
+        PushReceiver.resetStaleThrottleForTest()
     }
 }

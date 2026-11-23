@@ -478,7 +478,7 @@ public class UsageSyncService
     private static string NormalizeProvider(string provider) =>
         SanitizePathPart(string.IsNullOrWhiteSpace(provider) ? UsageProviderKind.Claude : provider.Trim().ToLowerInvariant());
 
-    private static string SanitizePathPart(string value)
+    internal static string SanitizePathPart(string value)
     {
         var builder = new StringBuilder(value.Length);
         foreach (var c in value)
@@ -486,6 +486,9 @@ public class UsageSyncService
             builder.Append(char.IsLetterOrDigit(c) || c is '-' or '_' or '.' ? c : '_');
         }
 
-        return builder.Length == 0 ? "_" : builder.ToString();
+        var sanitized = builder.ToString();
+        if (sanitized.Length == 0 || sanitized is "." or ".." || sanitized.Contains("..", StringComparison.Ordinal))
+            return "_";
+        return sanitized;
     }
 }

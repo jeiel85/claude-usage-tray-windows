@@ -42,10 +42,15 @@ public sealed class MobileApiServer : IDisposable
     public static readonly TimeSpan LiveHeartbeat = TimeSpan.FromSeconds(60);
 
     /// <summary>
-    /// 경로(LAN·Tailscale·루프백)마다 따로 세는 동시 연결 수(#290). 한 풀을 같이 쓰면 Cloudflare 터널로 들어오는 인터넷의 느린
-    /// 요청이 슬롯을 모두 묶어 같은 집 LAN 의 휴대폰까지 닿지 못한다.
+    /// 경로(LAN·Tailscale·루프백)마다 따로 세는 인증된 실시간 WebSocket 동시 연결 수(#290, #340).
     /// </summary>
     private const int MaxConnections = 32;
+
+    /// <summary>
+    /// 인증·핸드셰이크 진행 중(비인증 포함) 연결의 경로별 동시 상한(#340).
+    /// 인터넷(Cloudflare)에서 느린 비인증 요청이 몰려도 이미 연결된 WebSocket 슬롯을 고갈시키지 않도록 분리한다.
+    /// </summary>
+    private const int MaxPendingConnections = 8;
 
     /// <summary>철회된 기기에 보내는 WebSocket 종료 사유(1008). 앱은 401 과 같게 처리한다.</summary>
     public const string RevokedCloseReason = "revoked";
@@ -64,6 +69,8 @@ public sealed class MobileApiServer : IDisposable
     private readonly Func<string> _pcName;
     private readonly Dictionary<PathKind, SemaphoreSlim> _connections =
         Enum.GetValues<PathKind>().ToDictionary(k => k, _ => new SemaphoreSlim(MaxConnections));
+    private readonly Dictionary<PathKind, SemaphoreSlim> _pendingConnections =
+        Enum.GetValues<PathKind>().ToDictionary(k => k, _ => new SemaphoreSlim(MaxPendingConnections));
     private readonly object _gate = new();
     private MobileServerOptions _options = new(MobileProtocol.DefaultPort, true, true);
     private CancellationTokenSource? _cts;
@@ -326,15 +333,22 @@ public sealed class MobileApiServer : IDisposable
             try { client = await listener.AcceptTcpClientAsync(ct); }
             catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException or SocketException) { return; }
 
-            var slots = _connections[kind];
-            if (!await slots.WaitAsync(0, ct))
+            var pendingSlots = _pendingConnections[kind];
+            if (!await pendingSlots.WaitAsync(0, ct))
             {
                 client.Dispose();
                 continue;
             }
             _ = Task.Run(async () =>
             {
-                try { await HandleConnectionAsync(client, kind, ct); }
+                var pendingReleased = 0;
+                void ReleasePending()
+                {
+                    if (Interlocked.Exchange(ref pendingReleased, 1) == 0)
+                        pendingSlots.Release();
+                }
+
+                try { await HandleConnectionAsync(client, kind, ReleasePending, ct); }
                 catch (Exception ex)
                 {
                     // 연결 하나의 실패(끊김·TLS 실패·잘못된 요청)는 그 연결만 닫는다.
@@ -343,7 +357,7 @@ public sealed class MobileApiServer : IDisposable
                 finally
                 {
                     client.Dispose();
-                    slots.Release();
+                    ReleasePending();
                 }
             }, CancellationToken.None);
         }
@@ -370,7 +384,7 @@ public sealed class MobileApiServer : IDisposable
         }
     }
 
-    private async Task HandleConnectionAsync(TcpClient client, PathKind kind, CancellationToken ct)
+    private async Task HandleConnectionAsync(TcpClient client, PathKind kind, Action releasePending, CancellationToken ct)
     {
         if (client.Client.RemoteEndPoint is not IPEndPoint remote || !PeerAllowed(remote.Address, kind))
             return;
@@ -378,7 +392,7 @@ public sealed class MobileApiServer : IDisposable
         var network = client.GetStream();
         if (kind != PathKind.Lan)
         {
-            await ServeAsync(network, ct);
+            await ServeAsync(network, kind, releasePending, ct);
             return;
         }
 
@@ -395,10 +409,10 @@ public sealed class MobileApiServer : IDisposable
                 ClientCertificateRequired = false,
             }, handshake.Token);
         }
-        await ServeAsync(ssl, ct);
+        await ServeAsync(ssl, kind, releasePending, ct);
     }
 
-    private async Task ServeAsync(Stream stream, CancellationToken ct)
+    private async Task ServeAsync(Stream stream, PathKind kind, Action releasePending, CancellationToken ct)
     {
         (HttpRequestHead Head, byte[] Leftover)? request;
         using (var headCts = CancellationTokenSource.CreateLinkedTokenSource(ct))
@@ -412,21 +426,34 @@ public sealed class MobileApiServer : IDisposable
             return;
         }
 
+        // 브라우저 교차 출처 요청(CSRF, #340) 차단 — 네이티브 휴대폰 앱·PC 동기화 클라이언트는 Origin 헤더를 보내지 않는다.
+        if (!string.IsNullOrWhiteSpace(r.Head.Header("Origin")))
+        {
+            await MiniHttp.WriteResponseAsync(stream, 403, Error("forbidden", "Cross-origin requests are not allowed."), ct);
+            return;
+        }
+
         if (r.Head.Path == "/api/v1/live" && r.Head.Method == "GET")
         {
-            await HandleLiveAsync(stream, r.Head, ct);
+            await HandleLiveAsync(stream, r.Head, kind, releasePending, ct);
             return;
         }
         if (r.Head.Path == "/api/v1/sync" && r.Head.Method == "GET" && _sync is not null)
         {
-            await HandleSyncAsync(stream, r.Head, _sync, ct);
+            await HandleSyncAsync(stream, r.Head, _sync, kind, releasePending, ct);
             return;
         }
 
         byte[]? body = null;
         if (r.Head.Method == "POST")
         {
-            // 인증 전 단계라 누구든 보낼 수 있다 — 본문을 끝까지 보내지 않고 버티는 연결이 연결 슬롯(32개)을 묶지 않게
+            var contentType = r.Head.Header("Content-Type");
+            if (contentType is null || !contentType.StartsWith("application/json", StringComparison.OrdinalIgnoreCase))
+            {
+                await MiniHttp.WriteResponseAsync(stream, 415, Error("unsupported_media_type", "Content-Type must be application/json."), ct);
+                return;
+            }
+            // 인증 전 단계라 누구든 보낼 수 있다 — 본문을 끝까지 보내지 않고 버티는 연결이 슬롯을 묶지 않게
             // 머리와 같은 시간 제한을 둔다(Codex 리뷰 P2).
             using (var bodyCts = CancellationTokenSource.CreateLinkedTokenSource(ct))
             {
@@ -534,7 +561,7 @@ public sealed class MobileApiServer : IDisposable
     /// WebSocket 실시간 전송. 연결 직후 한 번, 그 뒤 사용량이 바뀔 때마다, 변화가 없으면 <see cref="LiveHeartbeat"/> 마다 보낸다.
     /// 전송 전마다 페어링 상태를 다시 확인해 트레이에서 해제한 휴대폰을 다음 전송 전에 1008 "revoked" 로 끊는다.
     /// </summary>
-    private async Task HandleLiveAsync(Stream stream, HttpRequestHead head, CancellationToken ct)
+    private async Task HandleLiveAsync(Stream stream, HttpRequestHead head, PathKind kind, Action releasePending, CancellationToken ct)
     {
         var device = _devices.Authenticate(head.BearerToken() ?? "");
         if (device is null)
@@ -549,56 +576,71 @@ public sealed class MobileApiServer : IDisposable
             return;
         }
 
-        await MiniHttp.WriteUpgradeAsync(stream, head.Header("Sec-WebSocket-Key")!, ct);
-        using var socket = WebSocket.CreateFromStream(stream, new WebSocketCreationOptions
+        var liveSlots = _connections[kind];
+        if (!await liveSlots.WaitAsync(0, ct))
         {
-            IsServer = true,
-            KeepAliveInterval = TimeSpan.FromSeconds(15),
-        });
-        using var sub = _feed.Subscribe();
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
-
-        // 클라이언트 프레임을 비워야 상대의 close(또는 죽은 연결)를 곧바로 알아챈다.
-        var receive = Task.Run(async () =>
-        {
-            var buf = new byte[256];
-            try
-            {
-                while (socket.State == WebSocketState.Open)
-                {
-                    var res = await socket.ReceiveAsync(buf, linked.Token);
-                    if (res.MessageType == WebSocketMessageType.Close) break;
-                }
-            }
-            catch (Exception ex) when (ex is WebSocketException or OperationCanceledException or IOException) { }
-            finally { linked.Cancel(); }
-        }, CancellationToken.None);
+            await MiniHttp.WriteResponseAsync(stream, 503, Error("busy", "Too many active live connections."), ct);
+            return;
+        }
+        releasePending();
 
         try
         {
-            do
+            await MiniHttp.WriteUpgradeAsync(stream, head.Header("Sec-WebSocket-Key")!, ct);
+            using var socket = WebSocket.CreateFromStream(stream, new WebSocketCreationOptions
             {
-                if (!_devices.IsPaired(device.DeviceId))
+                IsServer = true,
+                KeepAliveInterval = TimeSpan.FromSeconds(15),
+            });
+            using var sub = _feed.Subscribe();
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
+
+            // 클라이언트 프레임을 비워야 상대의 close(또는 죽은 연결)를 곧바로 알아챈다.
+            var receive = Task.Run(async () =>
+            {
+                var buf = new byte[256];
+                try
                 {
-                    await socket.CloseOutputAsync(WebSocketCloseStatus.PolicyViolation, RevokedCloseReason, CancellationToken.None);
-                    break;
+                    while (socket.State == WebSocketState.Open)
+                    {
+                        var res = await socket.ReceiveAsync(buf, linked.Token);
+                        if (res.MessageType == WebSocketMessageType.Close) break;
+                    }
                 }
-                var bytes = JsonSerializer.SerializeToUtf8Bytes(BuildSnapshot(), MobileProtocol.Json);
-                await socket.SendAsync(bytes, WebSocketMessageType.Text, endOfMessage: true, linked.Token);
+                catch (Exception ex) when (ex is WebSocketException or OperationCanceledException or IOException) { }
+                finally { linked.Cancel(); }
+            }, CancellationToken.None);
+
+            try
+            {
+                do
+                {
+                    if (!_devices.IsPaired(device.DeviceId))
+                    {
+                        await socket.CloseOutputAsync(WebSocketCloseStatus.PolicyViolation, RevokedCloseReason, CancellationToken.None);
+                        break;
+                    }
+                    var bytes = JsonSerializer.SerializeToUtf8Bytes(BuildSnapshot(), MobileProtocol.Json);
+                    await socket.SendAsync(bytes, WebSocketMessageType.Text, endOfMessage: true, linked.Token);
+                }
+                while (await sub.WaitAsync(LiveHeartbeat, linked.Token));
             }
-            while (await sub.WaitAsync(LiveHeartbeat, linked.Token));
+            catch (OperationCanceledException) { }
+            catch (Exception ex) when (ex is WebSocketException or IOException) { }
+            finally
+            {
+                linked.Cancel();
+                if (socket.State == WebSocketState.Open)
+                {
+                    try { await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "bye", CancellationToken.None); }
+                    catch (Exception ex) when (ex is WebSocketException or IOException) { }
+                }
+                await receive;
+            }
         }
-        catch (OperationCanceledException) { }
-        catch (Exception ex) when (ex is WebSocketException or IOException) { }
         finally
         {
-            linked.Cancel();
-            if (socket.State == WebSocketState.Open)
-            {
-                try { await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "bye", CancellationToken.None); }
-                catch (Exception ex) when (ex is WebSocketException or IOException) { }
-            }
-            await receive;
+            liveSlots.Release();
         }
     }
 
@@ -606,8 +648,9 @@ public sealed class MobileApiServer : IDisposable
     /// PC 동기화(#223). 연결한 PC(동기화 코드로 페어링한 기기)와 같은 소켓으로 양방향 가십을 주고받는다 —
     /// 그쪽 PC 는 열려 있지 않아도(포트·방화벽) 이 PC 에만 닿으면 두 PC 가 서로의 사용량을 갖는다.
     /// 해제된 기기는 다음 전송 전에 1008 "revoked" 로 끊는다(실시간 화면과 같은 규칙).
+    /// PC 기기(<see cref="MobileDeviceKind.Pc"/>)만 허용한다(#340) — 휴대폰 토큰이 동기화 가십에 쓰기를 주입하지 못하게.
     /// </summary>
-    private async Task HandleSyncAsync(Stream stream, HttpRequestHead head, PeerSyncHub sync, CancellationToken ct)
+    private async Task HandleSyncAsync(Stream stream, HttpRequestHead head, PeerSyncHub sync, PathKind kind, Action releasePending, CancellationToken ct)
     {
         var device = _devices.Authenticate(head.BearerToken() ?? "");
         if (device is null)
@@ -616,64 +659,84 @@ public sealed class MobileApiServer : IDisposable
             await MiniHttp.WriteResponseAsync(stream, status, json, ct);
             return;
         }
+        if (device.Kind != MobileDeviceKind.Pc)
+        {
+            await MiniHttp.WriteResponseAsync(stream, 403, Error("forbidden", "Sync endpoint requires a paired PC device."), ct);
+            return;
+        }
         if (!head.IsWebSocketUpgrade)
         {
             await MiniHttp.WriteResponseAsync(stream, 400, Error("bad_request", "WebSocket upgrade required."), ct);
             return;
         }
 
-        await MiniHttp.WriteUpgradeAsync(stream, head.Header("Sec-WebSocket-Key")!, ct);
-        using var socket = WebSocket.CreateFromStream(stream, new WebSocketCreationOptions
+        var liveSlots = _connections[kind];
+        if (!await liveSlots.WaitAsync(0, ct))
         {
-            IsServer = true,
-            KeepAliveInterval = TimeSpan.FromSeconds(15),
-        });
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        using var signal = new SemaphoreSlim(0, 1);
-        using var subscription = sync.OnChanged(() => { if (signal.CurrentCount == 0) signal.Release(); });
-        var receive = Task.Run(async () =>
-        {
-            try
-            {
-                while (socket.State == WebSocketState.Open)
-                {
-                    var bytes = await PeerSyncClient.ReceiveMessageAsync(socket, linked.Token);
-                    if (bytes is null) break;
-                    // 연결해 온 PC 가 이름을 바꾸면(#271) 연결 탭 목록의 이름도 따라간다.
-                    if (PeerSyncClient.ApplyFrame(sync, bytes) is { } frame)
-                        _devices.RenamePc(device.DeviceId, frame.FromPcName);
-                }
-            }
-            catch (Exception ex) when (ex is WebSocketException or OperationCanceledException or IOException) { }
-            finally { linked.Cancel(); }
-        }, CancellationToken.None);
+            await MiniHttp.WriteResponseAsync(stream, 503, Error("busy", "Too many active sync connections."), ct);
+            return;
+        }
+        releasePending();
 
         try
         {
-            while (!linked.IsCancellationRequested)
+            await MiniHttp.WriteUpgradeAsync(stream, head.Header("Sec-WebSocket-Key")!, ct);
+            using var socket = WebSocket.CreateFromStream(stream, new WebSocketCreationOptions
             {
-                if (!_devices.IsPaired(device.DeviceId))
+                IsServer = true,
+                KeepAliveInterval = TimeSpan.FromSeconds(15),
+            });
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            using var signal = new SemaphoreSlim(0, 1);
+            using var subscription = sync.OnChanged(() => { if (signal.CurrentCount == 0) signal.Release(); });
+            var receive = Task.Run(async () =>
+            {
+                try
                 {
-                    await socket.CloseOutputAsync(WebSocketCloseStatus.PolicyViolation, RevokedCloseReason, CancellationToken.None);
-                    break;
+                    while (socket.State == WebSocketState.Open)
+                    {
+                        var bytes = await PeerSyncClient.ReceiveMessageAsync(socket, linked.Token);
+                        if (bytes is null) break;
+                        // 연결해 온 PC 가 이름을 바꾸면(#271) 연결 탭 목록의 이름도 따라간다.
+                        if (PeerSyncClient.ApplyFrame(sync, bytes) is { } frame)
+                            _devices.RenamePc(device.DeviceId, frame.FromPcName);
+                    }
                 }
-                var frame = new SyncFrame(MobileProtocol.Schema, SyncFrame.FrameKind, _devices.PcId, _pcName(), sync.Snapshot());
-                await socket.SendAsync(JsonSerializer.SerializeToUtf8Bytes(frame, MobileProtocol.Json),
-                    WebSocketMessageType.Text, endOfMessage: true, linked.Token);
-                await signal.WaitAsync(LiveHeartbeat, linked.Token);
+                catch (Exception ex) when (ex is WebSocketException or OperationCanceledException or IOException) { }
+                finally { linked.Cancel(); }
+            }, CancellationToken.None);
+
+            try
+            {
+                while (!linked.IsCancellationRequested)
+                {
+                    if (!_devices.IsPaired(device.DeviceId))
+                    {
+                        await socket.CloseOutputAsync(WebSocketCloseStatus.PolicyViolation, RevokedCloseReason, CancellationToken.None);
+                        break;
+                    }
+                    var frame = new SyncFrame(MobileProtocol.Schema, SyncFrame.FrameKind, _devices.PcId, _pcName(), sync.Snapshot());
+                    await socket.SendAsync(JsonSerializer.SerializeToUtf8Bytes(frame, MobileProtocol.Json),
+                        WebSocketMessageType.Text, endOfMessage: true, linked.Token);
+                    await signal.WaitAsync(LiveHeartbeat, linked.Token);
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) when (ex is WebSocketException or IOException) { }
+            finally
+            {
+                linked.Cancel();
+                if (socket.State == WebSocketState.Open)
+                {
+                    try { await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "bye", CancellationToken.None); }
+                    catch (Exception ex) when (ex is WebSocketException or IOException) { }
+                }
+                await receive;
             }
         }
-        catch (OperationCanceledException) { }
-        catch (Exception ex) when (ex is WebSocketException or IOException) { }
         finally
         {
-            linked.Cancel();
-            if (socket.State == WebSocketState.Open)
-            {
-                try { await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "bye", CancellationToken.None); }
-                catch (Exception ex) when (ex is WebSocketException or IOException) { }
-            }
-            await receive;
+            liveSlots.Release();
         }
     }
 

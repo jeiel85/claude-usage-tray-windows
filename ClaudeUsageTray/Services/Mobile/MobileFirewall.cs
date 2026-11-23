@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Text;
 
 namespace ClaudeUsageTray.Services.Mobile;
@@ -42,7 +43,7 @@ public static class MobileFirewall
     {
         try
         {
-            using var p = Process.Start(new ProcessStartInfo("netsh.exe", $"advfirewall firewall show rule name=\"{name}\" verbose")
+            using var p = Process.Start(new ProcessStartInfo(SystemBinaryPath("netsh.exe"), $"advfirewall firewall show rule name=\"{name}\" verbose")
             {
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -108,15 +109,39 @@ public static class MobileFirewall
         $"Remove-NetFirewallRule -DisplayName {PsQuote(LanRuleName)} -ErrorAction SilentlyContinue;" +
         $"Remove-NetFirewallRule -DisplayName {PsQuote(TailscaleRuleName)} -ErrorAction SilentlyContinue;";
 
-    /// <summary>PowerShell 작은따옴표 문자열 — 안의 작은따옴표만 두 번 쓰면 된다(변수·이스케이프 해석 없음).</summary>
-    internal static string PsQuote(string value) => "'" + value.Replace("'", "''") + "'";
+    /// <summary>
+    /// PowerShell 작은따옴표 문자열 — ASCII <c>'</c> 뿐 아니라 PowerShell 이 작은따옴표로 해석하는
+    /// 유니코드 곡선 따옴표(U+2018~U+201B)도 모두 이중화해 명령 인젝션을 차단한다(#340).
+    /// </summary>
+    internal static string PsQuote(string value)
+    {
+        var sb = new StringBuilder(value.Length + 2).Append('\'');
+        foreach (var ch in value)
+        {
+            if (ch is '\'' or '\u2018' or '\u2019' or '\u201A' or '\u201B') sb.Append(ch);
+            sb.Append(ch);
+        }
+        return sb.Append('\'').ToString();
+    }
+
+    /// <summary>Windows 시스템 바이너리의 절대 경로(앱 폴더·작업 폴더 바이너리 하이재킹 방어, #340).</summary>
+    internal static string SystemBinaryPath(string relativePath)
+    {
+        if (OperatingSystem.IsWindows() && !string.IsNullOrEmpty(Environment.SystemDirectory))
+        {
+            var full = Path.Combine(Environment.SystemDirectory, relativePath);
+            if (File.Exists(full)) return full;
+        }
+        return Path.GetFileName(relativePath);
+    }
 
     private static async Task<InstallResult> RunElevatedAsync(string script)
     {
         var encoded = Convert.ToBase64String(Encoding.Unicode.GetBytes("$ErrorActionPreference='Stop';" + script));
         try
         {
-            using var p = Process.Start(new ProcessStartInfo("powershell.exe",
+            using var p = Process.Start(new ProcessStartInfo(
+                SystemBinaryPath(@"WindowsPowerShell\v1.0\powershell.exe"),
                 $"-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -EncodedCommand {encoded}")
             {
                 UseShellExecute = true,

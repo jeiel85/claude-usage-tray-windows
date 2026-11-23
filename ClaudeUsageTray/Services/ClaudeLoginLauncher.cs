@@ -48,7 +48,9 @@ public static class ClaudeLoginLauncher
                 NotFoundAfterInstall: Loc.ClaudeCliNotFoundAfterInstall,
                 Done: Loc.ClaudeLoginTerminalDone));
             // UseShellExecute 로 띄워야 GUI 프로세스에서도 새 콘솔 창이 생긴다(Windows 11 은 기본 터미널 설정을 따른다).
-            using var process = Process.Start(new ProcessStartInfo("powershell.exe", BuildPowerShellArguments(script, keepOpen: true))
+            using var process = Process.Start(new ProcessStartInfo(
+                Mobile.MobileFirewall.SystemBinaryPath(@"WindowsPowerShell\v1.0\powershell.exe"),
+                BuildPowerShellArguments(script, keepOpen: true))
             {
                 UseShellExecute = true,
                 WorkingDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
@@ -84,7 +86,7 @@ public static class ClaudeLoginLauncher
             var installer = "[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12; "
                 + InstallCommand;
             sb.AppendLine($"Write-Host {PsQuote(messages.Installing)} -ForegroundColor Cyan");
-            sb.AppendLine($"powershell.exe -NoProfile -EncodedCommand {Encode(installer)}");
+            sb.AppendLine($"& $env:SystemRoot\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -EncodedCommand {Encode(installer)}");
             sb.AppendLine("if ($LASTEXITCODE -ne 0) {");
             sb.AppendLine($"    Write-Host {PsQuote(messages.InstallFailed)} -ForegroundColor Red");
             sb.AppendLine("} else {");

@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using System.Text.Json;
 
@@ -183,10 +184,12 @@ public static class PushPayload
         if (request.Schema != MobileProtocol.Schema) return $"Unsupported schema {request.Schema}.";
         if (string.IsNullOrWhiteSpace(request.Endpoint) || Encoding.UTF8.GetByteCount(request.Endpoint) > MaxEndpointBytes)
             return "Endpoint is missing or too long.";
-        // https 만 받는다 — PC 가 이 주소로 POST 하므로, 평문 http 나 사용자 정보가 든 주소로 알림을 흘리지 않게.
+        // https 만 받는다 — PC 가 이 주소로 POST 하므로, 평문 http·사용자 정보·로컬/사설 IP(SSRF, #340)를 거부한다.
         if (!Uri.TryCreate(request.Endpoint, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps
             || !string.IsNullOrEmpty(uri.UserInfo))
             return "Endpoint must be an https URL.";
+        if (!IsAllowedPushHost(uri.DnsSafeHost))
+            return "Endpoint host is not allowed.";
         try
         {
             WebPushEncryption.ValidateSubscriptionKeys(Base64Url.Decode(request.P256dh), Base64Url.Decode(request.Auth));
@@ -199,6 +202,19 @@ public static class PushPayload
             && (muted.Count > PushCategories.MaxMuted || !muted.All(PushCategories.IsValid)))
             return "Muted categories are invalid.";
         return null;
+    }
+
+    /// <summary>푸시 엔드포인트 호스트가 로컬·사설망을 가리키지 않는지 확인한다(#340).</summary>
+    internal static bool IsAllowedPushHost(string? host)
+    {
+        if (string.IsNullOrWhiteSpace(host)) return false;
+        var h = host.Trim().TrimEnd('.').ToLowerInvariant();
+        if (h.Length == 0 || h == "localhost" || h.EndsWith(".localhost", StringComparison.Ordinal)
+            || h.EndsWith(".local", StringComparison.Ordinal) || h.EndsWith(".internal", StringComparison.Ordinal))
+            return false;
+        if (IPAddress.TryParse(h, out var ip))
+            return MobileNetwork.IsPublicAddress(ip);
+        return h.Contains('.');
     }
 
     private static string Truncate(string s, int length)

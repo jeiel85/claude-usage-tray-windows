@@ -42,8 +42,22 @@ internal class UpdateDownloader {
                 useCaches = false
             }
             if (connection.responseCode != HttpURLConnection.HTTP_OK) return false
+            val declaredLength = connection.contentLengthLong
+            if (declaredLength > MAX_APK_BYTES) return false
             destination.parentFile?.mkdirs()
-            connection.inputStream.use { input -> destination.outputStream().use { output -> input.copyTo(output) } }
+            connection.inputStream.use { input ->
+                destination.outputStream().use { output ->
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    var total = 0L
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read < 0) break
+                        total += read
+                        if (total > MAX_APK_BYTES) return false
+                        output.write(buffer, 0, read)
+                    }
+                }
+            }
             true
         } catch (_: Exception) {
             false
@@ -55,5 +69,6 @@ internal class UpdateDownloader {
     private companion object {
         const val TIMEOUT_MILLIS = 10_000
         const val MAX_ATTEMPTS = 3
+        const val MAX_APK_BYTES = 100L * 1024 * 1024
     }
 }

@@ -155,7 +155,10 @@ public sealed class MobileDeviceStore
             changed = !Equals(device.Push?.Key, next?.Key);
             device.Push = next;
             if (subscription is not null)
-                changed |= _state.Devices.RemoveAll(d => d.DeviceId != deviceId && d.Push?.Endpoint == subscription.Endpoint) > 0;
+                changed |= _state.Devices.RemoveAll(d =>
+                    d.DeviceId != deviceId
+                    && d.Push?.Endpoint == subscription.Endpoint
+                    && d.Push?.P256dh == subscription.P256dh) > 0;
             if (changed) Save();
         }
         if (changed) Changed?.Invoke();
@@ -209,9 +212,11 @@ public sealed class MobileDeviceStore
                     loaded.Devices = (loaded.Devices ?? [])
                         .Where(d => !string.IsNullOrEmpty(d.DeviceId) && d.TokenSha256 is { Length: 64 })
                         .ToList();
-                    // 같은 엔드포인트가 여럿이면 가장 최근 페어링만 남긴다(SetPushSubscription 과 같은 규칙).
+                    // 같은 엔드포인트+공개키가 여럿이면 가장 최근 페어링만 남긴다(SetPushSubscription 과 같은 규칙, #340).
                     loaded.Devices = loaded.Devices
-                        .GroupBy(d => d.Push?.Endpoint is { Length: > 0 } e ? e : "\0" + d.DeviceId)
+                        .GroupBy(d => d.Push is { Endpoint.Length: > 0, P256dh.Length: > 0 } p
+                            ? p.Endpoint + "\0" + p.P256dh
+                            : "\0" + d.DeviceId)
                         .Select(g => g.OrderByDescending(d => d.PairedAt).First())
                         .ToList();
                     return loaded;
