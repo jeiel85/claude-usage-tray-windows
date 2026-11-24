@@ -3,6 +3,28 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.73.0] - 2026-11-24
+
+<!-- ko -->
+### 개선
+- **Antigravity 사용량 표시 영역 개편 (#345)**
+  - **PC 팝업 그룹별 정리 및 이름 잘림 해소**: 각 모델 그룹(`Gemini 모델`, `Claude · GPT 모델`, `Gemini 4 Argon` 등)을 구분선·그룹 제목·서버 포함 모델 목록(`groups[].description`)으로 묶고, 그룹 안의 창(`5시간`·`주간`)은 주 게이지 규칙(`Auto` 창 이름 + `*` 오른쪽 `DockPanel` 줄바꿈)으로 바꿔 절대 시각 표시나 긴 그룹명에서도 이름이 말줄임으로 잘리지 않습니다.
+  - **미사용 창 표시**: `Claude and GPT models` 처럼 아직 사용하지 않아 `resetTime` 없이 내려오는 알려진 창(`5h`·`weekly`, 잔량 100%)도 설정을 켜면 `0% · 미사용` 으로 표시합니다(트레이 대표값·최근 사용 판정은 그대로 유지).
+  - **Google AI 크레딧 최소 사용 조건·하단 배치 정비**: `loadCodeAssist` 의 `minimumCreditAmountForUsage` 미만일 때 크레딧 줄 아래에 최소 기준 안내(`50 이상부터 초과 사용 가능` 등, 4개 언어)를 표시하고, 하단 공식 수치 안내와 동기화 출처 줄이 겹치지 않도록 세로로 분리했습니다.
+  - **요청 식별자 갱신**: `ClientUserAgent` 를 최신 데스크톱 앱(`antigravity/hub/2.34.0`)으로 올렸습니다(4xx 거부 시 기존 폴백 유지).
+  - **휴대폰 앱 Antigravity 카드 정비**: Android 앱에서도 그룹 구분·포함 모델 요약·중복 없는 창 라벨·미사용 표기·플랜 배지(`Google AI Pro` 등)·Google AI 크레딧 잔액과 최소 사용 기준 안내를 함께 표시합니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Antigravity usage display overhaul (#345)**
+  - **Grouped layout and non-truncating window rows on PC**: each model group (`Gemini Models`, `Claude and GPT models`, `Gemini 4 Argon`, etc.) now renders with a separator, group header, and server model list (`groups[].description`), while window rows inside a group follow the main-gauge layout (`Auto` short window label + `*` right-aligned `DockPanel` wrap) so names no longer truncate with ellipsis even with long group names or clock reset times.
+  - **Untouched windows shown as unused**: known-window buckets (`5h`, `weekly`) returned at 100% remaining without a `resetTime` (such as unused `Claude and GPT models`) now appear as `0% · unused` when enabled, without affecting the tray percentage or active-provider detection.
+  - **Google AI credits minimum notice & footer separation**: surfaces a localized notice when `GOOGLE_ONE_AI` credits are below `minimumCreditAmountForUsage`, and stacks the Antigravity footer note and sync source vertically so they cannot overlap.
+  - **Updated client identity**: bumped `ClientUserAgent` to `antigravity/hub/2.34.0` (with existing legacy fallback on 4xx rejection).
+  - **Android Antigravity card alignment**: shows plan badge (`paidTierName`/`tierName`), grouped sections with model summaries, deduplicated window labels, `unused` state, and Google AI credit balance + minimum threshold notice on mobile.
+<!-- /en -->
+
 ## [1.72.14] - 2026-11-24
 
 <!-- ko -->

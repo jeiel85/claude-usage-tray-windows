@@ -32,6 +32,12 @@ public sealed class AntigravityModelQuota
     /// 그룹 없이 온 버킷이나 이 필드가 없던 버전이 동기화로 올린 값에서는 비어 있다.
     /// </summary>
     public string GroupName { get; init; } = "";
+
+    /// <summary>
+    /// 그룹에 포함된 모델 안내(서버의 <c>groups[].description</c>).
+    /// 예: "Models within this group: Gemini 4 Neon, …". 그룹 없이 온 버킷이나 구버전 동기화에서는 비어 있다.
+    /// </summary>
+    public string GroupDescription { get; init; } = "";
 }
 
 /// <summary>
@@ -58,6 +64,12 @@ public sealed class AntigravitySnapshot
     /// 대상이지만 다 쓴 경우는 0 이다.
     /// </summary>
     public long? AiCredits { get; init; }
+
+    /// <summary>
+    /// Google AI 크레딧 초과 사용에 필요한 최소 잔액 — <c>paidTier.availableCredits[].minimumCreditAmountForUsage</c>.
+    /// 없으면 null.
+    /// </summary>
+    public long? AiCreditsMinimum { get; init; }
 
     public string? UserEmail { get; init; }
     public IReadOnlyList<AntigravityModelQuota> Models { get; init; } = Array.Empty<AntigravityModelQuota>();

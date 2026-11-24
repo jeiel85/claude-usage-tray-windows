@@ -14,6 +14,12 @@
     <string name="device_scope_note">계정을 확인할 수 없어 PC별로 표시</string>
     <string name="no_quota">아직 서버 할당량 정보가 없습니다</string>
     <string name="gauge_extra">추가 사용량</string>
+    <string name="gauge_unused">미사용</string>
+    <string name="antigravity_ai_credits">Google AI 크레딧</string>
+    <string name="antigravity_ai_credits_min">%1$s 이상부터 초과 사용 가능</string>
+    <string name="antigravity_group_gemini">Gemini 모델</string>
+    <string name="antigravity_group_3p">Claude · GPT 모델</string>
+    <string name="antigravity_group_image">이미지 생성</string>
     <string name="reset_in">%1$s 후 초기화</string>
     <string name="today_tokens">오늘 %1$s 토큰 · 세션 %2$d개</string>
     <string name="quota_from">기준: %1$s · %2$s</string>

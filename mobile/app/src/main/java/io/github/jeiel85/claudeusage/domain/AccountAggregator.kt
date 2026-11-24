@@ -137,6 +137,7 @@ object AccountAggregator {
         card.gauges.isNotEmpty() ||
             (card.today?.totalTokens ?: 0L) > 0L ||
             !card.quota?.extraCreditsLabel.isNullOrBlank() ||
+            card.quota?.aiCredits != null ||
             authFailedOn(card).isNotEmpty()
 
     /** The bar the summary chip shows: the most used window of the card (what will run out first). */

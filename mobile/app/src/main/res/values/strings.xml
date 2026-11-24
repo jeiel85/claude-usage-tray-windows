@@ -14,6 +14,12 @@
     <string name="device_scope_note">Account not identified — shown per PC</string>
     <string name="no_quota">No quota data from the server yet</string>
     <string name="gauge_extra">Extra usage</string>
+    <string name="gauge_unused">unused</string>
+    <string name="antigravity_ai_credits">Google AI Credits</string>
+    <string name="antigravity_ai_credits_min">Requires %1$s+ for overage use</string>
+    <string name="antigravity_group_gemini">Gemini Models</string>
+    <string name="antigravity_group_3p">Claude &amp; GPT Models</string>
+    <string name="antigravity_group_image">Image generation</string>
     <string name="reset_in">resets in %1$s</string>
     <string name="today_tokens">Today %1$s tokens · %2$d sessions</string>
     <string name="quota_from">from %1$s · %2$s</string>

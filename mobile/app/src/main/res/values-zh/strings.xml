@@ -14,6 +14,12 @@
     <string name="device_scope_note">无法识别账号 — 按电脑分别显示</string>
     <string name="no_quota">暂无服务器配额信息</string>
     <string name="gauge_extra">额外用量</string>
+    <string name="gauge_unused">未使用</string>
+    <string name="antigravity_ai_credits">Google AI 积分</string>
+    <string name="antigravity_ai_credits_min">超额使用至少需要 %1$s</string>
+    <string name="antigravity_group_gemini">Gemini 模型</string>
+    <string name="antigravity_group_3p">Claude 和 GPT 模型</string>
+    <string name="antigravity_group_image">图像生成</string>
     <string name="reset_in">%1$s 后重置</string>
     <string name="today_tokens">今天 %1$s 令牌 · %2$d 个会话</string>
     <string name="quota_from">来源: %1$s · %2$s</string>

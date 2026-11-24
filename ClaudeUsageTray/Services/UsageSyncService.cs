@@ -312,7 +312,9 @@ public class UsageSyncService
             (openCode.Rolling.ResetAt <= now || openCode.Weekly.ResetAt <= now || openCode.Monthly.ResetAt <= now))
             return false;
         if (quota.Models is { Length: > 0 } models &&
-            !models.Any(model => model.ResetAt is { } resetAt && resetAt > now))
+            !models.Any(model =>
+                (model.ResetAt is { } resetAt && resetAt > now) ||
+                AntigravityUsageMonitor.IsUntouchedBucketWithoutReset(model.ModelId, model.Window, model.RemainingFraction, model.ResetAt)))
             return false;
         return true;
     }

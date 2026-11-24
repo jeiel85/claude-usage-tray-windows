@@ -148,6 +148,7 @@ namespace ClaudeUsageTray.ViewModels;
     [ObservableProperty] private string _antigravityPaidTierName = "";   // e.g. "Gemini Code Assist in Google One AI Pro"
     // Google AI 크레딧 잔액 — 비어 있으면(크레딧 대상 아님) 게이지 아래 줄이 접힌다.
     [ObservableProperty] private string _antigravityAiCreditsText = "";
+    [ObservableProperty] private string _antigravityAiCreditsNotice = "";
     [ObservableProperty] private System.Collections.Generic.IReadOnlyList<QuotaGaugeRow> _antigravityModels =
         System.Array.Empty<QuotaGaugeRow>();
     [ObservableProperty] private double _antigravityPercent = 0.0;
@@ -3737,6 +3738,7 @@ namespace ClaudeUsageTray.ViewModels;
             AntigravityVm.RefreshLocalizedLabels();
             // 행 객체가 새로 만들어지므로 미러 프로퍼티도 다시 가리켜야 화면이 바뀐다.
             AntigravityModels = AntigravityVm.Models;
+            AntigravityAiCreditsNotice = AntigravityVm.AiCreditsNotice;
             ApplyCodexAdditionalLimits(_codexAdditionalSource);
             CodexVm.UpdateImageGenerationLabels(DateTimeOffset.Now, ShowAbsoluteResetTime);
             ClaudeVm.RebuildModelLimits(DateTimeOffset.Now, ShowAbsoluteResetTime);
@@ -3809,7 +3811,8 @@ namespace ClaudeUsageTray.ViewModels;
                     ToAntigravityModelQuotas(snapshot.Quota!.Models),
                     snapshot.Quota.TierName,
                     snapshot.Quota.PaidTierName,
-                    snapshot.Quota.AiCredits);
+                    snapshot.Quota.AiCredits,
+                    snapshot.Quota.AiCreditsMinimum);
 
                 // 스냅샷에 담긴 모델이 전부 리셋을 지나 ApplyQuota 의 필터에서 다 걸러졌을 수 있다
                 // (Models.Count == 0). ApplyQuota 는 빈 목록에도 HasData 를 무조건 true 로
@@ -3826,6 +3829,7 @@ namespace ClaudeUsageTray.ViewModels;
                 if (!usedFallbackModels)
                 {
                     AntigravityVm.AiCreditsText = "";
+                    AntigravityVm.AiCreditsNotice = "";
                 }
 
                 if (hadGenuineLocalError)
@@ -3852,6 +3856,7 @@ namespace ClaudeUsageTray.ViewModels;
             AntigravityTierName = AntigravityVm.TierName;
             AntigravityPaidTierName = AntigravityVm.PaidTierName;
             AntigravityAiCreditsText = AntigravityVm.AiCreditsText;
+            AntigravityAiCreditsNotice = AntigravityVm.AiCreditsNotice;
             AntigravityModels = AntigravityVm.Models;
             AntigravityPercent = AntigravityVm.Percent;
         });
@@ -3914,13 +3919,16 @@ namespace ClaudeUsageTray.ViewModels;
 
     /// <summary>
     /// 휴대폰에 보낼 Antigravity 할당량 — <see cref="CreateAntigravityQuotaSnapshot"/> 에서 팝업에 보이지 않는 창을 뺀 것.
+    /// 팝업과 같은 창 순서(공유 풀 우선, 짧은 창 먼저)로 정렬해 보낸다.
     /// 남는 창이 없어도 HasData 는 그대로 둔다: 쿼터 없이 보내면 피드가 직전 쿼터(숨기기 전의 Claude·GPT 창)를 이어 붙인다.
     /// </summary>
     internal static UsageSyncQuotaSnapshot? CreateAntigravityMobileQuotaSnapshot(AntigravitySnapshot snapshot, bool showThirdParty)
     {
         var quota = CreateAntigravityQuotaSnapshot(snapshot);
         if (quota is null) return null;
-        quota.Models = [.. quota.Models.Where(m => AntigravityViewModel.IsDisplayedBucket(m.ModelId, showThirdParty))];
+        var displayed = snapshot.Models.Where(m => AntigravityViewModel.IsDisplayedBucket(m.ModelId, showThirdParty));
+        var ordered = AntigravityViewModel.SortBuckets(displayed, snapshot.Models);
+        quota.Models = [.. ordered.Select(ToSyncModelQuota)];
         return quota;
     }
 
@@ -3944,17 +3952,21 @@ namespace ClaudeUsageTray.ViewModels;
             TierName = snapshot.TierName ?? "",
             PaidTierName = snapshot.PaidTierName ?? "",
             AiCredits = snapshot.AiCredits,
-            Models = [.. snapshot.Models.Select(model => new UsageSyncModelQuota
-            {
-                ModelId = model.ModelId,
-                RemainingFraction = model.RemainingFraction,
-                ResetAt = model.ResetTime,
-                DisplayName = model.DisplayName,
-                Window = model.TokenType,
-                GroupName = model.GroupName,
-            })],
+            AiCreditsMinimum = snapshot.AiCreditsMinimum,
+            Models = [.. snapshot.Models.Select(ToSyncModelQuota)],
         };
     }
+
+    private static UsageSyncModelQuota ToSyncModelQuota(AntigravityModelQuota model) => new()
+    {
+        ModelId = model.ModelId,
+        RemainingFraction = model.RemainingFraction,
+        ResetAt = model.ResetTime,
+        DisplayName = model.DisplayName,
+        Window = model.TokenType,
+        GroupName = model.GroupName,
+        GroupDescription = model.GroupDescription,
+    };
 
     internal static IReadOnlyList<AntigravityModelQuota> ToAntigravityModelQuotas(UsageSyncModelQuota[] models) =>
         [.. models.Select(model => new AntigravityModelQuota
@@ -3965,5 +3977,6 @@ namespace ClaudeUsageTray.ViewModels;
             DisplayName = model.DisplayName,
             TokenType = model.Window,
             GroupName = model.GroupName,
+            GroupDescription = model.GroupDescription,
         })];
 }

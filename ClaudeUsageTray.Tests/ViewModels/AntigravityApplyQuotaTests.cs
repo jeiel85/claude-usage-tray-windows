@@ -808,4 +808,134 @@ public sealed class AntigravityApplyQuotaTests
             Assert.Equal(0, vm.Percent);
         }
     }
+
+    [Fact]
+    public void ApplyQuota_KeepsUntouchedThirdPartyBucketsWithoutResetTime_WhenEnabled()
+    {
+        var previous = Loc.CurrentLang;
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            try
+            {
+                Loc.SetLanguage("ko");
+                vm.ShowThirdPartyQuota = true;
+                vm.ApplyQuota(
+                [
+                    new AntigravityModelQuota
+                    {
+                        ModelId = "gemini-5h", TokenType = "5h", GroupName = "Gemini Models",
+                        GroupDescription = "Models within this group: Gemini 4 Neon, Gemini 4 Hydrogen",
+                        RemainingFraction = 0.8, ResetTime = Reset,
+                    },
+                    new AntigravityModelQuota
+                    {
+                        ModelId = "3p-weekly", TokenType = "weekly", GroupName = "Claude and GPT models",
+                        GroupDescription = "Models within this group: Claude Opus 5.5, GPT-OSS 120B",
+                        RemainingFraction = 1.0, ResetTime = null,
+                    },
+                    new AntigravityModelQuota
+                    {
+                        ModelId = "3p-5h", TokenType = "5h", GroupName = "Claude and GPT models",
+                        GroupDescription = "Models within this group: Claude Opus 5.5, GPT-OSS 120B",
+                        RemainingFraction = 1.0, ResetTime = null,
+                    },
+                ], "Antigravity", "Google AI Pro");
+
+                Assert.Equal(["gemini-5h", "3p-5h", "3p-weekly"], vm.Models.Select(m => m.Key));
+                Assert.Equal(0.2, vm.Percent, 3);
+                Assert.True(MainViewModel.HasRecentAntigravityUsage(vm.Models));
+
+                var untouched5h = vm.Models[1];
+                Assert.Equal(0.0, untouched5h.UsagePercent);
+                Assert.Equal(Loc.AntigravityUnusedWindow, untouched5h.ResetAtLabel);
+                Assert.False(untouched5h.HasTimeline);
+                Assert.Equal("Claude · GPT 모델", untouched5h.GroupHeader);
+                Assert.Equal("Claude Opus 5.5, GPT-OSS 120B", untouched5h.GroupModelsSummary);
+                Assert.True(untouched5h.HasGroupSeparator);
+                Assert.Equal("5시간", untouched5h.EffectiveRowLabel);
+
+                var untouchedWeekly = vm.Models[2];
+                Assert.Equal("", untouchedWeekly.GroupHeader);
+                Assert.Equal("", untouchedWeekly.GroupModelsSummary);
+                Assert.False(untouchedWeekly.HasGroupSeparator);
+                Assert.Equal("주간", untouchedWeekly.EffectiveRowLabel);
+                Assert.Equal(Loc.AntigravityUnusedWindow, untouchedWeekly.ResetAtLabel);
+            }
+            finally
+            {
+                Loc.SetLanguage(previous);
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData("ko", "50 이상부터 초과 사용 가능")]
+    [InlineData("zh", "超额使用至少需要 50")]
+    [InlineData("ja", "超過利用には 50 以上が必要")]
+    [InlineData("en", "Requires 50+ for overage use")]
+    public void ApplyQuota_SetsAndUpdatesAiCreditsNotice_WhenBelowMinimum(string lang, string expectedNotice)
+    {
+        var previous = Loc.CurrentLang;
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            try
+            {
+                Loc.SetLanguage("en");
+                vm.ApplyQuota([Bucket("gemini-5h", 0.5, window: "5h")], "Antigravity", "Google AI Pro", aiCredits: 17, aiCreditsMinimum: 50);
+
+                Loc.SetLanguage(lang);
+                vm.RefreshLocalizedLabels();
+                Assert.Equal(expectedNotice, vm.AiCreditsNotice);
+
+                vm.ApplyQuota([Bucket("gemini-5h", 0.5, window: "5h")], "Antigravity", "Google AI Pro", aiCredits: 50, aiCreditsMinimum: 50);
+                Assert.Equal("", vm.AiCreditsNotice);
+
+                vm.ApplyQuota([Bucket("gemini-5h", 0.5, window: "5h")], "Antigravity", "Google AI Pro", aiCredits: 17, aiCreditsMinimum: null);
+                Assert.Equal("", vm.AiCreditsNotice);
+            }
+            finally
+            {
+                Loc.SetLanguage(previous);
+            }
+        }
+    }
+
+    [Fact]
+    public void MobileQuota_SortsShortWindowFirst_AndPreservesCreditsMinimumAndDescription()
+    {
+        var snap = new AntigravitySnapshot
+        {
+            HasData = true,
+            TierName = "Antigravity",
+            PaidTierName = "Google AI Pro",
+            AiCredits = 17,
+            AiCreditsMinimum = 50,
+            Models =
+            [
+                Argon(0.71),
+                new AntigravityModelQuota
+                {
+                    ModelId = "gemini-weekly", TokenType = "weekly", GroupName = "Gemini Models",
+                    GroupDescription = "Models within this group: Gemini 4 Neon, Gemini 4 Hydrogen",
+                    RemainingFraction = 0.9, ResetTime = Reset,
+                },
+                new AntigravityModelQuota
+                {
+                    ModelId = "gemini-5h", TokenType = "5h", GroupName = "Gemini Models",
+                    GroupDescription = "Models within this group: Gemini 4 Neon, Gemini 4 Hydrogen",
+                    RemainingFraction = 0.8, ResetTime = Reset,
+                },
+            ],
+        };
+
+        var quota = MainViewModel.CreateAntigravityMobileQuotaSnapshot(snap, showThirdParty: false);
+
+        Assert.NotNull(quota);
+        Assert.Equal(17, quota!.AiCredits);
+        Assert.Equal(50, quota.AiCreditsMinimum);
+        Assert.Equal(["gemini-5h", "gemini-weekly", "gemini-argon-wtu-weekly"], quota.Models.Select(m => m.ModelId));
+        Assert.Equal("Models within this group: Gemini 4 Neon, Gemini 4 Hydrogen", quota.Models[0].GroupDescription);
+    }
 }

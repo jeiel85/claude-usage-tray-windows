@@ -105,7 +105,7 @@ https://jeiel85.github.io/claude-usage-tray-windows/pair/#<base64url(UTF-8 JSON 
 | `providers[].accountLabel` | 표시 이름. Claude는 사용자가 PC 설정에서 붙인 계정 별명(#307), 없으면 "이름 · 팀 조직"(`~/.claude.json`), Codex는 이름(`~/.codex/auth.json` id_token의 `name`, 이메일 꼴이면 생략·64자 제한, #266 — ChatGPT에서 이름을 바꿔도 Codex가 토큰을 새로 받기 전까지는 옛 이름이 보임). 이메일·UUID는 넣지 않음 |
 | `providers[].observedAt`, `errorKind` | 이 PC가 마지막으로 조회한 시각, 실패 종류(빈 값 = 성공). `auth_failed`(#320, 지금은 DeepSeek 키 거절)는 PC에서 키·로그인을 다시 넣어야 풀리는 상태 — 피드는 직전 쿼터를 잇지 않고, 앱은 카드에 "그 PC 설정에서 키를 다시 넣어 주세요"와 PC 이름을 보입니다(값이 없어도 카드를 숨기지 않음). 그 밖의 값(`source_error`·`api_error` 등)은 일시 실패로 보고 앱이 따로 표시하지 않습니다 |
 | `appVersion` 안내 | 앱 PC 탭은 `appVersion` 이 `PcVersions.RECOMMENDED_MIN`(1.68.0) 보다 낮은 PC에 업데이트 안내를 보입니다(#299) — 그 전 PC는 날씨 예보 같은 일상 알림도 `warning` 으로 보내 휴대폰에서 울립니다. 읽을 수 없는 버전은 안내하지 않습니다 |
-| `providers[].quota` | 다중 PC 동기화와 같은 `UsageSyncQuotaSnapshot`(사용률은 0~1 비율) |
+| `providers[].quota` | 다중 PC 동기화와 같은 `UsageSyncQuotaSnapshot`(사용률은 0~1 비율). Antigravity 는 `paidTierName`·`tierName`, `aiCredits`·`aiCreditsMinimum`, `models[].groupName`·`groupDescription` 을 함께 싣고 앱은 그룹별 헤더·모델 요약·크레딧 잔액을 표시한다 |
 | `providers[].today` | 오늘 이 PC의 토큰·세션·요청 수와 그 PC의 현지 날짜 `date`(없으면 생략). 앱은 휴대폰의 오늘 날짜와 같은 것만 더함 — 밤새 꺼진 PC의 어제 합계가 섞이지 않게 |
 
 ## 앱 푸시 알림 (#222, Homebase M-19·M-21·M-25)

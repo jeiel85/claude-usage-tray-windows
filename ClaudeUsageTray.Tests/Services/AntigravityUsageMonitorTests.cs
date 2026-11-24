@@ -65,6 +65,8 @@ public sealed class AntigravityUsageMonitorTests
         Assert.Equal(
             new DateTimeOffset(2026, 8, 18, 8, 4, 36, TimeSpan.Zero),
             buckets[0].ResetTime);
+        Assert.Equal("Models within this group: Gemini Flash, Gemini Pro", buckets[0].GroupDescription);
+        Assert.Equal("Models within this group: Claude Opus, Claude Sonnet, GPT-OSS", buckets[3].GroupDescription);
     }
 
     /// <summary>
@@ -432,6 +434,42 @@ public sealed class AntigravityUsageMonitorTests
         Assert.Equal("Gemini Code Assist", tier.TierName);
         Assert.Equal("Gemini Code Assist in Google One AI Pro", tier.PaidTierName);
         Assert.Equal(1000, tier.AiCredits);
+        Assert.Equal(50, tier.AiCreditsMinimum);
+    }
+
+    [Theory]
+    [InlineData("""{ "paidTier": { "availableCredits": [ { "creditType": "GOOGLE_ONE_AI", "creditAmount": "17", "minimumCreditAmountForUsage": "50" } ] } }""", 50L)]
+    [InlineData("""{ "paidTier": { "availableCredits": [ { "creditType": "GOOGLE_ONE_AI", "creditAmount": "17", "minimumCreditAmountForUsage": 75 } ] } }""", 75L)]
+    [InlineData("""{ "paidTier": { "availableCredits": [ { "creditType": "GOOGLE_ONE_AI", "creditAmount": "17", "minimumCreditAmountForUsage": "0" } ] } }""", null)]
+    [InlineData("""{ "paidTier": { "availableCredits": [ { "creditType": "GOOGLE_ONE_AI", "creditAmount": "17" } ] } }""", null)]
+    public void ParseCodeAssistTier_ReadsMinimumCreditAmountForUsage(string json, long? expectedMinimum)
+    {
+        using var doc = JsonDocument.Parse(json);
+
+        Assert.Equal(expectedMinimum, AntigravityUsageMonitor.ParseCodeAssistTier(doc).AiCreditsMinimum);
+    }
+
+    [Theory]
+    [InlineData("Models within this group: Gemini 4 Neon, Gemini 4 Hydrogen", "Gemini 4 Neon, Gemini 4 Hydrogen")]
+    [InlineData("  models within this group:   Gemini Flash  ", "Gemini Flash")]
+    [InlineData("Custom note without prefix", "Custom note without prefix")]
+    [InlineData(null, "")]
+    public void ExtractGroupModels_StripsPrefixWhenPresent(string? raw, string expected)
+    {
+        Assert.Equal(expected, AntigravityUsageMonitor.ExtractGroupModels(raw));
+    }
+
+    [Theory]
+    [InlineData("3p-5h", "5h", 1.0, false, true)]
+    [InlineData("3p-weekly", "", 1.0, false, true)]
+    [InlineData("3p-5h", "5h", 0.5, false, false)]
+    [InlineData("3p-5h", "5h", 1.0, true, false)]
+    [InlineData("no-reset", "", 1.0, false, false)]
+    public void IsUntouchedBucketWithoutReset_DetectsKnownUnusedBucketsOnly(
+        string modelId, string window, double remaining, bool hasReset, bool expected)
+    {
+        var reset = hasReset ? DateTimeOffset.UtcNow.AddHours(1) : (DateTimeOffset?)null;
+        Assert.Equal(expected, AntigravityUsageMonitor.IsUntouchedBucketWithoutReset(modelId, window, remaining, reset));
     }
 
     [Theory]

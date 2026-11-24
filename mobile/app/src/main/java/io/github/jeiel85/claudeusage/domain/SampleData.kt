@@ -52,9 +52,26 @@ object SampleData {
             provider = "antigravity", accountHash = "c".repeat(64), accountScope = ProviderUsage.SCOPE_DEVICE,
             accountLabel = "", observedAtMs = now - 2 * MINUTE, errorKind = "",
             quota = Quota(
-                hasData = true, observedAtMs = now - 2 * MINUTE, planType = "",
-                gauges = listOf(Gauge(GaugeKind.NAMED, "Gemini 3 Pro", 0.76, now + 9 * HOUR, null)),
+                hasData = true, observedAtMs = now - 2 * MINUTE, planType = "Google AI Pro",
+                gauges = listOf(
+                    Gauge(
+                        kind = GaugeKind.NAMED, name = "Gemini Models · 5h", usage = 0.21,
+                        resetAtMs = now + 4 * HOUR, windowMinutes = 300,
+                        group = "Gemini Models",
+                        groupDescription = "Gemini 4 Neon, Gemini 4 Carbon, Gemini 4 Argon, Gemini 4 Hydrogen, Gemini 3.8 Flash",
+                        bucketId = "gemini-5h",
+                    ),
+                    Gauge(
+                        kind = GaugeKind.NAMED, name = "Gemini Models · 7d", usage = 0.06,
+                        resetAtMs = now + 6 * DAY, windowMinutes = 7 * 24 * 60,
+                        group = "Gemini Models",
+                        groupDescription = "Gemini 4 Neon, Gemini 4 Carbon, Gemini 4 Argon, Gemini 4 Hydrogen, Gemini 3.8 Flash",
+                        bucketId = "gemini-weekly",
+                    ),
+                ),
                 extraCreditsLabel = "",
+                aiCredits = 250L,
+                aiCreditsMinimum = 50L,
             ),
             today = null,
         )

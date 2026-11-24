@@ -303,11 +303,14 @@ public sealed class UsageSyncServiceTests : IDisposable
         var quota = ClaudeUsageTray.ViewModels.MainViewModel.CreateAntigravityQuotaSnapshot(new AntigravitySnapshot
         {
             HasData = true,
+            AiCredits = 17,
+            AiCreditsMinimum = 50,
             Models =
             [
                 new AntigravityModelQuota
                 {
                     ModelId = "gemini-argon-wtu-weekly", TokenType = "weekly", GroupName = "Gemini 4 Argon",
+                    GroupDescription = "Models within this group: Gemini 4 Argon",
                     DisplayName = "Gemini 4 Argon Weekly Limit", RemainingFraction = 0.71, ResetTime = now.AddDays(6),
                 },
             ],
@@ -320,10 +323,38 @@ public sealed class UsageSyncServiceTests : IDisposable
         var read = laptop.ReadSnapshots(syncRoot, UsageProviderKind.Antigravity, "user@example.com", new DateOnly(2026, 10, 16));
         var newest = laptop.SelectNewestQuotaSnapshot(read.Snapshots, TimeSpan.FromMinutes(5));
 
-        var model = Assert.Single(ClaudeUsageTray.ViewModels.MainViewModel.ToAntigravityModelQuotas(newest!.Quota!.Models));
+        Assert.Equal(17, newest!.Quota!.AiCredits);
+        Assert.Equal(50, newest.Quota.AiCreditsMinimum);
+        var model = Assert.Single(ClaudeUsageTray.ViewModels.MainViewModel.ToAntigravityModelQuotas(newest.Quota.Models));
         Assert.Equal("Gemini 4 Argon", model.GroupName);
+        Assert.Equal("Models within this group: Gemini 4 Argon", model.GroupDescription);
         Assert.Equal("weekly", model.TokenType);
         Assert.Equal(0.71, model.RemainingFraction, 6);
+    }
+
+    [Fact]
+    public void IsQuotaWindowStillActive_AllowsAntigravitySnapshotsWithUntouchedKnownWindowBuckets()
+    {
+        var now = new DateTimeOffset(2026, 11, 24, 9, 0, 0, TimeSpan.Zero);
+        var snapshot = new UsageSyncSnapshot
+        {
+            Quota = new UsageSyncQuotaSnapshot
+            {
+                HasData = true,
+                Models =
+                [
+                    new UsageSyncModelQuota
+                    {
+                        ModelId = "3p-5h", Window = "5h", RemainingFraction = 1.0, ResetAt = null,
+                    },
+                ],
+            },
+        };
+
+        Assert.True(UsageSyncService.IsQuotaWindowStillActive(snapshot, now));
+
+        snapshot.Quota.Models[0].RemainingFraction = 0.5;
+        Assert.False(UsageSyncService.IsQuotaWindowStillActive(snapshot, now));
     }
 
     // 스키마 버전은 정확히 일치할 때만 읽히므로, 필드 추가만으로는 올리지 않는다.

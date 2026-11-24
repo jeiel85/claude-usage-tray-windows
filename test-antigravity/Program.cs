@@ -29,10 +29,12 @@ internal static class Program
         Console.WriteLine($"TierName         = {snap.TierName}");
         Console.WriteLine($"PaidTierName     = {snap.PaidTierName}");
         Console.WriteLine($"AiCredits        = {snap.AiCredits?.ToString("N0") ?? "(not eligible)"}");
+        Console.WriteLine($"AiCreditsMinimum = {snap.AiCreditsMinimum?.ToString("N0") ?? "(none)"}");
         Console.WriteLine($"Buckets.Count    = {snap.Models.Count}");
         foreach (var m in snap.Models)
         {
-            Console.WriteLine($"  - {m.DisplayName,-38} {m.RemainingFraction,6:P0} left  window={m.TokenType,-7} id={m.ModelId,-24} group={m.GroupName} reset={m.ResetTime:u}");
+            var desc = string.IsNullOrEmpty(m.GroupDescription) ? "" : $" desc={AntigravityUsageMonitor.ExtractGroupModels(m.GroupDescription)}";
+            Console.WriteLine($"  - {m.DisplayName,-38} {m.RemainingFraction,6:P0} left  window={m.TokenType,-7} id={m.ModelId,-24} group={m.GroupName} reset={m.ResetTime:u}{desc}");
         }
         await VerifyRefreshPathAsync();
         return snap.HasData ? 0 : 1;

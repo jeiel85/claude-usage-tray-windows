@@ -143,6 +143,7 @@ class AccountAggregatorTest {
     fun cards_without_gauges_tokens_or_credits_are_hidden() {
         val noData = quota(0.0, now, hasData = false)
         val credits = Quota(true, now, "", emptyList(), "$5.00 extra")
+        val agCreditsOnly = Quota(true, now, "Google AI Pro", emptyList(), "", aiCredits = 0L, aiCreditsMinimum = 50L)
         val cards = AccountAggregator.aggregate(todayDate = TODAY, nowMs = now, pcs = listOf(
             pc(
                 "p1", "HOME",
@@ -151,11 +152,12 @@ class AccountAggregatorTest {
                 usage(hashA, now, noData, provider = "antigravity", scope = ProviderUsage.SCOPE_DEVICE),
                 usage(hashA, now, null, tokens = 20, provider = "codex"),
                 usage(hashB, now, credits, provider = "claude"),
+                usage(hashB, now, agCreditsOnly, provider = "antigravity", scope = ProviderUsage.SCOPE_DEVICE),
             ),
         ))
-        assertEquals(5, cards.size)
+        assertEquals(6, cards.size)
         val shown = cards.filter(AccountAggregator::hasUsage).map { "${it.provider}|${it.key.substringAfter('|').take(1)}" }
-        assertEquals(listOf("claude|a", "claude|b", "codex|a"), shown)
+        assertEquals(listOf("claude|a", "claude|b", "codex|a", "antigravity|b"), shown)
     }
 
     /**

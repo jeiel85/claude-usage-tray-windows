@@ -50,7 +50,7 @@ public sealed class AntigravityUsageMonitor : IDisposable
     /// <see cref="CallV1InternalAsync"/> 가 예전 요청으로 되돌아가 공유 풀 게이지는 남는다.
     /// 이 형식은 '/' 가 두 번 들어가 User-Agent 문법 검사를 통과하지 못하므로 검사 없이 넣는다.
     /// </summary>
-    internal static readonly string ClientUserAgent = $"antigravity/hub/2.23.0 windows/{UserAgentArch()}";
+    internal static readonly string ClientUserAgent = $"antigravity/hub/2.34.0 windows/{UserAgentArch()}";
 
     /// <summary>
     /// 이전까지 쓰던 식별자. 공유 풀(Gemini · Claude/GPT) 게이지는 이것으로도 온다.
@@ -161,6 +161,7 @@ public sealed class AntigravityUsageMonitor : IDisposable
             TierName = tier.TierName,
             PaidTierName = tier.PaidTierName,
             AiCredits = tier.AiCredits,
+            AiCreditsMinimum = tier.AiCreditsMinimum,
             Models = buckets,
         };
     }
@@ -203,32 +204,33 @@ public sealed class AntigravityUsageMonitor : IDisposable
             {
                 if (group.ValueKind != JsonValueKind.Object) continue;
                 string groupName = ReadString(group, "displayName");
+                string groupDescription = ReadString(group, "description");
                 if (group.TryGetProperty("buckets", out var buckets) && buckets.ValueKind == JsonValueKind.Array)
-                    AddBuckets(list, buckets, groupName);
+                    AddBuckets(list, buckets, groupName, groupDescription);
             }
         }
 
         if (list.Count == 0 &&
             root.TryGetProperty("buckets", out var ungrouped) && ungrouped.ValueKind == JsonValueKind.Array)
         {
-            AddBuckets(list, ungrouped, "");
+            AddBuckets(list, ungrouped, "", "");
         }
 
         return list;
     }
 
-    private static void AddBuckets(List<AntigravityModelQuota> list, JsonElement buckets, string groupName)
+    private static void AddBuckets(List<AntigravityModelQuota> list, JsonElement buckets, string groupName, string groupDescription)
     {
         foreach (var bucket in buckets.EnumerateArray())
         {
             if (bucket.ValueKind != JsonValueKind.Object) continue;
 
-            var quota = ParseBucket(bucket, groupName);
+            var quota = ParseBucket(bucket, groupName, groupDescription);
             if (quota is not null) list.Add(quota);
         }
     }
 
-    private static AntigravityModelQuota? ParseBucket(JsonElement bucket, string groupName)
+    private static AntigravityModelQuota? ParseBucket(JsonElement bucket, string groupName, string groupDescription)
     {
         // disabled 는 이 tier 가 계량하지 않는 창이다. 이런 버킷도 remainingFraction 1 을 달고 와서 그대로 그리면
         // "0% 사용" 게이지가 된다 — 주간 한도를 다 써 막힌 순간(gemini-weekly 0, gemini-5h disabled)에도 그렇다.
@@ -262,6 +264,7 @@ public sealed class AntigravityUsageMonitor : IDisposable
             ResetTime = reset,
             DisplayName = ComposeDisplayName(groupName, ReadString(bucket, "displayName")),
             GroupName = groupName.Trim(),
+            GroupDescription = groupDescription.Trim(),
         };
     }
 
@@ -282,11 +285,13 @@ public sealed class AntigravityUsageMonitor : IDisposable
 
         root.TryGetProperty("currentTier", out var current);
         root.TryGetProperty("paidTier", out var paid);
+        var (balance, minimum) = ParseAiCreditsInfo(paid);
 
         return new CodeAssistTier(
             TierName: ReadTierName(current),
             PaidTierName: ReadTierName(paid),
-            AiCredits: ParseAiCredits(paid));
+            AiCredits: balance,
+            AiCreditsMinimum: minimum);
     }
 
     private static string? ReadTierName(JsonElement tier) =>
@@ -296,21 +301,25 @@ public sealed class AntigravityUsageMonitor : IDisposable
             ? name.GetString()
             : null;
 
+    internal static long? ParseAiCredits(JsonElement tier) => ParseAiCreditsInfo(tier).Balance;
+
     /// <summary>
-    /// <c>paidTier.availableCredits[]</c> 에서 GOOGLE_ONE_AI 항목의 <c>creditAmount</c> 를 더한다.
+    /// <c>paidTier.availableCredits[]</c> 에서 GOOGLE_ONE_AI 항목의 <c>creditAmount</c> 합과
+    /// 초과 사용 최소 기준(<c>minimumCreditAmountForUsage</c>)을 함께 읽는다.
     /// gemini-cli 의 <c>getG1CreditBalance</c> 와 같은 규칙이다 — 항목이 없으면 null(크레딧 대상 아님),
     /// 있으면 0 이어도 값으로 돌려준다. creditAmount 는 int64 라 JSON 에서 문자열로 오고, 못 읽으면 0 으로 센다.
     /// </summary>
-    internal static long? ParseAiCredits(JsonElement tier)
+    internal static (long? Balance, long? MinimumForUsage) ParseAiCreditsInfo(JsonElement tier)
     {
         if (tier.ValueKind != JsonValueKind.Object ||
             !tier.TryGetProperty("availableCredits", out var credits) ||
             credits.ValueKind != JsonValueKind.Array)
         {
-            return null;
+            return (null, null);
         }
 
         long? total = null;
+        long? minimum = null;
         foreach (var credit in credits.EnumerateArray())
         {
             if (credit.ValueKind != JsonValueKind.Object ||
@@ -320,8 +329,11 @@ public sealed class AntigravityUsageMonitor : IDisposable
             }
 
             total = (total ?? 0) + ReadInt64(credit, "creditAmount");
+            var itemMin = ReadInt64(credit, "minimumCreditAmountForUsage");
+            if (itemMin > 0 && (minimum is null || itemMin < minimum))
+                minimum = itemMin;
         }
-        return total;
+        return (total, minimum);
     }
 
     private const string GoogleOneAiCreditType = "GOOGLE_ONE_AI";
@@ -352,6 +364,47 @@ public sealed class AntigravityUsageMonitor : IDisposable
             return bucket;
         }
         return $"{group} · {bucket}";
+    }
+
+    private const string GroupModelsPrefix = "Models within this group:";
+
+    /// <summary>
+    /// 서버의 <c>groups[].description</c>("Models within this group: Gemini 4 Neon, …")에서 접두사를 떼고
+    /// 모델 목록만 남긴다. 다른 형태의 설명 문구는 그대로 돌려준다.
+    /// </summary>
+    internal static string ExtractGroupModels(string? groupDescription)
+    {
+        var trimmed = (groupDescription ?? "").Trim();
+        if (trimmed.StartsWith(GroupModelsPrefix, StringComparison.OrdinalIgnoreCase))
+            return trimmed[GroupModelsPrefix.Length..].Trim();
+        return trimmed;
+    }
+
+    /// <summary>창 문자열("weekly"·"5h") 또는 버킷 ID 접미사에서 알려진 창 길이를 반환. 모르면 null.</summary>
+    internal static TimeSpan? ResolveWindowLength(string? window, string? bucketId)
+    {
+        var w = string.IsNullOrWhiteSpace(window) ? BucketIdSuffix(bucketId ?? "") : window;
+        return w.Trim().ToLowerInvariant() switch
+        {
+            "weekly" => TimeSpan.FromDays(7),
+            "5h"     => TimeSpan.FromHours(5),
+            _        => null,
+        };
+    }
+
+    /// <summary>
+    /// 아직 한 번도 쓰지 않아 resetTime 없이 remainingFraction=1 로 오는 요약 버킷인지.
+    /// 알려진 창(5h·weekly)이고 0% 사용일 때만 허용 — 부분 사용인데 resetTime 이 없거나 내부 버킷이면 거부한다.
+    /// </summary>
+    internal static bool IsUntouchedBucketWithoutReset(string? modelId, string? window, double remainingFraction, DateTimeOffset? resetTime) =>
+        resetTime is null &&
+        remainingFraction >= 1.0 &&
+        ResolveWindowLength(window, modelId) is not null;
+
+    private static string BucketIdSuffix(string modelId)
+    {
+        var dash = modelId.LastIndexOf('-');
+        return dash >= 0 && dash < modelId.Length - 1 ? modelId[(dash + 1)..] : "";
     }
 
     // ---------- HTTP ----------
@@ -713,8 +766,8 @@ public sealed class AntigravityUsageMonitor : IDisposable
 /// <summary>자격 증명 관리자에 Antigravity 가 저장해 둔 토큰 묶음.</summary>
 internal sealed record StoredCredential(string? AccessToken, string? RefreshToken, DateTimeOffset? ExpiresAt);
 
-/// <summary>loadCodeAssist 응답에서 쓰는 값 — tier 이름과 Google AI 크레딧 잔액.</summary>
-internal sealed record CodeAssistTier(string? TierName, string? PaidTierName, long? AiCredits)
+/// <summary>loadCodeAssist 응답에서 쓰는 값 — tier 이름과 Google AI 크레딧 잔액·최소 기준.</summary>
+internal sealed record CodeAssistTier(string? TierName, string? PaidTierName, long? AiCredits, long? AiCreditsMinimum = null)
 {
-    public static CodeAssistTier Empty { get; } = new(null, null, null);
+    public static CodeAssistTier Empty { get; } = new(null, null, null, null);
 }

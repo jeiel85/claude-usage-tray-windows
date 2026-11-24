@@ -14,6 +14,12 @@
     <string name="device_scope_note">アカウントを特定できないためPCごとに表示</string>
     <string name="no_quota">まだサーバーの使用枠情報がありません</string>
     <string name="gauge_extra">追加使用量</string>
+    <string name="gauge_unused">未使用</string>
+    <string name="antigravity_ai_credits">Google AI クレジット</string>
+    <string name="antigravity_ai_credits_min">超過利用には %1$s 以上が必要</string>
+    <string name="antigravity_group_gemini">Gemini モデル</string>
+    <string name="antigravity_group_3p">Claude・GPT モデル</string>
+    <string name="antigravity_group_image">画像生成</string>
     <string name="reset_in">%1$s 後にリセット</string>
     <string name="today_tokens">今日 %1$s トークン · セッション %2$d件</string>
     <string name="quota_from">基準: %1$s · %2$s</string>

@@ -84,6 +84,9 @@ public sealed class UsageSyncQuotaSnapshot
     /// <summary>Google AI 크레딧 잔액(계정 단위). 크레딧 대상이 아니거나 이 필드가 없던 버전이 올린 스냅샷이면 null.</summary>
     public long? AiCredits { get; set; }
 
+    /// <summary>Google AI 크레딧 초과 사용 최소 잔액(계정 단위). 없거나 구버전 스냅샷이면 null.</summary>
+    public long? AiCreditsMinimum { get; set; }
+
     // OpenCode Go 전용 — 공식 웹 콘솔이 제공한 계정 단위 할당량만 담는다.
     // 인증 쿠키·워크스페이스 URL 같은 로그인 정보는 동기화하지 않는다.
     public UsageSyncOpenCodeQuota? OpenCode { get; set; }
@@ -122,6 +125,9 @@ public sealed class UsageSyncModelQuota
     /// 이 필드가 없던 버전이 올린 스냅샷에서는 비어 있고, 그 버전은 모르는 필드를 무시하므로 스키마 버전은 그대로 둔다.
     /// </summary>
     public string GroupName { get; set; } = "";
+
+    /// <summary>서버가 준 그룹 포함 모델 설명. 없거나 구버전 스냅샷이면 빈 문자열.</summary>
+    public string GroupDescription { get; set; } = "";
 }
 
 public sealed class UsageSyncOpenCodeQuota

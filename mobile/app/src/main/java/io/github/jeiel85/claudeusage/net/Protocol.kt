@@ -73,6 +73,9 @@ data class Gauge(
     val usage: Double,
     val resetAtMs: Long?,
     val windowMinutes: Int?,
+    val group: String = "",
+    val groupDescription: String = "",
+    val bucketId: String = "",
 ) {
     /**
      * The value to show at [nowMs]. A window whose reset time has passed has been refilled on the
@@ -101,12 +104,15 @@ data class Quota(
     val planType: String,
     val gauges: List<Gauge>,
     val extraCreditsLabel: String,
+    val aiCredits: Long? = null,
+    val aiCreditsMinimum: Long? = null,
 ) {
     companion object {
         private const val SHORT_MINUTES = 300
         private const val WEEK_MINUTES = 7 * 24 * 60
         private const val CLAUDE_SHORT_MINUTES = SHORT_MINUTES
         private const val CLAUDE_LONG_MINUTES = WEEK_MINUTES
+        private const val GROUP_MODELS_PREFIX = "Models within this group:"
 
         /**
          * Antigravity names its window ("weekly", "5h") instead of giving its length. Snapshots from PCs that
@@ -120,6 +126,31 @@ data class Quota(
                 "5h" -> SHORT_MINUTES
                 else -> null
             }
+        }
+
+        private fun fallbackGroupName(modelId: String): String {
+            val dash = modelId.lastIndexOf('-')
+            val key = if (dash > 0) modelId.substring(0, dash) else modelId
+            return when (key.lowercase()) {
+                "gemini" -> "Gemini Models"
+                "3p" -> "Claude and GPT models"
+                else -> ""
+            }
+        }
+
+        private fun extractGroupModels(description: String): String {
+            val trimmed = description.trim()
+            return if (trimmed.startsWith(GROUP_MODELS_PREFIX, ignoreCase = true)) {
+                trimmed.substring(GROUP_MODELS_PREFIX.length).trim()
+            } else {
+                trimmed
+            }
+        }
+
+        private fun shortWindowTag(windowMinutes: Int?, rawWindow: String?): String? = when (windowMinutes) {
+            SHORT_MINUTES -> "5h"
+            WEEK_MINUTES -> "7d"
+            else -> rawWindow
         }
 
         /**
@@ -164,13 +195,34 @@ data class Quota(
                 }
                 models.isNotEmpty() -> {
                     for (m in models) {
-                        val name = listOf(m.optString("displayName"), m.optString("groupName"), m.optString("modelId"))
+                        val modelId = m.optString("modelId")
+                        val rawDisplayName = m.optString("displayName")
+                        val rawGroupName = m.optString("groupName")
+                        val rawName = listOf(rawDisplayName, rawGroupName, modelId)
                             .firstOrNull { it.isNotBlank() } ?: continue
                         val window = m.optString("window").takeIf { it.isNotBlank() }
-                        val label = if (window != null) "$name · $window" else name
+                        val windowMinutes = antigravityWindowMinutes(window, modelId)
+                        val group = rawGroupName
+                            .ifBlank { rawDisplayName.substringBefore(" · ", "").takeIf { " · " in rawDisplayName }.orEmpty() }
+                            .ifBlank { fallbackGroupName(modelId) }
+                        val groupDescription = extractGroupModels(m.optString("groupDescription"))
+                        val shortWin = shortWindowTag(windowMinutes, window)
+                        val label = if (group.isNotBlank() && shortWin != null) {
+                            "$group · $shortWin"
+                        } else if (window != null && !rawName.endsWith(window, ignoreCase = true)) {
+                            "$rawName · $window"
+                        } else {
+                            rawName
+                        }
                         gauges += Gauge(
-                            GaugeKind.NAMED, label, 1.0 - fraction(m, "remainingFraction"), time(m, "resetAt"),
-                            antigravityWindowMinutes(window, m.optString("modelId")),
+                            kind = GaugeKind.NAMED,
+                            name = label,
+                            usage = 1.0 - fraction(m, "remainingFraction"),
+                            resetAtMs = time(m, "resetAt"),
+                            windowMinutes = windowMinutes,
+                            group = group,
+                            groupDescription = groupDescription,
+                            bucketId = modelId,
                         )
                     }
                 }
@@ -187,12 +239,17 @@ data class Quota(
             if (o.optBoolean("extraHasLimit") && !o.isNull("extraUsagePercent")) {
                 gauges += Gauge(GaugeKind.EXTRA, "", fraction(o, "extraUsagePercent"), null, null)
             }
+            val planType = o.optString("planType")
+                .ifBlank { o.optString("paidTierName") }
+                .ifBlank { o.optString("tierName") }
             return Quota(
                 hasData = o.optBoolean("hasData"),
                 observedAtMs = time(o, "observedAtUtc"),
-                planType = o.optString("planType"),
+                planType = planType,
                 gauges = gauges,
                 extraCreditsLabel = o.optString("extraCreditsLabel"),
+                aiCredits = optLong(o, "aiCredits"),
+                aiCreditsMinimum = optLong(o, "aiCreditsMinimum"),
             )
         }
     }
@@ -318,6 +375,15 @@ internal fun time(o: JSONObject, key: String): Long? {
 }
 
 private fun optInt(o: JSONObject, key: String): Int? = if (o.has(key) && !o.isNull(key)) o.optInt(key) else null
+
+private fun optLong(o: JSONObject, key: String): Long? {
+    if (!o.has(key) || o.isNull(key)) return null
+    return when (val raw = o.opt(key)) {
+        is Number -> raw.toLong()
+        is String -> raw.toLongOrNull()
+        else -> null
+    }
+}
 
 private fun fraction(o: JSONObject, key: String): Double = o.optDouble(key, 0.0).let { if (it.isNaN()) 0.0 else it.coerceIn(0.0, 1.0) }
 

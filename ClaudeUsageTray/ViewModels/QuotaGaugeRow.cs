@@ -24,6 +24,24 @@ public sealed partial class QuotaGaugeRow : ObservableObject
     /// <summary>창 길이. 모르면 null — 시간선 마커를 그리지 않는다.</summary>
     public TimeSpan? Window { get; init; }
 
+    /// <summary>그룹 헤더(같은 그룹의 첫 번째 행에만 채움). 비어 있으면 헤더를 그리지 않는다.</summary>
+    public string GroupHeader { get; init; } = "";
+
+    /// <summary>그룹에 포함된 모델 요약(그룹 첫 번째 행에만 채움). 비어 있으면 줄이 접힌다.</summary>
+    public string GroupModelsSummary { get; init; } = "";
+
+    /// <summary>두 번째 이후 그룹의 첫 번째 행이면 true — 그룹 사이 구분선을 그린다.</summary>
+    public bool HasGroupSeparator { get; init; }
+
+    /// <summary>그룹 안에서 쓰는 짧은 행 이름("5시간", "주간"). 비어 있으면 <see cref="DisplayName"/> 을 그대로 쓴다.</summary>
+    public string ShortLabel { get; init; } = "";
+
+    /// <summary>화면 행 라벨 — 그룹 안에서는 <see cref="ShortLabel"/>, 그 외에는 <see cref="DisplayName"/>.</summary>
+    public string EffectiveRowLabel => string.IsNullOrEmpty(ShortLabel) ? DisplayName : ShortLabel;
+
+    /// <summary>resetTime 이 없고 사용량 0% 인 창에 "미사용" 라벨을 표시할지 여부(Antigravity 미사용 버킷).</summary>
+    public bool ShowUnusedWhenNoReset { get; init; }
+
     /// <summary>
     /// 팝업 막대가 새로 만들어진 행에서도 이전 길이부터 차오르게 쓰는 이름(#325, <c>GaugeAnimation.Key</c>).
     /// 한 한도에 창이 여럿일 수 있어 창 길이까지 넣는다.
@@ -74,7 +92,9 @@ public sealed partial class QuotaGaugeRow : ObservableObject
     /// </summary>
     internal void UpdateTimeProgress(DateTimeOffset now, bool showAbsoluteResetTime)
     {
-        ResetAtLabel = UsageCalculator.FormatResetLabel(ResetAt, false, showAbsoluteResetTime, now);
+        ResetAtLabel = ResetAt is null && ShowUnusedWhenNoReset && UsagePercent <= 0
+            ? Loc.AntigravityUnusedWindow
+            : UsageCalculator.FormatResetLabel(ResetAt, false, showAbsoluteResetTime, now);
 
         var window = Window ?? TimeSpan.Zero;
         var progress = UsageCalculator.TimeProgress(ResetAt, window, now);

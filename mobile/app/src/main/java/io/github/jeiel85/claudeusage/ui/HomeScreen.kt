@@ -1,6 +1,7 @@
 package io.github.jeiel85.claudeusage.ui
 
 import android.text.format.DateUtils
+import java.text.NumberFormat
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -312,7 +313,38 @@ private fun AccountCardView(card: AccountCard, now: Long) {
             val authFailed = AccountAggregator.authFailedOn(card)
             if (card.gauges.isEmpty()) {
                 // A rejected key says why there is nothing better than "no quota yet" does.
-                if (authFailed.isEmpty()) Text(stringResource(R.string.no_quota), color = Palette.TextDim, fontSize = 12.sp)
+                if (authFailed.isEmpty() && card.quota?.aiCredits == null) {
+                    Text(stringResource(R.string.no_quota), color = Palette.TextDim, fontSize = 12.sp)
+                }
+            } else if (card.gauges.any { it.group.isNotBlank() }) {
+                val sections = remember(card.gauges) { groupGauges(card.gauges) }
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    sections.forEachIndexed { index, section ->
+                        if (index > 0) HorizontalDivider(color = Palette.CardBorder)
+                        if (section.groupKey.isNotBlank()) {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                val first = section.gauges.first()
+                                val desc = section.gauges.firstNotNullOfOrNull { it.groupDescription.takeIf(String::isNotBlank) }
+                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Text(
+                                        localizedAntigravityGroup(first),
+                                        color = Palette.Text,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    if (desc != null) {
+                                        Text(desc, color = Palette.TextDim, fontSize = 11.sp, lineHeight = 15.sp)
+                                    }
+                                }
+                                section.gauges.forEach { GaugeRow(it, now, compactLabel = true) }
+                            }
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                                section.gauges.forEach { GaugeRow(it, now) }
+                            }
+                        }
+                    }
+                }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(14.dp)) { card.gauges.forEach { GaugeRow(it, now) } }
             }
@@ -325,6 +357,35 @@ private fun AccountCardView(card: AccountCard, now: Long) {
             }
             card.quota?.extraCreditsLabel?.takeIf { it.isNotBlank() }?.let {
                 Text(it, color = Palette.TextSoft, fontSize = 12.sp)
+            }
+            card.quota?.aiCredits?.let { credits ->
+                val formattedCredits = remember(credits) { NumberFormat.getIntegerInstance().format(credits) }
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            stringResource(R.string.antigravity_ai_credits),
+                            color = Palette.TextSoft,
+                            fontSize = 12.sp,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            formattedCredits,
+                            color = Palette.Text,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            style = TextStyle(fontFeatureSettings = "tnum"),
+                        )
+                    }
+                    val min = card.quota.aiCreditsMinimum
+                    if (min != null && min > 0 && credits < min) {
+                        val formattedMin = remember(min) { NumberFormat.getIntegerInstance().format(min) }
+                        Text(
+                            stringResource(R.string.antigravity_ai_credits_min, formattedMin),
+                            color = Palette.TextDim,
+                            fontSize = 11.sp,
+                        )
+                    }
+                }
             }
 
             HorizontalDivider(color = Palette.CardBorder)
@@ -363,6 +424,33 @@ private fun DeviceChip(name: String, online: Boolean) {
     }
 }
 
+private data class GaugeSection(val groupKey: String, val gauges: List<Gauge>)
+
+private fun groupGauges(gauges: List<Gauge>): List<GaugeSection> {
+    val sections = mutableListOf<GaugeSection>()
+    for (gauge in gauges) {
+        val last = sections.lastOrNull()
+        if (last != null && gauge.group.isNotBlank() && last.groupKey.equals(gauge.group, ignoreCase = true)) {
+            sections[sections.lastIndex] = last.copy(gauges = last.gauges + gauge)
+        } else {
+            sections += GaugeSection(gauge.group, listOf(gauge))
+        }
+    }
+    return sections
+}
+
+@Composable
+private fun localizedAntigravityGroup(gauge: Gauge): String {
+    val dash = gauge.bucketId.lastIndexOf('-')
+    val groupKey = if (dash > 0) gauge.bucketId.substring(0, dash) else gauge.bucketId
+    return when {
+        groupKey.contains("image", ignoreCase = true) -> stringResource(R.string.antigravity_group_image)
+        groupKey.equals("gemini", ignoreCase = true) -> stringResource(R.string.antigravity_group_gemini)
+        groupKey.equals("3p", ignoreCase = true) -> stringResource(R.string.antigravity_group_3p)
+        else -> gauge.group
+    }
+}
+
 /**
  * Input : 게이지 1개, 지금(epoch ms)
  * Output: 두 줄 — 위는 (창 이름 + 초기화 시각 | 퍼센트), 아래는 막대
@@ -370,13 +458,18 @@ private fun DeviceChip(name: String, online: Boolean) {
  *           줄바꿈한다 — 시각이 잘리면 언제 초기화되는지 알 수 없다. 퍼센트는 70% 부터 막대와 같은 색으로 바뀐다.
  */
 @Composable
-private fun GaugeRow(g: Gauge, now: Long) {
-    val label = when (g.kind) {
-        GaugeKind.SHORT, GaugeKind.LONG -> windowLabel(g.windowMinutes) ?: if (g.kind == GaugeKind.SHORT) "5h" else "7d"
-        GaugeKind.EXTRA -> stringResource(R.string.gauge_extra)
-        GaugeKind.NAMED -> g.name
+private fun GaugeRow(g: Gauge, now: Long, compactLabel: Boolean = false) {
+    val label = if (compactLabel) {
+        windowLabel(g.windowMinutes) ?: g.name.substringAfter(" · ", g.name)
+    } else {
+        when (g.kind) {
+            GaugeKind.SHORT, GaugeKind.LONG -> windowLabel(g.windowMinutes) ?: if (g.kind == GaugeKind.SHORT) "5h" else "7d"
+            GaugeKind.EXTRA -> stringResource(R.string.gauge_extra)
+            GaugeKind.NAMED -> g.name
+        }
     }
     val reset = g.resetAtMs?.let { resetText(it, now) }
+        ?: if (compactLabel && g.usage <= 0.0) stringResource(R.string.gauge_unused) else null
     val text = buildAnnotatedString {
         withStyle(SpanStyle(color = Palette.Text, fontWeight = FontWeight.Medium, fontSize = 14.sp)) { append(label) }
         if (reset != null) {

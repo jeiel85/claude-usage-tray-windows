@@ -1443,8 +1443,8 @@
                             </Grid>
                         </Button>
 
-                        <!-- Detail body — focused 일 때만. Codex·Claude 상세와 같은 구조:
-                             플랜 배지 → (제목 · 퍼센트 · 리셋) 한 줄 → 게이지 + 시간선 마커 → 요약 한 줄 → 하단 안내·출처 -->
+                        <!-- Detail body — focused 일 때만. 그룹 헤더(이름·포함 모델) → 창별 주 게이지 행(Auto 라벨 + * DockPanel) →
+                             Google AI 크레딧(최소 기준 안내 포함) → 하단 안내·출처 -->
                         <StackPanel Margin="10,6,10,0" Visibility="{Binding IsAntigravityFocused, Converter={StaticResource BoolToVisibility}}">
                             <!-- 플랜 배지 — Codex 의 플랜 라벨과 같은 자리·같은 톤 -->
                             <TextBlock x:Name="AntigravityPlanBadge"
@@ -1452,24 +1452,43 @@
                                        TextWrapping="Wrap"
                                        Visibility="{Binding IsAntigravityPlanBadgeVisible, Converter={StaticResource BoolToVisibility}}"/>
 
-                            <!-- 창별 게이지 (그룹 × 5시간·주간 — 짧은 창이 위, Claude·Codex 와 같은 순서) -->
+                            <!-- 창별 게이지 (그룹 구분 + 그룹 헤더/포함 모델 + 5시간→주간 순) -->
                             <ItemsControl x:Name="AntigravityGaugeList" ItemsSource="{Binding AntigravityModels}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel>
+                                            <!-- 그룹 간 구분선 (두 번째 이후 그룹 첫 행에만 표시) -->
+                                            <Border Height="1" Background="#2D2F45" Margin="0,2,0,8"
+                                                    Visibility="{Binding HasGroupSeparator, Converter={StaticResource BoolToVisibility}}"/>
+
+                                            <!-- 그룹 제목 + 포함 모델 요약 (그룹 첫 행에만 표시) -->
+                                            <StackPanel Margin="0,0,0,6"
+                                                        Visibility="{Binding GroupHeader, Converter={StaticResource StringToVisibility}}">
+                                                <TextBlock x:Name="AntigravityGroupHeader" Text="{Binding GroupHeader}"
+                                                           Foreground="#F1F5F9" FontSize="10.5" FontWeight="SemiBold"
+                                                           TextWrapping="Wrap"/>
+                                                <TextBlock x:Name="AntigravityGroupModels" Text="{Binding GroupModelsSummary}"
+                                                           Foreground="#5A5F7A" FontSize="9.5" TextWrapping="Wrap" Margin="0,2,0,0"
+                                                           Visibility="{Binding GroupModelsSummary, Converter={StaticResource StringToVisibility}}"/>
+                                            </StackPanel>
+
+                                            <!-- 주 게이지 행 규칙(#234): 짧은 창 이름은 Auto 열(잘리지 않음), 초기화 문구는 * 열에서 오른쪽 정렬 줄바꿈 -->
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
                                                 </Grid.ColumnDefinitions>
-                                                <!-- 이름이 길어 잘릴 수 있으므로(절대 시각 표시를 켠 경우 등) 전체 이름은 툴팁으로 남긴다 -->
-                                                <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Foreground="#F1F5F9" FontSize="10.5"
-                                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
-                                                           ToolTip="{Binding DisplayName}"/>
-                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="6,0,0,0">
-                                                    <TextBlock Text="{Binding UsagePercent, StringFormat={}{0:P0}}" Foreground="#A5B4FC" FontSize="11" FontWeight="Bold"/>
-                                                    <TextBlock Text="{Binding ResetAtLabel}" Foreground="#8B92B3" FontSize="10" Margin="4,0,0,0"/>
-                                                </StackPanel>
+                                                <TextBlock x:Name="AntigravityGaugeLabel" Grid.Column="0"
+                                                           Text="{Binding EffectiveRowLabel}" Foreground="#F1F5F9" FontSize="11"
+                                                           VerticalAlignment="Top" ToolTip="{Binding DisplayName}"/>
+                                                <DockPanel Grid.Column="1" HorizontalAlignment="Right" Margin="8,0,0,0">
+                                                    <TextBlock x:Name="AntigravityGaugePercent" DockPanel.Dock="Left"
+                                                               Text="{Binding UsagePercent, StringFormat={}{0:P0}}"
+                                                               Foreground="#A5B4FC" FontSize="11" FontWeight="Bold"/>
+                                                    <TextBlock x:Name="AntigravityGaugeReset"
+                                                               Text="{Binding ResetAtLabel}" Foreground="#8B92B3" FontSize="10"
+                                                               Margin="4,0,0,0" TextWrapping="Wrap" TextAlignment="Right"/>
+                                                </DockPanel>
                                             </Grid>
                                             <!-- 시간선 마커: 창 진행률 위치에 세로선 (주간 7일 / 5시간 창 기준) -->
                                             <Grid Height="8" Margin="0,4,0,0" ToolTip="{Binding PaceTip}">
@@ -1477,7 +1496,7 @@
                                                 <views:TimelineMarker Percent="{Binding TimePercent}" Visibility="{Binding HasTimeline, Converter={StaticResource BoolToVisibility}}"/>
                                             </Grid>
                                             <!-- 요약 한 줄 — Codex·Claude 게이지 아래와 같은 자리·같은 문구 형식 -->
-                                            <TextBlock Text="{Binding Summary}" Foreground="#8B92B3" FontSize="10" Margin="0,4,0,10"/>
+                                            <TextBlock Text="{Binding Summary}" Foreground="#8B92B3" FontSize="10" Margin="0,4,0,10" TextWrapping="Wrap"/>
                                         </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -1486,22 +1505,34 @@
                             <!-- Google AI 크레딧 잔액 — 한도를 다 쓴 뒤 이어 쓸 수 있는 양. 크레딧 대상이 아닌 계정은 줄이 접힌다 -->
                             <Grid x:Name="AntigravityAiCreditsRow" Margin="0,0,0,10" ToolTip="{Binding LblAntigravityAiCreditsTip}"
                                   Visibility="{Binding AntigravityAiCreditsText, Converter={StaticResource StringToVisibility}}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="{Binding LblAntigravityAiCredits}" Foreground="#F1F5F9" FontSize="10.5" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="1" Text="{Binding AntigravityAiCreditsText}" Foreground="#A5B4FC" FontSize="11" FontWeight="Bold" Margin="6,0,0,0"/>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Border Grid.Row="0" Height="1" Background="#2D2F45" Margin="0,2,0,8"/>
+                                <Grid Grid.Row="1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding LblAntigravityAiCredits}" Foreground="#F1F5F9" FontSize="10.5" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding AntigravityAiCreditsText}" Foreground="#A5B4FC" FontSize="11" FontWeight="Bold" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                </Grid>
+                                <TextBlock x:Name="AntigravityAiCreditsNotice" Grid.Row="2" Text="{Binding AntigravityAiCreditsNotice}"
+                                           Foreground="#8B92B3" FontSize="9.5" TextWrapping="Wrap" Margin="0,2,0,0"
+                                           Visibility="{Binding AntigravityAiCreditsNotice, Converter={StaticResource StringToVisibility}}"/>
                             </Grid>
 
-                            <TextBlock Text="{Binding AntigravityErrorMessage}" Foreground="#EF4444" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0"
+                            <TextBlock Text="{Binding AntigravityErrorMessage}" Foreground="#EF4444" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,4"
                                        Visibility="{Binding AntigravityHasError, Converter={StaticResource BoolToVisibility}}"/>
 
-                            <!-- 하단 안내(왼쪽) · 출처(오른쪽) — Codex 상세 하단과 같은 구성 -->
-                            <Grid Margin="0,0,0,0">
-                                <TextBlock x:Name="AntigravityNoteText" Text="{Binding AntigravityNote}" Foreground="#5A5F7A" FontSize="10" HorizontalAlignment="Left"/>
-                                <TextBlock x:Name="AntigravityDataSourceText" Text="{Binding AntigravityDataSource}" Foreground="#3D4266" FontSize="9" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
-                            </Grid>
+                            <!-- 하단 안내 + 출처(세로 배치로 긴 안내와 출처가 겹치지 않게 한다) -->
+                            <StackPanel Margin="0,0,0,0">
+                                <TextBlock x:Name="AntigravityNoteText" Text="{Binding AntigravityNote}" Foreground="#5A5F7A" FontSize="10" TextWrapping="Wrap"/>
+                                <TextBlock x:Name="AntigravityDataSourceText" Text="{Binding AntigravityDataSource}" Foreground="#3D4266" FontSize="9" HorizontalAlignment="Right" Margin="0,2,0,0"
+                                           Visibility="{Binding AntigravityDataSource, Converter={StaticResource StringToVisibility}}"/>
+                            </StackPanel>
                         </StackPanel>
                     </StackPanel>
                 </StackPanel>

@@ -353,12 +353,25 @@ public static class Loc
     /// </summary>
     public static string? AntigravityBucketLabel(string bucketId, string window, string groupName = "")
     {
-        var group = AntigravityGroupName(bucketId)
-                    ?? (string.IsNullOrWhiteSpace(groupName) ? null : groupName.Trim());
-        var span = AntigravityWindowName(window);
+        var group = AntigravityGroupLabel(bucketId, groupName);
+        var span = AntigravityWindowLabel(window);
         if (group is null || span is null) return null;
         return $"{group} · {span}";
     }
+
+    /// <summary>Antigravity 그룹 제목(앱 언어로 번역된 공유 풀 이름 또는 서버 그룹명). 둘 다 모르면 null.</summary>
+    public static string? AntigravityGroupLabel(string bucketId, string groupName = "") =>
+        AntigravityGroupName(bucketId)
+        ?? (string.IsNullOrWhiteSpace(groupName) ? null : groupName.Trim());
+
+    /// <summary>아직 한 번도 쓰지 않아 resetTime 이 없는 창에 붙이는 라벨.</summary>
+    public static string AntigravityUnusedWindow => Lang switch
+    {
+        "ko" => " · 미사용",
+        "zh" => " · 未使用",
+        "ja" => " · 未使用",
+        _ => " · unused"
+    };
 
     /// <summary>Antigravity 상세 게이지 아래 크레딧 줄의 이름 — gemini-cli /stats 의 "Google AI Credits" 와 같은 이름.</summary>
     public static string AntigravityAiCredits => Lang switch
@@ -376,6 +389,19 @@ public static class Loc
         "ja" => "Google One AI クレジットの残高です。使用上限に達した後も一部のモデルを使い続けると差し引かれます。",
         _ => "Your Google One AI credit balance. Credits are used when you keep using some models after reaching a limit."
     };
+
+    /// <summary>크레딧 잔액이 초과 사용 최소 기준 미만일 때 보여주는 안내.</summary>
+    public static string AntigravityAiCreditsMinimumNotice(long minimum)
+    {
+        var formatted = minimum.ToString("N0", System.Globalization.CultureInfo.CurrentCulture);
+        return Lang switch
+        {
+            "ko" => $"{formatted} 이상부터 초과 사용 가능",
+            "zh" => $"超额使用至少需要 {formatted}",
+            "ja" => $"超過利用には {formatted} 以上が必要",
+            _ => $"Requires {formatted}+ for overage use"
+        };
+    }
 
     /// <summary>
     /// 버킷 식별자는 "그룹-창" 형식이다 (gemini-weekly, 3p-5h). 창을 뗀 그룹 키를 정확히 비교한다 —
@@ -421,7 +447,7 @@ public static class Loc
     /// 창 이름 — 다른 provider 의 "5시간 윈도우 / 7일 윈도우" 와 같은 자리에 오므로 같은 톤으로 짧게 쓴다.
     /// 게이지가 사용률을 보여주므로 "잔여량"이라고 부르지 않는다(값의 방향이 반대로 읽힌다).
     /// </summary>
-    private static string? AntigravityWindowName(string window) => window switch
+    public static string? AntigravityWindowLabel(string window) => (window ?? "").Trim().ToLowerInvariant() switch
     {
         "weekly" => QuotaWindowShortName(10080),
         "5h" => QuotaWindowShortName(300),

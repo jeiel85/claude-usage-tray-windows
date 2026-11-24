@@ -19,6 +19,9 @@ public partial class AntigravityViewModel : ObservableObject
     /// <summary>Google AI 크레딧 잔액(천 단위 구분). 크레딧 대상이 아닌 계정이면 빈 문자열이라 줄 자체가 접힌다.</summary>
     [ObservableProperty] private string _aiCreditsText = "";
 
+    /// <summary>크레딧 잔액이 초과 사용 최소 기준 미만일 때의 안내 문구. 조건 충족 또는 기준 없음이면 빈 문자열.</summary>
+    [ObservableProperty] private string _aiCreditsNotice = "";
+
     [ObservableProperty] private IReadOnlyList<QuotaGaugeRow> _models = System.Array.Empty<QuotaGaugeRow>();
     [ObservableProperty] private bool _isEnabled = true;
     [ObservableProperty] private double _percent = 0.0;
@@ -39,6 +42,8 @@ public partial class AntigravityViewModel : ObservableObject
     // 화면에 올린 마지막 입력. 언어·표시 설정이 바뀌면 이 값으로 행을 다시 만든다
     // (LastSnapshot 과 별개다 — 다른 PC 에서 받은 값을 표시 중일 수 있다).
     private IReadOnlyList<AntigravityModelQuota> _appliedQuota = System.Array.Empty<AntigravityModelQuota>();
+    private long? _appliedAiCredits;
+    private long? _appliedAiCreditsMinimum;
 
     public AntigravityViewModel(AntigravityUsageMonitor monitor)
     {
@@ -51,10 +56,7 @@ public partial class AntigravityViewModel : ObservableObject
         {
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                HasData = false;
-                HasError = false;
-                ErrorMessage = "";
-                Models = System.Array.Empty<QuotaGaugeRow>();
+                ClearDisplayedState(hasError: false, errorMessage: "");
             });
             return;
         }
@@ -69,10 +71,7 @@ public partial class AntigravityViewModel : ObservableObject
             LastSnapshot = new AntigravitySnapshot { ErrorMessage = ex.Message };
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                HasData = false;
-                HasError = true;
-                ErrorMessage = ex.Message;
-                Models = System.Array.Empty<QuotaGaugeRow>();
+                ClearDisplayedState(hasError: true, errorMessage: ex.Message);
             });
             return;
         }
@@ -83,15 +82,26 @@ public partial class AntigravityViewModel : ObservableObject
         {
             if (!snap.HasData)
             {
-                HasData = false;
-                HasError = !snap.IsInformational && !string.IsNullOrEmpty(snap.ErrorMessage);
-                ErrorMessage = HasError ? (snap.ErrorMessage ?? "") : "";
-                Models = System.Array.Empty<QuotaGaugeRow>();
+                var hasError = !snap.IsInformational && !string.IsNullOrEmpty(snap.ErrorMessage);
+                ClearDisplayedState(hasError: hasError, errorMessage: hasError ? (snap.ErrorMessage ?? "") : "");
                 return;
             }
 
-            ApplyQuota(snap.Models, snap.TierName, snap.PaidTierName, snap.AiCredits);
+            ApplyQuota(snap.Models, snap.TierName, snap.PaidTierName, snap.AiCredits, snap.AiCreditsMinimum);
         });
+    }
+
+    private void ClearDisplayedState(bool hasError, string errorMessage)
+    {
+        _appliedQuota = System.Array.Empty<AntigravityModelQuota>();
+        _appliedAiCredits = null;
+        _appliedAiCreditsMinimum = null;
+        HasData = false;
+        HasError = hasError;
+        ErrorMessage = errorMessage;
+        AiCreditsText = "";
+        AiCreditsNotice = "";
+        Models = System.Array.Empty<QuotaGaugeRow>();
     }
 
     /// <summary>
@@ -99,19 +109,31 @@ public partial class AntigravityViewModel : ObservableObject
     /// 같은 경로를 타도록 분리해 둔 것 — 표시 규칙(내부 모델 제외·정렬·평균)이 어긋나지 않게 한다.
     /// </summary>
     public void ApplyQuota(IReadOnlyList<AntigravityModelQuota> models, string? tierName, string? paidTierName,
-                           long? aiCredits = null)
+                           long? aiCredits = null, long? aiCreditsMinimum = null)
     {
         _appliedQuota = models;
+        _appliedAiCredits = aiCredits;
+        _appliedAiCreditsMinimum = aiCreditsMinimum;
 
         HasData = true;
         HasError = false;
         ErrorMessage = "";
         TierName = tierName ?? "";
         PaidTierName = paidTierName ?? "";
-        // 0 도 보여준다 — 크레딧을 다 써서 한도 소진 뒤 이어 쓸 수 없다는 뜻이다(gemini-cli /stats 와 같은 규칙).
-        AiCreditsText = aiCredits is long credits ? credits.ToString("N0", System.Globalization.CultureInfo.CurrentCulture) : "";
+        RefreshCreditsLabels();
 
         RebuildRows();
+    }
+
+    private void RefreshCreditsLabels()
+    {
+        // 0 도 보여준다 — 크레딧을 다 써서 한도 소진 뒤 이어 쓸 수 없다는 뜻이다(gemini-cli /stats 와 같은 규칙).
+        AiCreditsText = _appliedAiCredits is long credits
+            ? credits.ToString("N0", System.Globalization.CultureInfo.CurrentCulture)
+            : "";
+        AiCreditsNotice = _appliedAiCredits is long c && _appliedAiCreditsMinimum is long min && min > 0 && c < min
+            ? Loc.AntigravityAiCreditsMinimumNotice(min)
+            : "";
     }
 
     /// <summary>
@@ -125,17 +147,42 @@ public partial class AntigravityViewModel : ObservableObject
         double worstSharedUsed = 0;
         bool hasSharedPool = false;
         var now = DateTimeOffset.Now;
-        var rows = new List<QuotaGaugeRow>(models.Count);
+
+        var visible = new List<AntigravityModelQuota>(models.Count);
         foreach (var m in models)
         {
-            if (m.ResetTime is null) continue;
+            if (m.ResetTime is null &&
+                !AntigravityUsageMonitor.IsUntouchedBucketWithoutReset(m.ModelId, m.TokenType, m.RemainingFraction, m.ResetTime))
+            {
+                continue;
+            }
             // 다중 PC 동기화 최후 폴백(최대 24시간 전 관측치)을 받는 경우, 그 사이 이 창만
             // 리셋됐을 수 있다 — remainingFraction 은 리셋 전 값이라 실제보다 적게 남은 것처럼
             // 보인다. 리셋 시각이 이미 지난 행은 다음 실제 조회 전까지 아예 숨긴다.
-            if (m.ResetTime <= now) continue;
+            if (m.ResetTime is { } reset && reset <= now) continue;
             if (!IsDisplayedBucket(m.ModelId, ShowThirdPartyQuota))
                 continue;
 
+            visible.Add(m);
+        }
+
+        // 그룹 설명은 같은 그룹의 버킷 중 하나에만 있더라도 그룹 대표 행에 보여 준다.
+        var groupDescriptions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var m in visible)
+        {
+            var groupHeader = ResolveGroupHeader(m);
+            if (string.IsNullOrEmpty(groupHeader) || groupDescriptions.ContainsKey(groupHeader)) continue;
+            var summary = AntigravityUsageMonitor.ExtractGroupModels(m.GroupDescription);
+            if (!string.IsNullOrEmpty(summary))
+                groupDescriptions[groupHeader] = summary;
+        }
+
+        var ordered = SortBuckets(visible, models);
+        var rows = new List<QuotaGaugeRow>(ordered.Count);
+        string? previousGroup = null;
+
+        foreach (var m in ordered)
+        {
             double used = Math.Clamp(1.0 - m.RemainingFraction, 0.0, 1.0);
             if (used > worstUsed) worstUsed = used;
             if (IsSharedPoolBucket(m.ModelId))
@@ -144,12 +191,24 @@ public partial class AntigravityViewModel : ObservableObject
                 if (used > worstSharedUsed) worstSharedUsed = used;
             }
 
+            var displayName = ResolveDisplayName(m);
+            var groupHeader = ResolveGroupHeader(m);
+            bool isNewGroup = !string.IsNullOrEmpty(groupHeader) &&
+                              !string.Equals(previousGroup, groupHeader, StringComparison.OrdinalIgnoreCase);
+            if (!string.IsNullOrEmpty(groupHeader))
+                previousGroup = groupHeader;
+
             // 아직 쓰지 않은 창도 남겨 둔다. 보여 주기로 한 그룹의 주간·5시간 칸이
             // 항상 보여야 지금 무엇이 얼마나 남았는지 읽을 수 있다.
             var row = new QuotaGaugeRow
             {
                 Key = m.ModelId,
-                DisplayName = ResolveDisplayName(m),
+                DisplayName = displayName,
+                ShortLabel = ResolveShortLabel(m, groupHeader, displayName),
+                GroupHeader = isNewGroup ? groupHeader : "",
+                GroupModelsSummary = isNewGroup && groupDescriptions.TryGetValue(groupHeader, out var desc) ? desc : "",
+                HasGroupSeparator = isNewGroup && rows.Count > 0,
+                ShowUnusedWhenNoReset = m.ResetTime is null && used <= 0,
                 UsagePercent = used,
                 Summary = Loc.UsageSummary(used),
                 ResetAt = m.ResetTime,
@@ -158,7 +217,8 @@ public partial class AntigravityViewModel : ObservableObject
             row.UpdateTimeProgress(now, ShowAbsoluteResetTime);
             rows.Add(row);
         }
-        Models = SortLikeOtherProviders(rows, models);
+
+        Models = rows;
 
         // 창마다 한도가 따로 걸리므로 평균은 가장 급한 제약을 가린다 (주간 90% + 5시간 0% → 45%).
         // 트레이 게이지에는 가장 많이 쓴 창을 올린다.
@@ -167,6 +227,39 @@ public partial class AntigravityViewModel : ObservableObject
         // Codex 추가 한도(#182)도 같은 규칙이다. 공유 풀 행이 하나도 없으면(구버전이 동기화로 올린
         // 모델별 값, 버킷 이름 규칙이 바뀐 응답) 트레이가 0% 로 거짓말하지 않도록 전체 행으로 계산한다.
         Percent = hasSharedPool ? worstSharedUsed : worstUsed;
+    }
+
+    internal static string ResolveGroupHeader(AntigravityModelQuota quota)
+    {
+        var localized = Loc.AntigravityGroupLabel(quota.ModelId, quota.GroupName);
+        if (!string.IsNullOrWhiteSpace(localized))
+            return localized;
+
+        var sep = quota.DisplayName.IndexOf(" · ", StringComparison.Ordinal);
+        return sep > 0 ? quota.DisplayName[..sep].Trim() : "";
+    }
+
+    internal static string ResolveShortLabel(AntigravityModelQuota quota, string groupHeader, string fullDisplayName)
+    {
+        if (string.IsNullOrEmpty(groupHeader))
+            return fullDisplayName;
+
+        var span = Loc.AntigravityWindowLabel(quota.TokenType);
+        if (!string.IsNullOrEmpty(span))
+            return span;
+
+        var sep = quota.DisplayName.IndexOf(" · ", StringComparison.Ordinal);
+        if (sep >= 0 && sep + 3 < quota.DisplayName.Length)
+            return quota.DisplayName[(sep + 3)..].Trim();
+
+        var suffixSpan = Loc.AntigravityWindowLabel(BucketIdSuffix(quota.ModelId));
+        if (!string.IsNullOrEmpty(suffixSpan))
+            return suffixSpan;
+
+        if (quota.DisplayName.StartsWith(groupHeader + " ", StringComparison.OrdinalIgnoreCase))
+            return quota.DisplayName[(groupHeader.Length + 1)..].Trim();
+
+        return fullDisplayName;
     }
 
     /// <summary>
@@ -229,21 +322,22 @@ public partial class AntigravityViewModel : ObservableObject
     /// 같은 종류 안에서는 서버가 준 그룹 순서를 지켜 같은 그룹의 창이 붙어 보이게 한다.
     /// 창 길이를 모르는 행(새 창 종류)은 그룹 안에서 맨 뒤로 — 자리를 지어내지 않는다.
     /// </summary>
-    private static IReadOnlyList<QuotaGaugeRow> SortLikeOtherProviders(
-        List<QuotaGaugeRow> rows, IReadOnlyList<AntigravityModelQuota> source)
+    internal static IReadOnlyList<AntigravityModelQuota> SortBuckets(
+        IEnumerable<AntigravityModelQuota> buckets, IReadOnlyList<AntigravityModelQuota>? orderSource = null)
     {
+        var sourceList = buckets as IReadOnlyList<AntigravityModelQuota> ?? [.. buckets];
         var groupOrder = new Dictionary<string, int>(StringComparer.Ordinal);
-        foreach (var quota in source)
+        foreach (var quota in orderSource ?? sourceList)
         {
             var key = GroupKey(quota.ModelId);
             if (!groupOrder.ContainsKey(key))
                 groupOrder[key] = groupOrder.Count;
         }
 
-        return [.. rows
-            .OrderBy(r => IsSharedPoolBucket(r.Key) ? 0 : 1)
-            .ThenBy(r => groupOrder.TryGetValue(GroupKey(r.Key), out var i) ? i : int.MaxValue)
-            .ThenBy(r => r.Window ?? TimeSpan.MaxValue)];
+        return [.. sourceList
+            .OrderBy(q => IsSharedPoolBucket(q.ModelId) ? 0 : 1)
+            .ThenBy(q => groupOrder.TryGetValue(GroupKey(q.ModelId), out var i) ? i : int.MaxValue)
+            .ThenBy(q => ResolveWindowLength(q) ?? TimeSpan.MaxValue)];
     }
 
     /// <summary>버킷 식별자에서 창 종류를 뗀 앞부분이 모델 그룹이다 ("gemini-weekly" → "gemini").</summary>
@@ -259,19 +353,8 @@ public partial class AntigravityViewModel : ObservableObject
     /// 버킷 식별자 꼬리("gemini-weekly" → weekly)로 한 번 더 본다.
     /// 어느 쪽으로도 모르면 null — 위치를 지어내지 않고 마커를 그리지 않는다.
     /// </summary>
-    internal static TimeSpan? ResolveWindowLength(AntigravityModelQuota quota)
-    {
-        var window = string.IsNullOrWhiteSpace(quota.TokenType)
-            ? BucketIdSuffix(quota.ModelId)
-            : quota.TokenType;
-
-        return window.ToLowerInvariant() switch
-        {
-            "weekly" => TimeSpan.FromDays(7),
-            "5h"     => TimeSpan.FromHours(5),
-            _        => null,
-        };
-    }
+    internal static TimeSpan? ResolveWindowLength(AntigravityModelQuota quota) =>
+        AntigravityUsageMonitor.ResolveWindowLength(quota.TokenType, quota.ModelId);
 
     private static string BucketIdSuffix(string modelId)
     {
@@ -280,12 +363,14 @@ public partial class AntigravityViewModel : ObservableObject
     }
 
     /// <summary>
-    /// 언어를 바꿨을 때 이미 만들어 둔 행을 다시 만든다.
+    /// 언어를 바꿨을 때 이미 만들어 둔 행과 크레딧 조건 문구를 다시 만든다.
     /// 행의 문구는 만들 때 한 번 정해지므로, 다시 만들지 않으면 다음 조회까지 이전 언어로 남는다.
     /// </summary>
     public void RefreshLocalizedLabels()
     {
-        if (!HasData || _appliedQuota.Count == 0) return;
+        if (!HasData) return;
+        RefreshCreditsLabels();
+        if (_appliedQuota.Count == 0) return;
         RebuildRows();
     }
 

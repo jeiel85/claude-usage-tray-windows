@@ -249,4 +249,78 @@ class ProtocolTest {
         val gauges = Quota.parse(o, "antigravity")!!.gauges
         assertEquals(listOf(7 * 24 * 60, 300, 7 * 24 * 60, null), gauges.map { it.windowMinutes })
     }
+
+    @Test
+    fun antigravity_parses_groups_descriptions_unused_windows_and_credits() {
+        val o = org.json.JSONObject(
+            """{
+                "hasData": true,
+                "tierName": "Antigravity",
+                "paidTierName": "Google AI Pro",
+                "aiCredits": 17,
+                "aiCreditsMinimum": 50,
+                "models": [
+                    {
+                        "modelId": "gemini-5h",
+                        "displayName": "Gemini Models · Five Hour Limit Remaining",
+                        "window": "5h",
+                        "groupName": "Gemini Models",
+                        "groupDescription": "Models within this group: Gemini 4 Neon, Gemini 4 Hydrogen",
+                        "remainingFraction": 0.79,
+                        "resetAt": "2026-11-24T09:20:39+00:00"
+                    },
+                    {
+                        "modelId": "gemini-weekly",
+                        "displayName": "Gemini Models · Weekly Limit Remaining",
+                        "window": "weekly",
+                        "groupName": "Gemini Models",
+                        "groupDescription": "Models within this group: Gemini 4 Neon, Gemini 4 Hydrogen",
+                        "remainingFraction": 0.94,
+                        "resetAt": "2026-12-01T04:20:39+00:00"
+                    },
+                    {
+                        "modelId": "3p-5h",
+                        "displayName": "Claude and GPT models · Five Hour Limit Remaining",
+                        "window": "5h",
+                        "groupName": "Claude and GPT models",
+                        "groupDescription": "Models within this group: Claude Opus 5.5, GPT-OSS 120B",
+                        "remainingFraction": 1.0
+                    },
+                    {
+                        "modelId": "gemini-argon-wtu-weekly",
+                        "displayName": "Gemini 4 Argon Weekly Limit",
+                        "window": "weekly",
+                        "groupName": "Gemini 4 Argon",
+                        "remainingFraction": 0.71,
+                        "resetAt": "2026-12-01T04:20:39+00:00"
+                    }
+                ]
+            }""",
+        )
+
+        val quota = Quota.parse(o, "antigravity")!!
+        assertEquals("Google AI Pro", quota.planType)
+        assertEquals(17L, quota.aiCredits)
+        assertEquals(50L, quota.aiCreditsMinimum)
+        assertEquals(4, quota.gauges.size)
+
+        val g0 = quota.gauges[0]
+        assertEquals("Gemini Models", g0.group)
+        assertEquals("Gemini 4 Neon, Gemini 4 Hydrogen", g0.groupDescription)
+        assertEquals("Gemini Models · 5h", g0.name)
+        assertEquals(300, g0.windowMinutes)
+        assertEquals(0.21, g0.usage, 1e-9)
+
+        val g2 = quota.gauges[2]
+        assertEquals("Claude and GPT models", g2.group)
+        assertEquals("Claude Opus 5.5, GPT-OSS 120B", g2.groupDescription)
+        assertEquals("Claude and GPT models · 5h", g2.name)
+        assertNull(g2.resetAtMs)
+        assertEquals(0.0, g2.usage, 1e-9)
+
+        val g3 = quota.gauges[3]
+        assertEquals("Gemini 4 Argon", g3.group)
+        assertEquals("Gemini 4 Argon · 7d", g3.name)
+        assertEquals(7 * 24 * 60, g3.windowMinutes)
+    }
 }

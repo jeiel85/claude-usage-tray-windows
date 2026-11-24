@@ -56,6 +56,8 @@ public class UiSnapshotTests : IDisposable
                 Render(popup, "popup-opencode");
                 vm.FocusedProvider = MainViewModel.HmsFocusKey;
                 Render(popup, "popup-hms");
+                vm.FocusedProvider = UsageProviderKind.Antigravity;
+                Render(popup, "popup-antigravity");
                 vm.FocusedProvider = UsageProviderKind.Claude;
                 popup.Close();
 
@@ -184,6 +186,50 @@ public class UiSnapshotTests : IDisposable
         var nextUtcMidnight = new DateTimeOffset(now.UtcDateTime.Date.AddDays(1), TimeSpan.Zero);
         vm.HmsVm.Apply(new HmsReadResult(HmsReadState.Ok,
             new HmsDailyUsage(32_339_025, 400_000_000, 367_660_975, 281, nextUtcMidnight, now.AddDays(1))), now);
+
+        // Antigravity (#345) — 그룹 헤더·포함 모델·미사용 버킷·모델 한정 한도·크레딧 최소 기준.
+        vm.IsAntigravityEnabled = true;
+        vm.ShowAntigravityThirdPartyQuota = true;
+        vm.ShowAbsoluteResetTime = true;
+        vm.AntigravityVm.ApplyQuota(
+        [
+            new AntigravityModelQuota
+            {
+                ModelId = "gemini-5h", TokenType = "5h", GroupName = "Gemini Models",
+                GroupDescription = "Models within this group: Gemini 4 Neon, Gemini 4 Carbon, Gemini 4 Argon, Gemini 4 Hydrogen, Gemini 3.8 Flash",
+                RemainingFraction = 0.79, ResetTime = now.AddHours(4).AddMinutes(28),
+            },
+            new AntigravityModelQuota
+            {
+                ModelId = "gemini-weekly", TokenType = "weekly", GroupName = "Gemini Models",
+                GroupDescription = "Models within this group: Gemini 4 Neon, Gemini 4 Carbon, Gemini 4 Argon, Gemini 4 Hydrogen, Gemini 3.8 Flash",
+                RemainingFraction = 0.94, ResetTime = now.AddDays(6).AddHours(23),
+            },
+            new AntigravityModelQuota
+            {
+                ModelId = "3p-5h", TokenType = "5h", GroupName = "Claude and GPT models",
+                GroupDescription = "Models within this group: Claude Opus 5.5, Claude Sonnet 5.5, GPT-OSS 120B",
+                RemainingFraction = 1.0, ResetTime = null,
+            },
+            new AntigravityModelQuota
+            {
+                ModelId = "3p-weekly", TokenType = "weekly", GroupName = "Claude and GPT models",
+                GroupDescription = "Models within this group: Claude Opus 5.5, Claude Sonnet 5.5, GPT-OSS 120B",
+                RemainingFraction = 1.0, ResetTime = null,
+            },
+            new AntigravityModelQuota
+            {
+                ModelId = "gemini-argon-wtu-weekly", TokenType = "weekly", GroupName = "Gemini 4 Argon",
+                DisplayName = "Gemini 4 Argon Weekly Limit", RemainingFraction = 0.71, ResetTime = now.AddDays(5).AddHours(10),
+            },
+        ], "Antigravity", "Google AI Pro", aiCredits: 17, aiCreditsMinimum: 50);
+        vm.AntigravityHasData = true;
+        vm.AntigravityTierName = vm.AntigravityVm.TierName;
+        vm.AntigravityPaidTierName = vm.AntigravityVm.PaidTierName;
+        vm.AntigravityAiCreditsText = vm.AntigravityVm.AiCreditsText;
+        vm.AntigravityAiCreditsNotice = vm.AntigravityVm.AiCreditsNotice;
+        vm.AntigravityModels = vm.AntigravityVm.Models;
+        vm.AntigravityPercent = vm.AntigravityVm.Percent;
     }
 
     private MainViewModel CreateViewModel()

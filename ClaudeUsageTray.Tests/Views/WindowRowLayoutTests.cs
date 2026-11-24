@@ -321,6 +321,104 @@ public class WindowRowLayoutTests : IDisposable
         });
     }
 
+    // Antigravity 게이지 행(#345): 주 게이지 규칙(Auto 짧은 창 이름 + * DockPanel)과 미사용·크레딧 조건·하단 출처가
+    // 4개 언어 + 절대 시각 표시에서도 겹치거나 잘리지 않는지 본다.
+    [Theory]
+    [MemberData(nameof(Cases))]
+    public async Task AntigravityGaugeRows_LabelPercentAndResetDoNotOverlap(string lang, bool estimated)
+    {
+        _ = estimated;
+        var originalLang = Loc.CurrentLang;
+        await WpfTestHost.RunAsync(() =>
+        {
+            var vm = CreateViewModel();
+            try
+            {
+                Loc.SetLanguage(lang);
+                vm.HideInactiveProviders = false;
+                vm.IsAntigravityEnabled = true;
+                vm.ShowAntigravityThirdPartyQuota = true;
+                vm.ShowAbsoluteResetTime = true;
+                vm.FocusedProvider = UsageProviderKind.Antigravity;
+
+                var now = LateNight;
+                vm.AntigravityVm.ApplyQuota(
+                [
+                    new AntigravityModelQuota
+                    {
+                        ModelId = "gemini-5h", TokenType = "5h", GroupName = "Gemini Models",
+                        GroupDescription = "Models within this group: Gemini 4 Neon, Gemini 4 Carbon, Gemini 4 Argon, Gemini 4 Hydrogen, Gemini 3.8 Flash",
+                        RemainingFraction = 0.0, ResetTime = now.AddHours(4).AddMinutes(59),
+                    },
+                    new AntigravityModelQuota
+                    {
+                        ModelId = "gemini-weekly", TokenType = "weekly", GroupName = "Gemini Models",
+                        GroupDescription = "Models within this group: Gemini 4 Neon, Gemini 4 Carbon, Gemini 4 Argon, Gemini 4 Hydrogen, Gemini 3.8 Flash",
+                        RemainingFraction = 0.94, ResetTime = now.AddDays(6).AddHours(23),
+                    },
+                    new AntigravityModelQuota
+                    {
+                        ModelId = "3p-5h", TokenType = "5h", GroupName = "Claude and GPT models",
+                        GroupDescription = "Models within this group: Claude Opus 5.5, Claude Sonnet 5.5, GPT-OSS 120B",
+                        RemainingFraction = 1.0, ResetTime = null,
+                    },
+                    new AntigravityModelQuota
+                    {
+                        ModelId = "gemini-argon-wtu-weekly", TokenType = "weekly", GroupName = "Gemini 4 Argon",
+                        DisplayName = "Gemini 4 Argon Weekly Limit", RemainingFraction = 0.29, ResetTime = now.AddDays(6).AddHours(23),
+                    },
+                ], "Antigravity", "Google AI Pro", aiCredits: 17, aiCreditsMinimum: 50);
+
+                vm.AntigravityHasData = true;
+                vm.AntigravityPaidTierName = vm.AntigravityVm.PaidTierName;
+                vm.AntigravityAiCreditsText = vm.AntigravityVm.AiCreditsText;
+                vm.AntigravityAiCreditsNotice = vm.AntigravityVm.AiCreditsNotice;
+                vm.AntigravityModels = vm.AntigravityVm.Models;
+                vm.AntigravityPercent = vm.AntigravityVm.Percent;
+                vm.AntigravityNote = Loc.ProviderAntigravityNote;
+                vm.AntigravityDataSource = Loc.UsageSyncQuotaFromDevice("DESKTOP-HOME", "04/12 23:50");
+
+                using var popup = new UsagePopup(vm);
+                popup.Left = -10000;
+                popup.Show();
+                popup.UpdateLayout();
+
+                var labels = FindDescendants<TextBlock>(popup).Where(t => t.Name == "AntigravityGaugeLabel").ToList();
+                var percents = FindDescendants<TextBlock>(popup).Where(t => t.Name == "AntigravityGaugePercent").ToList();
+                var resets = FindDescendants<TextBlock>(popup).Where(t => t.Name == "AntigravityGaugeReset").ToList();
+                Assert.Equal(4, labels.Count);
+                Assert.Equal(4, percents.Count);
+                Assert.Equal(4, resets.Count);
+
+                for (var i = 0; i < labels.Count; i++)
+                {
+                    AssertRowFits($"Antigravity[{i}]", labels[i], percents[i], resets[i], requireSingleLine: false);
+                }
+
+                var list = Assert.IsType<ItemsControl>(popup.FindName("AntigravityGaugeList"));
+                var bars = FindDescendants<System.Windows.Controls.ProgressBar>(list).ToList();
+                var codexBar = FindDescendants<System.Windows.Controls.ProgressBar>(popup)
+                    .First(b => b.Style == popup.FindResource("CodexBarStyle"));
+                Assert.Equal(4, bars.Count);
+                Assert.All(bars, b => Assert.Equal(codexBar.Height, b.Height));
+
+                var note = Assert.IsType<TextBlock>(popup.FindName("AntigravityNoteText"));
+                var source = Assert.IsType<TextBlock>(popup.FindName("AntigravityDataSourceText"));
+                var footer = (FrameworkElement)note.Parent;
+                var noteBottom = note.TranslatePoint(new Point(0, note.ActualHeight), footer).Y;
+                var sourceTop = source.TranslatePoint(new Point(0, 0), footer).Y;
+                Assert.True(noteBottom <= sourceTop + 0.5, $"Antigravity note overlaps source: {noteBottom:F1} > {sourceTop:F1}");
+
+                popup.Hide();
+            }
+            finally
+            {
+                Loc.SetLanguage(originalLang);
+                vm.Dispose();
+            }
+        });
+    }
+
     private static T FindNamed<T>(DependencyObject root, string name) where T : FrameworkElement =>
         FindDescendants<T>(root).Single(e => e.Name == name);
 
