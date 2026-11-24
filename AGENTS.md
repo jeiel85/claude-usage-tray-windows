@@ -54,6 +54,7 @@ git fetch origin && git pull origin master && git status
   4. 커밋 → 태그(`v{x.y.z}`) → `git push origin master && git push origin v{x.y.z}`
   5. GitHub Release 생성 확인 (`gh release view v{x.y.z}` — exe 자산 첨부 여부까지 검증)
   6. **업데이트 서명**: `pwsh tools/sign-release.ps1 v{x.y.z}` → `gh release view` 에 `ClaudeUsageTray.exe.sig` 가 있는지 확인. 서명이 없으면 v1.67.3 이상 앱은 그 버전을 받지 않는다(조용히 "최신").
+  7. **(선택, `mobile/` 변경 및 서비스 계정 키 준비 시)** Play 스토어 업로드: `pwsh tools/publish-play.ps1 v{x.y.z}` 또는 GitHub Actions `Publish to Google Play` 워크플로 실행(`.keystore/play-service-account.json` 또는 `CUT_PLAY_SERVICE_ACCOUNT_JSON` 필요, 커밋·출력 금지).
 - **사용자가 "새 버전 만들기" 같은 명시적 요청을 하지 않아도 위 사이클을 자동 실행한다.**
 - 단, 사용자가 "아직 릴리즈 하지 마" 또는 "커밋만 해" 등 명시적으로 보류 의사를 밝힌 경우에는 릴리즈를 생성하지 않는다.
 
