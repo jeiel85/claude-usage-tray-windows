@@ -510,12 +510,23 @@ public class MainViewModelIntegrationTests : IDisposable
                 Assert.Equal(1, markers.Count(m => m.Visibility == System.Windows.Visibility.Visible));
                 Assert.Equal(1, markers.Count(m => m.Visibility == System.Windows.Visibility.Collapsed));
 
-                // 게이지 아래 요약 한 줄 — Claude·Codex 게이지와 같은 자리·같은 문구.
+                // 요약("60% 사용 · 잔량 40%")은 Claude·Codex 주 게이지(#224)와 같이 막대 아래 중복 줄을 두지 않고
+                // 라벨 툴팁에 두며, 라벨 글자 크기도 Claude 주 게이지(11.5pt)와 맞춘다(#346).
                 var texts = FindChildren<System.Windows.Controls.TextBlock>(list)
                     .Select(t => t.Text)
                     .ToList();
-                Assert.Contains(Loc.UsageSummary(0.6), texts);
-                Assert.Contains(Loc.UsageSummary(0.9), texts);
+                Assert.DoesNotContain(Loc.UsageSummary(0.6), texts);
+                Assert.DoesNotContain(Loc.UsageSummary(0.9), texts);
+
+                var claudeShortLabel = Assert.IsType<System.Windows.Controls.TextBlock>(popup.FindName("ClaudeShortLabel"));
+                var gaugeLabels = FindChildren<System.Windows.Controls.TextBlock>(list)
+                    .Where(t => t.Name == "AntigravityGaugeLabel")
+                    .ToList();
+                Assert.Equal(2, gaugeLabels.Count);
+                Assert.All(gaugeLabels, label => Assert.Equal(claudeShortLabel.FontSize, label.FontSize));
+                var tooltips = gaugeLabels.Select(l => l.ToolTip as string).ToList();
+                Assert.Contains(Loc.UsageSummary(0.6), tooltips);
+                Assert.Contains(Loc.UsageSummary(0.9), tooltips);
 
                 // 하단 안내·출처도 다른 provider 상세와 같은 자리에 있다.
                 var note = Assert.IsType<System.Windows.Controls.TextBlock>(popup.FindName("AntigravityNoteText"));
