@@ -1456,9 +1456,9 @@
                             <ItemsControl x:Name="AntigravityGaugeList" ItemsSource="{Binding AntigravityModels}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <StackPanel>
+                                        <StackPanel Margin="0,0,0,10">
                                             <!-- 그룹 간 구분선 (두 번째 이후 그룹 첫 행에만 표시) -->
-                                            <Border Height="1" Background="#2D2F45" Margin="0,2,0,8"
+                                            <Border Height="1" Background="#2D2F45" Margin="0,0,0,8"
                                                     Visibility="{Binding HasGroupSeparator, Converter={StaticResource BoolToVisibility}}"/>
 
                                             <!-- 그룹 제목 + 포함 모델 요약 (그룹 첫 행에만 표시) -->
@@ -1472,15 +1472,15 @@
                                                            Visibility="{Binding GroupModelsSummary, Converter={StaticResource StringToVisibility}}"/>
                                             </StackPanel>
 
-                                            <!-- 주 게이지 행 규칙(#234): 짧은 창 이름은 Auto 열(잘리지 않음), 초기화 문구는 * 열에서 오른쪽 정렬 줄바꿈 -->
+                                            <!-- 주 게이지 행 규칙(#234, #224): 짧은 창 이름은 Auto 열(11.5pt, 잘리지 않음) + 라벨 툴팁에 요약("42% 사용 · 잔량 58%"), 초기화 문구는 * 열에서 오른쪽 정렬 줄바꿈 -->
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="Auto"/>
                                                     <ColumnDefinition Width="*"/>
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock x:Name="AntigravityGaugeLabel" Grid.Column="0"
-                                                           Text="{Binding EffectiveRowLabel}" Foreground="#F1F5F9" FontSize="11"
-                                                           VerticalAlignment="Top" ToolTip="{Binding DisplayName}"/>
+                                                           Text="{Binding EffectiveRowLabel}" Foreground="#F1F5F9" FontSize="11.5"
+                                                           VerticalAlignment="Top" ToolTip="{Binding Summary}"/>
                                                 <DockPanel Grid.Column="1" HorizontalAlignment="Right" Margin="8,0,0,0">
                                                     <TextBlock x:Name="AntigravityGaugePercent" DockPanel.Dock="Left"
                                                                Text="{Binding UsagePercent, StringFormat={}{0:P0}}"
@@ -1495,8 +1495,6 @@
                                                 <ProgressBar views:GaugeAnimation.Key="{Binding AnimationKey, StringFormat='antigravity:{0}'}" views:GaugeAnimation.Value="{Binding UsagePercent}" Maximum="1" Style="{StaticResource AntigravityBarStyle}" VerticalAlignment="Center"/>
                                                 <views:TimelineMarker Percent="{Binding TimePercent}" Visibility="{Binding HasTimeline, Converter={StaticResource BoolToVisibility}}"/>
                                             </Grid>
-                                            <!-- 요약 한 줄 — Codex·Claude 게이지 아래와 같은 자리·같은 문구 형식 -->
-                                            <TextBlock Text="{Binding Summary}" Foreground="#8B92B3" FontSize="10" Margin="0,4,0,10" TextWrapping="Wrap"/>
                                         </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -1510,7 +1508,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
-                                <Border Grid.Row="0" Height="1" Background="#2D2F45" Margin="0,2,0,8"/>
+                                <Border Grid.Row="0" Height="1" Background="#2D2F45" Margin="0,0,0,8"/>
                                 <Grid Grid.Row="1">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>

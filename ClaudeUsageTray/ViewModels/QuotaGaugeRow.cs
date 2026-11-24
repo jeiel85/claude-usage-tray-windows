@@ -18,7 +18,7 @@ public sealed partial class QuotaGaugeRow : ObservableObject
     public double UsagePercent { get; init; }        // 0..1
     public DateTimeOffset? ResetAt { get; init; }
 
-    /// <summary>게이지 아래 한 줄 요약 ("70% 사용 · 잔량 30%") — Claude·Codex 게이지와 같은 자리.</summary>
+    /// <summary>사용량·잔량 요약 ("70% 사용 · 잔량 30%") — Antigravity(Claude·Codex 주 게이지 #224 규칙)는 라벨 툴팁에, 추가 한도·DeepSeek 행은 막대 아래에 표시한다.</summary>
     public string Summary { get; init; } = "";
 
     /// <summary>창 길이. 모르면 null — 시간선 마커를 그리지 않는다.</summary>

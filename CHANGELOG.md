@@ -3,6 +3,22 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.73.1] - 2026-11-24
+
+<!-- ko -->
+### 개선
+- **Antigravity 게이지 레이아웃을 Claude 기준으로 정렬 (#346)**
+  - **중복 요약 줄 제거 및 라벨 툴팁 이동**: Claude·Codex 주 게이지(#224)와 동일하게 Antigravity 게이지 막대 아래의 중복 `사용 · 잔량` 줄을 없애고 `AntigravityGaugeLabel` 툴팁으로 옮겨 세로 공간을 줄였습니다.
+  - **글자 크기·간격 통일**: `AntigravityGaugeLabel` 글자 크기를 Claude·Codex와 같은 `11.5pt`로 맞추고 행(`10px`)·그룹 및 크레딧 구분선 여백을 정리했습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Improved
+- **Align Antigravity gauge layout with Claude (#346)**
+  - **Remove duplicate summary line below bars**: Moved the redundant `used · left` (`Summary`) line from beneath each Antigravity gauge bar into the `AntigravityGaugeLabel` tooltip, matching Claude and Codex main gauges (#224) and reducing vertical height.
+  - **Harmonize typography and spacing**: Matched `AntigravityGaugeLabel` font size to Claude/Codex (`11.5pt`) and aligned row (`10px`) and divider margins.
+<!-- /en -->
+
 ## [1.73.0] - 2026-11-24
 
 <!-- ko -->
