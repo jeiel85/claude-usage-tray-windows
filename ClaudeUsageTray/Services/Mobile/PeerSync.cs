@@ -20,6 +20,22 @@ namespace ClaudeUsageTray.Services.Mobile;
 public sealed record SyncFrame(int Schema, string Kind, string FromPcId, string FromPcName, IReadOnlyList<UsageSyncSnapshot> Snapshots)
 {
     public const string FrameKind = "sync";
+
+    /// <summary>
+    /// 보낼 표를 <see cref="PeerSyncHub.MaxSnapshotsPerFrame"/> 개씩 나눈 프레임들(#342). 받는 쪽(v1.72.13+)은 한 프레임에서
+    /// 그만큼만 합치므로, 한 프레임에 다 실으면 그 뒤 항목은 영영 전달되지 않는다. 표가 비어도 프레임 하나는 보낸다 —
+    /// 이름 변경(#271)·하트비트가 그 프레임으로 간다.
+    /// </summary>
+    internal static IEnumerable<SyncFrame> Split(string fromPcId, string fromPcName, IReadOnlyList<UsageSyncSnapshot> snapshots)
+    {
+        if (snapshots.Count == 0)
+        {
+            yield return new SyncFrame(MobileProtocol.Schema, FrameKind, fromPcId, fromPcName, []);
+            yield break;
+        }
+        foreach (var chunk in snapshots.Chunk(PeerSyncHub.MaxSnapshotsPerFrame))
+            yield return new SyncFrame(MobileProtocol.Schema, FrameKind, fromPcId, fromPcName, chunk);
+    }
 }
 
 /// <summary>
@@ -608,8 +624,8 @@ public sealed class PeerSyncClient : IDisposable
 
     private async Task SendAsync(WebSocket ws, CancellationToken ct)
     {
-        var frame = new SyncFrame(MobileProtocol.Schema, SyncFrame.FrameKind, _pcId(), _pcName(), _hub.Snapshot());
-        await ws.SendAsync(JsonSerializer.SerializeToUtf8Bytes(frame, MobileProtocol.Json), WebSocketMessageType.Text, true, ct);
+        foreach (var frame in SyncFrame.Split(_pcId(), _pcName(), _hub.Snapshot()))
+            await ws.SendAsync(JsonSerializer.SerializeToUtf8Bytes(frame, MobileProtocol.Json), WebSocketMessageType.Text, true, ct);
     }
 
     private async Task ReceiveLoopAsync(WebSocket ws, SyncPeer peer, CancellationToken owner, CancellationToken ct)

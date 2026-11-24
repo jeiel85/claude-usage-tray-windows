@@ -179,6 +179,48 @@ public class PeerSyncTests : IDisposable
     }
 
     /// <summary>
+    /// 받는 쪽은 한 프레임에서 <see cref="PeerSyncHub.MaxSnapshotsPerFrame"/> 개만 합치므로(#340), 보내는 쪽은 그보다 큰 표를
+    /// 나눠 보내야 한다(#342). 나누지 않으면 129번째부터는 재전송·하트비트로도 영영 닿지 않았다.
+    /// 연결된 쪽(서버 → 클라이언트)과 연결한 쪽(클라이언트 → 서버) 두 방향을 따로 본다 — 합치면 표 상한(256)에 걸린다.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task TableLargerThanOneFrameReachesThePeerWhole(bool hostSends)
+    {
+        using var a = StartPc("A");
+        using var b = StartPc("B");
+        await WaitUntil(() => a.Server.Status().Listening);
+        Assert.Equal("A", await b.Client.JoinAsync(PairingLink.Build(a.Server.CreateOffer()!)));
+        b.Client.Reconcile();
+        await WaitUntil(() => b.Client.Status().All(s => s.Connected));
+
+        var (sender, receiver) = hostSends ? (a.Hub, b.Hub) : (b.Hub, a.Hub);
+        var count = PeerSyncHub.MaxSnapshotsPerFrame + 72;
+        var all = Enumerable.Range(0, count).Select(i => Snapshot($"far-{i}", $"FAR-{i}", "claude", "org", 0.1)).ToList();
+        foreach (var chunk in all.Chunk(PeerSyncHub.MaxSnapshotsPerFrame))
+            sender.Merge(chunk);
+        Assert.Equal(count, sender.Snapshot().Count);
+
+        await WaitUntil(() => receiver.Snapshot().Count == count);
+    }
+
+    [Fact]
+    public void SplitKeepsEveryFrameWithinTheReceiveBound()
+    {
+        var all = Enumerable.Range(0, PeerSyncHub.MaxSnapshotsPerFrame * 2 + 1)
+            .Select(i => Snapshot($"d-{i}", "D", "claude", "org", 0.1)).ToList();
+        var frames = SyncFrame.Split("pc", "PC", all).ToList();
+        Assert.Equal(3, frames.Count);
+        Assert.All(frames, f => Assert.InRange(f.Snapshots.Count, 1, PeerSyncHub.MaxSnapshotsPerFrame));
+        Assert.Equal(all.Select(s => s.DeviceId), frames.SelectMany(f => f.Snapshots).Select(s => s.DeviceId));
+
+        // 빈 표도 프레임 하나는 보낸다 — 이름 변경(#271)이 그 프레임으로 간다.
+        var empty = Assert.Single(SyncFrame.Split("pc", "PC", []));
+        Assert.Empty(empty.Snapshots);
+    }
+
+    /// <summary>
     /// 연결한 쪽(B)에서 상대 PC(A)를 지우면 A 의 기기 목록에서도 B 가 빠진다(#285) — 남아 있으면 다시 연결할 때 B 가 두 번 보인다.
     /// 상대에게 닿지 않아도 이쪽 목록에서는 바로 지워지고 예외가 나지 않는다.
     /// </summary>
