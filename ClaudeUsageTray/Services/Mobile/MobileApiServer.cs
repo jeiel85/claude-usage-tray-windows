@@ -715,9 +715,9 @@ public sealed class MobileApiServer : IDisposable
                         await socket.CloseOutputAsync(WebSocketCloseStatus.PolicyViolation, RevokedCloseReason, CancellationToken.None);
                         break;
                     }
-                    var frame = new SyncFrame(MobileProtocol.Schema, SyncFrame.FrameKind, _devices.PcId, _pcName(), sync.Snapshot());
-                    await socket.SendAsync(JsonSerializer.SerializeToUtf8Bytes(frame, MobileProtocol.Json),
-                        WebSocketMessageType.Text, endOfMessage: true, linked.Token);
+                    foreach (var frame in SyncFrame.Split(_devices.PcId, _pcName(), sync.Snapshot()))
+                        await socket.SendAsync(JsonSerializer.SerializeToUtf8Bytes(frame, MobileProtocol.Json),
+                            WebSocketMessageType.Text, endOfMessage: true, linked.Token);
                     await signal.WaitAsync(LiveHeartbeat, linked.Token);
                 }
             }

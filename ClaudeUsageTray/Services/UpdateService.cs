@@ -299,11 +299,7 @@ public class UpdateService
             ? ex.Message
             : Loc.UpdateDownloadFailed(ex.Message);
 
-    /// <summary>
-    /// 새 exe 를 임시 폴더에 받고 업데이트 서명(<see cref="UpdateSignature"/>)을 확인한다. 서명이 맞지 않으면 받은 파일을 지우고 예외를 낸다.
-    /// 서명은 <c>버전 + SHA-256</c> 에 대한 것이라 SHA256.txt 는 쓰지 않는다(그 파일은 서명 이전 버전과 손으로 받는 사람을 위해 남겨 둔다).
-    /// 검증 없이 설치하는 경로는 없다 — 사용자가 직접 누른 경우도 마찬가지다(#290).
-    /// </summary>
+    /// <summary>업데이트 서명·exe 다운로드 크기 상한(#340).</summary>
     internal const int MaxSignatureBytes = 4 * 1024;
     internal const long MaxExeBytes = 200L * 1024 * 1024;
 
@@ -327,6 +323,11 @@ public class UpdateService
         return System.Text.Encoding.UTF8.GetString(ms.ToArray());
     }
 
+    /// <summary>
+    /// 새 exe 를 임시 폴더에 받고 업데이트 서명(<see cref="UpdateSignature"/>)을 확인한다. 서명이 맞지 않으면 받은 파일을 지우고 예외를 낸다.
+    /// 서명은 <c>버전 + SHA-256</c> 에 대한 것이라 SHA256.txt 는 쓰지 않는다(그 파일은 서명 이전 버전과 손으로 받는 사람을 위해 남겨 둔다).
+    /// 검증 없이 설치하는 경로는 없다 — 사용자가 직접 누른 경우도 마찬가지다(#290).
+    /// </summary>
     public async Task<string> DownloadAndPrepareUpdateAsync(string downloadUrl, string signatureUrl, Version version,
                                                             Action<int, string> onProgress)
     {

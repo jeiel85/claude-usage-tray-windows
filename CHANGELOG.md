@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.72.14] - 2026-11-24
+
+<!-- ko -->
+### 버그 수정
+- **PC 동기화에서 스냅샷 128개를 넘으면 나머지가 전달되지 않던 문제 (#342)**: v1.72.13(#340)부터 받는 PC 가 한 프레임에서 128개만 합치는데, 보내는 쪽은 표 전체를 한 프레임에 실어 129번째부터는 재전송·하트비트로도 상대에게 닿지 않았습니다. 이제 128개씩 나눠 여러 프레임으로 보냅니다(연결한 쪽·연결된 쪽 모두).
+<!-- /ko -->
+
+<!-- en -->
+### Fixed
+- **PC sync dropped every snapshot past the 128th (#342)**: since v1.72.13 (#340) a receiving PC merges at most 128 snapshots per frame, but senders put the whole table in one frame, so entries beyond 128 never reached the peer, even on resends. Senders now split the table into frames of at most 128 (both the connecting and the hosting side).
+<!-- /en -->
+
 ## [1.72.13] - 2026-11-23
 
 <!-- ko -->
