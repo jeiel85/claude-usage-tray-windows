@@ -1,0 +1,142 @@
+name: Publish to Google Play
+
+# release.yml 이 빌드해 둔 서명 Play AAB(play-bundle)를 선택한 태그 기준으로 Google Play Console 에 업로드한다.
+# PC 전용 패치 태그를 실수로 제출하지 않도록 수동 실행(workflow_dispatch)으로 분리하고 mobile/ 변경 가드를 둔다.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '릴리스 태그 (예: v1.73.0)'
+        required: true
+        type: string
+      track:
+        description: '업로드할 기본 트랙 (custom_track 이 비어 있을 때 사용)'
+        required: true
+        default: 'alpha'
+        type: choice
+        options:
+          - alpha
+          - internal
+          - beta
+          - production
+      custom_track:
+        description: '사용자 지정 트랙명 (비공개 테스트에 별도 트랙을 만든 경우만 입력)'
+        required: false
+        default: ''
+        type: string
+      status:
+        description: '트랙 릴리스 상태'
+        required: true
+        default: 'completed'
+        type: choice
+        options:
+          - completed
+          - draft
+          - inProgress
+      user_fraction:
+        description: '단계적 출시 비율 (status=inProgress 일 때만, 예: 0.1)'
+        required: false
+        default: ''
+        type: string
+      changes_not_sent_for_review:
+        description: '대기 중인 검토와 충돌 시 changesNotSentForReview=true 전달'
+        required: false
+        default: false
+        type: boolean
+      force_without_mobile_diff:
+        description: '직전 태그 이후 mobile/ 변경이 없어도 강제로 진행'
+        required: false
+        default: false
+        type: boolean
+      dry_run:
+        description: 'Play API 를 호출하지 않고 검증(아티팩트·인증서·노트·JWT)만 수행'
+        required: false
+        default: false
+        type: boolean
+      release_notes_ko:
+        description: '한국어 출시 노트 직접 입력 (비우면 CHANGELOG.md 사용, 최대 500자)'
+        required: false
+        default: ''
+        type: string
+      release_notes_en:
+        description: '영어 출시 노트 직접 입력 (비우면 CHANGELOG.md 사용, 최대 500자)'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  publish-play:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java (for AAB certificate verification)
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Validate and publish AAB to Google Play
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CUT_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.CUT_PLAY_SERVICE_ACCOUNT_JSON }}
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_TRACK: ${{ inputs.track }}
+          INPUT_CUSTOM_TRACK: ${{ inputs.custom_track }}
+          INPUT_STATUS: ${{ inputs.status }}
+          INPUT_USER_FRACTION: ${{ inputs.user_fraction }}
+          INPUT_CHANGES_NOT_SENT_FOR_REVIEW: ${{ inputs.changes_not_sent_for_review }}
+          INPUT_FORCE: ${{ inputs.force_without_mobile_diff }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          INPUT_NOTES_KO: ${{ inputs.release_notes_ko }}
+          INPUT_NOTES_EN: ${{ inputs.release_notes_en }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $isDryRun = $env:INPUT_DRY_RUN -eq 'true'
+          if (-not $isDryRun -and [string]::IsNullOrWhiteSpace($env:CUT_PLAY_SERVICE_ACCOUNT_JSON)) {
+            throw 'CUT_PLAY_SERVICE_ACCOUNT_JSON 시크릿이 설정되지 않았습니다. GitHub Repository Secrets 에 서비스 계정 JSON 을 등록하거나 dry_run=true 로 검증만 실행하세요 (안내: docs/MOBILE_UPDATES.md).'
+          }
+
+          $effectiveTrack = if (-not [string]::IsNullOrWhiteSpace($env:INPUT_CUSTOM_TRACK)) {
+            $env:INPUT_CUSTOM_TRACK.Trim()
+          } else {
+            $env:INPUT_TRACK
+          }
+
+          $publishArgs = @{
+            Tag    = $env:INPUT_TAG.Trim()
+            Track  = $effectiveTrack
+            Status = $env:INPUT_STATUS
+          }
+          if (-not [string]::IsNullOrWhiteSpace($env:INPUT_USER_FRACTION)) {
+            $fraction = 0.0
+            if (-not [double]::TryParse($env:INPUT_USER_FRACTION.Trim(), [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$fraction)) {
+              throw "user_fraction 값이 숫자가 아닙니다: '$($env:INPUT_USER_FRACTION)'"
+            }
+            $publishArgs.UserFraction = $fraction
+          }
+          if ($env:INPUT_CHANGES_NOT_SENT_FOR_REVIEW -eq 'true') {
+            $publishArgs.ChangesNotSentForReview = $true
+          }
+          if ($env:INPUT_FORCE -eq 'true') {
+            $publishArgs.Force = $true
+          }
+          if ($isDryRun) {
+            $publishArgs.DryRun = $true
+          }
+          if (-not [string]::IsNullOrWhiteSpace($env:INPUT_NOTES_KO)) {
+            $publishArgs.ReleaseNotesKo = $env:INPUT_NOTES_KO
+          }
+          if (-not [string]::IsNullOrWhiteSpace($env:INPUT_NOTES_EN)) {
+            $publishArgs.ReleaseNotesEn = $env:INPUT_NOTES_EN
+          }
+
+          & ./tools/publish-play.ps1 @publishArgs

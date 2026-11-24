@@ -9,6 +9,7 @@ on:
       - 'ClaudeUsageTray/**'
       - 'ClaudeUsageTray.Tests/**'
       - 'mobile/**'
+      - 'tools/**'
       - 'docs/mobile-protocol/**'
       - '.github/workflows/pr-ci.yml'
 

@@ -94,7 +94,7 @@ GitHub 저장소 → Settings → Secrets and variables → Actions → **New re
 
 | | `github` | `play` |
 |---|---|---|
-| 배포 | GitHub Releases의 `ClaudeUsageTray-Mobile.apk` (태그 push → CI) | Google Play. 태그 push → CI가 서명된 `ClaudeUsageTray-Mobile-play.aab`를 워크플로 산출물(`play-bundle`)로 남기고, Play Console 업로드는 사람이 합니다 |
+| 배포 | GitHub Releases의 `ClaudeUsageTray-Mobile.apk` (태그 push → CI) | Google Play. 태그 push → CI가 서명된 `ClaudeUsageTray-Mobile-play.aab`를 `play-bundle` 아티팩트로 남기고, [`tools/publish-play.ps1`](../tools/publish-play.ps1) 또는 Actions `Publish to Google Play` 워크플로로 Play Console에 업로드합니다 |
 | 앱 안 업데이트 | 있음 (이 문서의 흐름, `update.json`) | 설치는 Play가 함. 앱은 새 버전 알림 → Play 스토어로 이동만(#284, 아래) |
 | `REQUEST_INSTALL_PACKAGES` | 있음 | 없음 |
 | `RECEIVE_BOOT_COMPLETED` | 있음 (배경 확인 유지) | 있음 (배경 확인 유지, #284) |
@@ -129,6 +129,75 @@ Play 자동 업데이트를 꺼 둔 사용자도 새 버전을 알 수 있게, P
   (`keytool -printcert -jarfile ClaudeUsageTray-Mobile-play.aab`로 확인. Play Console의 "앱 무결성 → 업로드 키 인증서"와 같아야 합니다)
 - 키 파일과 비밀번호는 저장소 밖(관리자 PC의 `mobile/.keystore/cut-play-upload.jks`·`mobile/play-signing.properties`, git 제외)과 별도 백업에만 있습니다. CI는 시크릿 `CUT_PLAY_*` 4개를 씁니다.
 - Play App Signing에서는 업로드 키를 잃어도 Play Console에서 재설정을 요청할 수 있습니다(앱 서명 키는 Google이 보관). 그래도 백업을 지킵니다.
+
+### Google Play 자동 업로드 (로컬 · CI)
+
+`tools/publish-play.ps1`(로컬·CI 공용 PowerShell 7 스크립트)과 `.github/workflows/play-publish.yml`(수동 `workflow_dispatch`)을 통해 서드파티 Action·외부 도구 없이 Google Play Developer API v3로 `play-bundle` AAB를 업로드할 수 있습니다. PC 전용 패치 태그를 실수로 Play에 제출하지 않도록 **직전 `v*` 태그 이후 `mobile/` 변경이 있는 태그만** 기본 허용합니다(필요 시 `-Force`로 우회).
+
+#### 1. 서비스 계정 JSON 키 발급 (한 번만)
+
+Play API 인증에는 업로드 키(`.jks`)와 별개로 **Google Cloud 서비스 계정 JSON 키**가 필요합니다.
+
+1. [Google Cloud Console](https://console.cloud.google.com/)에서 프로젝트를 선택하거나 새로 만듭니다.
+2. **API 및 서비스 → 라이브러리**에서 **`Google Play Android Developer API`**(`androidpublisher.googleapis.com`)를 **사용**으로 설정합니다.
+3. **IAM 및 관리자 → 서비스 계정**에서 새 서비스 계정을 만듭니다(예: `play-publisher`).
+4. 만든 서비스 계정 → **키 → 키 추가 → 새 키 만들기 → JSON**을 선택해 JSON 파일을 내려받습니다.
+5. [Google Play Console](https://play.google.com/console/) → **사용자 및 권한 → 사용자 초대**:
+   - 위에서 만든 서비스 계정 이메일(`…@….iam.gserviceaccount.com`)을 입력합니다.
+   - **앱 권한** 탭에서 **`AI 사용량` (`com.jeiel85.aiusage`)** 앱을 추가하고 **테스트 트랙 출시 · 프로덕션 출시 관리** 권한을 부여합니다(계정 수준 기본 권한만으로는 거부될 수 있습니다).
+   - 초대/권한 저장 후 Google 쪽 반영까지 최대 24시간 걸릴 수 있습니다.
+
+#### 2. 키 보관
+
+| 사용 환경 | 위치 / 시크릿 이름 | 비고 |
+|---|---|---|
+| **로컬 PC** | 메인 체크아웃 `.keystore/play-service-account.json` | `.gitignore`로 git 제외됨. `CUT_PLAY_SERVICE_ACCOUNT_FILE` 또는 `-ServiceAccountPath`로 경로 지정 가능 |
+| **GitHub Actions CI** | Repository Secret `CUT_PLAY_SERVICE_ACCOUNT_JSON` | 내려받은 JSON 파일 내용 전체를 시크릿 값으로 붙여 넣음 |
+
+> 서비스 계정 JSON 키와 개인키는 절대 커밋하거나 로그·대화에 출력하지 마세요.
+
+#### 3. 로컬에서 실행
+
+```powershell
+# 1) 실제 업로드 없이 태그·mobile/ 변경·AAB·업로드 키 인증서(SHA-256)·CHANGELOG 노트·JWT 점검
+pwsh tools/publish-play.ps1 v1.73.0 -DryRun
+
+# 2) 기본 업로드: 비공개 테스트(alpha) 트랙, 상태 completed, CHANGELOG.md(ko-KR / en-US) 자동 첨부
+pwsh tools/publish-play.ps1 v1.73.0
+
+# 3) PC 전용 태그(예: v1.73.1)처럼 직전 태그 이후 mobile/ 변경이 없어도 강제 업로드할 때
+pwsh tools/publish-play.ps1 v1.73.1 -Force
+
+# 4) 앱 최초 출시 전(draft app)이거나 트랙·단계 배포를 바꿀 때
+pwsh tools/publish-play.ps1 v1.73.0 -Status draft
+pwsh tools/publish-play.ps1 v1.73.0 -Track production -Status inProgress -UserFraction 0.2
+
+# 5) 이미 승인/검토 대기 중인 변경 때문에 commit 이 거절될 때
+pwsh tools/publish-play.ps1 v1.73.0 -ChangesNotSentForReview
+```
+
+- `-AabPath <경로>`를 생략하면 해당 태그 커밋에서 성공한 `release.yml`의 `play-bundle` 아티팩트를 자동으로 내려받아 업로드 키 인증서 SHA-256(`4C:65:B6:47:…:22`) 일치 여부를 검사한 뒤 올립니다.
+- 비공개 테스트를 기본 `alpha`가 아닌 **사용자 지정 트랙 이름**으로 만들었다면 `-Track "<트랙명>"`으로 지정하면 됩니다.
+
+#### 4. GitHub Actions CI에서 실행
+
+1. GitHub 저장소 → **Actions** → **`Publish to Google Play`** → **Run workflow**
+2. 태그(`v1.73.0`), 트랙(`alpha`/`internal`/`beta`/`production` 또는 `custom_track`), 상태(`completed`/`draft`/`inProgress`)를 고르고 실행합니다(`dry_run` 체크 시 검증만 수행).
+3. CLI로 바로 실행할 때:
+
+```powershell
+gh workflow run play-publish.yml -f tag=v1.73.0 -f track=alpha -f status=completed
+```
+
+#### 5. 자주 만나는 오류와 대처
+
+| 오류 내용 | 원인 및 해결 |
+|---|---|
+| `Only releases with status draft may be created on draft app` | Play Console에서 앱이 아직 초안(첫 심사 제출 전) 상태입니다. `-Status draft`(CI `status=draft`)로 올리거나 콘솔에서 첫 버전을 제출하세요. |
+| `changesNotSentForReview` 관련 400 오류 | Play Console '게시 개요'에 아직 검토 보내지 않은 변경이 대기 중입니다. `-ChangesNotSentForReview`(CI `changes_not_sent_for_review=true`)를 붙여 다시 실행하세요. |
+| `403 PERMISSION_DENIED` | 서비스 계정에 `com.jeiel85.aiusage` 앱의 출시 권한이 없거나, 방금 저장해 반영 대기 중입니다. |
+| `versionCode has already been used` | 같은 `versionCode`가 이미 Play Console에 올라가 있습니다. 새 앱 버전으로 태그를 발행해야 합니다. |
+| `직전 태그 이후 mobile/ 변경이 없습니다` | PC 전용 패치 태그를 실수로 올리지 않기 위한 보호 장치입니다. 의도한 경우 `-Force`(`force_without_mobile_diff=true`)를 붙이세요. |
 
 ## 로컬에서 흐름 검증 (선택)
 
