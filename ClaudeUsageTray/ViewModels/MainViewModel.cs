@@ -612,8 +612,6 @@ namespace ClaudeUsageTray.ViewModels;
     public string LblClaudeNoUsage   => Loc.ClaudeNoUsageToday;
     public string LblCodexNoUsage    => IsCodexLoading ? Loc.CodexLoading : Loc.CodexNoUsageToday;
     public string LblCodexSignInExpired => Loc.CodexSignInExpiredNotice;
-    public string LblChatGptImageGeneration => Loc.ChatGptImageGeneration;
-    public string LblChatGptImageGenerationTip => Loc.ChatGptImageGenerationTip;
     public string LblCodexCredits => Loc.CodexCredits;
     public string LblCodexCreditsTip => Loc.CodexCreditsTip;
     public string LblConsoleCredits => Loc.ConsoleCredits;
@@ -3536,7 +3534,6 @@ namespace ClaudeUsageTray.ViewModels;
     private void UpdateCodexAdditionalTimeProgress(DateTimeOffset now)
     {
         UpdateCodexAdditionalRows(now);
-        CodexVm.UpdateImageGenerationLabels(now, ShowAbsoluteResetTime);
     }
 
     /// <summary>
@@ -3797,7 +3794,6 @@ namespace ClaudeUsageTray.ViewModels;
             AntigravityModels = AntigravityVm.Models;
             AntigravityAiCreditsNotice = AntigravityVm.AiCreditsNotice;
             ApplyCodexAdditionalLimits(_codexAdditionalSource);
-            CodexVm.UpdateImageGenerationLabels(DateTimeOffset.Now, ShowAbsoluteResetTime);
             CodexVm.RefreshCreditsLabel();
             // 이 PC 가 읽은 추가 사용 문구("크레딧 없음" 등, #351)도 다음 조회를 기다리지 않고 다시 만든다.
             if (_lastClaudeExtraUsage is { } lastExtra && ClaudeVm.ExtraUsageVisible)

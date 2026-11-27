@@ -122,6 +122,18 @@ public class PopupGaugeBindingRuleTests
         }
     }
 
+    /// <summary>
+    /// #357: ChatGPT <c>conversation/init</c> 의 <c>limits_progress</c> 는 이미지를 만든 뒤에도 늘 요금제 최대치와 "지금 + 24시간" 을
+    /// 돌려준다(2026-11-27 실측) — 남은 횟수가 아니라 "120회 남음" 이 틀린 정보였다. 줄을 되살리지 않는다.
+    /// </summary>
+    [Fact]
+    public void ChatGptImageGenerationRow_StaysRemoved()
+    {
+        var text = File.ReadAllText(PopupXamlPath());
+        Assert.DoesNotContain("CodexImageGenerationRow", text);
+        Assert.DoesNotContain("ImageGenerationRemaining", text);
+    }
+
     [Fact]
     public void TimelineMarkers_UseTheSharedElement()
     {
