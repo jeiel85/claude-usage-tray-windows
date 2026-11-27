@@ -3,6 +3,18 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.75.1] - 2026-11-27
+
+<!-- ko -->
+### 제거
+- **ChatGPT 이미지 생성 줄 (#357)**: Codex 섹션의 `ChatGPT 이미지 생성 N회 남음` 줄을 뺐습니다. ChatGPT 가 주는 값(`conversation/init` 의 `limits_progress`)은 이미지를 실제로 만든 뒤에도 늘 요금제 최대치(Plus 120회)와 "지금부터 24시간 뒤 초기화" 였습니다. 사용량을 세지 않는 한도 값이라 표시가 틀린 정보였습니다. 이 값을 읽던 `curl.exe` 호출도 함께 없앴습니다. Codex 추가 한도(이미지 생성 이름의 한도 포함)는 그대로입니다.
+<!-- /ko -->
+
+<!-- en -->
+### Removed
+- **ChatGPT image generation row (#357)**: Removed the `ChatGPT image generation — N left` row from the Codex section. The value ChatGPT returns (`limits_progress` in `conversation/init`) stayed at the plan maximum (120 on Plus) with a reset "24 hours from now" even right after generating an image, so it is a limit, not remaining usage, and the row was wrong. The `curl.exe` call that read it is gone too. Codex additional limits (including image generation limits) are unchanged.
+<!-- /en -->
+
 ## [1.75.0] - 2026-11-27
 
 <!-- ko -->
