@@ -3,6 +3,27 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.74.0] - 2026-11-27
+
+<!-- ko -->
+### 추가
+- **Codex 크레딧 잔액 표시 (#351)**: Codex 상세에 `Codex 크레딧` 줄을 더했습니다. 이미 부르는 `wham/usage` 응답의 `credits.balance` 를 읽으므로 요청이 늘지 않고, 무제한 계정은 `무제한` 으로 표시합니다.
+- **Claude 추가 크레딧 게이지 상시 표시 (#351)**: 추가 사용을 켠 적 있는 계정은 꺼져 있어도 `사용액 ÷ 월 한도` 게이지와 꺼진 이유(`크레딧 없음`·`한도 도달`·`꺼짐`)를 보입니다. 알림·추가 사용 전용 모드는 켜져 있을 때만 동작합니다(기존과 같음).
+
+### 수정
+- **Claude 추가 사용 금액 단위 (#351)**: `extra_usage` 의 `monthly_limit`·`used_credits` 는 통화 최소 단위(`decimal_places: 2`)인데 `2,300 크레딧` 처럼 그려졌습니다. 이제 `$0.00 / $23.00` 처럼 금액으로 표시합니다(통화 정보가 없는 옛 응답은 크레딧 개수 그대로).
+- **Antigravity 구분선 두 줄 (#351)**: 0% 주간 막대의 빈 트랙 바로 아래에 크레딧 구분선이 있어 선이 두 줄로 보였습니다. 크레딧 줄 위 구분선을 빼고 여백으로만 나눕니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Codex credit balance (#351)**: Added a `Codex credits` row to the Codex details, read from `credits.balance` in the existing `wham/usage` response (no extra request). Unlimited accounts show `Unlimited`.
+- **Claude extra credits gauge always visible (#351)**: Accounts that have ever enabled extra usage now see a `spent ÷ monthly limit` gauge and the reason it is off (`No credits`, `Limit reached`, `Off`) even while disabled. Alerts and extra-only mode still run only when it is enabled.
+
+### Fixed
+- **Claude extra usage amount units (#351)**: `monthly_limit`/`used_credits` in `extra_usage` are minor currency units (`decimal_places: 2`) but were shown as `2,300 credits`. They now show as money, e.g. `$0.00 / $23.00` (older responses without a currency keep the credit count).
+- **Antigravity double divider (#351)**: The empty track of a 0% weekly bar sat right above the credits divider and read as two lines. The divider above the credits row is removed; spacing alone separates it.
+<!-- /en -->
 ## [1.73.1] - 2026-11-24
 
 <!-- ko -->

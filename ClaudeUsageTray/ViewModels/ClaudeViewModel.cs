@@ -117,6 +117,8 @@ public partial class ClaudeViewModel : ObservableObject
     [ObservableProperty] private bool _hasRateLimitHit = false;
     [ObservableProperty] private string _rateLimitInfo = "";
     [ObservableProperty] private bool _extraUsageEnabled = false;
+    // 추가 사용 줄을 보일지 — 켜져 있거나, 켠 적 있는 계정이 꺼진 이유를 보여야 할 때(#351).
+    [ObservableProperty] private bool _extraUsageVisible = false;
     [ObservableProperty] private bool _extraHasLimit = false;
     [ObservableProperty] private double _extraUsagePercent = 0;
     [ObservableProperty] private string _extraCreditsLabel = "";

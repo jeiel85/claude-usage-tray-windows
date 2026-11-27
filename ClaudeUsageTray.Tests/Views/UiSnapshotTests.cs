@@ -180,6 +180,17 @@ public class UiSnapshotTests : IDisposable
         vm.CodexLongReset = "5d";
         vm.IsCodexLongVisible = true;
 
+        // 크레딧(#351) — Claude 는 켠 적 있지만 지금 꺼진 추가 사용(금액 · 이유), Codex 는 크레딧 잔액.
+        var extra = new ExtraUsage
+        {
+            IsEnabled = false, MonthlyLimit = 2300, UsedCredits = 0, Currency = "USD", DecimalPlaces = 2,
+            DisabledReason = "out_of_credits", CreditsEverEnabled = true,
+        };
+        c.ExtraUsageVisible = ClaudeExtraUsageText.IsVisible(extra);
+        c.ExtraCreditsLabel = ClaudeExtraUsageText.Describe(extra);
+        c.ExtraUsagePercent = ClaudeExtraUsageText.Percent(extra);
+        vm.CodexVm.ApplyCredits(new CodexCredits(1234.5m, false));
+
         // 100milionseek(DeepSeek 무료 API) 일일 한도 — OpenCode 와 별도 섹션(#311).
         vm.IsOpenCodeActive = true;
         var now = DateTimeOffset.Now;

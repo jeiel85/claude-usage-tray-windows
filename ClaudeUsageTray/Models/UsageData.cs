@@ -57,6 +57,31 @@ public class ExtraUsage
 
     [JsonPropertyName("monthly_limit")]
     public double? MonthlyLimit { get; set; }
+
+    /// <summary>
+    /// 금액 통화(예: "USD", #351). 있으면 <see cref="UsedCredits"/>·<see cref="MonthlyLimit"/> 은 크레딧 개수가 아니라
+    /// 통화 최소 단위다(2300 = $23.00, 같은 응답의 <c>spend.limit.amount_minor</c> 와 같은 값 — 2026-11-27 실측).
+    /// </summary>
+    [JsonPropertyName("currency")]
+    public string? Currency { get; set; }
+
+    /// <summary>최소 단위의 소수 자릿수(USD 는 2). 통화만 오고 이 값이 없으면 2 로 본다.</summary>
+    [JsonPropertyName("decimal_places")]
+    public int? DecimalPlaces { get; set; }
+
+    /// <summary>꺼진 이유 — "out_of_credits" 등. 켜져 있으면 null.</summary>
+    [JsonPropertyName("disabled_reason")]
+    public string? DisabledReason { get; set; }
+
+    [JsonPropertyName("user_disabled")]
+    public bool UserDisabled { get; set; }
+
+    [JsonPropertyName("spend_limit_reached")]
+    public bool SpendLimitReached { get; set; }
+
+    /// <summary>추가 사용을 한 번이라도 켰던 계정인가 — 꺼져 있어도 줄을 보일지 가르는 기준(#351).</summary>
+    [JsonPropertyName("credits_ever_enabled")]
+    public bool CreditsEverEnabled { get; set; }
 }
 
 public class SessionStats

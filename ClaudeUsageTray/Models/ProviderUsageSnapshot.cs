@@ -49,7 +49,17 @@ public class ProviderUsageSnapshot
     /// Codex 전용: 같은 OpenAI 계정의 ChatGPT 이미지 생성 잔여 횟수(#206). 서버가 주지 않았거나 읽지 못하면 null.
     /// </summary>
     public FeatureAllowance? ImageGeneration { get; set; }
+
+    /// <summary>
+    /// Codex 전용: <c>wham/usage</c> 의 <c>credits</c>(#351) — 요금제 한도를 넘겨 이어 쓰는 크레딧 잔액.
+    /// Direct API 로 읽지 못했거나(로그 폴백) 응답에 없으면 null.
+    /// </summary>
+    public CodexCredits? Credits { get; set; }
 }
+
+/// <param name="Balance">남은 크레딧. 서버는 숫자를 문자열("0", "12.5")로 준다.</param>
+/// <param name="Unlimited">크레딧 제한이 없는 계정(서버 <c>unlimited</c>).</param>
+public sealed record CodexCredits(decimal Balance, bool Unlimited);
 
 /// <summary>
 /// ChatGPT 기능 하나의 잔여 횟수 — <c>conversation/init</c> 응답 <c>limits_progress</c> 의 한 항목(#206).

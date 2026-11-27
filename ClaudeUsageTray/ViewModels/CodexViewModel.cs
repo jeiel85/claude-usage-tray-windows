@@ -41,6 +41,10 @@ public partial class CodexViewModel : ObservableObject
     [ObservableProperty] private string _imageGenerationRemaining = "";
     [ObservableProperty] private string _imageGenerationReset = "";
     private FeatureAllowance? _imageGeneration;
+    // Codex 크레딧 잔액(#351). Direct API 로 읽었을 때만 보인다.
+    [ObservableProperty] private bool _hasCredits;
+    [ObservableProperty] private string _creditsLabel = "";
+    private CodexCredits? _credits;
 
     public double PrevPercent => _alertBaseline.Percent;
     public DateTimeOffset? RawShortResetAt => _rawShortResetAt;
@@ -88,6 +92,7 @@ public partial class CodexViewModel : ObservableObject
                 ErrorMessage = informational ? "" : (snapshot.ErrorMessage ?? "");
                 NeedsSignIn = NeedsSignInFor(snapshot.CodexApiStatus);
                 ApplyImageGeneration(snapshot.ImageGeneration, DateTimeOffset.Now, showAbsoluteResetTime);
+                ApplyCredits(snapshot.Credits);
                 Summary = Loc.UsageSummary(newPercent);
 
                 // 알림이 꺼져 있어도 기준선은 갱신한다 — 나중에 켰을 때 낡은 기준선과 비교하지 않도록.
@@ -143,6 +148,7 @@ public partial class CodexViewModel : ObservableObject
                 // 이번 조회 결과를 모르므로 이전 안내를 남기지 않는다 — 빨간 오류와 회색 안내가 함께 보이지 않게.
                 NeedsSignIn = false;
                 ApplyImageGeneration(null, DateTimeOffset.Now, showAbsoluteResetTime);
+                ApplyCredits(null);
             });
         }
     }
@@ -167,6 +173,28 @@ public partial class CodexViewModel : ObservableObject
         _imageGeneration = allowance;
         UpdateImageGenerationLabels(now, showAbsoluteResetTime);
     }
+
+    internal void ApplyCredits(CodexCredits? credits)
+    {
+        _credits = credits;
+        RefreshCreditsLabel();
+    }
+
+    /// <summary>크레딧 잔액 줄을 다시 쓴다(#351) — 조회 직후와 언어가 바뀔 때.</summary>
+    public void RefreshCreditsLabel()
+    {
+        HasCredits = _credits is not null;
+        CreditsLabel = FormatCredits(_credits);
+    }
+
+    /// <summary>"12.5 크레딧" / "무제한". 정수면 소수점 없이, 아니면 둘째 자리까지.</summary>
+    internal static string FormatCredits(CodexCredits? credits) => credits switch
+    {
+        null => "",
+        { Unlimited: true } => Loc.CodexCreditsUnlimited,
+        _ => Loc.CodexCreditsBalance(
+            Math.Round(credits.Balance, 2).ToString("#,0.##", System.Globalization.CultureInfo.InvariantCulture)),
+    };
 
     /// <summary>
     /// 이미지 생성 잔여 횟수 줄을 다시 쓴다(#206) — 조회 직후, 매초 카운트다운, 표시 설정·언어가 바뀔 때.
