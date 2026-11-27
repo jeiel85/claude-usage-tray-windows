@@ -814,6 +814,10 @@
                                             <DataTrigger Binding="{Binding ClaudeVm.ExtraUsageVisible}" Value="True">
                                                 <Setter Property="Visibility" Value="Visible"/>
                                             </DataTrigger>
+                                            <!-- 크레딧 표시 끔(#354). 추가 사용 전용 모드에서는 이 줄이 주 게이지라 아래 트리거가 다시 보인다(뒤 트리거가 이긴다). -->
+                                            <DataTrigger Binding="{Binding ShowClaudeExtraCredits}" Value="False">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
                                             <DataTrigger Binding="{Binding ClaudeVm.IsExtraOnlyMode}" Value="True">
                                                 <Setter Property="Visibility" Value="Visible"/>
                                             </DataTrigger>
@@ -849,6 +853,62 @@
                                 <ProgressBar x:Name="ClaudeExtraUsageBar" Grid.Row="1" views:GaugeAnimation.Value="{Binding ClaudeVm.ExtraUsagePercent}" Maximum="1" Style="{StaticResource ExtraBarStyle}" Margin="0,4,0,0"/>
                             </Grid>
 
+                            <!-- Console 프로모션 크레딧(#354) — Max 구독에 딸린 API 크레딧 등. claude.ai 추가 사용과 다른 돈이다.
+                                 설정에서 Console 을 연결한 PC 에만 보인다. 막대는 쓴 비율(다른 게이지처럼 쓸수록 찬다). -->
+                            <Grid x:Name="ClaudeConsoleCreditsRow" Margin="0,10,0,0" Background="Transparent" ToolTip="{Binding LblConsoleCreditsTip}">
+                                <Grid.Style>
+                                    <Style TargetType="Grid">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ClaudeVm.ConsoleCreditsVisible}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding ShowConsoleCredits}" Value="False">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Grid.Style>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Grid Grid.Row="0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding LblConsoleCredits}" Foreground="#F1F5F9" FontSize="10.5" VerticalAlignment="Top"/>
+                                    <!-- 금액·만료일은 말줄임 없이 오른쪽 정렬로 줄바꿈한다(UI_GUIDELINES 주 게이지 규칙). -->
+                                    <TextBlock x:Name="ClaudeConsoleCreditsText" Grid.Column="1" Text="{Binding ClaudeVm.ConsoleCreditsLabel}"
+                                               Foreground="#8B92B3" FontSize="10" Margin="8,0,0,0" TextWrapping="Wrap" TextAlignment="Right"
+                                               HorizontalAlignment="Right" VerticalAlignment="Top"/>
+                                </Grid>
+                                <ProgressBar x:Name="ClaudeConsoleCreditsBar" Grid.Row="1" views:GaugeAnimation.Value="{Binding ClaudeVm.ConsoleCreditsPercent}" Maximum="1" Style="{StaticResource ExtraBarStyle}" Margin="0,4,0,0"/>
+                            </Grid>
+
+                            <!-- Console 세션이 풀렸다 — 값을 지우고 다시 연결할 길을 둔다(#354). -->
+                            <WrapPanel x:Name="ClaudeConsoleReconnectRow" Margin="0,8,0,0">
+                                <WrapPanel.Style>
+                                    <Style TargetType="WrapPanel">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ClaudeVm.ConsoleNeedsReconnect}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding ShowConsoleCredits}" Value="False">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </WrapPanel.Style>
+                                <TextBlock Text="{Binding LblConsoleCreditsSignedOut}" Foreground="#8B92B3" FontSize="10" FontStyle="Italic"
+                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <Button Click="ConsoleCreditsReconnect_Click" Content="{Binding LblConsoleCreditsReconnect}"
+                                        Padding="8,2" FontSize="10" Cursor="Hand" Background="#2D2F45" Foreground="#E2E8F0"
+                                        BorderBrush="#3A3D58"/>
+                            </WrapPanel>
+
                             <!-- Usage Empty Placeholder (Claude) -->
                             <TextBlock Text="{Binding LblClaudeNoUsage}" Foreground="#5A5F7A" FontSize="10" FontStyle="Italic" Margin="0,10,0,0"
                                        Visibility="{Binding ClaudeVm.IsUsageEmpty, Converter={StaticResource BoolToVisibility}}"/>
@@ -872,7 +932,7 @@
                                        Visibility="{Binding ClaudeVm.ApiNote, Converter={StaticResource StringToVisibility}}"/>
 
                             <!-- History Chart (Claude 기준) -->
-                            <StackPanel x:Name="ClaudeHistorySection" Margin="0,14,0,0">
+                            <StackPanel x:Name="ClaudeHistorySection" Margin="0,20,0,0">
                                 <StackPanel.Style>
                                     <Style TargetType="StackPanel">
                                         <Setter Property="Visibility" Value="Visible"/>
@@ -883,7 +943,7 @@
                                         </Style.Triggers>
                                     </Style>
                                 </StackPanel.Style>
-                                <Border Height="1" Background="#2D2F45" Margin="0,0,0,12"/>
+                                <!-- 게이지 영역 바로 뒤라 선을 두지 않는다 — 빈 게이지 트랙처럼 읽혔다(#354). 제목과 여백이 경계다. -->
                                 <Grid Margin="0,0,0,10">
                                     <TextBlock x:Name="ChartTitleLabel" Text="{Binding ClaudeVm.HistoryChartTitle}" Style="{StaticResource SectionLabel}"/>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
@@ -941,7 +1001,20 @@
                             </StackPanel>
 
                             <!-- Today's Stats (Claude 세션 기준) -->
-                            <Border Height="1" Background="#2D2F45" Margin="0,14,0,14"/>
+                            <!-- 차트(막대 아님) 뒤, 제목 있는 블록 앞이라 허용되는 구분선. 차트가 숨으면(작업 표시줄 위 고정) 게이지 바로 뒤가 되므로
+                                 선만 투명하게 하고 여백은 남긴다(#354). -->
+                            <Border x:Name="ClaudeTodayTokensDivider" Height="1" Margin="0,14,0,14">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="#2D2F45"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding KeepPopupAboveTaskbar}" Value="True">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                            </Border>
                             <Grid Margin="0,0,0,12">
                                 <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblTodayTokens}" VerticalAlignment="Center"/>
                                 <Button HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,-2,-5,-2"
@@ -1163,8 +1236,20 @@
 
                         <!-- Codex 크레딧 잔액(#351) — wham/usage 의 credits.balance. 한도가 아니라 잔액이라 게이지 없이 한 줄. -->
                         <Grid x:Name="CodexCreditsRow" Margin="0,10,0,0" Background="Transparent"
-                              ToolTip="{Binding LblCodexCreditsTip}"
-                              Visibility="{Binding CodexVm.HasCredits, Converter={StaticResource BoolToVisibility}}">
+                              ToolTip="{Binding LblCodexCreditsTip}">
+                            <Grid.Style>
+                                <Style TargetType="Grid">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding CodexVm.HasCredits}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding ShowCodexCredits}" Value="False">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Grid.Style>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
@@ -1186,10 +1271,9 @@
                         <TextBlock Text="{Binding LblCodexNoUsage}" Foreground="#5A5F7A" FontSize="10" FontStyle="Italic" Margin="0,10,0,0"
                                    Visibility="{Binding IsCodexUsageEmpty, Converter={StaticResource BoolToVisibility}}"/>
 
-                        <!-- 오늘의 토큰 3타일 — Codex 는 cache write 개념이 없어 항상 "—" 이므로 표시하지 않는다(빈 타일이 스크롤만 늘리는 것을 방지) -->
-                        <Border Height="1" Background="#2D2F45" Margin="0,12,0,10"
-                                Visibility="{Binding IsCodexTokenRowVisible, Converter={StaticResource BoolToVisibility}}"/>
-                        <UniformGrid Columns="3" Rows="1"
+                        <!-- 오늘의 토큰 3타일 — Codex 는 cache write 개념이 없어 항상 "—" 이므로 표시하지 않는다(빈 타일이 스크롤만 늘리는 것을 방지).
+                             게이지 영역과는 선 없이 여백으로 나눈다 — 선이 빈 게이지 트랙과 같은 색이라 바로 위 줄의 막대로 읽혔다(#354, UI_GUIDELINES 구분선 규칙). -->
+                        <UniformGrid Columns="3" Rows="1" Margin="0,14,0,0"
                                      Visibility="{Binding IsCodexTokenRowVisible, Converter={StaticResource BoolToVisibility}}">
                             <Border Style="{StaticResource StatBox}" Margin="0,0,4,0"
                                     Visibility="{Binding CodexInputLabel, Converter={StaticResource StringToVisibility}, ConverterParameter=dash}">
@@ -1352,10 +1436,8 @@
                         <TextBlock Text="{Binding LblOpenCodeNoUsage}" Foreground="#5A5F7A" FontSize="10" FontStyle="Italic" Margin="0,0,0,10"
                                    Visibility="{Binding IsOpenCodeUsageEmpty, Converter={StaticResource BoolToVisibility}}"/>
 
-                        <!-- 오늘의 토큰 4타일 (Claude와 동일 레이아웃) -->
-                        <Border x:Name="OpenCodeStatsSeparator" Height="1" Background="#2D2F45" Margin="0,2,0,10"
-                                Visibility="{Binding IsOpenCodeUsageEmpty, Converter={StaticResource BoolToVisibilityInverse}}"/>
-                        <UniformGrid x:Name="OpenCodeTokenTiles" Columns="2" Rows="2"
+                        <!-- 오늘의 토큰 4타일 (Claude와 동일 레이아웃) — 게이지 영역과는 선 없이 여백으로 나눈다(#354, UI_GUIDELINES 구분선 규칙). -->
+                        <UniformGrid x:Name="OpenCodeTokenTiles" Columns="2" Rows="2" Margin="0,12,0,0"
                                      Visibility="{Binding IsOpenCodeUsageEmpty, Converter={StaticResource BoolToVisibilityInverse}}">
                             <Border Style="{StaticResource StatBox}" Margin="0,0,4,4">
                                 <StackPanel>
@@ -1472,8 +1554,8 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Margin="0,0,0,10">
-                                            <!-- 그룹 간 구분선 (두 번째 이후 그룹 첫 행에만 표시) -->
-                                            <Border Height="1" Background="#2D2F45" Margin="0,0,0,8"
+                                            <!-- 그룹 사이 여백 (두 번째 이후 그룹 첫 행에만) — 선을 두면 바로 위 막대의 빈 트랙처럼 읽혀 그룹 제목과 여백으로만 나눈다(#354). -->
+                                            <Border x:Name="AntigravityGroupGap" Height="6"
                                                     Visibility="{Binding HasGroupSeparator, Converter={StaticResource BoolToVisibility}}"/>
 
                                             <!-- 그룹 제목 + 포함 모델 요약 (그룹 첫 행에만 표시) -->
@@ -1518,8 +1600,24 @@
                             <!-- Google AI 크레딧 잔액 — 한도를 다 쓴 뒤 이어 쓸 수 있는 양. 크레딧 대상이 아닌 계정은 줄이 접힌다.
                                  위에 구분선을 두지 않는다: 0% 막대의 빈 트랙이 선처럼 보여 바로 아래 구분선과 두 줄로 겹쳐 보였다(#351).
                                  Claude 추가 크레딧 줄처럼 여백만 둔다. -->
-                            <Grid x:Name="AntigravityAiCreditsRow" Margin="0,0,0,10" ToolTip="{Binding LblAntigravityAiCreditsTip}"
-                                  Visibility="{Binding AntigravityAiCreditsText, Converter={StaticResource StringToVisibility}}">
+                            <Grid x:Name="AntigravityAiCreditsRow" Margin="0,0,0,10" ToolTip="{Binding LblAntigravityAiCreditsTip}">
+                                <Grid.Style>
+                                    <Style TargetType="Grid">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Style.Triggers>
+                                            <!-- 크레딧이 없거나 0 이면 문구가 비어 접힌다(#354) -->
+                                            <DataTrigger Binding="{Binding AntigravityAiCreditsText}" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding AntigravityAiCreditsText}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding ShowAntigravityCredits}" Value="False">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Grid.Style>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>

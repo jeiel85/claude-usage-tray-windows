@@ -101,6 +101,7 @@ public partial class ClaudeViewModel : ObservableObject
         OnPropertyChanged(nameof(ShortPercentLabel));
         OnPropertyChanged(nameof(LongPercentLabel));
         OnPropertyChanged(nameof(HistoryChartTitle));
+        RefreshConsoleCredits();
     }
 
     // 에러가 풀리면 지난 실행 실패 문구도 함께 지운다 — 다음에 다시 로그인이 필요해질 때 옛 실패가 보이지 않게.
@@ -123,6 +124,29 @@ public partial class ClaudeViewModel : ObservableObject
     [ObservableProperty] private double _extraUsagePercent = 0;
     [ObservableProperty] private string _extraCreditsLabel = "";
     [ObservableProperty] private bool _isExtraOnlyMode = false;
+
+    // Console 프로모션 크레딧(#354) — claude.ai 추가 사용과 다른 돈이라 줄을 따로 둔다. 연결하지 않은 PC 에는 아무것도 없다.
+    [ObservableProperty] private bool _consoleCreditsVisible = false;
+    [ObservableProperty] private double _consoleCreditsPercent = 0;
+    [ObservableProperty] private string _consoleCreditsLabel = "";
+    [ObservableProperty] private bool _consoleNeedsReconnect = false;
+    private ClaudeConsoleReadResult _consoleResult = ClaudeConsoleReadResult.NotConnected;
+
+    internal void ApplyConsoleCredits(ClaudeConsoleReadResult result)
+    {
+        _consoleResult = result;
+        RefreshConsoleCredits();
+    }
+
+    /// <summary>마지막 조회 결과로 줄을 다시 그린다 — 언어가 바뀌면 문구만 새로 만든다.</summary>
+    internal void RefreshConsoleCredits()
+    {
+        var credits = _consoleResult.State == ClaudeConsoleSessionState.Ok ? _consoleResult.Credits : null;
+        ConsoleCreditsVisible = credits != null;
+        ConsoleCreditsPercent = credits?.UsedFraction ?? 0;
+        ConsoleCreditsLabel = credits != null ? ClaudeExtraUsageText.DescribeConsoleCredits(credits) : "";
+        ConsoleNeedsReconnect = _consoleResult.State == ClaudeConsoleSessionState.SignedOut;
+    }
     [ObservableProperty] private IReadOnlyList<DailyStats> _historyData = [];
     [ObservableProperty] private long[] _hourlyTokens = new long[24];
     [ObservableProperty] private string _todayCostLabel = "";

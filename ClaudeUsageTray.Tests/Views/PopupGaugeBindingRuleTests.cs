@@ -80,6 +80,48 @@ public class PopupGaugeBindingRuleTests
     /// #237: 시간선 마커는 <c>views:TimelineMarker</c> 하나로 그린다. 게이지마다 열 두 개짜리 Grid 를 복사하던 때는
     /// 한 곳만 고치면 나머지가 어긋났다. 막대가 있는 틀(높이 8)마다 마커가 하나씩 있는지도 본다.
     /// </summary>
+    /// <summary>
+    /// 크레딧 줄마다 자기 표시 설정을 본다(#354) — 체크를 끄면 그 줄의 Style 에 False → Collapsed 트리거가 있어야 숨는다.
+    /// </summary>
+    [Theory]
+    [InlineData("ClaudeExtraUsageRow", "ShowClaudeExtraCredits")]
+    [InlineData("ClaudeConsoleCreditsRow", "ShowConsoleCredits")]
+    [InlineData("ClaudeConsoleReconnectRow", "ShowConsoleCredits")]
+    [InlineData("CodexCreditsRow", "ShowCodexCredits")]
+    [InlineData("AntigravityAiCreditsRow", "ShowAntigravityCredits")]
+    public void CreditRows_FollowTheirOwnDisplaySetting(string rowName, string setting)
+    {
+        var doc = XDocument.Load(PopupXamlPath());
+        const string XamlNs = "http://schemas.microsoft.com/winfx/2006/xaml";
+        var row = doc.Descendants().Single(e => (string?)e.Attribute(XName.Get("Name", XamlNs)) == rowName);
+        var hides = row.Elements().Where(e => e.Name.LocalName.EndsWith(".Style"))
+            .SelectMany(s => s.Descendants(XName.Get("DataTrigger", WpfNs)))
+            .Any(t => (string?)t.Attribute("Binding") == $"{{Binding {setting}}}" && (string?)t.Attribute("Value") == "False"
+                && t.Descendants(XName.Get("Setter", WpfNs)).Any(s => (string?)s.Attribute("Value") == "Collapsed"));
+        Assert.True(hides, $"{rowName} must collapse when {setting} is false");
+    }
+
+    /// <summary>
+    /// 구분선 규칙(#354, UI_GUIDELINES "구분선"): 1px 가로선은 빈 게이지 트랙(4px, 같은 색)과 헷갈려, 게이지 영역 안이나 바로 뒤에 두면
+    /// 0% 막대로 읽혔다(Antigravity 크레딧 위, Codex 이미지 생성 아래, Claude 7일 추이 위). 허용된 자리는 이름을 붙인 것뿐이다.
+    /// </summary>
+    [Fact]
+    public void HorizontalRules_AppearOnlyWhereTheyCannotPassForAGauge()
+    {
+        var doc = XDocument.Load(PopupXamlPath(), LoadOptions.SetLineInfo);
+        const string XamlNs = "http://schemas.microsoft.com/winfx/2006/xaml";
+        string[] allowed = ["ClaudeTodayTokensDivider"];
+        var rules = doc.Descendants(XName.Get("Border", WpfNs))
+            .Where(b => (string?)b.Attribute("Height") is "1" or "2");
+        foreach (var rule in rules)
+        {
+            var name = (string?)rule.Attribute(XName.Get("Name", XamlNs));
+            var line = ((System.Xml.IXmlLineInfo)rule).LineNumber;
+            Assert.True(name != null && allowed.Contains(name),
+                $"UsagePopup.xaml:{line} horizontal rule — separate blocks with spacing instead (docs/UI_GUIDELINES.md)");
+        }
+    }
+
     [Fact]
     public void TimelineMarkers_UseTheSharedElement()
     {

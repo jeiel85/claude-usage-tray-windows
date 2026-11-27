@@ -452,6 +452,20 @@ public partial class UsagePopup : Window, IDisposable
         if (await _vm.OpenCodeVm.ConnectWebUsageAsync())
             await _vm.RefreshAsync();
     }
+    private bool _consoleReconnectRunning;
+    private async void ConsoleCreditsReconnect_Click(object sender, RoutedEventArgs e)
+    {
+        if (_consoleReconnectRunning) return;
+        _consoleReconnectRunning = true;
+        try
+        {
+            await _vm.ConnectConsoleCreditsAsync();
+        }
+        finally
+        {
+            _consoleReconnectRunning = false;
+        }
+    }
     private void AntigravityFocus_Click(object sender, RoutedEventArgs e) => SetFocusedProvider(Models.UsageProviderKind.Antigravity);
     private void HmsFocus_Click(object sender, RoutedEventArgs e) => SetFocusedProvider(MainViewModel.HmsFocusKey);
 

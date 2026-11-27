@@ -1688,6 +1688,189 @@ public static class Loc
         _ => "Unlimited"
     };
 
+    // ===== Claude Console 프로모션 크레딧 (#354) =====
+
+    /// <summary>Claude 섹션의 Console 크레딧 줄 이름.</summary>
+    public static string ConsoleCredits => Lang switch
+    {
+        "ko" => "Console 크레딧",
+        "zh" => "Console 积分",
+        "ja" => "Console クレジット",
+        _ => "Console credits"
+    };
+
+    public static string ConsoleCreditsTip => Lang switch
+    {
+        "ko" => "Claude Console(platform.claude.com)의 프로모션 크레딧입니다. Max 구독에 딸린 API 크레딧처럼 API·Agent SDK·배치·Playground 에서 쓰이며 만료일이 있습니다. 막대는 쓴 비율입니다.",
+        "zh" => "Claude Console（platform.claude.com）的促销积分。例如 Max 订阅附带的 API 积分，可用于 API、Agent SDK、批处理和 Playground，有到期日。进度条表示已用比例。",
+        "ja" => "Claude Console（platform.claude.com）のプロモーションクレジットです。Max サブスクリプションに付く API クレジットのように API・Agent SDK・バッチ・Playground で使え、有効期限があります。バーは使った割合です。",
+        _ => "Promotional credits in Claude Console (platform.claude.com), such as the API credit that comes with Max. They apply to the API, Agent SDK, batch and Playground, and expire. The bar shows how much is used."
+    };
+
+    /// <summary>잔액·지급액 — 금액은 이미 꾸며서 받는다("$57.80").</summary>
+    public static string ConsoleCreditsAmount(string remaining, string granted) => Lang switch
+    {
+        "ko" => $"{remaining} 남음 / {granted}",
+        "zh" => $"剩余 {remaining} / {granted}",
+        "ja" => $"残り {remaining} / {granted}",
+        _ => $"{remaining} left / {granted}"
+    };
+
+    /// <summary>만료일 — 날짜는 이미 꾸며서 받는다("12-10").</summary>
+    public static string ConsoleCreditsExpires(string date) => Lang switch
+    {
+        "ko" => $"{date} 만료",
+        "zh" => $"{date} 到期",
+        "ja" => $"{date} 失効",
+        _ => $"expires {date}"
+    };
+
+    public static string ConsoleCreditsSignedOut => Lang switch
+    {
+        "ko" => "Console 로그인이 풀렸습니다",
+        "zh" => "Console 登录已失效",
+        "ja" => "Console のログインが切れました",
+        _ => "Console sign-in expired"
+    };
+
+    public static string ConsoleCreditsReconnect => Lang switch
+    {
+        "ko" => "다시 연결",
+        "zh" => "重新连接",
+        "ja" => "再接続",
+        _ => "Reconnect"
+    };
+
+    public static string ConsoleCreditsLoginTitle => Lang switch
+    {
+        "ko" => "Claude Console 크레딧 연결",
+        "zh" => "连接 Claude Console 积分",
+        "ja" => "Claude Console クレジットを接続",
+        _ => "Connect Claude Console credits"
+    };
+
+    public static string ConsoleCreditsReadTimedOut => Lang switch
+    {
+        "ko" => "Console 응답이 늦어 크레딧을 읽지 못했습니다.",
+        "zh" => "Console 响应超时，未能读取积分。",
+        "ja" => "Console の応答が遅く、クレジットを読み取れませんでした。",
+        _ => "Console did not respond in time."
+    };
+
+    public static string ConsoleCreditsReadFailed(string reason) => Lang switch
+    {
+        "ko" => $"Console 크레딧을 읽지 못했습니다({reason}).",
+        "zh" => $"未能读取 Console 积分（{reason}）。",
+        "ja" => $"Console クレジットを読み取れませんでした（{reason}）。",
+        _ => $"Could not read Console credits ({reason})."
+    };
+
+    public static string ConsoleCreditsNoApiOrganization => Lang switch
+    {
+        "ko" => "이 계정에 API 조직이 없습니다. Console 에서 조직을 만든 계정으로 로그인하세요.",
+        "zh" => "此账户没有 API 组织。请使用已在 Console 创建组织的账户登录。",
+        "ja" => "このアカウントに API 組織がありません。Console で組織を作成したアカウントでログインしてください。",
+        _ => "This account has no API organization. Sign in with the account that has a Console organization."
+    };
+
+    public static string ConsoleCreditsSection => Lang switch
+    {
+        "ko" => "Claude Console 크레딧",
+        "zh" => "Claude Console 积分",
+        "ja" => "Claude Console クレジット",
+        _ => "Claude Console credits"
+    };
+
+    public static string ConsoleCreditsHint => Lang switch
+    {
+        "ko" => "Max 구독에 딸린 API 크레딧 같은 Console 프로모션 크레딧을 Claude 섹션에 보여 줍니다. Claude Code 로그인으로는 읽을 수 없어 앱 전용 창에서 Console 에 한 번 로그인합니다(브라우저 쿠키는 읽지 않습니다). Google 로그인이 막히면 이메일로 로그인하세요.",
+        "zh" => "在 Claude 区域显示 Console 促销积分（例如 Max 订阅附带的 API 积分）。Claude Code 登录无法读取，需要在应用专用窗口中登录一次 Console（不读取浏览器 Cookie）。若 Google 登录被阻止，请使用邮箱登录。",
+        "ja" => "Max サブスクリプションに付く API クレジットなど、Console のプロモーションクレジットを Claude セクションに表示します。Claude Code のログインでは読めないため、アプリ専用ウィンドウで Console に一度ログインします（ブラウザーの Cookie は読みません）。Google ログインがブロックされたらメールでログインしてください。",
+        _ => "Shows Console promotional credits, such as the API credit that comes with Max, in the Claude section. Claude Code sign-in cannot read them, so you sign in to Console once in an app-only window (browser cookies are not read). If Google sign-in is blocked, use email."
+    };
+
+    public static string ConsoleConnect => Lang switch
+    {
+        "ko" => "Console 연결",
+        "zh" => "连接 Console",
+        "ja" => "Console を接続",
+        _ => "Connect Console"
+    };
+
+    public static string ConsoleConnecting => Lang switch
+    {
+        "ko" => "열린 창에서 로그인하세요…",
+        "zh" => "请在打开的窗口中登录…",
+        "ja" => "開いたウィンドウでログインしてください…",
+        _ => "Sign in in the window that opened…"
+    };
+
+    public static string ConsoleDisconnect => Lang switch
+    {
+        "ko" => "연결 해제",
+        "zh" => "断开连接",
+        "ja" => "接続解除",
+        _ => "Disconnect"
+    };
+
+    public static string ConsoleNotConnected => Lang switch
+    {
+        "ko" => "연결 안 됨",
+        "zh" => "未连接",
+        "ja" => "未接続",
+        _ => "Not connected"
+    };
+
+    public static string ConsoleConnected => Lang switch
+    {
+        "ko" => "연결됨",
+        "zh" => "已连接",
+        "ja" => "接続済み",
+        _ => "Connected"
+    };
+
+    public static string ConsoleConnectCancelled => Lang switch
+    {
+        "ko" => "로그인을 마치지 못했습니다. 다시 시도하세요.",
+        "zh" => "未完成登录，请重试。",
+        "ja" => "ログインが完了しませんでした。もう一度お試しください。",
+        _ => "Sign-in was not completed. Try again."
+    };
+
+    // ===== 크레딧 줄 표시 옵션 (#354) =====
+
+    public static string ShowCredits => Lang switch
+    {
+        "ko" => "크레딧 표시",
+        "zh" => "显示积分",
+        "ja" => "クレジットを表示",
+        _ => "Show credits"
+    };
+
+    public static string ShowCreditsHint => Lang switch
+    {
+        "ko" => "체크를 끈 크레딧 줄은 팝업에서 숨깁니다. Antigravity 크레딧은 0 이면 켜 두어도 숨기고, 추가 사용 전용 모드의 Claude 추가 크레딧은 주 게이지라 숨기지 않습니다.",
+        "zh" => "取消勾选的积分行将在弹窗中隐藏。Antigravity 积分为 0 时即使勾选也会隐藏；仅额外用量模式下的 Claude 额外积分是主仪表，不会隐藏。",
+        "ja" => "チェックを外したクレジット行はポップアップで隠します。Antigravity クレジットは 0 ならオンでも隠し、追加利用専用モードの Claude 追加クレジットはメインゲージなので隠しません。",
+        _ => "Unchecked credit rows are hidden in the popup. Antigravity credits also stay hidden at 0, and Claude extra credits stay visible in extra-only mode, where they are the main gauge."
+    };
+
+    public static string ShowClaudeExtraCredits => Lang switch
+    {
+        "ko" => "Claude 추가 크레딧",
+        "zh" => "Claude 额外积分",
+        "ja" => "Claude 追加クレジット",
+        _ => "Claude extra credits"
+    };
+
+    public static string ShowAntigravityCredits => Lang switch
+    {
+        "ko" => "Antigravity AI 크레딧",
+        "zh" => "Antigravity AI 积分",
+        "ja" => "Antigravity AI クレジット",
+        _ => "Antigravity AI credits"
+    };
+
     // Chart toggle labels
     public static string SevenDayToggle => Lang switch
     {

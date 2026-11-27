@@ -189,6 +189,9 @@ public class UiSnapshotTests : IDisposable
         c.ExtraUsageVisible = ClaudeExtraUsageText.IsVisible(extra);
         c.ExtraCreditsLabel = ClaudeExtraUsageText.Describe(extra);
         c.ExtraUsagePercent = ClaudeExtraUsageText.Percent(extra);
+        // Console 프로모션 크레딧(#354) — 2026-11-27 실측과 같은 값.
+        c.ApplyConsoleCredits(ClaudeConsoleReadResult.Ok(
+            new ClaudeConsoleCredits(5780, 10000, 2, "USD", new DateTimeOffset(2026, 12, 10, 0, 0, 0, TimeSpan.Zero))));
         vm.CodexVm.ApplyCredits(new CodexCredits(1234.5m, false));
 
         // 100milionseek(DeepSeek 무료 API) 일일 한도 — OpenCode 와 별도 섹션(#311).

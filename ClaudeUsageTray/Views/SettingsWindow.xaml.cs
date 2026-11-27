@@ -212,6 +212,17 @@ public partial class SettingsWindow : Window, IDisposable
         LblHmsKey.Text                      = Loc.HmsKeyTitle;
         LblHmsKeyHint.Text                  = Loc.HmsKeyHint;
         BtnHmsKeyClear.Content              = Loc.HmsKeyClear;
+        LblConsoleCredits.Text              = Loc.ConsoleCreditsSection;
+        LblConsoleCreditsHint.Text          = Loc.ConsoleCreditsHint;
+        BtnConsoleConnect.Content           = Loc.ConsoleConnect;
+        BtnConsoleDisconnect.Content        = Loc.ConsoleDisconnect;
+        LblShowCredits.Text                 = Loc.ShowCredits;
+        ChkShowClaudeExtraCredits.Content   = Loc.ShowClaudeExtraCredits;
+        ChkShowConsoleCredits.Content       = Loc.ConsoleCredits;
+        ChkShowCodexCredits.Content         = Loc.CodexCredits;
+        ChkShowAntigravityCredits.Content   = Loc.ShowAntigravityCredits;
+        LblShowCreditsHint.Text             = Loc.ShowCreditsHint;
+        UpdateConsoleStatus();
         BtnHmsKeySave.Content               = Loc.HmsKeySave;
         UpdateHmsKeyStatus();
 
@@ -397,6 +408,10 @@ public partial class SettingsWindow : Window, IDisposable
         ChkShowClaudeAccount.IsChecked     = _vm.ShowClaudeAccount;
         ChkShowAbsoluteResetTime.IsChecked = _vm.ShowAbsoluteResetTime;
         ChkShowAntigravityThirdPartyQuota.IsChecked = _vm.ShowAntigravityThirdPartyQuota;
+        ChkShowClaudeExtraCredits.IsChecked = _vm.ShowClaudeExtraCredits;
+        ChkShowConsoleCredits.IsChecked     = _vm.ShowConsoleCredits;
+        ChkShowCodexCredits.IsChecked       = _vm.ShowCodexCredits;
+        ChkShowAntigravityCredits.IsChecked = _vm.ShowAntigravityCredits;
         ChkKeepPopupAboveTaskbar.IsChecked = _vm.KeepPopupAboveTaskbar;
         SliderUsagePanelOpacity.Value      = _vm.UsagePanelOpacity > 0 ? Math.Clamp(_vm.UsagePanelOpacity, 0.5, 1.0) : 0.94;
 
@@ -479,6 +494,10 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.ShowClaudeAccount     = ChkShowClaudeAccount.IsChecked == true;
         _vm.ShowAbsoluteResetTime = ChkShowAbsoluteResetTime.IsChecked == true;
         _vm.ShowAntigravityThirdPartyQuota = ChkShowAntigravityThirdPartyQuota.IsChecked == true;
+        _vm.ShowClaudeExtraCredits = ChkShowClaudeExtraCredits.IsChecked == true;
+        _vm.ShowConsoleCredits     = ChkShowConsoleCredits.IsChecked == true;
+        _vm.ShowCodexCredits       = ChkShowCodexCredits.IsChecked == true;
+        _vm.ShowAntigravityCredits = ChkShowAntigravityCredits.IsChecked == true;
         _vm.KeepPopupAboveTaskbar = ChkKeepPopupAboveTaskbar.IsChecked == true;
         _vm.UsagePanelOpacity     = Math.Clamp(SliderUsagePanelOpacity.Value, 0.5, 1.0);
 
@@ -650,6 +669,52 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.HmsApiKeyProtected = "";
         PwdHmsKey.Clear();
         Setting_Changed(sender, e);
+    }
+
+    private bool _consoleConnecting;
+    private string? _consoleError;
+
+    private void UpdateConsoleStatus()
+    {
+        var connected = _vm.IsConsoleCreditsConnected;
+        LblConsoleStatus.Text = _consoleConnecting ? Loc.ConsoleConnecting
+            : _consoleError ?? (connected ? Loc.ConsoleConnected : Loc.ConsoleNotConnected);
+        BtnConsoleConnect.IsEnabled = !_consoleConnecting;
+        BtnConsoleConnect.Content = connected ? Loc.ConsoleCreditsReconnect : Loc.ConsoleConnect;
+        BtnConsoleDisconnect.Visibility = connected && !_consoleConnecting ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>
+    /// Console 로그인 창을 연다(#354). 로그인 창이 앞으로 오는 동안 설정 창이 비활성으로 숨지 않게 대화상자처럼 다룬다.
+    /// </summary>
+    private async void BtnConsoleConnect_Click(object sender, RoutedEventArgs e)
+    {
+        if (_consoleConnecting) return;
+        _consoleConnecting = true;
+        _consoleError = null;
+        _nativeDialogOpen = true;
+        UpdateConsoleStatus();
+        try
+        {
+            _consoleError = await _vm.ConnectConsoleCreditsAsync();
+        }
+        finally
+        {
+            _nativeDialogOpen = false;
+            _consoleConnecting = false;
+            if (!_disposed)
+            {
+                UpdateConsoleStatus();
+                Activate();
+            }
+        }
+    }
+
+    private async void BtnConsoleDisconnect_Click(object sender, RoutedEventArgs e)
+    {
+        _consoleError = null;
+        await _vm.DisconnectConsoleCreditsAsync();
+        if (!_disposed) UpdateConsoleStatus();
     }
 
     private void BtnCloudflareTokenClear_Click(object sender, RoutedEventArgs e)

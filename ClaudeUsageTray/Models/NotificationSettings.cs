@@ -116,6 +116,13 @@ public class NotificationSettings
     /// </summary>
     public bool ShowAntigravityThirdPartyQuota { get; set; } = false;
 
+    // 크레딧 줄마다 팝업에 보일지(#354). 기본 켜짐 — 키가 없던 예전 파일도 켜짐으로 읽힌다.
+    // 추가 사용 전용 모드에서는 Claude 추가 크레딧 줄이 주 게이지라 끄지 않는다.
+    public bool ShowClaudeExtraCredits { get; set; } = true;
+    public bool ShowConsoleCredits { get; set; } = true;
+    public bool ShowCodexCredits { get; set; } = true;
+    public bool ShowAntigravityCredits { get; set; } = true;
+
     public bool KeepPopupAboveTaskbar { get; set; } = false;
     public double UsagePanelOpacity { get; set; } = 0.94;
 

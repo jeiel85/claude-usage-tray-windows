@@ -585,6 +585,36 @@
                                     <Button x:Name="BtnHmsKeyClear" Style="{StaticResource LinkBtn}" VerticalAlignment="Center" Click="BtnHmsKeyClear_Click"/>
                                 </WrapPanel>
 
+                                <!-- Claude Console 프로모션 크레딧 (#354) — 앱 전용 WebView2 창에서 Console 에 로그인한다 -->
+                                <Border Height="1" Background="#2D2F45" Margin="0,8,0,8"/>
+                                <TextBlock x:Name="LblConsoleCredits" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
+                                <TextBlock x:Name="LblConsoleCreditsHint" Foreground="#5A5F7A" FontSize="11" TextWrapping="Wrap" Margin="2,0,0,6"/>
+                                <WrapPanel>
+                                    <Button x:Name="BtnConsoleConnect" Padding="14,4" MinWidth="64" Margin="0,0,10,0"
+                                            FontSize="12" FontWeight="SemiBold" Cursor="Hand" Click="BtnConsoleConnect_Click">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="Bg" Background="#4D6BFE" BorderBrush="#6E86FF" BorderThickness="1"
+                                                        CornerRadius="6" Padding="{TemplateBinding Padding}" TextElement.Foreground="White">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Bg" Property="Background" Value="#6E86FF"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsEnabled" Value="False">
+                                                        <Setter TargetName="Bg" Property="Background" Value="#2D2F45"/>
+                                                        <Setter TargetName="Bg" Property="BorderBrush" Value="#3A3D58"/>
+                                                        <Setter TargetName="Bg" Property="TextElement.Foreground" Value="#5A5F7A"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                    <TextBlock x:Name="LblConsoleStatus" Foreground="#7C83A4" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <Button x:Name="BtnConsoleDisconnect" Style="{StaticResource LinkBtn}" VerticalAlignment="Center" Click="BtnConsoleDisconnect_Click"/>
+                                </WrapPanel>
+
                                 <!-- v1.27.0: 표시 옵션 토글 -->
                                 <Border Height="1" Background="#2D2F45" Margin="0,8,0,8"/>
                                 <TextBlock x:Name="LblDisplayOptions" Style="{StaticResource SectionLabel}" Margin="0,0,0,8"/>
@@ -594,6 +624,15 @@
                                 <TextBlock x:Name="LblShowClaudeAccountHint" Foreground="#5A5F7A" FontSize="11" Margin="2,0,0,6" TextWrapping="Wrap"/>
                                 <CheckBox x:Name="ChkShowAbsoluteResetTime" Style="{StaticResource CheckStyle}" Margin="0,0,0,4" Click="Setting_Changed"/>
                                 <TextBlock x:Name="LblShowAbsoluteResetTimeHint" Foreground="#5A5F7A" FontSize="11" Margin="2,0,0,0" TextWrapping="Wrap"/>
+                                <!-- #354 크레딧 줄마다 표시 여부 -->
+                                <TextBlock x:Name="LblShowCredits" Foreground="#C8CCE0" FontSize="12" Margin="0,8,0,4"/>
+                                <WrapPanel>
+                                    <CheckBox x:Name="ChkShowClaudeExtraCredits" Style="{StaticResource CheckStyle}" Margin="0,0,14,4" Click="Setting_Changed"/>
+                                    <CheckBox x:Name="ChkShowConsoleCredits"     Style="{StaticResource CheckStyle}" Margin="0,0,14,4" Click="Setting_Changed"/>
+                                    <CheckBox x:Name="ChkShowCodexCredits"       Style="{StaticResource CheckStyle}" Margin="0,0,14,4" Click="Setting_Changed"/>
+                                    <CheckBox x:Name="ChkShowAntigravityCredits" Style="{StaticResource CheckStyle}" Margin="0,0,0,4" Click="Setting_Changed"/>
+                                </WrapPanel>
+                                <TextBlock x:Name="LblShowCreditsHint" Foreground="#5A5F7A" FontSize="11" Margin="2,0,0,0" TextWrapping="Wrap"/>
                                 <!-- Antigravity 는 기본으로 Gemini 한도만 보여준다 — 켜면 Claude·GPT 창도 행·트레이 숫자에 들어간다 -->
                                 <CheckBox x:Name="ChkShowAntigravityThirdPartyQuota" Style="{StaticResource CheckStyle}" Margin="0,6,0,2" Click="Setting_Changed"/>
                                 <TextBlock x:Name="LblShowAntigravityThirdPartyQuotaHint" Foreground="#5A5F7A" FontSize="11" Margin="2,0,0,0" TextWrapping="Wrap"/>

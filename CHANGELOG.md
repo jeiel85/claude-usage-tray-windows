@@ -3,6 +3,26 @@
 모든 주요 변경 사항을 이 파일에 기록합니다.
 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/) 형식을 따릅니다.
 
+## [1.75.0] - 2026-11-27
+
+<!-- ko -->
+### 추가
+- **Claude Console 크레딧 표시 (#354)**: Max 구독에 딸린 `API credit (Max)` 같은 Console(platform.claude.com) 프로모션 크레딧을 Claude 섹션에 `$57.80 남음 / $100.00 · 12-10 만료` 와 쓴 비율 게이지로 보입니다. 이 크레딧은 claude.ai 의 추가 사용(`추가 크레딧`)과 다른 돈이고, Claude Code 로그인 토큰으로는 읽을 수 없어 설정 > 트레이 > `Console 연결` 에서 앱 전용 창으로 Console 에 한 번 로그인합니다(브라우저 쿠키는 읽지 않음). 로그인이 풀리면 팝업에 `다시 연결` 이 나타나고, 연결 해제로 앱의 Console 세션을 지울 수 있습니다.
+- **크레딧 줄별 표시 선택 (#354)**: 설정 > 트레이 > 표시 옵션의 `크레딧 표시` 에서 Claude 추가 크레딧·Console 크레딧·Codex 크레딧·Antigravity AI 크레딧 줄을 하나씩 골라 숨길 수 있습니다(기본 모두 켜짐, 추가 사용 전용 모드의 주 게이지는 숨기지 않음).
+
+### 변경
+- **Antigravity AI 크레딧 0 숨김 (#354)**: 크레딧이 0 이면 줄을 보이지 않습니다. 크레딧을 산 적 없는 계정에도 늘 `0` 이 보였습니다.
+<!-- /ko -->
+
+<!-- en -->
+### Added
+- **Claude Console credits (#354)**: Console (platform.claude.com) promotional credits, such as the `API credit (Max)` that comes with Max, now show in the Claude section as `$57.80 left / $100.00 · expires 12-10` with a used-share gauge. They are separate from claude.ai extra usage (`Extra credits`) and Claude Code's sign-in token cannot read them, so you sign in to Console once in an app-only window from Settings > Tray > `Connect Console` (browser cookies are not read). When the sign-in expires the popup offers `Reconnect`, and Disconnect clears the app's Console session.
+- **Per-row credit display (#354)**: `Show credits` under Settings > Tray > Display options lets you hide the Claude extra credits, Console credits, Codex credits and Antigravity AI credits rows one by one (all on by default; the main gauge of extra-only mode stays).
+
+### Changed
+- **Antigravity AI credits hidden at 0 (#354)**: The row no longer shows when the balance is 0. Accounts that never bought credits always saw `0`.
+<!-- /en -->
+
 ## [1.74.0] - 2026-11-27
 
 <!-- ko -->
