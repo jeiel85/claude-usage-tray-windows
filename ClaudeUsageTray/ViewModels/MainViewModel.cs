@@ -2252,7 +2252,7 @@ namespace ClaudeUsageTray.ViewModels;
         var extra = usage.ExtraUsage;
         var extraHasLimit = extra?.MonthlyLimit.HasValue == true;
         var extraUsagePercent = extraHasLimit
-            ? Math.Min(1.0, (extra?.Utilization ?? 0) / 100.0)
+            ? ClaudeExtraUsageText.Percent(extra)
             : (double?)null;
         // 켜져 있을 때만 싣는다 — 꺼짐 이유 줄(#351)은 이 PC 화면 전용이고, 받는 PC 는 비어 있으면 줄을 숨긴다.
         var extraCreditsLabel = ClaudeExtraUsageText.Describe(extra);
@@ -2885,10 +2885,8 @@ namespace ClaudeUsageTray.ViewModels;
                     if (usage.ExtraUsage is { IsEnabled: true } eu)
                     {
                         var extraHasLimit = eu.MonthlyLimit.HasValue;
-                        var extraUsagePercent = eu.MonthlyLimit.HasValue
-                            ? Math.Min(1.0, (eu.Utilization ?? 0) / 100.0)
-                            : 0;
-                        SetClaudeExtraUsage(true, extraHasLimit, extraUsagePercent, ClaudeExtraUsageText.Describe(eu));
+                        // 켜짐·꺼짐 모두 같은 계산(#351) — 상태만 바뀌었는데 게이지가 달라지지 않게.
+                        SetClaudeExtraUsage(true, extraHasLimit, ClaudeExtraUsageText.Percent(eu), ClaudeExtraUsageText.Describe(eu));
 
                         if (_prevExtraPercent < 0) _prevExtraPercent = ExtraUsagePercent;
                     }

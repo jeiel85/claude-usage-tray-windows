@@ -66,9 +66,22 @@ public class CreditDisplayTests
     }
 
     [Fact]
-    public void GaugeFallsBackToServerUtilizationWithoutLimit()
+    public void GaugeIsTheSameWhenOnlyTheEnabledStateChanges()
     {
-        Assert.Equal(0.25, ClaudeExtraUsageText.Percent(new ExtraUsage { IsEnabled = true, UsedCredits = 10, Utilization = 25 }), 3);
+        // PR #352 리뷰: 켜진 쪽만 utilization 으로 계산해 같은 사용액이 50% → 0% 로 바뀌었다.
+        var disabled = new ExtraUsage { IsEnabled = false, CreditsEverEnabled = true, UsedCredits = 1150, MonthlyLimit = 2300 };
+        var enabled = new ExtraUsage { IsEnabled = true, UsedCredits = 1150, MonthlyLimit = 2300 };
+
+        Assert.Equal(0.5, ClaudeExtraUsageText.Percent(disabled), 3);
+        Assert.Equal(0.5, ClaudeExtraUsageText.Percent(enabled), 3);
+    }
+
+    [Fact]
+    public void GaugeUsesServerUtilizationOnlyWhenSpendIsMissing()
+    {
+        Assert.Equal(0.25, ClaudeExtraUsageText.Percent(new ExtraUsage { IsEnabled = true, MonthlyLimit = 2300, Utilization = 25 }), 3);
+        // 한도가 없으면 비율이 없다 — 예전처럼 0.
+        Assert.Equal(0, ClaudeExtraUsageText.Percent(new ExtraUsage { IsEnabled = true, UsedCredits = 10, Utilization = 25 }));
         Assert.Equal(0, ClaudeExtraUsageText.Percent(null));
     }
 

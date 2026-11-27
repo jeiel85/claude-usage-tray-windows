@@ -31,13 +31,13 @@ public static class ClaudeExtraUsageText
     }
 
     /// <summary>
-    /// 게이지 값(0..1) — 사용액 ÷ 월 한도. 꺼져 있어도 같은 계산이라 막대가 남은 한도를 보여 준다.
-    /// 한도가 없으면 서버 <c>utilization</c>(%)으로, 그것도 없으면 0.
+    /// 게이지 값(0..1) — 사용액 ÷ 월 한도. 켜짐·꺼짐 모두 이 계산 하나만 쓴다(상태만 바뀌었는데 막대가 달라지지 않게).
+    /// 사용액이 없으면 서버 <c>utilization</c>(%)으로. 한도가 없으면 비율이 없으므로 0(예전 동작과 같음).
     /// </summary>
     public static double Percent(ExtraUsage? extra)
     {
-        if (extra is null) return 0;
-        if (extra is { MonthlyLimit: > 0 } && extra.UsedCredits is { } used)
+        if (extra is not { MonthlyLimit: > 0 }) return 0;
+        if (extra.UsedCredits is { } used)
             return Math.Clamp(used / extra.MonthlyLimit.Value, 0, 1);
         return Math.Clamp((extra.Utilization ?? 0) / 100.0, 0, 1);
     }
