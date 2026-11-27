@@ -288,17 +288,23 @@ public sealed class ClaudeConsoleCreditService : IDisposable
         Func<string, Task<ConsoleResponse>> fetch, string? savedOrgId, DateTimeOffset now)
     {
         var tried = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // 프로모션 크레딧이 없는 조직(팀 API 조직 등)은 다른 조직을 다 본 뒤에만 쓴다(PR #355 리뷰) — 먼저 만났다고
+        // 멈추면 그 조직이 저장돼, Max 크레딧이 있는 개인 조직을 영영 묻지 않는다.
+        CreditReadOutcome? empty = null;
         if (savedOrgId != null)
         {
             var saved = await fetch(CreditsPath(savedOrgId));
             if (saved.Status == 200 && TryParseCredits(saved.Body, now, out var credits))
-                return CreditReadOutcome.Ok(credits, savedOrgId);
+            {
+                if (credits != null) return CreditReadOutcome.Ok(credits, savedOrgId);
+                empty = CreditReadOutcome.Ok(null, savedOrgId);
+            }
             if (saved.Status != 0 && saved.Status < 500) tried.Add(savedOrgId);
         }
 
         var orgs = await fetch(OrganizationsPath);
         if (IsSessionInvalid(orgs)) return CreditReadOutcome.SignedOut;
-        if (orgs.Status != 200) return CreditReadOutcome.Failed(Describe(orgs.Status));
+        if (orgs.Status != 200) return empty ?? CreditReadOutcome.Failed(Describe(orgs.Status));
 
         string? failure = null;
         foreach (var orgId in ParseApiOrganizationIds(orgs.Body))
@@ -307,10 +313,14 @@ public sealed class ClaudeConsoleCreditService : IDisposable
             if (tried.Count > MaxOrgsToProbe) break;
             var response = await fetch(CreditsPath(orgId));
             if (response.Status == 200 && TryParseCredits(response.Body, now, out var credits))
-                return CreditReadOutcome.Ok(credits, orgId);
+            {
+                if (credits != null) return CreditReadOutcome.Ok(credits, orgId);
+                empty ??= CreditReadOutcome.Ok(null, orgId);
+                continue;
+            }
             failure ??= Describe(response.Status);
         }
-        return CreditReadOutcome.Failed(failure ?? Loc.ConsoleCreditsNoApiOrganization);
+        return empty ?? CreditReadOutcome.Failed(failure ?? Loc.ConsoleCreditsNoApiOrganization);
     }
 
     internal static string CreditsPath(string orgId) => $"/api/organizations/{orgId}/prepaid/credits";

@@ -153,6 +153,44 @@ public class ClaudeConsoleCreditServiceTests
     }
 
     [Fact]
+    public async Task OrganizationWithoutPromoCreditsDoesNotHideALaterOneThatHasThem()
+    {
+        // PR #355 리뷰: 빈 조직(저장돼 있어도)에서 멈추면 Max 크레딧이 있는 개인 조직을 묻지 않았다.
+        const string teamOrg = "99999999-8888-7777-6666-555555555555";
+        var orgs = $$"""
+            [{"uuid":"{{teamOrg}}","capabilities":["api"]},{"uuid":"{{ApiOrg}}","capabilities":["api","api_individual"]}]
+            """;
+        var routes = new Dictionary<string, ConsoleResponse>
+        {
+            [ClaudeConsoleCreditService.OrganizationsPath] = new(200, orgs),
+            [ClaudeConsoleCreditService.CreditsPath(teamOrg)] = new(200, """{"promo_tranches":[]}"""),
+            [ClaudeConsoleCreditService.CreditsPath(ApiOrg)] = new(200, CreditsJson),
+        };
+
+        foreach (var saved in new[] { null, teamOrg })
+        {
+            var outcome = await ClaudeConsoleCreditService.ReadCreditsAsync(Server(routes), saved, Now);
+            Assert.Equal(ApiOrg, outcome.OrgId);
+            Assert.Equal(5780, outcome.Credits!.RemainingMinor);
+        }
+    }
+
+    [Fact]
+    public async Task EmptyOrganizationIsKeptWhenNoOrganizationHasPromoCredits()
+    {
+        var outcome = await ClaudeConsoleCreditService.ReadCreditsAsync(Server(new()
+        {
+            [ClaudeConsoleCreditService.OrganizationsPath] = new(200, OrganizationsJson),
+            [ClaudeConsoleCreditService.CreditsPath(ChatOrg)] = new(403, PermissionDeniedBody),
+            [ClaudeConsoleCreditService.CreditsPath(ApiOrg)] = new(200, """{"promo_tranches":[]}"""),
+        }), null, Now);
+
+        Assert.Equal(ClaudeConsoleSessionState.Ok, outcome.State);
+        Assert.Equal(ApiOrg, outcome.OrgId);
+        Assert.Null(outcome.Credits);
+    }
+
+    [Fact]
     public async Task ExpiredSessionIsSignedOut()
     {
         var outcome = await ClaudeConsoleCreditService.ReadCreditsAsync(Server(new()
