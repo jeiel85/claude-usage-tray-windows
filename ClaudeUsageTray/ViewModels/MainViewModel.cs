@@ -28,6 +28,7 @@ namespace ClaudeUsageTray.ViewModels;
     private readonly UsageSyncService _usageSync;
     private readonly WeatherService _weather;
     private readonly WeatherAlertService _weatherAlert;
+    private readonly ClaudeConsoleCreditService? _consoleCredits;
     private readonly Timer _timer;
     private readonly Timer _countdownTimer;
     private readonly Timer _updateTimer;
@@ -457,6 +458,8 @@ namespace ClaudeUsageTray.ViewModels;
     private bool _showPlanBadge = true;
     [ObservableProperty] private bool _showAbsoluteResetTime = false;
     [ObservableProperty] private bool _showAntigravityThirdPartyQuota = false;
+    // 크레딧 줄 표시(#354) — 팝업 XAML 이 Claude·Codex·Antigravity 크레딧 줄마다 이 값을 본다.
+    [ObservableProperty] private bool _showCredits = true;
     [ObservableProperty] private bool _keepPopupAboveTaskbar = false;
     [ObservableProperty] private double _usagePanelOpacity = 0.94;
 
@@ -610,6 +613,10 @@ namespace ClaudeUsageTray.ViewModels;
     public string LblChatGptImageGenerationTip => Loc.ChatGptImageGenerationTip;
     public string LblCodexCredits => Loc.CodexCredits;
     public string LblCodexCreditsTip => Loc.CodexCreditsTip;
+    public string LblConsoleCredits => Loc.ConsoleCredits;
+    public string LblConsoleCreditsTip => Loc.ConsoleCreditsTip;
+    public string LblConsoleCreditsSignedOut => Loc.ConsoleCreditsSignedOut;
+    public string LblConsoleCreditsReconnect => Loc.ConsoleCreditsReconnect;
     public string LblOpenCodeNoUsage => Loc.OpenCodeNoUsageToday;
     public string LblHmsSection      => Loc.HmsSectionTitle;
     public string LblVisibleProviders => Loc.VisibleProviders;
@@ -630,9 +637,11 @@ namespace ClaudeUsageTray.ViewModels;
                          WeatherService weather, WeatherAlertService weatherAlert,
                          OpenCodeWebUsageService? openCodeWebUsage = null,
                          ClaudeAccountProfileReader? claudeAccount = null,
-                         HmsUsageService? hmsUsage = null)
+                         HmsUsageService? hmsUsage = null,
+                         ClaudeConsoleCreditService? consoleCredits = null)
     {
         _refresh = new CoalescedRefresh(RefreshOnceAsync);
+        _consoleCredits = consoleCredits;
         _api = api;
         _credentials = credentials;
         _claudeAccount = claudeAccount ?? new ClaudeAccountProfileReader();
@@ -762,6 +771,7 @@ namespace ClaudeUsageTray.ViewModels;
         ShowClaudeAccount     = s.ShowClaudeAccount;
         ShowAbsoluteResetTime = s.ShowAbsoluteResetTime;
         ShowAntigravityThirdPartyQuota = s.ShowAntigravityThirdPartyQuota;
+        ShowCredits = s.ShowCredits;
         KeepPopupAboveTaskbar = s.KeepPopupAboveTaskbar;
         UsagePanelOpacity = Math.Clamp(s.UsagePanelOpacity <= 0 ? 0.94 : s.UsagePanelOpacity, 0.5, 1.0);
 
@@ -1013,6 +1023,7 @@ namespace ClaudeUsageTray.ViewModels;
             ShowClaudeAccount = ShowClaudeAccount,
             ShowAbsoluteResetTime = ShowAbsoluteResetTime,
             ShowAntigravityThirdPartyQuota = ShowAntigravityThirdPartyQuota,
+            ShowCredits = ShowCredits,
             KeepPopupAboveTaskbar = KeepPopupAboveTaskbar,
             UsagePanelOpacity = UsagePanelOpacity,
             // 추적 필드 보존 — settings 저장 시 매번 잃지 않도록
@@ -1712,7 +1723,8 @@ namespace ClaudeUsageTray.ViewModels;
                 RefreshCodexInternalAsync(),
                 RefreshOpenCodeInternalAsync(),
                 RefreshAntigravityInternalAsync(),
-                RefreshHmsAsync()
+                RefreshHmsAsync(),
+                RefreshConsoleCreditsAsync()
             };
 
             if (WeatherEnabled)
@@ -1863,6 +1875,38 @@ namespace ClaudeUsageTray.ViewModels;
         string.IsNullOrEmpty(settings.HmsApiKeyProtected)
             ? settings.VisibleProviders
             : [.. settings.VisibleProviders, HmsUsageService.MobileProvider];
+
+    /// <summary>Console 프로모션 크레딧(#354). 연결하지 않은 PC 에서는 서비스가 바로 NotConnected 를 돌려준다.</summary>
+    private async Task RefreshConsoleCreditsAsync()
+    {
+        if (_consoleCredits == null) return;
+        var result = await _consoleCredits.TryGetCreditsAsync();
+        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => ClaudeVm.ApplyConsoleCredits(result));
+    }
+
+    /// <summary>이 PC 에서 Console 크레딧을 연결해 두었는가 — 설정 화면의 상태 문구용.</summary>
+    public bool IsConsoleCreditsConnected => _consoleCredits?.HasSavedSession == true;
+
+    /// <summary>
+    /// 로그인 창을 열어 Console 을 연결한다. 실패하면 이유 문구를, 성공하면 null 을 돌려준다.
+    /// </summary>
+    public async Task<string?> ConnectConsoleCreditsAsync()
+    {
+        if (_consoleCredits == null) return Loc.ConsoleConnectCancelled;
+        var result = await _consoleCredits.TryGetCreditsAsync(interactive: true);
+        if (result.State != ClaudeConsoleSessionState.Ok)
+            return _consoleCredits.LastError ?? Loc.ConsoleConnectCancelled;
+        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => ClaudeVm.ApplyConsoleCredits(result));
+        return null;
+    }
+
+    public async Task DisconnectConsoleCreditsAsync()
+    {
+        if (_consoleCredits == null) return;
+        await _consoleCredits.DisconnectAsync();
+        await System.Windows.Application.Current.Dispatcher.InvokeAsync(
+            () => ClaudeVm.ApplyConsoleCredits(ClaudeConsoleReadResult.NotConnected));
+    }
 
     /// <summary>DeepSeek(100milionseek) 일일 한도를 읽고 휴대폰 피드에 싣는다(#318).</summary>
     private async Task RefreshHmsAsync()

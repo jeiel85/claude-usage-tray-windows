@@ -127,11 +127,11 @@ public partial class AntigravityViewModel : ObservableObject
 
     private void RefreshCreditsLabels()
     {
-        // 0 도 보여준다 — 크레딧을 다 써서 한도 소진 뒤 이어 쓸 수 없다는 뜻이다(gemini-cli /stats 와 같은 규칙).
-        AiCreditsText = _appliedAiCredits is long credits
+        // 0 이면 줄을 숨긴다(#354) — 크레딧을 산 적 없는 계정에도 늘 "0" 이 떠 거슬렸다. 남은 크레딧이 있을 때만 보인다.
+        AiCreditsText = _appliedAiCredits is long credits && credits > 0
             ? credits.ToString("N0", System.Globalization.CultureInfo.CurrentCulture)
             : "";
-        AiCreditsNotice = _appliedAiCredits is long c && _appliedAiCreditsMinimum is long min && min > 0 && c < min
+        AiCreditsNotice = _appliedAiCredits is long c && c > 0 && _appliedAiCreditsMinimum is long min && min > 0 && c < min
             ? Loc.AntigravityAiCreditsMinimumNotice(min)
             : "";
     }

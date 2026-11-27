@@ -754,17 +754,29 @@ public sealed class AntigravityApplyQuotaTests
         Assert.Equal("Gemini Agent Models · Five Hour Limit", label);
     }
 
-    [Theory]
-    [InlineData(12345L)]
-    [InlineData(0L)]      // 다 쓴 경우도 보여준다 — 한도 소진 뒤 이어 쓸 수 없다는 뜻이다.
-    public void ApplyQuota_FormatsAiCredits_WhenAccountIsEligible(long credits)
+    [Fact]
+    public void ApplyQuota_FormatsAiCredits_WhenAccountIsEligible()
     {
         var vm = CreateVm(out var monitor);
         using (monitor)
         {
-            vm.ApplyQuota([Bucket("gemini-weekly", 0.5)], null, "Google AI Pro", credits);
+            vm.ApplyQuota([Bucket("gemini-weekly", 0.5)], null, "Google AI Pro", 12345);
 
-            Assert.Equal(credits.ToString("N0", System.Globalization.CultureInfo.CurrentCulture), vm.AiCreditsText);
+            Assert.Equal(12345L.ToString("N0", System.Globalization.CultureInfo.CurrentCulture), vm.AiCreditsText);
+        }
+    }
+
+    [Fact]
+    public void ApplyQuota_HidesAiCredits_WhenBalanceIsZero()
+    {
+        // #354: 예전에는 0 도 보였는데, 크레딧을 산 적 없는 계정에도 늘 "0" 줄이 떠 사용자가 거슬려 했다 — 0 이면 줄과 안내를 숨긴다.
+        var vm = CreateVm(out var monitor);
+        using (monitor)
+        {
+            vm.ApplyQuota([Bucket("gemini-weekly", 0.5)], null, "Google AI Pro", aiCredits: 0, aiCreditsMinimum: 50);
+
+            Assert.Equal("", vm.AiCreditsText);
+            Assert.Equal("", vm.AiCreditsNotice);
         }
     }
 

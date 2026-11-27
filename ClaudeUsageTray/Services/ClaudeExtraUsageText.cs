@@ -65,13 +65,28 @@ public static class ClaudeExtraUsageText
     }
 
     /// <summary>최소 단위 값을 통화 금액으로 — USD 는 "$23.00", 그 밖은 "23.00 EUR".</summary>
-    internal static string FormatMoney(double minorUnits, ExtraUsage extra)
+    internal static string FormatMoney(double minorUnits, ExtraUsage extra) =>
+        FormatMoney(minorUnits, extra.Currency!, extra.DecimalPlaces ?? 2);
+
+    /// <summary>같은 규칙의 통화 금액 — Console 크레딧(#354)도 쓴다.</summary>
+    internal static string FormatMoney(double minorUnits, string currencyCode, int decimalPlaces)
     {
-        var places = Math.Clamp(extra.DecimalPlaces ?? 2, 0, 6);
+        var places = Math.Clamp(decimalPlaces, 0, 6);
         var value = minorUnits / Math.Pow(10, places);
         var number = value.ToString("N" + places, CultureInfo.InvariantCulture);
-        var currency = extra.Currency!.Trim().ToUpperInvariant();
+        var currency = currencyCode.Trim().ToUpperInvariant();
         return currency == "USD" ? $"${number}" : $"{number} {currency}";
+    }
+
+    /// <summary>Console 크레딧 줄 문구(#354) — "$57.80 남음 / $100.00 · 12-10 만료".</summary>
+    public static string DescribeConsoleCredits(ClaudeConsoleCredits credits)
+    {
+        var amount = Loc.ConsoleCreditsAmount(
+            FormatMoney(credits.RemainingMinor, credits.Currency, credits.Exponent),
+            FormatMoney(credits.GrantedMinor, credits.Currency, credits.Exponent));
+        return credits.ExpiresAt is { } expires
+            ? $"{amount} · {Loc.ConsoleCreditsExpires(expires.ToLocalTime().ToString("MM-dd", CultureInfo.InvariantCulture))}"
+            : amount;
     }
 
     internal static string DescribeDisabledReason(ExtraUsage extra)
