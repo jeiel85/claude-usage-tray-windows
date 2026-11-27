@@ -932,7 +932,7 @@
                                        Visibility="{Binding ClaudeVm.ApiNote, Converter={StaticResource StringToVisibility}}"/>
 
                             <!-- History Chart (Claude 기준) -->
-                            <StackPanel x:Name="ClaudeHistorySection" Margin="0,14,0,0">
+                            <StackPanel x:Name="ClaudeHistorySection" Margin="0,20,0,0">
                                 <StackPanel.Style>
                                     <Style TargetType="StackPanel">
                                         <Setter Property="Visibility" Value="Visible"/>
@@ -943,7 +943,7 @@
                                         </Style.Triggers>
                                     </Style>
                                 </StackPanel.Style>
-                                <Border Height="1" Background="#2D2F45" Margin="0,0,0,12"/>
+                                <!-- 게이지 영역 바로 뒤라 선을 두지 않는다 — 빈 게이지 트랙처럼 읽혔다(#354). 제목과 여백이 경계다. -->
                                 <Grid Margin="0,0,0,10">
                                     <TextBlock x:Name="ChartTitleLabel" Text="{Binding ClaudeVm.HistoryChartTitle}" Style="{StaticResource SectionLabel}"/>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
@@ -1001,7 +1001,20 @@
                             </StackPanel>
 
                             <!-- Today's Stats (Claude 세션 기준) -->
-                            <Border Height="1" Background="#2D2F45" Margin="0,14,0,14"/>
+                            <!-- 차트(막대 아님) 뒤, 제목 있는 블록 앞이라 허용되는 구분선. 차트가 숨으면(작업 표시줄 위 고정) 게이지 바로 뒤가 되므로
+                                 선만 투명하게 하고 여백은 남긴다(#354). -->
+                            <Border x:Name="ClaudeTodayTokensDivider" Height="1" Margin="0,14,0,14">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="#2D2F45"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding KeepPopupAboveTaskbar}" Value="True">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                            </Border>
                             <Grid Margin="0,0,0,12">
                                 <TextBlock Style="{StaticResource SectionLabel}" Text="{Binding LblTodayTokens}" VerticalAlignment="Center"/>
                                 <Button HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,-2,-5,-2"
@@ -1258,10 +1271,9 @@
                         <TextBlock Text="{Binding LblCodexNoUsage}" Foreground="#5A5F7A" FontSize="10" FontStyle="Italic" Margin="0,10,0,0"
                                    Visibility="{Binding IsCodexUsageEmpty, Converter={StaticResource BoolToVisibility}}"/>
 
-                        <!-- 오늘의 토큰 3타일 — Codex 는 cache write 개념이 없어 항상 "—" 이므로 표시하지 않는다(빈 타일이 스크롤만 늘리는 것을 방지) -->
-                        <Border Height="1" Background="#2D2F45" Margin="0,12,0,10"
-                                Visibility="{Binding IsCodexTokenRowVisible, Converter={StaticResource BoolToVisibility}}"/>
-                        <UniformGrid Columns="3" Rows="1"
+                        <!-- 오늘의 토큰 3타일 — Codex 는 cache write 개념이 없어 항상 "—" 이므로 표시하지 않는다(빈 타일이 스크롤만 늘리는 것을 방지).
+                             게이지 영역과는 선 없이 여백으로 나눈다 — 선이 빈 게이지 트랙과 같은 색이라 바로 위 줄의 막대로 읽혔다(#354, UI_GUIDELINES 구분선 규칙). -->
+                        <UniformGrid Columns="3" Rows="1" Margin="0,14,0,0"
                                      Visibility="{Binding IsCodexTokenRowVisible, Converter={StaticResource BoolToVisibility}}">
                             <Border Style="{StaticResource StatBox}" Margin="0,0,4,0"
                                     Visibility="{Binding CodexInputLabel, Converter={StaticResource StringToVisibility}, ConverterParameter=dash}">
@@ -1424,10 +1436,8 @@
                         <TextBlock Text="{Binding LblOpenCodeNoUsage}" Foreground="#5A5F7A" FontSize="10" FontStyle="Italic" Margin="0,0,0,10"
                                    Visibility="{Binding IsOpenCodeUsageEmpty, Converter={StaticResource BoolToVisibility}}"/>
 
-                        <!-- 오늘의 토큰 4타일 (Claude와 동일 레이아웃) -->
-                        <Border x:Name="OpenCodeStatsSeparator" Height="1" Background="#2D2F45" Margin="0,2,0,10"
-                                Visibility="{Binding IsOpenCodeUsageEmpty, Converter={StaticResource BoolToVisibilityInverse}}"/>
-                        <UniformGrid x:Name="OpenCodeTokenTiles" Columns="2" Rows="2"
+                        <!-- 오늘의 토큰 4타일 (Claude와 동일 레이아웃) — 게이지 영역과는 선 없이 여백으로 나눈다(#354, UI_GUIDELINES 구분선 규칙). -->
+                        <UniformGrid x:Name="OpenCodeTokenTiles" Columns="2" Rows="2" Margin="0,12,0,0"
                                      Visibility="{Binding IsOpenCodeUsageEmpty, Converter={StaticResource BoolToVisibilityInverse}}">
                             <Border Style="{StaticResource StatBox}" Margin="0,0,4,4">
                                 <StackPanel>
@@ -1544,8 +1554,8 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Margin="0,0,0,10">
-                                            <!-- 그룹 간 구분선 (두 번째 이후 그룹 첫 행에만 표시) -->
-                                            <Border Height="1" Background="#2D2F45" Margin="0,0,0,8"
+                                            <!-- 그룹 사이 여백 (두 번째 이후 그룹 첫 행에만) — 선을 두면 바로 위 막대의 빈 트랙처럼 읽혀 그룹 제목과 여백으로만 나눈다(#354). -->
+                                            <Border x:Name="AntigravityGroupGap" Height="6"
                                                     Visibility="{Binding HasGroupSeparator, Converter={StaticResource BoolToVisibility}}"/>
 
                                             <!-- 그룹 제목 + 포함 모델 요약 (그룹 첫 행에만 표시) -->

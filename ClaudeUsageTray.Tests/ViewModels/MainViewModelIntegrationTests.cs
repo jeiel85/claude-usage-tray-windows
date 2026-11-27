@@ -288,7 +288,8 @@ public class MainViewModelIntegrationTests : IDisposable
                 Assert.NotNull(popup.FindName("OpenCodeRollingTimelineMarker"));
                 Assert.NotNull(popup.FindName("OpenCodeWeeklyTimelineMarker"));
                 Assert.NotNull(popup.FindName("OpenCodeMonthlyTimelineMarker"));
-                Assert.NotNull(popup.FindName("OpenCodeStatsSeparator"));
+                // #354 구분선 규칙: 게이지 영역과 토큰 타일 사이에는 선 없이 여백만 둔다(선이 빈 게이지 트랙처럼 읽혔다).
+                Assert.Null(popup.FindName("OpenCodeStatsSeparator"));
                 Assert.NotNull(popup.FindName("OpenCodeTokenTiles"));
                 Assert.NotNull(popup.FindName("OpenCodeLimitReachedNotice"));
                 Assert.NotNull(popup.FindName("OpenCodeSubscriptionStatus"));

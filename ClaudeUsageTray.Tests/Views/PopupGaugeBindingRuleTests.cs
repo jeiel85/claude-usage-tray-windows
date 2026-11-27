@@ -101,6 +101,27 @@ public class PopupGaugeBindingRuleTests
         Assert.True(hides, $"{rowName} must collapse when {setting} is false");
     }
 
+    /// <summary>
+    /// 구분선 규칙(#354, UI_GUIDELINES "구분선"): 1px 가로선은 빈 게이지 트랙(4px, 같은 색)과 헷갈려, 게이지 영역 안이나 바로 뒤에 두면
+    /// 0% 막대로 읽혔다(Antigravity 크레딧 위, Codex 이미지 생성 아래, Claude 7일 추이 위). 허용된 자리는 이름을 붙인 것뿐이다.
+    /// </summary>
+    [Fact]
+    public void HorizontalRules_AppearOnlyWhereTheyCannotPassForAGauge()
+    {
+        var doc = XDocument.Load(PopupXamlPath(), LoadOptions.SetLineInfo);
+        const string XamlNs = "http://schemas.microsoft.com/winfx/2006/xaml";
+        string[] allowed = ["ClaudeTodayTokensDivider"];
+        var rules = doc.Descendants(XName.Get("Border", WpfNs))
+            .Where(b => (string?)b.Attribute("Height") is "1" or "2");
+        foreach (var rule in rules)
+        {
+            var name = (string?)rule.Attribute(XName.Get("Name", XamlNs));
+            var line = ((System.Xml.IXmlLineInfo)rule).LineNumber;
+            Assert.True(name != null && allowed.Contains(name),
+                $"UsagePopup.xaml:{line} horizontal rule — separate blocks with spacing instead (docs/UI_GUIDELINES.md)");
+        }
+    }
+
     [Fact]
     public void TimelineMarkers_UseTheSharedElement()
     {
