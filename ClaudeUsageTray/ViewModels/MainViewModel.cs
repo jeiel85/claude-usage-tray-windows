@@ -608,6 +608,8 @@ namespace ClaudeUsageTray.ViewModels;
     public string LblCodexSignInExpired => Loc.CodexSignInExpiredNotice;
     public string LblChatGptImageGeneration => Loc.ChatGptImageGeneration;
     public string LblChatGptImageGenerationTip => Loc.ChatGptImageGenerationTip;
+    public string LblCodexCredits => Loc.CodexCredits;
+    public string LblCodexCreditsTip => Loc.CodexCreditsTip;
     public string LblOpenCodeNoUsage => Loc.OpenCodeNoUsageToday;
     public string LblHmsSection      => Loc.HmsSectionTitle;
     public string LblVisibleProviders => Loc.VisibleProviders;
@@ -2250,13 +2252,10 @@ namespace ClaudeUsageTray.ViewModels;
         var extra = usage.ExtraUsage;
         var extraHasLimit = extra?.MonthlyLimit.HasValue == true;
         var extraUsagePercent = extraHasLimit
-            ? Math.Min(1.0, (extra?.Utilization ?? 0) / 100.0)
+            ? ClaudeExtraUsageText.Percent(extra)
             : (double?)null;
-        var extraCreditsLabel = extra is { UsedCredits: not null, MonthlyLimit: not null }
-            ? Loc.ExtraCredits(extra.UsedCredits.Value, extra.MonthlyLimit.Value)
-            : extra?.UsedCredits is double usedCredits
-                ? Loc.ExtraCreditsUsedOnly(usedCredits)
-                : "";
+        // 켜져 있을 때만 싣는다 — 꺼짐 이유 줄(#351)은 이 PC 화면 전용이고, 받는 PC 는 비어 있으면 줄을 숨긴다.
+        var extraCreditsLabel = ClaudeExtraUsageText.Describe(extra);
 
         return new UsageSyncQuotaSnapshot
         {
@@ -2495,6 +2494,7 @@ namespace ClaudeUsageTray.ViewModels;
         _lastKnownLongPercent = quota.LongUsagePercent;
         _lastKnownLongReset = ClaudeVm.LongReset;
 
+        _lastClaudeExtraUsage = null; // 다른 PC 가 만든 문구 — 원재료가 없어 언어가 바뀌어도 다시 만들지 않는다.
         SetClaudeExtraUsage(
             quota.ExtraUsageEnabled,
             quota.ExtraHasLimit,
@@ -2881,24 +2881,21 @@ namespace ClaudeUsageTray.ViewModels;
                     // 모델 한정 한도(#187) — 비어 있으면 "지금 걸린 모델 한도 없음"이므로 그대로 비운다.
                     ClaudeVm.SetModelLimits(claudeModelLimits, DateTimeOffset.Now, ShowAbsoluteResetTime);
 
+                    _lastClaudeExtraUsage = usage.ExtraUsage;
                     if (usage.ExtraUsage is { IsEnabled: true } eu)
                     {
                         var extraHasLimit = eu.MonthlyLimit.HasValue;
-                        var extraUsagePercent = eu.MonthlyLimit.HasValue
-                            ? Math.Min(1.0, (eu.Utilization ?? 0) / 100.0)
-                            : 0;
-                        var extraCreditsLabel = (eu.UsedCredits.HasValue && eu.MonthlyLimit.HasValue)
-                            ? Loc.ExtraCredits(eu.UsedCredits.Value, eu.MonthlyLimit.Value)
-                            : eu.UsedCredits.HasValue
-                                ? Loc.ExtraCreditsUsedOnly(eu.UsedCredits.Value)
-                                : "";
-                        SetClaudeExtraUsage(true, extraHasLimit, extraUsagePercent, extraCreditsLabel);
+                        // 켜짐·꺼짐 모두 같은 계산(#351) — 상태만 바뀌었는데 게이지가 달라지지 않게.
+                        SetClaudeExtraUsage(true, extraHasLimit, ClaudeExtraUsageText.Percent(eu), ClaudeExtraUsageText.Describe(eu));
 
                         if (_prevExtraPercent < 0) _prevExtraPercent = ExtraUsagePercent;
                     }
                     else
                     {
-                        SetClaudeExtraUsage(false);
+                        // 켠 적 있는 계정이면 꺼져 있어도 금액과 이유를 보인다(#351). 알림·전용 모드는 켜져 있을 때만.
+                        SetClaudeExtraUsage(false,
+                            usagePercent: ClaudeExtraUsageText.Percent(usage.ExtraUsage),
+                            creditsLabel: ClaudeExtraUsageText.Describe(usage.ExtraUsage));
                     }
 
                     if (ExtraUsageEnabled && ClaudeVm.ShortPercent >= 1.0)
@@ -3408,13 +3405,20 @@ namespace ClaudeUsageTray.ViewModels;
         }
     }
 
+    // 이 PC 가 마지막으로 읽은 extra_usage — 언어가 바뀔 때 문구를 다시 만드는 재료(#351).
+    private ExtraUsage? _lastClaudeExtraUsage;
+
     private void SetClaudeExtraUsage(bool enabled, bool hasLimit = false, double usagePercent = 0, string creditsLabel = "")
     {
         ExtraUsageEnabled = enabled;
         ExtraHasLimit = enabled && hasLimit;
-        ExtraUsagePercent = enabled ? usagePercent : 0;
-        ExtraCreditsLabel = enabled ? creditsLabel : "";
+        // 꺼져 있어도 문구가 있으면(켠 적 있는 계정의 "금액 · 꺼진 이유", #351) 줄과 게이지를 보인다.
+        // 알림(추가 사용 전용 모드)은 켜져 있을 때만 이 값을 보므로 꺼진 상태의 값이 알림을 만들지 않는다.
+        var visible = enabled || !string.IsNullOrEmpty(creditsLabel);
+        ExtraUsagePercent = visible ? usagePercent : 0;
+        ExtraCreditsLabel = creditsLabel;
 
+        ClaudeVm.ExtraUsageVisible = visible;
         ClaudeVm.ExtraUsageEnabled = ExtraUsageEnabled;
         ClaudeVm.ExtraHasLimit = ExtraHasLimit;
         ClaudeVm.ExtraUsagePercent = ExtraUsagePercent;
@@ -3741,6 +3745,13 @@ namespace ClaudeUsageTray.ViewModels;
             AntigravityAiCreditsNotice = AntigravityVm.AiCreditsNotice;
             ApplyCodexAdditionalLimits(_codexAdditionalSource);
             CodexVm.UpdateImageGenerationLabels(DateTimeOffset.Now, ShowAbsoluteResetTime);
+            CodexVm.RefreshCreditsLabel();
+            // 이 PC 가 읽은 추가 사용 문구("크레딧 없음" 등, #351)도 다음 조회를 기다리지 않고 다시 만든다.
+            if (_lastClaudeExtraUsage is { } lastExtra && ClaudeVm.ExtraUsageVisible)
+            {
+                ExtraCreditsLabel = ClaudeExtraUsageText.Describe(lastExtra);
+                ClaudeVm.ExtraCreditsLabel = ExtraCreditsLabel;
+            }
             ClaudeVm.RebuildModelLimits(DateTimeOffset.Now, ShowAbsoluteResetTime);
             // 안내·출처 문구는 값이 필드에 담겨 있어 다시 만들어야 바뀐다(다음 조회까지 기다리지 않도록).
             AntigravityNote = Loc.ProviderAntigravityNote;

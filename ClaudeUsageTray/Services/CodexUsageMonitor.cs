@@ -581,11 +581,38 @@ public class CodexUsageMonitor
             snapshot.PlanType = planEl.GetString();
 
         ReadAdditionalRateLimits(root, snapshot.AdditionalQuotas, now);
+        snapshot.Credits = ParseCredits(root);
 
         // API 응답이라고 리셋 시각이 항상 미래인 것은 아니다(캐시된 응답·시계 어긋남).
         DropExpiredWindows(snapshot, now);
 
         return snapshot;
+    }
+
+    /// <summary>
+    /// <c>credits: {has_credits, unlimited, balance}</c> 를 읽는다(#351, 2026-11-27 실측: <c>balance: "0"</c> 처럼 문자열).
+    /// 객체가 없거나 잔액을 못 읽으면 null(무제한이면 잔액 없이도 값). 숫자로 와도 받는다.
+    /// </summary>
+    internal static CodexCredits? ParseCredits(JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Object ||
+            !root.TryGetProperty("credits", out var creditsEl) || creditsEl.ValueKind != JsonValueKind.Object)
+            return null;
+
+        var unlimited = creditsEl.TryGetProperty("unlimited", out var u) && u.ValueKind == JsonValueKind.True;
+
+        decimal? balance = null;
+        if (creditsEl.TryGetProperty("balance", out var b))
+        {
+            if (b.ValueKind == JsonValueKind.Number && b.TryGetDecimal(out var n))
+                balance = n;
+            else if (b.ValueKind == JsonValueKind.String &&
+                     decimal.TryParse(b.GetString(), NumberStyles.Number, CultureInfo.InvariantCulture, out var s))
+                balance = s;
+        }
+
+        if (balance is null && !unlimited) return null;
+        return new CodexCredits(Math.Max(0, balance ?? 0), unlimited);
     }
 
     /// <summary>

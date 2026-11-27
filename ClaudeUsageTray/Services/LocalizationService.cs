@@ -1620,6 +1620,74 @@ public static class Loc
         _ => $"{used:N0} credits used (no limit set)"
     };
 
+    /// <summary>Claude 추가 사용 — 금액으로 온 사용액만 있고 한도가 없을 때(#351). 금액은 "$1.20" 처럼 이미 꾸며서 받는다.</summary>
+    public static string ExtraSpendUsedOnly(string amount) => Lang switch
+    {
+        "ko" => $"{amount} 사용 (한도 미설정)",
+        "zh" => $"已使用 {amount}（未设限额）",
+        "ja" => $"{amount} 使用済み（上限未設定）",
+        _ => $"{amount} used (no limit set)"
+    };
+
+    /// <summary>Claude 추가 사용이 꺼진 이유 — <c>disabled_reason: "out_of_credits"</c>(#351).</summary>
+    public static string ExtraUsageOutOfCredits => Lang switch
+    {
+        "ko" => "크레딧 없음",
+        "zh" => "积分不足",
+        "ja" => "クレジットなし",
+        _ => "No credits"
+    };
+
+    public static string ExtraUsageLimitReached => Lang switch
+    {
+        "ko" => "한도 도달",
+        "zh" => "已达限额",
+        "ja" => "上限到達",
+        _ => "Limit reached"
+    };
+
+    public static string ExtraUsageOff => Lang switch
+    {
+        "ko" => "꺼짐",
+        "zh" => "已关闭",
+        "ja" => "オフ",
+        _ => "Off"
+    };
+
+    /// <summary>Codex 섹션의 크레딧 잔액 줄 이름(#351) — <c>wham/usage</c> 의 <c>credits.balance</c>.</summary>
+    public static string CodexCredits => Lang switch
+    {
+        "ko" => "Codex 크레딧",
+        "zh" => "Codex 积分",
+        "ja" => "Codex クレジット",
+        _ => "Codex credits"
+    };
+
+    public static string CodexCreditsTip => Lang switch
+    {
+        "ko" => "ChatGPT 계정의 Codex 크레딧 잔액입니다. 요금제 한도를 다 쓴 뒤 크레딧이 있으면 이어서 사용할 수 있습니다.",
+        "zh" => "ChatGPT 账户的 Codex 积分余额。用完套餐额度后，如有积分可继续使用。",
+        "ja" => "ChatGPT アカウントの Codex クレジット残高です。プランの上限を使い切った後、クレジットがあれば引き続き使えます。",
+        _ => "Codex credit balance of your ChatGPT account. When your plan limit runs out, remaining credits let you keep going."
+    };
+
+    /// <summary>크레딧 잔액 — 숫자는 이미 꾸며서 받는다("12.5").</summary>
+    public static string CodexCreditsBalance(string balance) => Lang switch
+    {
+        "ko" => $"{balance} 크레딧",
+        "zh" => $"{balance} 积分",
+        "ja" => $"{balance} クレジット",
+        _ => $"{balance} credits"
+    };
+
+    public static string CodexCreditsUnlimited => Lang switch
+    {
+        "ko" => "무제한",
+        "zh" => "无限制",
+        "ja" => "無制限",
+        _ => "Unlimited"
+    };
+
     // Chart toggle labels
     public static string SevenDayToggle => Lang switch
     {

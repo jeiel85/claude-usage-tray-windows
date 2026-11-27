@@ -804,13 +804,14 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
-                            <!-- Extra Usage (Claude only) -->
-                            <Grid Margin="0,10,0,0">
+                            <!-- Extra Usage (Claude only) — 켜져 있거나, 켠 적 있는 계정이 꺼져 있을 때 "금액 · 꺼진 이유"(#351).
+                                 막대(사용액 ÷ 월 한도)는 꺼져 있어도 그린다. -->
+                            <Grid x:Name="ClaudeExtraUsageRow" Margin="0,10,0,0">
                                 <Grid.Style>
                                     <Style TargetType="Grid">
                                         <Setter Property="Visibility" Value="Collapsed"/>
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ClaudeVm.ExtraUsageEnabled}" Value="True">
+                                            <DataTrigger Binding="{Binding ClaudeVm.ExtraUsageVisible}" Value="True">
                                                 <Setter Property="Visibility" Value="Visible"/>
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding ClaudeVm.IsExtraOnlyMode}" Value="True">
@@ -842,10 +843,10 @@
                                                 </Style>
                                             </TextBlock.Style>
                                         </TextBlock>
-                                        <TextBlock Text="{Binding ClaudeVm.ExtraCreditsLabel}" Foreground="#8B92B3" FontSize="10" Margin="6,0,0,0"/>
+                                        <TextBlock x:Name="ClaudeExtraCreditsText" Text="{Binding ClaudeVm.ExtraCreditsLabel}" Foreground="#8B92B3" FontSize="10" Margin="6,0,0,0"/>
                                     </StackPanel>
                                 </Grid>
-                                <ProgressBar Grid.Row="1" views:GaugeAnimation.Value="{Binding ClaudeVm.ExtraUsagePercent}" Maximum="1" Style="{StaticResource ExtraBarStyle}" Margin="0,4,0,0"/>
+                                <ProgressBar x:Name="ClaudeExtraUsageBar" Grid.Row="1" views:GaugeAnimation.Value="{Binding ClaudeVm.ExtraUsagePercent}" Maximum="1" Style="{StaticResource ExtraBarStyle}" Margin="0,4,0,0"/>
                             </Grid>
 
                             <!-- Usage Empty Placeholder (Claude) -->
@@ -1159,6 +1160,20 @@
                                        TextTrimming="CharacterEllipsis"
                                        Visibility="{Binding CodexVm.ImageGenerationReset, Converter={StaticResource StringToVisibility}}"/>
                         </StackPanel>
+
+                        <!-- Codex 크레딧 잔액(#351) — wham/usage 의 credits.balance. 한도가 아니라 잔액이라 게이지 없이 한 줄. -->
+                        <Grid x:Name="CodexCreditsRow" Margin="0,10,0,0" Background="Transparent"
+                              ToolTip="{Binding LblCodexCreditsTip}"
+                              Visibility="{Binding CodexVm.HasCredits, Converter={StaticResource BoolToVisibility}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{Binding LblCodexCredits}" Foreground="#F1F5F9" FontSize="10.5"
+                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="CodexCreditsText" Grid.Column="1" Text="{Binding CodexVm.CreditsLabel}" Foreground="#6EE7B7"
+                                       FontSize="11" FontWeight="Bold" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                        </Grid>
 
                         <!-- 로그인이 서버에서 거부돼 로컬 로그로 표시 중(#198) — 추가 한도가 왜 안 보이는지 알린다.
                              오류가 아니라 안내라 OpenCode 의 확인 실패 안내와 같은 회색 이탤릭으로 둔다. -->
@@ -1500,16 +1515,16 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
-                            <!-- Google AI 크레딧 잔액 — 한도를 다 쓴 뒤 이어 쓸 수 있는 양. 크레딧 대상이 아닌 계정은 줄이 접힌다 -->
+                            <!-- Google AI 크레딧 잔액 — 한도를 다 쓴 뒤 이어 쓸 수 있는 양. 크레딧 대상이 아닌 계정은 줄이 접힌다.
+                                 위에 구분선을 두지 않는다: 0% 막대의 빈 트랙이 선처럼 보여 바로 아래 구분선과 두 줄로 겹쳐 보였다(#351).
+                                 Claude 추가 크레딧 줄처럼 여백만 둔다. -->
                             <Grid x:Name="AntigravityAiCreditsRow" Margin="0,0,0,10" ToolTip="{Binding LblAntigravityAiCreditsTip}"
                                   Visibility="{Binding AntigravityAiCreditsText, Converter={StaticResource StringToVisibility}}">
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
-                                <Border Grid.Row="0" Height="1" Background="#2D2F45" Margin="0,0,0,8"/>
-                                <Grid Grid.Row="1">
+                                <Grid Grid.Row="0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
@@ -1517,7 +1532,7 @@
                                     <TextBlock Grid.Column="0" Text="{Binding LblAntigravityAiCredits}" Foreground="#F1F5F9" FontSize="10.5" VerticalAlignment="Center" TextWrapping="Wrap"/>
                                     <TextBlock Grid.Column="1" Text="{Binding AntigravityAiCreditsText}" Foreground="#A5B4FC" FontSize="11" FontWeight="Bold" Margin="6,0,0,0" VerticalAlignment="Center"/>
                                 </Grid>
-                                <TextBlock x:Name="AntigravityAiCreditsNotice" Grid.Row="2" Text="{Binding AntigravityAiCreditsNotice}"
+                                <TextBlock x:Name="AntigravityAiCreditsNotice" Grid.Row="1" Text="{Binding AntigravityAiCreditsNotice}"
                                            Foreground="#8B92B3" FontSize="9.5" TextWrapping="Wrap" Margin="0,2,0,0"
                                            Visibility="{Binding AntigravityAiCreditsNotice, Converter={StaticResource StringToVisibility}}"/>
                             </Grid>
