@@ -314,6 +314,9 @@ public class ClaudeConsoleCreditServiceTests
     public void OldSettingsFileKeepsCreditsVisible()
     {
         var settings = JsonSerializer.Deserialize<NotificationSettings>("{}")!;
-        Assert.True(settings.ShowCredits);
+        Assert.True(settings.ShowClaudeExtraCredits);
+        Assert.True(settings.ShowConsoleCredits);
+        Assert.True(settings.ShowCodexCredits);
+        Assert.True(settings.ShowAntigravityCredits);
     }
 }

@@ -216,7 +216,11 @@ public partial class SettingsWindow : Window, IDisposable
         LblConsoleCreditsHint.Text          = Loc.ConsoleCreditsHint;
         BtnConsoleConnect.Content           = Loc.ConsoleConnect;
         BtnConsoleDisconnect.Content        = Loc.ConsoleDisconnect;
-        ChkShowCredits.Content              = Loc.ShowCredits;
+        LblShowCredits.Text                 = Loc.ShowCredits;
+        ChkShowClaudeExtraCredits.Content   = Loc.ShowClaudeExtraCredits;
+        ChkShowConsoleCredits.Content       = Loc.ConsoleCredits;
+        ChkShowCodexCredits.Content         = Loc.CodexCredits;
+        ChkShowAntigravityCredits.Content   = Loc.ShowAntigravityCredits;
         LblShowCreditsHint.Text             = Loc.ShowCreditsHint;
         UpdateConsoleStatus();
         BtnHmsKeySave.Content               = Loc.HmsKeySave;
@@ -404,7 +408,10 @@ public partial class SettingsWindow : Window, IDisposable
         ChkShowClaudeAccount.IsChecked     = _vm.ShowClaudeAccount;
         ChkShowAbsoluteResetTime.IsChecked = _vm.ShowAbsoluteResetTime;
         ChkShowAntigravityThirdPartyQuota.IsChecked = _vm.ShowAntigravityThirdPartyQuota;
-        ChkShowCredits.IsChecked           = _vm.ShowCredits;
+        ChkShowClaudeExtraCredits.IsChecked = _vm.ShowClaudeExtraCredits;
+        ChkShowConsoleCredits.IsChecked     = _vm.ShowConsoleCredits;
+        ChkShowCodexCredits.IsChecked       = _vm.ShowCodexCredits;
+        ChkShowAntigravityCredits.IsChecked = _vm.ShowAntigravityCredits;
         ChkKeepPopupAboveTaskbar.IsChecked = _vm.KeepPopupAboveTaskbar;
         SliderUsagePanelOpacity.Value      = _vm.UsagePanelOpacity > 0 ? Math.Clamp(_vm.UsagePanelOpacity, 0.5, 1.0) : 0.94;
 
@@ -487,7 +494,10 @@ public partial class SettingsWindow : Window, IDisposable
         _vm.ShowClaudeAccount     = ChkShowClaudeAccount.IsChecked == true;
         _vm.ShowAbsoluteResetTime = ChkShowAbsoluteResetTime.IsChecked == true;
         _vm.ShowAntigravityThirdPartyQuota = ChkShowAntigravityThirdPartyQuota.IsChecked == true;
-        _vm.ShowCredits = ChkShowCredits.IsChecked == true;
+        _vm.ShowClaudeExtraCredits = ChkShowClaudeExtraCredits.IsChecked == true;
+        _vm.ShowConsoleCredits     = ChkShowConsoleCredits.IsChecked == true;
+        _vm.ShowCodexCredits       = ChkShowCodexCredits.IsChecked == true;
+        _vm.ShowAntigravityCredits = ChkShowAntigravityCredits.IsChecked == true;
         _vm.KeepPopupAboveTaskbar = ChkKeepPopupAboveTaskbar.IsChecked == true;
         _vm.UsagePanelOpacity     = Math.Clamp(SliderUsagePanelOpacity.Value, 0.5, 1.0);
 

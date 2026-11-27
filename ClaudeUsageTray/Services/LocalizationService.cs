@@ -1849,10 +1849,26 @@ public static class Loc
 
     public static string ShowCreditsHint => Lang switch
     {
-        "ko" => "Claude 추가 크레딧·Console 크레딧, Codex 크레딧, Antigravity AI 크레딧 줄을 팝업에 보입니다. Antigravity 크레딧은 0 이면 켜 두어도 숨깁니다.",
-        "zh" => "在弹窗中显示 Claude 额外积分、Console 积分、Codex 积分和 Antigravity AI 积分行。Antigravity 积分为 0 时即使开启也会隐藏。",
-        "ja" => "ポップアップに Claude 追加クレジット・Console クレジット、Codex クレジット、Antigravity AI クレジットの行を表示します。Antigravity クレジットが 0 のときはオンでも隠します。",
-        _ => "Shows the Claude extra credits, Console credits, Codex credits and Antigravity AI credits rows in the popup. Antigravity credits stay hidden when they are 0."
+        "ko" => "체크를 끈 크레딧 줄은 팝업에서 숨깁니다. Antigravity 크레딧은 0 이면 켜 두어도 숨기고, 추가 사용 전용 모드의 Claude 추가 크레딧은 주 게이지라 숨기지 않습니다.",
+        "zh" => "取消勾选的积分行将在弹窗中隐藏。Antigravity 积分为 0 时即使勾选也会隐藏；仅额外用量模式下的 Claude 额外积分是主仪表，不会隐藏。",
+        "ja" => "チェックを外したクレジット行はポップアップで隠します。Antigravity クレジットは 0 ならオンでも隠し、追加利用専用モードの Claude 追加クレジットはメインゲージなので隠しません。",
+        _ => "Unchecked credit rows are hidden in the popup. Antigravity credits also stay hidden at 0, and Claude extra credits stay visible in extra-only mode, where they are the main gauge."
+    };
+
+    public static string ShowClaudeExtraCredits => Lang switch
+    {
+        "ko" => "Claude 추가 크레딧",
+        "zh" => "Claude 额外积分",
+        "ja" => "Claude 追加クレジット",
+        _ => "Claude extra credits"
+    };
+
+    public static string ShowAntigravityCredits => Lang switch
+    {
+        "ko" => "Antigravity AI 크레딧",
+        "zh" => "Antigravity AI 积分",
+        "ja" => "Antigravity AI クレジット",
+        _ => "Antigravity AI credits"
     };
 
     // Chart toggle labels

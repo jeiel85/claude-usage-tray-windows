@@ -80,6 +80,27 @@ public class PopupGaugeBindingRuleTests
     /// #237: 시간선 마커는 <c>views:TimelineMarker</c> 하나로 그린다. 게이지마다 열 두 개짜리 Grid 를 복사하던 때는
     /// 한 곳만 고치면 나머지가 어긋났다. 막대가 있는 틀(높이 8)마다 마커가 하나씩 있는지도 본다.
     /// </summary>
+    /// <summary>
+    /// 크레딧 줄마다 자기 표시 설정을 본다(#354) — 체크를 끄면 그 줄의 Style 에 False → Collapsed 트리거가 있어야 숨는다.
+    /// </summary>
+    [Theory]
+    [InlineData("ClaudeExtraUsageRow", "ShowClaudeExtraCredits")]
+    [InlineData("ClaudeConsoleCreditsRow", "ShowConsoleCredits")]
+    [InlineData("ClaudeConsoleReconnectRow", "ShowConsoleCredits")]
+    [InlineData("CodexCreditsRow", "ShowCodexCredits")]
+    [InlineData("AntigravityAiCreditsRow", "ShowAntigravityCredits")]
+    public void CreditRows_FollowTheirOwnDisplaySetting(string rowName, string setting)
+    {
+        var doc = XDocument.Load(PopupXamlPath());
+        const string XamlNs = "http://schemas.microsoft.com/winfx/2006/xaml";
+        var row = doc.Descendants().Single(e => (string?)e.Attribute(XName.Get("Name", XamlNs)) == rowName);
+        var hides = row.Elements().Where(e => e.Name.LocalName.EndsWith(".Style"))
+            .SelectMany(s => s.Descendants(XName.Get("DataTrigger", WpfNs)))
+            .Any(t => (string?)t.Attribute("Binding") == $"{{Binding {setting}}}" && (string?)t.Attribute("Value") == "False"
+                && t.Descendants(XName.Get("Setter", WpfNs)).Any(s => (string?)s.Attribute("Value") == "Collapsed"));
+        Assert.True(hides, $"{rowName} must collapse when {setting} is false");
+    }
+
     [Fact]
     public void TimelineMarkers_UseTheSharedElement()
     {

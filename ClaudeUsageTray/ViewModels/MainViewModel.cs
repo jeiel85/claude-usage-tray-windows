@@ -458,8 +458,11 @@ namespace ClaudeUsageTray.ViewModels;
     private bool _showPlanBadge = true;
     [ObservableProperty] private bool _showAbsoluteResetTime = false;
     [ObservableProperty] private bool _showAntigravityThirdPartyQuota = false;
-    // 크레딧 줄 표시(#354) — 팝업 XAML 이 Claude·Codex·Antigravity 크레딧 줄마다 이 값을 본다.
-    [ObservableProperty] private bool _showCredits = true;
+    // 크레딧 줄마다 표시 여부(#354) — 팝업 XAML 의 각 크레딧 줄이 자기 값을 본다.
+    [ObservableProperty] private bool _showClaudeExtraCredits = true;
+    [ObservableProperty] private bool _showConsoleCredits = true;
+    [ObservableProperty] private bool _showCodexCredits = true;
+    [ObservableProperty] private bool _showAntigravityCredits = true;
     [ObservableProperty] private bool _keepPopupAboveTaskbar = false;
     [ObservableProperty] private double _usagePanelOpacity = 0.94;
 
@@ -771,7 +774,10 @@ namespace ClaudeUsageTray.ViewModels;
         ShowClaudeAccount     = s.ShowClaudeAccount;
         ShowAbsoluteResetTime = s.ShowAbsoluteResetTime;
         ShowAntigravityThirdPartyQuota = s.ShowAntigravityThirdPartyQuota;
-        ShowCredits = s.ShowCredits;
+        ShowClaudeExtraCredits = s.ShowClaudeExtraCredits;
+        ShowConsoleCredits = s.ShowConsoleCredits;
+        ShowCodexCredits = s.ShowCodexCredits;
+        ShowAntigravityCredits = s.ShowAntigravityCredits;
         KeepPopupAboveTaskbar = s.KeepPopupAboveTaskbar;
         UsagePanelOpacity = Math.Clamp(s.UsagePanelOpacity <= 0 ? 0.94 : s.UsagePanelOpacity, 0.5, 1.0);
 
@@ -1023,7 +1029,10 @@ namespace ClaudeUsageTray.ViewModels;
             ShowClaudeAccount = ShowClaudeAccount,
             ShowAbsoluteResetTime = ShowAbsoluteResetTime,
             ShowAntigravityThirdPartyQuota = ShowAntigravityThirdPartyQuota,
-            ShowCredits = ShowCredits,
+            ShowClaudeExtraCredits = ShowClaudeExtraCredits,
+            ShowConsoleCredits = ShowConsoleCredits,
+            ShowCodexCredits = ShowCodexCredits,
+            ShowAntigravityCredits = ShowAntigravityCredits,
             KeepPopupAboveTaskbar = KeepPopupAboveTaskbar,
             UsagePanelOpacity = UsagePanelOpacity,
             // 추적 필드 보존 — settings 저장 시 매번 잃지 않도록

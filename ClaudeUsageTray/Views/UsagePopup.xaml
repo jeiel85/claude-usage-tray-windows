@@ -815,7 +815,7 @@
                                                 <Setter Property="Visibility" Value="Visible"/>
                                             </DataTrigger>
                                             <!-- 크레딧 표시 끔(#354). 추가 사용 전용 모드에서는 이 줄이 주 게이지라 아래 트리거가 다시 보인다(뒤 트리거가 이긴다). -->
-                                            <DataTrigger Binding="{Binding ShowCredits}" Value="False">
+                                            <DataTrigger Binding="{Binding ShowClaudeExtraCredits}" Value="False">
                                                 <Setter Property="Visibility" Value="Collapsed"/>
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding ClaudeVm.IsExtraOnlyMode}" Value="True">
@@ -863,7 +863,7 @@
                                             <DataTrigger Binding="{Binding ClaudeVm.ConsoleCreditsVisible}" Value="True">
                                                 <Setter Property="Visibility" Value="Visible"/>
                                             </DataTrigger>
-                                            <DataTrigger Binding="{Binding ShowCredits}" Value="False">
+                                            <DataTrigger Binding="{Binding ShowConsoleCredits}" Value="False">
                                                 <Setter Property="Visibility" Value="Collapsed"/>
                                             </DataTrigger>
                                         </Style.Triggers>
@@ -896,7 +896,7 @@
                                             <DataTrigger Binding="{Binding ClaudeVm.ConsoleNeedsReconnect}" Value="True">
                                                 <Setter Property="Visibility" Value="Visible"/>
                                             </DataTrigger>
-                                            <DataTrigger Binding="{Binding ShowCredits}" Value="False">
+                                            <DataTrigger Binding="{Binding ShowConsoleCredits}" Value="False">
                                                 <Setter Property="Visibility" Value="Collapsed"/>
                                             </DataTrigger>
                                         </Style.Triggers>
@@ -1231,7 +1231,7 @@
                                         <DataTrigger Binding="{Binding CodexVm.HasCredits}" Value="True">
                                             <Setter Property="Visibility" Value="Visible"/>
                                         </DataTrigger>
-                                        <DataTrigger Binding="{Binding ShowCredits}" Value="False">
+                                        <DataTrigger Binding="{Binding ShowCodexCredits}" Value="False">
                                             <Setter Property="Visibility" Value="Collapsed"/>
                                         </DataTrigger>
                                     </Style.Triggers>
@@ -1602,7 +1602,7 @@
                                             <DataTrigger Binding="{Binding AntigravityAiCreditsText}" Value="{x:Null}">
                                                 <Setter Property="Visibility" Value="Collapsed"/>
                                             </DataTrigger>
-                                            <DataTrigger Binding="{Binding ShowCredits}" Value="False">
+                                            <DataTrigger Binding="{Binding ShowAntigravityCredits}" Value="False">
                                                 <Setter Property="Visibility" Value="Collapsed"/>
                                             </DataTrigger>
                                         </Style.Triggers>

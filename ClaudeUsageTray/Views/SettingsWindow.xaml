@@ -624,8 +624,14 @@
                                 <TextBlock x:Name="LblShowClaudeAccountHint" Foreground="#5A5F7A" FontSize="11" Margin="2,0,0,6" TextWrapping="Wrap"/>
                                 <CheckBox x:Name="ChkShowAbsoluteResetTime" Style="{StaticResource CheckStyle}" Margin="0,0,0,4" Click="Setting_Changed"/>
                                 <TextBlock x:Name="LblShowAbsoluteResetTimeHint" Foreground="#5A5F7A" FontSize="11" Margin="2,0,0,0" TextWrapping="Wrap"/>
-                                <!-- #354 크레딧 줄(Claude·Console·Codex·Antigravity) 표시 -->
-                                <CheckBox x:Name="ChkShowCredits" Style="{StaticResource CheckStyle}" Margin="0,6,0,2" Click="Setting_Changed"/>
+                                <!-- #354 크레딧 줄마다 표시 여부 -->
+                                <TextBlock x:Name="LblShowCredits" Foreground="#C8CCE0" FontSize="12" Margin="0,8,0,4"/>
+                                <WrapPanel>
+                                    <CheckBox x:Name="ChkShowClaudeExtraCredits" Style="{StaticResource CheckStyle}" Margin="0,0,14,4" Click="Setting_Changed"/>
+                                    <CheckBox x:Name="ChkShowConsoleCredits"     Style="{StaticResource CheckStyle}" Margin="0,0,14,4" Click="Setting_Changed"/>
+                                    <CheckBox x:Name="ChkShowCodexCredits"       Style="{StaticResource CheckStyle}" Margin="0,0,14,4" Click="Setting_Changed"/>
+                                    <CheckBox x:Name="ChkShowAntigravityCredits" Style="{StaticResource CheckStyle}" Margin="0,0,0,4" Click="Setting_Changed"/>
+                                </WrapPanel>
                                 <TextBlock x:Name="LblShowCreditsHint" Foreground="#5A5F7A" FontSize="11" Margin="2,0,0,0" TextWrapping="Wrap"/>
                                 <!-- Antigravity 는 기본으로 Gemini 한도만 보여준다 — 켜면 Claude·GPT 창도 행·트레이 숫자에 들어간다 -->
                                 <CheckBox x:Name="ChkShowAntigravityThirdPartyQuota" Style="{StaticResource CheckStyle}" Margin="0,6,0,2" Click="Setting_Changed"/>
